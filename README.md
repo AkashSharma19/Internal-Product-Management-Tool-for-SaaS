@@ -1,73 +1,167 @@
-# React + TypeScript + Vite
+# 🚀 Internal Product Management Tool
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> A premium, full-featured internal operations dashboard for managing SaaS product development — built for the IIMA Ventures / Coach LMS team.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 📋 Overview
 
-## React Compiler
+This tool centralises everything the product & operations team tracks day-to-day into a single, beautiful, dark-mode dashboard — replacing scattered spreadsheets and ClickUp exports. All data is persisted to **localStorage** so edits survive page reloads with zero backend setup.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## ✨ Features
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 📌 Priority Requests
+- Full feature backlog with inline editing for every field
+- Priority flags (P0 → P4), Status, POC assignee, product area, ClickUp link
+- Premium feature detail drawer (Notion / ClickUp-style) with timeline progress bar, comment thread, and changelog
+- Bulk import via structured text paste
+- Multi-select status filter + search
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 📅 Sprint Planning
+- Month-by-month sprint plan grouped by Development / UI/UX / Product
+- Inline status updates with colour-coded badges
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### 👩‍💻 Student Projects
+- Track student capstone & live projects (Delivered / In-Progress / Cancelled)
+- Full metadata: POC, priority, ClickUp link, UI/UX & dev deadlines, blocker
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 🎤 AMA & Student Meetings
+- **Schedule subtab** — create and manage AMA sessions with Date, Topic, Speaker, Program, Cohort, Status
+- **Feedback subtab** — view related features raised from each session; inline editing of session metadata
+- Program ↔ Cohort bidirectional mapping (UG, PGP, YLC, All)
+- Speaker dropdown driven by Configuration section
+
+### 📞 Admin Calls
+- Log of admin calls with discussion notes, action items, and status
+- One-click feature preview for related product items
+
+### 📚 Content Pipeline
+- Track content modules by type (Video, Quiz, Worksheet, Notes, Syllabus)
+- Status workflow: Drafting → Under Review → Approved → Published
+
+### 🗂️ Product Breakdown
+- Pivot view grouping features by Product Group
+- Sprint plan task counts per product area
+
+### 🐛 Daily Issues Log
+- Raw issue tracker by cohort, product, module, and type
+
+### 📈 Adoption Tracker
+- Feature adoption rates, active user counts, and sentiment scores with visual progress bars
+
+### ⚙️ Configuration *(Admin)*
+Manage master lists that power dropdowns across the entire portal:
+| Tab | What it controls |
+|---|---|
+| **POC Owners / Speakers** | Speaker dropdown in AMA; POC dropdown in Priority Requests |
+| **Product Groups** | Product dropdown in Priority Requests & Product Breakdown |
+| **Statuses** | Status dropdown in Priority Requests (scope: product/all) and AMA (scope: ama/all) |
+
+Changes are instant and persisted to `localStorage`.
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | React 19 + TypeScript |
+| Build Tool | Vite 8 |
+| Styling | Vanilla CSS (custom design system with dark/light theme) |
+| Icons | Lucide React |
+| State | React Context + `localStorage` |
+| Fonts | Google Fonts — Inter, Outfit, Google Sans |
+
+No external UI library. No backend. No database.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js ≥ 18
+- npm
+
+### Install & Run
+
+```bash
+# Clone the repo
+git clone https://github.com/AkashSharma19/Internal-Product-Management-Tool-for-SaaS.git
+cd Internal-Product-Management-Tool-for-SaaS
+
+# Install dependencies
+npm install
+
+# Start dev server
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Build for Production
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build
+npm run preview
 ```
+
+---
+
+## 📁 Project Structure
+
+```
+src/
+├── components/
+│   ├── Tables.tsx          # All tab views & inline editors (main component file)
+│   ├── ConfigSection.tsx   # Configuration tab (Speakers, Product Groups, Statuses)
+│   └── TabContainer.tsx    # Shared tab container shell
+├── context/
+│   └── DashboardContext.tsx  # Global state, CRUD actions, localStorage persistence
+├── types.ts                # All TypeScript interfaces
+├── mockData.ts             # Initial seed data for all sections
+├── App.tsx                 # Sidebar navigation + layout shell
+└── index.css               # Full design system (tokens, components, animations)
+```
+
+---
+
+## 💾 Data Persistence
+
+All data is stored in browser `localStorage` under the following keys:
+
+| Key | Contents |
+|---|---|
+| `data-products` | Priority Requests |
+| `data-plans` | Sprint Planning |
+| `data-student-projects` | Student Projects |
+| `data-ama-sessions` | AMA Sessions |
+| `data-student-meetings` | Student Meetings |
+| `data-admin-calls` | Admin Calls |
+| `data-content-items` | Content Pipeline |
+| `data-daily-issues` | Daily Issues Log |
+| `data-feature-adoptions` | Adoption Tracker |
+| `config-speakers` | Configured Speakers / POC list |
+| `config-product-groups` | Configured Product Groups |
+| `config-statuses` | Configured Statuses |
+
+Use the **Reset Data** button in the sidebar to restore all data to initial mock values.
+
+---
+
+## 🌗 Theme
+
+Supports **dark** (default) and **light** modes. Toggle with the sun/moon icon in the sidebar footer. Theme preference is persisted to `localStorage`.
+
+---
+
+## 👥 Team
+
+Built for the **IIMA Ventures / Coach LMS** product & operations team.
+
+| Member | Role |
+|---|---|
+| Akash Sharma | Product & Engineering |
+| Anushka | UI/UX Design |
+| Nikhil | Content & Engineering |
