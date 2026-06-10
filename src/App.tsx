@@ -43,7 +43,7 @@ const DashboardContent: React.FC = () => {
     productItems,
     updateProductItem
   } = useDashboard();
-  const [isCollapsed, setIsCollapsed] = React.useState(false);
+  const [isCollapsed, setIsCollapsed] = React.useState(true);
 
   // Sidebar navigation mappings
   const navItems = [
