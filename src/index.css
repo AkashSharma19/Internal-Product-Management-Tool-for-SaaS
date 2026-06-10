@@ -403,13 +403,15 @@ h1, h2, h3, h4, h5, h6 {
 .content-area {
   padding: 0;
   flex: 1;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   max-width: 100%;
   width: 100%;
   position: relative;
 }
+
 
 /* KPI CARD GRID */
 .kpi-grid {

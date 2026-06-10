@@ -8,7 +8,10 @@ import type {
   AdminCall, 
   ContentItem, 
   DailyIssue, 
-  FeatureAdoption 
+  FeatureAdoption,
+  ConfigSpeaker,
+  ConfigProductGroup,
+  ConfigStatus
 } from '../types';
 import {
   initialProductItems,
@@ -19,7 +22,10 @@ import {
   initialAdminCalls,
   initialContentItems,
   initialDailyIssues,
-  initialFeatureAdoptions
+  initialFeatureAdoptions,
+  initialSpeakers,
+  initialProductGroups,
+  initialStatuses
 } from '../mockData';
 
 interface DashboardContextType {
@@ -87,6 +93,22 @@ interface DashboardContextType {
   previewProductId: string | null;
   setPreviewProductId: (id: string | null) => void;
   openPreviewForFeature: (featureName: string, fallbackData?: Partial<ProductItem>) => void;
+
+  // Configuration
+  speakers: ConfigSpeaker[];
+  addSpeaker: (item: ConfigSpeaker) => void;
+  updateSpeaker: (id: string, updated: Partial<ConfigSpeaker>) => void;
+  deleteSpeaker: (id: string) => void;
+
+  productGroups: ConfigProductGroup[];
+  addProductGroup: (item: ConfigProductGroup) => void;
+  updateProductGroup: (id: string, updated: Partial<ConfigProductGroup>) => void;
+  deleteProductGroup: (id: string) => void;
+
+  statuses: ConfigStatus[];
+  addStatus: (item: ConfigStatus) => void;
+  updateStatus: (id: string, updated: Partial<ConfigStatus>) => void;
+  deleteStatus: (id: string) => void;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -139,9 +161,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         productStatus = 'On Hold';
       }
 
+      const tempId = fallbackData?.id ? `prod-temp-${fallbackData.id}` : `prod-temp-${Date.now()}`;
       // Create a temporary mock product item using the fallbackData or title so they still see it in the premium feature layout!
       const newTempProduct: ProductItem = {
-        id: `prod-temp-${Date.now()}`,
+        id: tempId,
         feature: featureName,
         description: fallbackData?.description || `Operations task details.`,
         tarunSirApproval: fallbackData?.tarunSirApproval || false,
@@ -213,6 +236,22 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return data ? JSON.parse(data) : initialFeatureAdoptions;
   });
 
+  // Config state
+  const [speakers, setSpeakers] = useState<ConfigSpeaker[]>(() => {
+    const data = localStorage.getItem('config-speakers');
+    return data ? JSON.parse(data) : initialSpeakers;
+  });
+
+  const [productGroups, setProductGroups] = useState<ConfigProductGroup[]>(() => {
+    const data = localStorage.getItem('config-product-groups');
+    return data ? JSON.parse(data) : initialProductGroups;
+  });
+
+  const [statuses, setStatuses] = useState<ConfigStatus[]>(() => {
+    const data = localStorage.getItem('config-statuses');
+    return data ? JSON.parse(data) : initialStatuses;
+  });
+
   // Persist settings
   useEffect(() => {
     localStorage.setItem('app-theme', theme);
@@ -260,6 +299,18 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     localStorage.setItem('data-feature-adoptions', JSON.stringify(featureAdoptions));
   }, [featureAdoptions]);
 
+  useEffect(() => {
+    localStorage.setItem('config-speakers', JSON.stringify(speakers));
+  }, [speakers]);
+
+  useEffect(() => {
+    localStorage.setItem('config-product-groups', JSON.stringify(productGroups));
+  }, [productGroups]);
+
+  useEffect(() => {
+    localStorage.setItem('config-statuses', JSON.stringify(statuses));
+  }, [statuses]);
+
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
@@ -295,6 +346,31 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             };
           }
           return p;
+        }));
+        setStudentMeetings(sm => sm.map(m => {
+          if (m.cohort.toLowerCase() === updatedItem.feature.toLowerCase() || id === `prod-temp-${m.id}`) {
+            return {
+              ...m,
+              cohort: updatedItem.feature,
+              summary: updatedItem.description,
+              status: updatedItem.status,
+              blocker: updatedItem.blocker,
+              priority: updatedItem.priority || undefined,
+              poc: updatedItem.poc,
+              clickupStatus: updatedItem.clickupStatus,
+              taskLink: updatedItem.taskLink,
+              productDeadline: updatedItem.productDeadline,
+              uiux: updatedItem.uiux,
+              deadline: updatedItem.deadline,
+              finalRelease: updatedItem.finalRelease,
+              raisedByTarunSir: updatedItem.raisedByTarunSir,
+              tarunSirApproval: updatedItem.tarunSirApproval,
+              product: updatedItem.product,
+              module: updatedItem.module,
+              type: updatedItem.type
+            };
+          }
+          return m;
         }));
       }
       return next;
@@ -387,6 +463,22 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setFeatureAdoptions(prev => prev.filter(item => item.id !== id));
   };
 
+  // Config CRUD helpers
+  const addSpeaker = (item: ConfigSpeaker) => setSpeakers(prev => [...prev, item]);
+  const updateSpeaker = (id: string, updated: Partial<ConfigSpeaker>) =>
+    setSpeakers(prev => prev.map(s => s.id === id ? { ...s, ...updated } : s));
+  const deleteSpeaker = (id: string) => setSpeakers(prev => prev.filter(s => s.id !== id));
+
+  const addProductGroup = (item: ConfigProductGroup) => setProductGroups(prev => [...prev, item]);
+  const updateProductGroup = (id: string, updated: Partial<ConfigProductGroup>) =>
+    setProductGroups(prev => prev.map(g => g.id === id ? { ...g, ...updated } : g));
+  const deleteProductGroup = (id: string) => setProductGroups(prev => prev.filter(g => g.id !== id));
+
+  const addStatus = (item: ConfigStatus) => setStatuses(prev => [...prev, item]);
+  const updateStatus = (id: string, updated: Partial<ConfigStatus>) =>
+    setStatuses(prev => prev.map(s => s.id === id ? { ...s, ...updated } : s));
+  const deleteStatus = (id: string) => setStatuses(prev => prev.filter(s => s.id !== id));
+
   const resetAllData = () => {
     if (window.confirm("Are you sure you want to reset all dashboard data back to initial spreadsheets? Your edits will be lost.")) {
       setProductItems(initialProductItems);
@@ -398,6 +490,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setContentItems(initialContentItems);
       setDailyIssues(initialDailyIssues);
       setFeatureAdoptions(initialFeatureAdoptions);
+      setSpeakers(initialSpeakers);
+      setProductGroups(initialProductGroups);
+      setStatuses(initialStatuses);
     }
   };
 
@@ -415,7 +510,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       dailyIssues, setDailyIssues, updateDailyIssue, addDailyIssue, deleteDailyIssue,
       featureAdoptions, setFeatureAdoptions, updateFeatureAdoption, addFeatureAdoption, deleteFeatureAdoption,
       resetAllData,
-      previewProductId, setPreviewProductId, openPreviewForFeature
+      previewProductId, setPreviewProductId, openPreviewForFeature,
+      speakers, addSpeaker, updateSpeaker, deleteSpeaker,
+      productGroups, addProductGroup, updateProductGroup, deleteProductGroup,
+      statuses, addStatus, updateStatus, deleteStatus,
     }}>
       {children}
     </DashboardContext.Provider>

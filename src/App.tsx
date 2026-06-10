@@ -12,6 +12,7 @@ import {
   AdoptionTable,
   ProductDetailView
 } from './components/Tables';
+import { ConfigSection } from './components/ConfigSection';
 import {
   Flame,
   Calendar,
@@ -26,7 +27,8 @@ import {
   Sun,
   RotateCcw,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Settings
 } from 'lucide-react';
 
 const DashboardContent: React.FC = () => {
@@ -54,6 +56,7 @@ const DashboardContent: React.FC = () => {
     { id: 'product-wise', label: 'Product Breakdown', icon: <PieChart size={18} /> },
     { id: 'issues', label: 'Daily Issues Log', icon: <AlertTriangle size={18} /> },
     { id: 'adoption', label: 'Adoption Tracker', icon: <LineChart size={18} /> },
+    { id: 'config', label: 'Configuration', icon: <Settings size={18} /> },
   ];
 
   // Render active component
@@ -77,6 +80,8 @@ const DashboardContent: React.FC = () => {
         return <IssuesTable />;
       case 'adoption':
         return <AdoptionTable />;
+      case 'config':
+        return <ConfigSection />;
       default:
         return <ProductTable />;
     }

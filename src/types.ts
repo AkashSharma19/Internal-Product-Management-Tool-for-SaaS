@@ -61,6 +61,7 @@ export interface AMASession {
   cohort: string;
   link: string;
   status: 'Scheduled' | 'Completed' | 'Postponed';
+  program?: string;
 }
 
 export interface StudentMeeting {
@@ -68,6 +69,22 @@ export interface StudentMeeting {
   date: string;
   cohort: string; // Section/Cohort/Programme
   summary: string; // Bulleted details of feedback/issues
+  priority?: 'P0' | 'P1' | 'P2' | 'P3' | 'P4' | '';
+  poc?: string;
+  status?: 'On Hold' | 'In Progress' | 'Ongoing' | 'Completed' | '';
+  clickupStatus?: string;
+  taskLink?: string;
+  blocker?: string;
+  deadline?: string;
+  notes?: string;
+  product?: string;
+  module?: string;
+  type?: string;
+  uiux?: string;
+  finalRelease?: string;
+  productDeadline?: string;
+  raisedByTarunSir?: boolean;
+  tarunSirApproval?: boolean;
 }
 
 export interface AdminCall {
@@ -111,3 +128,25 @@ export interface FeatureAdoption {
   activeUsers: number;
   sentiment: number; // 1-5 rating
 }
+
+// ── Configuration Types ──────────────────────────────────────────────────────
+
+export interface ConfigSpeaker {
+  id: string;
+  name: string;
+  role?: string; // e.g. "Lead Research Engineer", "Alumni", "Industry Expert"
+}
+
+export interface ConfigProductGroup {
+  id: string;
+  name: string;
+  color: string; // hex colour for tag badge, e.g. '#6366f1'
+}
+
+export interface ConfigStatus {
+  id: string;
+  label: string;
+  color: string; // hex colour for status badge
+  scope: 'product' | 'ama' | 'all'; // which dropdowns this applies to
+}
+

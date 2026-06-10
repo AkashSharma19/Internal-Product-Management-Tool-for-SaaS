@@ -3,6 +3,7 @@ import { useDashboard } from '../context/DashboardContext';
 import { TabContainer } from './TabContainer';
 import { 
   Trash2, 
+  Edit2,
   ExternalLink, 
   X,
   ArrowLeft,
@@ -31,6 +32,7 @@ import type {
   ProductItem, 
   PlanItem, 
   StudentProject, 
+  AMASession,
   StudentMeeting, 
   AdminCall, 
   ContentItem, 
@@ -211,6 +213,53 @@ const formatDateToUserPattern = (dateStr: string): string => {
   return dateStr;
 };
 
+const formatDateWithTimeToUserPattern = (dateStr: string): string => {
+  if (!dateStr) return '';
+  
+  const monthsFull = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      const year = d.getFullYear().toString();
+      const monthIndex = d.getMonth();
+      const day = d.getDate().toString();
+      const formattedDate = `${day} ${monthsFull[monthIndex]} ${year}`;
+      
+      if (dateStr.includes('T') || dateStr.includes(':')) {
+        let hours = d.getHours();
+        const minutes = d.getMinutes().toString().padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        return `${formattedDate} @ ${hours}:${minutes} ${ampm}`;
+      }
+      return formattedDate;
+    }
+  } catch (e) {}
+  
+  return dateStr;
+};
+
+const formatToDatetimeLocalValue = (dateStr: string): string => {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      const year = d.getFullYear();
+      const month = (d.getMonth() + 1).toString().padStart(2, '0');
+      const day = d.getDate().toString().padStart(2, '0');
+      const hours = d.getHours().toString().padStart(2, '0');
+      const minutes = d.getMinutes().toString().padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+  } catch (e) {}
+  return dateStr;
+};
+
 const getDateDiffDays = (dateStr1: string | undefined, dateStr2: string | undefined): string => {
   if (!dateStr1 || !dateStr2) return '';
   try {
@@ -260,6 +309,10 @@ const DateDiffBadge: React.FC<{ prevDate?: string; currentDate?: string }> = ({ 
 
 
 export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBack, onUpdate }) => {
+  const { speakers: configSpeakers, productGroups, statuses: configStatuses } = useDashboard();
+  const pocList = configSpeakers.map(s => s.name);
+  const productList = productGroups.map(g => g.name);
+  const productStatuses = configStatuses.filter(s => s.scope === 'product' || s.scope === 'all');
   const [commentText, setCommentText] = useState('');
   const [itemComments, setItemComments] = useState<Record<string, Array<{
     id: string;
@@ -539,10 +592,12 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
               onChange={(e) => handleFieldUpdate('product', e.target.value)}
             >
               <option value="">— Select Product —</option>
-              <option value="Coach LMS Web">Coach LMS Web</option>
-              <option value="Coach LMS App">Coach LMS App</option>
-              <option value="Admin Portal">Admin Portal</option>
-              <option value="Student Portal">Student Portal</option>
+              {productList.map(p => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+              {item.product && !productList.includes(item.product) && (
+                <option value={item.product}>{item.product}</option>
+              )}
             </select>
           </div>
 
@@ -704,10 +759,12 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                   onChange={(e) => handleFieldUpdate('status', e.target.value as any)}
                 >
                   <option value="">— Select Status —</option>
-                  <option value="On Hold">On Hold</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Ongoing">Ongoing</option>
-                  <option value="Completed">Completed</option>
+                  {productStatuses.map(s => (
+                    <option key={s.id} value={s.label}>{s.label}</option>
+                  ))}
+                  {item.status && !productStatuses.find(s => s.label === item.status) && (
+                    <option value={item.status}>{item.status}</option>
+                  )}
                 </select>
               </div>
             </div>
@@ -842,9 +899,12 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                     onChange={(e) => handleFieldUpdate('poc', e.target.value)}
                   >
                     <option value="">— Select POC —</option>
-                    <option value="Akash">Akash</option>
-                    <option value="Anushka">Anushka</option>
-                    <option value="Nikhil">Nikhil</option>
+                    {pocList.map(p => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                    {item.poc && !pocList.includes(item.poc) && (
+                      <option value={item.poc}>{item.poc}</option>
+                    )}
                   </select>
                 </div>
               </div>
@@ -2201,6 +2261,7 @@ export const StudentProjectsTable: React.FC = () => {
                 <tr 
                   key={p.id} 
                   onClick={() => openPreviewForFeature(p.title, { 
+                    id: p.id,
                     description: p.description, 
                     status: p.status === 'Delivered' ? 'Completed' : p.status === 'Cancelled' ? 'On Hold' : 'In Progress', 
                     priority: p.priority || 'P2',
@@ -2301,13 +2362,13 @@ export const StudentProjectsTable: React.FC = () => {
    4. STUDENT MEETINGS SCHEDULE MODAL & COMPONENT
    ========================================================================= */
 
-interface StudentMeetingDetailModalProps {
+export interface StudentMeetingDetailModalProps {
   item: StudentMeeting;
   onClose: () => void;
   onUpdate: (id: string, updated: Partial<StudentMeeting>) => void;
 }
 
-const StudentMeetingDetailModal: React.FC<StudentMeetingDetailModalProps> = ({ item, onClose, onUpdate }) => {
+export const StudentMeetingDetailModal: React.FC<StudentMeetingDetailModalProps> = ({ item, onClose, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<StudentMeeting>({ ...item });
 
@@ -2406,89 +2467,1487 @@ const StudentMeetingDetailModal: React.FC<StudentMeetingDetailModalProps> = ({ i
   );
 };
 
+
+
+const programsList = ['UG', 'PGP', 'YLC', 'All'];
+const allStandardCohorts = ['UG-27,28,29', 'UGTBM 1', 'UGTBM 2', 'UG-DSAI-2029', 'PGP TBM', 'PGP-26', 'PGP-27', 'YLC 27', 'YLC 28', 'All Cohorts'];
+
+const programCohortsMap: Record<string, string[]> = {
+  'UG': ['UG-27,28,29', 'UGTBM 1', 'UGTBM 2', 'UG-DSAI-2029'],
+  'PGP': ['PGP TBM', 'PGP-26', 'PGP-27'],
+  'YLC': ['YLC 27', 'YLC 28'],
+  'All': ['All Cohorts']
+};
+
+
+
+const getProgramForCohort = (cohort: string): string => {
+  for (const [prog, cohorts] of Object.entries(programCohortsMap)) {
+    if (cohorts.includes(cohort)) {
+      return prog;
+    }
+  }
+  if (cohort.startsWith('UG')) return 'UG';
+  if (cohort.startsWith('PGP')) return 'PGP';
+  if (cohort.startsWith('YLC')) return 'YLC';
+  return 'UG';
+};
+
 export const StudentMeetingsTable: React.FC = () => {
   const { 
-    studentMeetings, updateStudentMeeting, addStudentMeeting, deleteStudentMeeting,
-    openPreviewForFeature
+    amaSessions, addAMASession, updateAMASession, deleteAMASession,
+    productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
+    speakers: configSpeakers
   } = useDashboard();
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [editingMeeting, setEditingMeeting] = useState<StudentMeeting | null>(null);
+  // Derive speakers list from configuration context (live — updates when Config tab changes)
+  const speakersList = configSpeakers.map(s => s.name);
 
-  const filteredMeetings = studentMeetings.filter(m => 
-    m.cohort.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    m.summary.toLowerCase().includes(searchQuery.toLowerCase())
+  const [subTab, setSubTab] = useState<'schedule' | 'feedback'>('schedule');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Dropdown other state
+  const [showCustomProgramInput, setShowCustomProgramInput] = useState(false);
+  const [showCustomCohortInput, setShowCustomCohortInput] = useState(false);
+
+  // Inline editing states for AMA sessions
+  const [editingAMATopicId, setEditingAMATopicId] = useState<string | null>(null);
+  const [inlineAMATopicValue, setInlineAMATopicValue] = useState('');
+  const editAMATopicInputRef = useRef<HTMLInputElement>(null);
+
+  const [editingAMADateId, setEditingAMADateId] = useState<string | null>(null);
+  const [inlineAMADateValue, setInlineAMADateValue] = useState('');
+  const editAMADateInputRef = useRef<HTMLInputElement>(null);
+
+  const [editingAMASpeakerId, setEditingAMASpeakerId] = useState<string | null>(null);
+  const [inlineAMASpeakerValue, setInlineAMASpeakerValue] = useState('');
+
+  const [editingAMACohortId, setEditingAMACohortId] = useState<string | null>(null);
+  const [inlineAMACohortValue, setInlineAMACohortValue] = useState('');
+  const [inlineAMAProgramValue, setInlineAMAProgramValue] = useState('');
+  const editAMACohortInputRef = useRef<HTMLInputElement>(null);
+  const editAMAProgramInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingAMATopicId && editAMATopicInputRef.current) {
+      editAMATopicInputRef.current.focus();
+      editAMATopicInputRef.current.select();
+    }
+  }, [editingAMATopicId]);
+
+  useEffect(() => {
+    if (editingAMADateId && editAMADateInputRef.current) {
+      editAMADateInputRef.current.focus();
+    }
+  }, [editingAMADateId]);
+
+  useEffect(() => {
+    if (editingAMACohortId && editAMAProgramInputRef.current) {
+      editAMAProgramInputRef.current.focus();
+      editAMAProgramInputRef.current.select();
+    }
+  }, [editingAMACohortId]);
+
+  // Accordion state for AMA sessions
+  const [expandedAMAId, setExpandedAMAId] = useState<string | null>(null);
+
+  // Inline editing state for related features in expanded AMA session
+  const [editingRelatedFeatureId, setEditingRelatedFeatureId] = useState<string | null>(null);
+  const [inlineRelatedFeatureValue, setInlineRelatedFeatureValue] = useState('');
+  const editRelatedFeatureInputRef = useRef<HTMLInputElement>(null);
+
+  const getRelatedFeatures = (ama: AMASession) => {
+    if (!ama.topic.trim() && !ama.cohort.trim()) {
+      return [];
+    }
+    const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+    const topicWords = clean(ama.topic).split(/\s+/).filter(w => w.length > 3);
+    const cohortWords = clean(ama.cohort).split(/\s+/).filter(w => w.length > 2);
+    const searchTerms = [...topicWords, ...cohortWords];
+    return productItems.filter(item => {
+      const productLower = (item.product || '').toLowerCase().trim();
+      const moduleLower = (item.module || '').toLowerCase().trim();
+      const notesLower = (item.notes || '').toLowerCase().trim();
+      const cohortLower = (ama.cohort || '').toLowerCase().trim();
+      
+      const directCohortMatch = cohortLower && (
+        (productLower && (productLower.includes(cohortLower) || cohortLower.includes(productLower))) ||
+        (moduleLower && (moduleLower.includes(cohortLower) || cohortLower.includes(moduleLower))) ||
+        (notesLower && notesLower.includes(cohortLower))
+      );
+      
+      const text = clean(
+        (item.feature || '') + ' ' + 
+        (item.description || '') + ' ' + 
+        (item.notes || '') + ' ' + 
+        (item.product || '') + ' ' +
+        (item.module || '')
+      );
+      const matchesKeyword = searchTerms.some(word => text.includes(word));
+      return directCohortMatch || matchesKeyword;
+    });
+  };
+
+
+
+  // Helper to find the parent AMA session for a feedback item
+  const getParentAma = (item: ProductItem): AMASession | undefined => {
+    return amaSessions.find(ama => {
+      if (!ama.topic.trim() && !ama.cohort.trim()) return false;
+      const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+      const topicWords = clean(ama.topic).split(/\s+/).filter(w => w.length > 3);
+      const cohortWords = clean(ama.cohort).split(/\s+/).filter(w => w.length > 2);
+      const searchTerms = [...topicWords, ...cohortWords];
+
+      const productLower = (item.product || '').toLowerCase().trim();
+      const moduleLower = (item.module || '').toLowerCase().trim();
+      const notesLower = (item.notes || '').toLowerCase().trim();
+      const cohortLower = (ama.cohort || '').toLowerCase().trim();
+      
+      const directCohortMatch = cohortLower && (
+        (productLower && (productLower.includes(cohortLower) || cohortLower.includes(productLower))) ||
+        (moduleLower && (moduleLower.includes(cohortLower) || cohortLower.includes(moduleLower))) ||
+        (notesLower && notesLower.includes(cohortLower))
+      );
+      
+      const text = clean(
+        (item.feature || '') + ' ' + 
+        (item.description || '') + ' ' + 
+        (item.notes || '') + ' ' + 
+        (item.product || '') + ' ' +
+        (item.module || '')
+      );
+      const matchesKeyword = searchTerms.some(word => text.includes(word));
+      return directCohortMatch || matchesKeyword;
+    });
+  };
+
+  // Inline editing for Feedback Features
+  const [editingFeedbackFeatureId, setEditingFeedbackFeatureId] = useState<string | null>(null);
+  const [inlineFeedbackFeatureValue, setInlineFeedbackFeatureValue] = useState('');
+  const editFeedbackFeatureInputRef = useRef<HTMLInputElement>(null);
+
+
+  // Inline editing for Feedback Dates
+  const [editingFeedbackDateId, setEditingFeedbackDateId] = useState<string | null>(null);
+  const [inlineFeedbackDateValue, setInlineFeedbackDateValue] = useState('');
+  const editFeedbackDateInputRef = useRef<HTMLInputElement>(null);
+
+  // Inline editing for Feedback Programs
+  const [editingFeedbackProgramId, setEditingFeedbackProgramId] = useState<string | null>(null);
+  const [inlineFeedbackProgramValue, setInlineFeedbackProgramValue] = useState('');
+  const editFeedbackProgramInputRef = useRef<HTMLInputElement>(null);
+
+  // Inline editing for Feedback Cohorts
+  const [editingFeedbackCohortId, setEditingFeedbackCohortId] = useState<string | null>(null);
+  const [inlineFeedbackCohortValue, setInlineFeedbackCohortValue] = useState('');
+  const editFeedbackCohortInputRef = useRef<HTMLInputElement>(null);
+
+  // Inline editing for Feedback Speakers
+  const [editingFeedbackSpeakerId, setEditingFeedbackSpeakerId] = useState<string | null>(null);
+  const [inlineFeedbackSpeakerValue, setInlineFeedbackSpeakerValue] = useState('');
+
+  useEffect(() => {
+    if (editingFeedbackFeatureId && editFeedbackFeatureInputRef.current) {
+      editFeedbackFeatureInputRef.current.focus();
+      editFeedbackFeatureInputRef.current.select();
+    }
+  }, [editingFeedbackFeatureId]);
+
+
+  useEffect(() => {
+    if (editingFeedbackDateId && editFeedbackDateInputRef.current) {
+      editFeedbackDateInputRef.current.focus();
+    }
+  }, [editingFeedbackDateId]);
+
+  useEffect(() => {
+    if (editingFeedbackProgramId && editFeedbackProgramInputRef.current) {
+      editFeedbackProgramInputRef.current.focus();
+      editFeedbackProgramInputRef.current.select();
+    }
+  }, [editingFeedbackProgramId]);
+
+  useEffect(() => {
+    if (editingFeedbackCohortId && editFeedbackCohortInputRef.current) {
+      editFeedbackCohortInputRef.current.focus();
+      editFeedbackCohortInputRef.current.select();
+    }
+  }, [editingFeedbackCohortId]);
+
+
+
+
+  useEffect(() => {
+    if (editingRelatedFeatureId && editRelatedFeatureInputRef.current) {
+      editRelatedFeatureInputRef.current.focus();
+      editRelatedFeatureInputRef.current.select();
+    }
+  }, [editingRelatedFeatureId]);
+
+  const filteredAMASessions = amaSessions.filter(ama => 
+    ama.topic.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    ama.speaker.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    ama.cohort.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleAddMeeting = () => {
-    const newMeet: StudentMeeting = {
-      id: `meet-${Date.now()}`,
-      date: '12 Feb 2026',
-      cohort: 'New Cohort ID',
-      summary: '- Feature Feedback: detail user requests here\n- System Stability: add notes'
-    };
-    addStudentMeeting(newMeet);
-    setEditingMeeting(newMeet);
+  const filteredFeedbackFeatures = productItems.filter(item => {
+    // Check if the item matches any AMA session
+    const matchesAma = amaSessions.some(ama => {
+      if (!ama.topic.trim() && !ama.cohort.trim()) return false;
+      const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+      const topicWords = clean(ama.topic).split(/\s+/).filter(w => w.length > 3);
+      const cohortWords = clean(ama.cohort).split(/\s+/).filter(w => w.length > 2);
+      const searchTerms = [...topicWords, ...cohortWords];
+
+      const productLower = (item.product || '').toLowerCase().trim();
+      const moduleLower = (item.module || '').toLowerCase().trim();
+      const notesLower = (item.notes || '').toLowerCase().trim();
+      const cohortLower = (ama.cohort || '').toLowerCase().trim();
+      
+      const directCohortMatch = cohortLower && (
+        (productLower && (productLower.includes(cohortLower) || cohortLower.includes(productLower))) ||
+        (moduleLower && (moduleLower.includes(cohortLower) || cohortLower.includes(moduleLower))) ||
+        (notesLower && notesLower.includes(cohortLower))
+      );
+      
+      const text = clean(
+        (item.feature || '') + ' ' + 
+        (item.description || '') + ' ' + 
+        (item.notes || '') + ' ' + 
+        (item.product || '') + ' ' +
+        (item.module || '')
+      );
+      const matchesKeyword = searchTerms.some(word => text.includes(word));
+      return directCohortMatch || matchesKeyword;
+    });
+
+    if (!matchesAma) return false;
+
+    // Filter by search query if any
+    const matchesSearch = 
+      item.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.poc.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.notes.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.module || '').toLowerCase().includes(searchQuery.toLowerCase());
+
+    return matchesSearch;
+  });
+
+  const handleAddNew = () => {
+    setSearchQuery('');
+    if (subTab === 'schedule') {
+      const newAMA: AMASession = {
+        id: `ama-${Date.now()}`,
+        date: new Date().toISOString().slice(0, 16),
+        topic: '',
+        speaker: '',
+        cohort: '',
+        program: '',
+        link: '',
+        status: 'Scheduled'
+      };
+      addAMASession(newAMA);
+      setInlineAMATopicValue('');
+      setEditingAMATopicId(newAMA.id);
+    }
   };
 
   return (
     <>
-      {/* Cohort Feedback / Meetings Block */}
       <TabContainer
-        title="Student Cohort Meetings Schedule"
+        title="Student Meetings & AMA"
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-        onAddClick={handleAddMeeting}
-        addLabel="Add Meeting Log"
-        searchPlaceholder="Filter cohorts or summary points..."
+        onAddClick={subTab === 'schedule' ? handleAddNew : undefined}
+        addLabel={subTab === 'schedule' ? 'Add AMA Session' : undefined}
+        searchPlaceholder={subTab === 'schedule' ? 'Search AMA sessions...' : 'Search feedback features...'}
       >
-        <div className="table-responsive">
-          <table className="grid-table">
-            <thead>
-              <tr>
-                <th style={{ width: '150px' }}>Meeting Date</th>
-                <th style={{ width: '220px' }}>Cohort / Programme</th>
-                <th>Summary Points Preview</th>
-                <th style={{ width: '40px' }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredMeetings.map(meet => {
-                const previewText = meet.summary.split('\n')[0] || '—';
-                return (
-                  <tr key={meet.id} onClick={() => openPreviewForFeature(meet.cohort + ' Meeting - ' + meet.date, { description: meet.summary, status: 'In Progress' })} style={{ cursor: 'pointer' }}>
-                    <td>{formatDateToUserPattern(meet.date)}</td>
-                    <td style={{ fontWeight: 600 }}>{meet.cohort}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{previewText}</td>
-
-                    <td>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (window.confirm("Are you sure you want to delete this meeting?")) {
-                            deleteStudentMeeting(meet.id);
-                          }
-                        }} 
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        {/* Sub-tab Navigation */}
+        <div style={{ 
+          display: 'flex', 
+          borderBottom: '1px solid var(--border)', 
+          padding: '0.25rem 1.5rem 0 1.5rem', 
+          background: 'var(--panel-bg)', 
+          gap: '1.5rem' 
+        }}>
+          <button
+            onClick={() => {
+              setSubTab('schedule');
+              setSearchQuery('');
+              setEditingFeedbackFeatureId(null);
+              setEditingFeedbackCohortId(null);
+              setEditingFeedbackDateId(null);
+              setEditingFeedbackProgramId(null);
+              setEditingFeedbackSpeakerId(null);
+            }}
+            style={{
+              padding: '0.75rem 0.5rem',
+              border: 'none',
+              background: 'none',
+              borderBottom: subTab === 'schedule' ? '2px solid var(--primary)' : '2px solid transparent',
+              color: subTab === 'schedule' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              outline: 'none'
+            }}
+          >
+            Schedule
+          </button>
+          <button
+            onClick={() => {
+              setSubTab('feedback');
+              setSearchQuery('');
+              setEditingFeedbackFeatureId(null);
+              setEditingFeedbackCohortId(null);
+              setEditingFeedbackDateId(null);
+              setEditingFeedbackProgramId(null);
+              setEditingFeedbackSpeakerId(null);
+            }}
+            style={{
+              padding: '0.75rem 0.5rem',
+              border: 'none',
+              background: 'none',
+              borderBottom: subTab === 'feedback' ? '2px solid var(--primary)' : '2px solid transparent',
+              color: subTab === 'feedback' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              outline: 'none'
+            }}
+          >
+            Feedback
+          </button>
         </div>
+
+        {subTab === 'schedule' ? (
+          <div className="table-responsive">
+            <table className="grid-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '130px' }}>Date</th>
+                  <th>Topic / Theme</th>
+                  <th style={{ width: '220px' }}>Speaker(s)</th>
+                  <th style={{ width: '150px' }}>Cohort</th>
+                  <th style={{ width: '130px' }}>Status</th>
+                  <th style={{ width: '40px' }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredAMASessions.map(ama => {
+                  const related = getRelatedFeatures(ama);
+                  const isExpanded = expandedAMAId === ama.id;
+                  return (
+                    <React.Fragment key={ama.id}>
+                      <tr 
+                        onClick={() => setExpandedAMAId(isExpanded ? null : ama.id)} 
+                        style={{ 
+                          cursor: 'pointer',
+                          backgroundColor: isExpanded ? 'var(--background-alt)' : 'transparent',
+                          transition: 'background-color 0.2s ease'
+                        }}
+                      >
+                        <td 
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setEditingAMADateId(ama.id);
+                            setInlineAMADateValue(ama.date);
+                          }}
+                          title="Double click to edit Date/Time"
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center' }}>
+                            {isExpanded ? (
+                              <ChevronUp size={16} style={{ marginRight: '8px', color: 'var(--primary)', flexShrink: 0 }} />
+                            ) : (
+                              <ChevronDown size={16} style={{ marginRight: '8px', color: 'var(--text-secondary)', flexShrink: 0 }} />
+                            )}
+                            {editingAMADateId === ama.id ? (
+                              <input
+                                ref={editAMADateInputRef}
+                                type="datetime-local"
+                                value={formatToDatetimeLocalValue(inlineAMADateValue)}
+                                onChange={(e) => setInlineAMADateValue(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    const finalVal = inlineAMADateValue;
+                                    updateAMASession(ama.id, { date: finalVal });
+                                    setEditingAMADateId(null);
+                                  } else if (e.key === 'Escape') {
+                                    e.preventDefault();
+                                    setEditingAMADateId(null);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  const finalVal = inlineAMADateValue;
+                                  updateAMASession(ama.id, { date: finalVal });
+                                  setEditingAMADateId(null);
+                                }}
+                                style={{
+                                  padding: '4px 6px',
+                                  backgroundColor: 'var(--background)',
+                                  border: '1.5px solid var(--primary)',
+                                  borderRadius: '6px',
+                                  color: 'var(--text-primary)',
+                                  fontSize: '0.8rem',
+                                  outline: 'none',
+                                }}
+                              />
+                            ) : (
+                              <span>{formatDateWithTimeToUserPattern(ama.date)}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td 
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setEditingAMATopicId(ama.id);
+                            setInlineAMATopicValue(ama.topic || '');
+                          }}
+                          style={{ fontWeight: 600 }}
+                          title="Double click to edit Topic"
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', width: '100%' }}>
+                            {editingAMATopicId === ama.id ? (
+                              <input
+                                ref={editAMATopicInputRef}
+                                type="text"
+                                value={inlineAMATopicValue}
+                                onChange={(e) => setInlineAMATopicValue(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    const finalVal = inlineAMATopicValue.trim() || 'New AMA Topic';
+                                    updateAMASession(ama.id, { topic: finalVal });
+                                    setEditingAMATopicId(null);
+                                  } else if (e.key === 'Escape') {
+                                    e.preventDefault();
+                                    setEditingAMATopicId(null);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  const finalVal = inlineAMATopicValue.trim() || 'New AMA Topic';
+                                  updateAMASession(ama.id, { topic: finalVal });
+                                  setEditingAMATopicId(null);
+                                }}
+                                style={{
+                                  width: '100%',
+                                  padding: '4px 6px',
+                                  backgroundColor: 'var(--background)',
+                                  border: '1.5px solid var(--primary)',
+                                  borderRadius: '6px',
+                                  color: 'var(--text-primary)',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 600,
+                                  outline: 'none',
+                                }}
+                              />
+                            ) : (
+                              <>
+                                <span>{ama.topic || <span style={{ color: 'var(--text-muted)' }}>— (No topic)</span>}</span>
+                                {related.length > 0 && (
+                                  <span className="badge" style={{ 
+                                    fontSize: '0.7rem', 
+                                    padding: '2px 6px', 
+                                    background: 'var(--primary-glow)', 
+                                    color: 'var(--primary)', 
+                                    border: '1px solid var(--primary-border)',
+                                    fontWeight: 500
+                                  }}>
+                                    {related.length} {related.length === 1 ? 'feature' : 'features'}
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </td>
+                        <td
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingAMASpeakerId(ama.id);
+                            setInlineAMASpeakerValue(ama.speaker || '');
+                          }}
+                          title="Click to edit Speaker(s)"
+                        >
+                          {editingAMASpeakerId === ama.id ? (
+                            <select
+                              autoFocus
+                              value={inlineAMASpeakerValue}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setInlineAMASpeakerValue(val);
+                                if (val !== '__other__') {
+                                  updateAMASession(ama.id, { speaker: val });
+                                  setEditingAMASpeakerId(null);
+                                }
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Escape') {
+                                  e.preventDefault();
+                                  setEditingAMASpeakerId(null);
+                                }
+                              }}
+                              onBlur={() => setEditingAMASpeakerId(null)}
+                              style={{
+                                width: '100%',
+                                padding: '4px 6px',
+                                backgroundColor: 'var(--background)',
+                                border: '1.5px solid var(--primary)',
+                                borderRadius: '6px',
+                                color: 'var(--text-primary)',
+                                fontSize: '0.8rem',
+                                outline: 'none',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <option value="">— Select Speaker —</option>
+                              {speakersList.map(s => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                              {inlineAMASpeakerValue && !speakersList.includes(inlineAMASpeakerValue) && (
+                                <option value={inlineAMASpeakerValue}>{inlineAMASpeakerValue}</option>
+                              )}
+                            </select>
+                          ) : (
+                            ama.speaker || '—'
+                          )}
+                        </td>
+                        <td
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setEditingAMACohortId(ama.id);
+                            setInlineAMACohortValue(ama.cohort || '');
+                            setInlineAMAProgramValue(ama.program || '');
+                            setShowCustomProgramInput(ama.program ? !programsList.includes(ama.program) : false);
+                            setShowCustomCohortInput(ama.cohort ? !allStandardCohorts.includes(ama.cohort) : false);
+                          }}
+                          title="Double click to edit Program/Cohort"
+                        >
+                          {editingAMACohortId === ama.id ? (
+                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                              {!showCustomProgramInput ? (
+                                <select
+                                  value={inlineAMAProgramValue || 'UG'}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === 'Other') {
+                                      setShowCustomProgramInput(true);
+                                      setInlineAMAProgramValue('');
+                                    } else {
+                                      setInlineAMAProgramValue(val);
+                                      const cohorts = programCohortsMap[val] || [];
+                                      if (cohorts.length > 0) {
+                                        setInlineAMACohortValue(cohorts[0]);
+                                        setShowCustomCohortInput(false);
+                                      }
+                                    }
+                                  }}
+                                  style={{
+                                    padding: '4px 6px',
+                                    backgroundColor: 'var(--background)',
+                                    border: '1.5px solid var(--primary)',
+                                    borderRadius: '6px',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '0.8rem',
+                                    outline: 'none',
+                                  }}
+                                >
+                                  {programsList.map(prog => (
+                                    <option key={prog} value={prog}>{prog}</option>
+                                  ))}
+                                  <option value="Other">Other...</option>
+                                </select>
+                              ) : (
+                                <input
+                                  ref={editAMAProgramInputRef}
+                                  type="text"
+                                  placeholder="Prog"
+                                  value={inlineAMAProgramValue}
+                                  onChange={(e) => setInlineAMAProgramValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      const finalCohort = inlineAMACohortValue.trim() || 'Cohort Name';
+                                      const finalProgram = inlineAMAProgramValue.trim();
+                                      updateAMASession(ama.id, { cohort: finalCohort, program: finalProgram });
+                                      setEditingAMACohortId(null);
+                                    } else if (e.key === 'Escape') {
+                                      e.preventDefault();
+                                      setEditingAMACohortId(null);
+                                    }
+                                  }}
+                                  style={{
+                                    width: '60px',
+                                    padding: '4px 6px',
+                                    backgroundColor: 'var(--background)',
+                                    border: '1.5px solid var(--primary)',
+                                    borderRadius: '6px',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '0.8rem',
+                                    outline: 'none',
+                                  }}
+                                />
+                              )}
+                              <span>-</span>
+                              {!showCustomCohortInput ? (
+                                <select
+                                  value={inlineAMACohortValue || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === 'Other') {
+                                      setShowCustomCohortInput(true);
+                                      setInlineAMACohortValue('');
+                                    } else {
+                                      setInlineAMACohortValue(val);
+                                      const mappedProg = getProgramForCohort(val);
+                                      if (mappedProg && !showCustomProgramInput) {
+                                        setInlineAMAProgramValue(mappedProg);
+                                      }
+                                    }
+                                  }}
+                                  style={{
+                                    padding: '4px 6px',
+                                    backgroundColor: 'var(--background)',
+                                    border: '1.5px solid var(--primary)',
+                                    borderRadius: '6px',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '0.8rem',
+                                    outline: 'none',
+                                  }}
+                                >
+                                  {(programCohortsMap[inlineAMAProgramValue] || allStandardCohorts).map(coh => (
+                                    <option key={coh} value={coh}>{coh}</option>
+                                  ))}
+                                  <option value="Other">Other...</option>
+                                </select>
+                              ) : (
+                                <input
+                                  ref={editAMACohortInputRef}
+                                  type="text"
+                                  placeholder="Cohort"
+                                  value={inlineAMACohortValue}
+                                  onChange={(e) => setInlineAMACohortValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      const finalCohort = inlineAMACohortValue.trim() || 'Cohort Name';
+                                      const finalProgram = inlineAMAProgramValue.trim();
+                                      updateAMASession(ama.id, { cohort: finalCohort, program: finalProgram });
+                                      setEditingAMACohortId(null);
+                                    } else if (e.key === 'Escape') {
+                                      e.preventDefault();
+                                      setEditingAMACohortId(null);
+                                    }
+                                  }}
+                                  style={{
+                                    width: '100px',
+                                    padding: '4px 6px',
+                                    backgroundColor: 'var(--background)',
+                                    border: '1.5px solid var(--primary)',
+                                    borderRadius: '6px',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '0.8rem',
+                                    outline: 'none',
+                                  }}
+                                />
+                              )}
+                              <button 
+                                onClick={() => {
+                                  const finalCohort = inlineAMACohortValue.trim() || 'Cohort Name';
+                                  const finalProgram = inlineAMAProgramValue.trim();
+                                  updateAMASession(ama.id, { cohort: finalCohort, program: finalProgram });
+                                  setEditingAMACohortId(null);
+                                }}
+                                className="btn btn-primary btn-sm"
+                                style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                              >
+                                Save
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setEditingAMACohortId(null);
+                                }}
+                                className="btn btn-secondary btn-sm"
+                                style={{ padding: '2px 6px', fontSize: '0.75rem' }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            ama.program ? `${ama.program} - ${ama.cohort}` : ama.cohort || '—'
+                          )}
+                        </td>
+                        <td>
+                          <select
+                            value={ama.status || 'Scheduled'}
+                            onChange={(e) => updateAMASession(ama.id, { status: e.target.value as any })}
+                            onClick={(e) => e.stopPropagation()}
+                            className={`badge ${
+                              ama.status === 'Completed' ? 'status-completed' :
+                              ama.status === 'Postponed' ? 'status-hold' : 'status-progress'
+                            }`}
+                            style={{ 
+                              border: 'none', 
+                              outline: 'none', 
+                              cursor: 'pointer',
+                              padding: '2px 6px',
+                              fontFamily: 'inherit',
+                              fontWeight: 'inherit',
+                              fontSize: '0.75rem',
+                              borderRadius: '4px',
+                              appearance: 'none',
+                              textAlign: 'center'
+                            }}
+                          >
+                            <option value="Scheduled" style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>Scheduled</option>
+                            <option value="Completed" style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>Completed</option>
+                            <option value="Postponed" style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>Postponed</option>
+                          </select>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
+                            <button 
+                              onClick={() => {
+                                setEditingAMATopicId(ama.id);
+                                setInlineAMATopicValue(ama.topic || '');
+                              }} 
+                              style={{ 
+                                background: 'none', 
+                                border: 'none', 
+                                cursor: 'pointer', 
+                                color: 'var(--text-secondary)', 
+                                display: 'flex', 
+                                alignItems: 'center',
+                                padding: '4px'
+                              }}
+                              title="Edit Topic Inline"
+                            >
+                              <Edit2 size={12} />
+                            </button>
+                            <button 
+                              onClick={() => {
+                                if (window.confirm("Are you sure you want to delete this AMA session?")) {
+                                  deleteAMASession(ama.id);
+                                }
+                              }} 
+                              style={{ 
+                                background: 'none', 
+                                border: 'none', 
+                                cursor: 'pointer', 
+                                color: 'var(--danger)', 
+                                display: 'flex', 
+                                alignItems: 'center',
+                                padding: '4px'
+                              }}
+                              title="Delete AMA Session"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      
+                      {isExpanded && (
+                        <tr style={{ background: 'var(--background)' }}>
+                          <td colSpan={6} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
+                            <div style={{
+                              background: 'var(--panel-bg)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '8px',
+                              padding: '1.25rem',
+                              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)'
+                            }}>
+                              {/* Header of expanded section */}
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const newItem: ProductItem = {
+                                      id: `prod-${Date.now()}`,
+                                      feature: '',
+                                      description: '',
+                                      tarunSirApproval: false,
+                                      raisedByTarunSir: false,
+                                      priority: '',
+                                      poc: '',
+                                      status: '',
+                                      clickupStatus: '',
+                                      taskLink: '',
+                                      blocker: '',
+                                      deadline: '',
+                                      notes: `AMA Cohort: ${ama.cohort}`,
+                                      product: '',
+                                      module: ama.cohort,
+                                      uiux: '',
+                                      finalRelease: '',
+                                      productDeadline: ''
+                                    };
+                                    addProductItem(newItem);
+                                    setInlineRelatedFeatureValue('');
+                                    setEditingRelatedFeatureId(newItem.id);
+                                  }}
+                                  className="btn btn-secondary"
+                                  style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                >
+                                  + Add Related Feature
+                                </button>
+                              </div>
+
+                              {related.length > 0 ? (
+                                <div className="table-responsive" style={{ border: '1px solid var(--border)', borderRadius: '6px' }}>
+                                  <table className="grid-table" style={{ background: 'var(--background)' }}>
+                                    <thead>
+                                      <tr style={{ background: 'var(--background-alt)' }}>
+                                        <th>Feature</th>
+                                        <th style={{ width: '150px' }}>Product</th>
+                                        <th style={{ width: '80px' }}>Priority</th>
+                                        <th style={{ width: '120px' }}>Status</th>
+                                        <th style={{ width: '120px' }}>POC</th>
+                                        <th style={{ width: '100px' }}>ClickUp</th>
+                                        <th style={{ width: '40px' }}></th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {related.map(feat => (
+                                        <tr 
+                                          key={feat.id} 
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (editingRelatedFeatureId !== feat.id) {
+                                              setPreviewProductId(feat.id);
+                                            }
+                                          }} 
+                                          style={{ cursor: 'pointer' }}
+                                        >
+                                          <td style={{ fontWeight: 600, whiteSpace: 'normal' }}>
+                                            {editingRelatedFeatureId === feat.id ? (
+                                              <input
+                                                ref={editRelatedFeatureInputRef}
+                                                type="text"
+                                                value={inlineRelatedFeatureValue}
+                                                onChange={(e) => setInlineRelatedFeatureValue(e.target.value)}
+                                                onClick={(e) => e.stopPropagation()}
+                                                onKeyDown={(e) => {
+                                                  if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    const finalVal = inlineRelatedFeatureValue.trim() || 'New Feature';
+                                                    updateProductItem(feat.id, { feature: finalVal });
+                                                    setEditingRelatedFeatureId(null);
+                                                    if (e.ctrlKey) {
+                                                      setPreviewProductId(feat.id);
+                                                    }
+                                                  } else if (e.key === 'Escape') {
+                                                    e.preventDefault();
+                                                    setEditingRelatedFeatureId(null);
+                                                  }
+                                                }}
+                                                onBlur={() => {
+                                                  const finalVal = inlineRelatedFeatureValue.trim() || 'New Feature';
+                                                  updateProductItem(feat.id, { feature: finalVal });
+                                                  setEditingRelatedFeatureId(null);
+                                                }}
+                                                style={{
+                                                  width: '100%',
+                                                  padding: '6px 8px',
+                                                  backgroundColor: 'var(--background)',
+                                                  border: '1.5px solid var(--primary)',
+                                                  borderRadius: '6px',
+                                                  color: 'var(--text-primary)',
+                                                  fontSize: '0.8rem',
+                                                  fontWeight: 600,
+                                                  outline: 'none',
+                                                  boxShadow: '0 0 0 2px var(--primary-glow)'
+                                                }}
+                                              />
+                                            ) : (
+                                              <>
+                                                {feat.feature || '—'}
+                                                {feat.raisedByTarunSir && (
+                                                  <span className="badge-super-priority" style={{ padding: '1px 4px', fontSize: '0.6rem', borderRadius: '3px', marginLeft: '6px' }}>
+                                                    <Sparkles size={8} /> Super Priority
+                                                  </span>
+                                                )}
+                                              </>
+                                            )}
+                                          </td>
+                                          <td>{feat.product || '—'}</td>
+                                          <td>
+                                            {feat.priority ? (
+                                              <span className={`badge badge-${feat.priority.toLowerCase()}`}>
+                                                {feat.priority}
+                                              </span>
+                                            ) : '—'}
+                                          </td>
+                                          <td>
+                                            {feat.status ? (
+                                              <span className={`badge ${
+                                                feat.status === 'On Hold' ? 'status-hold' :
+                                                feat.status === 'In Progress' ? 'status-progress' :
+                                                feat.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
+                                              }`}>
+                                                {feat.status}
+                                              </span>
+                                            ) : '—'}
+                                          </td>
+                                          <td>{feat.poc || '—'}</td>
+                                          <td>
+                                            {feat.clickupStatus ? (
+                                              <span className={`badge clickup-${feat.clickupStatus.toLowerCase()}`}>
+                                                {feat.clickupStatus}
+                                              </span>
+                                            ) : '—'}
+                                          </td>
+                                          <td>
+                                            <button 
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (window.confirm("Are you sure you want to delete this feature?")) {
+                                                  deleteProductItem(feat.id);
+                                                }
+                                              }} 
+                                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center', padding: '4px' }}
+                                              title="Delete Feature"
+                                            >
+                                              <Trash2 size={12} />
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              ) : (
+                                <div style={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  padding: '1.5rem',
+                                  border: '1px dashed var(--border)',
+                                  borderRadius: '6px',
+                                  color: 'var(--text-secondary)',
+                                  gap: '0.5rem',
+                                  background: 'var(--background)'
+                                }}>
+                                  <span style={{ fontSize: '0.8rem' }}>No associated feature requests found for this session.</span>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const newItem: ProductItem = {
+                                        id: `prod-${Date.now()}`,
+                                        feature: '',
+                                        description: '',
+                                        tarunSirApproval: false,
+                                        raisedByTarunSir: false,
+                                        priority: '',
+                                        poc: '',
+                                        status: '',
+                                        clickupStatus: '',
+                                        taskLink: '',
+                                        blocker: '',
+                                        deadline: '',
+                                        notes: `AMA Cohort: ${ama.cohort}`,
+                                        product: '',
+                                        module: ama.cohort,
+                                        uiux: '',
+                                        finalRelease: '',
+                                        productDeadline: ''
+                                      };
+                                      addProductItem(newItem);
+                                      setInlineRelatedFeatureValue('');
+                                      setEditingRelatedFeatureId(newItem.id);
+                                    }}
+                                    className="btn btn-secondary"
+                                    style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                                  >
+                                    Create one now
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="table-responsive">
+            <table className="grid-table">
+              <thead>
+                <tr>
+                  <th className="sticky-header-col" style={{ width: '250px', minWidth: '250px', maxWidth: '250px' }}>Feature</th>
+                  <th style={{ width: '180px' }}>Date-time</th>
+                  <th style={{ width: '100px' }}>Program</th>
+                  <th style={{ width: '120px' }}>Cohort</th>
+                  <th style={{ width: '160px' }}>Speaker</th>
+                  <th style={{ width: '150px' }}>Product Group</th>
+                  <th style={{ width: '80px' }}>Priority</th>
+                  <th style={{ width: '120px' }}>POC Owner</th>
+                  <th style={{ width: '120px' }}>Status</th>
+                  <th style={{ width: '100px' }}>Clickup</th>
+                  <th style={{ width: '120px' }}>Specs Date</th>
+                  <th style={{ width: '120px' }}>UI/UX Date</th>
+                  <th style={{ width: '120px' }}>Dev Date</th>
+                  <th style={{ width: '120px' }}>Release Date</th>
+                  <th style={{ width: '40px' }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredFeedbackFeatures.map(feat => {
+                  const parentAma = getParentAma(feat);
+                  return (
+                    <tr 
+                      key={feat.id} 
+                      onClick={() => {
+                        if (
+                          editingFeedbackFeatureId !== feat.id &&
+                          editingFeedbackCohortId !== feat.id &&
+                          editingFeedbackDateId !== feat.id &&
+                          editingFeedbackProgramId !== feat.id &&
+                          editingFeedbackSpeakerId !== feat.id
+                        ) {
+                          setPreviewProductId(feat.id);
+                        }
+                      }} 
+                      style={{ 
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s ease'
+                      }}
+                    >
+                      <td className="sticky-col" style={{ fontWeight: 600, width: '250px', minWidth: '250px', maxWidth: '250px', whiteSpace: 'normal' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', width: '100%' }}>
+                          {editingFeedbackFeatureId === feat.id ? (
+                            <input
+                              ref={editFeedbackFeatureInputRef}
+                              type="text"
+                              value={inlineFeedbackFeatureValue}
+                              onChange={(e) => setInlineFeedbackFeatureValue(e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const finalVal = inlineFeedbackFeatureValue.trim() || 'New Feature';
+                                  updateProductItem(feat.id, { feature: finalVal });
+                                  setEditingFeedbackFeatureId(null);
+                                } else if (e.key === 'Escape') {
+                                  e.preventDefault();
+                                  setEditingFeedbackFeatureId(null);
+                                }
+                              }}
+                              onBlur={() => {
+                                const finalVal = inlineFeedbackFeatureValue.trim() || 'New Feature';
+                                updateProductItem(feat.id, { feature: finalVal });
+                                setEditingFeedbackFeatureId(null);
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '6px 8px',
+                                backgroundColor: 'var(--background)',
+                                border: '1.5px solid var(--primary)',
+                                borderRadius: '6px',
+                                color: 'var(--text-primary)',
+                                fontSize: '0.8rem',
+                                fontWeight: 600,
+                                outline: 'none',
+                                boxShadow: '0 0 0 2px var(--primary-glow)'
+                              }}
+                            />
+                          ) : (
+                            <div 
+                              onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                setEditingFeedbackFeatureId(feat.id);
+                                setInlineFeedbackFeatureValue(feat.feature || '');
+                              }}
+                              style={{ width: '100%', cursor: 'pointer' }}
+                              title="Double click to edit"
+                            >
+                              {feat.feature || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
+                              {feat.raisedByTarunSir && (
+                                <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', marginLeft: '8px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                                  <Sparkles size={10} /> Super Priority
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td
+                        onDoubleClick={(e) => {
+                          if (!parentAma) return;
+                          e.stopPropagation();
+                          setEditingFeedbackDateId(feat.id);
+                          setInlineFeedbackDateValue(parentAma.date);
+                        }}
+                        title={parentAma ? "Double click to edit Date/Time" : undefined}
+                      >
+                        {parentAma ? (
+                          editingFeedbackDateId === feat.id ? (
+                            <input
+                              ref={editFeedbackDateInputRef}
+                              type="datetime-local"
+                              value={formatToDatetimeLocalValue(inlineFeedbackDateValue)}
+                              onChange={(e) => setInlineFeedbackDateValue(e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const finalVal = inlineFeedbackDateValue;
+                                  updateAMASession(parentAma.id, { date: finalVal });
+                                  setEditingFeedbackDateId(null);
+                                } else if (e.key === 'Escape') {
+                                  e.preventDefault();
+                                  setEditingFeedbackDateId(null);
+                                }
+                              }}
+                              onBlur={() => {
+                                const finalVal = inlineFeedbackDateValue;
+                                updateAMASession(parentAma.id, { date: finalVal });
+                                setEditingFeedbackDateId(null);
+                              }}
+                              style={{
+                                padding: '4px 6px',
+                                backgroundColor: 'var(--background)',
+                                border: '1.5px solid var(--primary)',
+                                borderRadius: '6px',
+                                color: 'var(--text-primary)',
+                                fontSize: '0.8rem',
+                                outline: 'none',
+                              }}
+                            />
+                          ) : (
+                            formatDateWithTimeToUserPattern(parentAma.date)
+                          )
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td
+                        onDoubleClick={(e) => {
+                          if (!parentAma) return;
+                          e.stopPropagation();
+                          setEditingFeedbackProgramId(feat.id);
+                          setInlineFeedbackProgramValue(parentAma.program || '');
+                          setShowCustomProgramInput(parentAma.program ? !programsList.includes(parentAma.program) : false);
+                        }}
+                        title={parentAma ? "Double click to edit Program" : undefined}
+                      >
+                        {parentAma ? (
+                          editingFeedbackProgramId === feat.id ? (
+                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                              {!showCustomProgramInput ? (
+                                <select
+                                  value={inlineFeedbackProgramValue || 'UG'}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === 'Other') {
+                                      setShowCustomProgramInput(true);
+                                      setInlineFeedbackProgramValue('');
+                                    } else {
+                                      setInlineFeedbackProgramValue(val);
+                                      const cohorts = programCohortsMap[val] || [];
+                                      const defaultCohort = cohorts.length > 0 ? cohorts[0] : '';
+                                      updateAMASession(parentAma.id, { program: val, cohort: defaultCohort });
+                                      setEditingFeedbackProgramId(null);
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    if (!showCustomProgramInput) {
+                                      setEditingFeedbackProgramId(null);
+                                    }
+                                  }}
+                                  style={{
+                                    padding: '4px 6px',
+                                    backgroundColor: 'var(--background)',
+                                    border: '1.5px solid var(--primary)',
+                                    borderRadius: '6px',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '0.8rem',
+                                    outline: 'none',
+                                  }}
+                                >
+                                  {programsList.map(prog => (
+                                    <option key={prog} value={prog}>{prog}</option>
+                                  ))}
+                                  <option value="Other">Other...</option>
+                                </select>
+                              ) : (
+                                <input
+                                  ref={editFeedbackProgramInputRef}
+                                  type="text"
+                                  value={inlineFeedbackProgramValue}
+                                  onChange={(e) => setInlineFeedbackProgramValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      const finalVal = inlineFeedbackProgramValue.trim();
+                                      updateAMASession(parentAma.id, { program: finalVal });
+                                      setEditingFeedbackProgramId(null);
+                                    } else if (e.key === 'Escape') {
+                                      e.preventDefault();
+                                      setEditingFeedbackProgramId(null);
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    const finalVal = inlineFeedbackProgramValue.trim();
+                                    updateAMASession(parentAma.id, { program: finalVal });
+                                    setEditingFeedbackProgramId(null);
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '4px 6px',
+                                    backgroundColor: 'var(--background)',
+                                    border: '1.5px solid var(--primary)',
+                                    borderRadius: '6px',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '0.8rem',
+                                    outline: 'none',
+                                  }}
+                                />
+                              )}
+                            </div>
+                          ) : (
+                            parentAma.program || '—'
+                          )
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td
+                        onDoubleClick={(e) => {
+                          if (!parentAma) return;
+                          e.stopPropagation();
+                          setEditingFeedbackCohortId(feat.id);
+                          setInlineFeedbackCohortValue(parentAma.cohort || '');
+                          setInlineFeedbackProgramValue(parentAma.program || '');
+                          setShowCustomCohortInput(parentAma.cohort ? !allStandardCohorts.includes(parentAma.cohort) : false);
+                        }}
+                        title={parentAma ? "Double click to edit Cohort" : undefined}
+                      >
+                        {parentAma ? (
+                          editingFeedbackCohortId === feat.id ? (
+                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                              {!showCustomCohortInput ? (
+                                <select
+                                  value={inlineFeedbackCohortValue || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === 'Other') {
+                                      setShowCustomCohortInput(true);
+                                      setInlineFeedbackCohortValue('');
+                                    } else {
+                                      setInlineFeedbackCohortValue(val);
+                                      const mappedProg = getProgramForCohort(val);
+                                      updateAMASession(parentAma.id, { cohort: val, program: mappedProg });
+                                      setEditingFeedbackCohortId(null);
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    if (!showCustomCohortInput) {
+                                      setEditingFeedbackCohortId(null);
+                                    }
+                                  }}
+                                  style={{
+                                    padding: '4px 6px',
+                                    backgroundColor: 'var(--background)',
+                                    border: '1.5px solid var(--primary)',
+                                    borderRadius: '6px',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '0.8rem',
+                                    outline: 'none',
+                                  }}
+                                >
+                                  {(programCohortsMap[inlineFeedbackProgramValue] || allStandardCohorts).map(coh => (
+                                    <option key={coh} value={coh}>{coh}</option>
+                                  ))}
+                                  <option value="Other">Other...</option>
+                                </select>
+                              ) : (
+                                <input
+                                  ref={editFeedbackCohortInputRef}
+                                  type="text"
+                                  value={inlineFeedbackCohortValue}
+                                  onChange={(e) => setInlineFeedbackCohortValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      const finalVal = inlineFeedbackCohortValue.trim() || 'Cohort Name';
+                                      const mappedProg = getProgramForCohort(finalVal);
+                                      updateAMASession(parentAma.id, { cohort: finalVal, program: mappedProg });
+                                      setEditingFeedbackCohortId(null);
+                                    } else if (e.key === 'Escape') {
+                                      e.preventDefault();
+                                      setEditingFeedbackCohortId(null);
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    const finalVal = inlineFeedbackCohortValue.trim() || 'Cohort Name';
+                                    const mappedProg = getProgramForCohort(finalVal);
+                                    updateAMASession(parentAma.id, { cohort: finalVal, program: mappedProg });
+                                    setEditingFeedbackCohortId(null);
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '4px 6px',
+                                    backgroundColor: 'var(--background)',
+                                    border: '1.5px solid var(--primary)',
+                                    borderRadius: '6px',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '0.8rem',
+                                    outline: 'none',
+                                  }}
+                                />
+                              )}
+                            </div>
+                          ) : (
+                            parentAma.cohort || '—'
+                          )
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td
+                        onClick={(e) => {
+                          if (!parentAma) return;
+                          e.stopPropagation();
+                          setEditingFeedbackSpeakerId(feat.id);
+                          setInlineFeedbackSpeakerValue(parentAma.speaker || '');
+                        }}
+                        title={parentAma ? "Click to edit Speaker" : undefined}
+                      >
+                        {parentAma ? (
+                          editingFeedbackSpeakerId === feat.id ? (
+                            <select
+                              autoFocus
+                              value={inlineFeedbackSpeakerValue}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setInlineFeedbackSpeakerValue(val);
+                                if (val !== '') {
+                                  updateAMASession(parentAma.id, { speaker: val });
+                                  setEditingFeedbackSpeakerId(null);
+                                }
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Escape') {
+                                  e.preventDefault();
+                                  setEditingFeedbackSpeakerId(null);
+                                }
+                              }}
+                              onBlur={() => setEditingFeedbackSpeakerId(null)}
+                              style={{
+                                width: '100%',
+                                padding: '4px 6px',
+                                backgroundColor: 'var(--background)',
+                                border: '1.5px solid var(--primary)',
+                                borderRadius: '6px',
+                                color: 'var(--text-primary)',
+                                fontSize: '0.8rem',
+                                outline: 'none',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <option value="">— Select Speaker —</option>
+                              {speakersList.map(s => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                              {inlineFeedbackSpeakerValue && !speakersList.includes(inlineFeedbackSpeakerValue) && (
+                                <option value={inlineFeedbackSpeakerValue}>{inlineFeedbackSpeakerValue}</option>
+                              )}
+                            </select>
+                          ) : (
+                            parentAma.speaker || '—'
+                          )
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td>{feat.product || '—'}</td>
+                      <td>
+                        {feat.priority ? (
+                          <span className={`badge badge-${feat.priority.toLowerCase()}`}>
+                            {feat.priority}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td style={{ fontWeight: 500 }}>{feat.poc || '—'}</td>
+                      <td>
+                        {feat.status ? (
+                          <span className={`badge ${
+                            feat.status === 'On Hold' ? 'status-hold' :
+                            feat.status === 'In Progress' ? 'status-progress' :
+                            feat.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
+                          }`}>
+                            {feat.status}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td>
+                        {feat.clickupStatus ? (
+                          <span className={`badge clickup-${feat.clickupStatus.toLowerCase()}`}>
+                            {feat.clickupStatus}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{feat.productDeadline ? formatDateToUserPattern(feat.productDeadline) : '—'}</td>
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                        <DateDiffBadge prevDate={feat.productDeadline} currentDate={feat.uiux} />
+                        {feat.uiux ? formatDateToUserPattern(feat.uiux) : '—'}
+                      </td>
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                        <DateDiffBadge prevDate={feat.uiux} currentDate={feat.deadline} />
+                        {feat.deadline ? formatDateToUserPattern(feat.deadline) : '—'}
+                      </td>
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                        <DateDiffBadge prevDate={feat.deadline} currentDate={feat.finalRelease} />
+                        {feat.finalRelease ? formatDateToUserPattern(feat.finalRelease) : '—'}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
+                          <button 
+                            onClick={() => {
+                              if (window.confirm("Are you sure you want to delete this feedback feature?")) {
+                                deleteProductItem(feat.id);
+                              }
+                            }} 
+                            style={{ 
+                              background: 'none', 
+                              border: 'none', 
+                              cursor: 'pointer', 
+                              color: 'var(--danger)', 
+                              display: 'flex', 
+                              alignItems: 'center',
+                              padding: '4px'
+                            }}
+                            title="Delete Feedback Feature"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </TabContainer>
 
-      {editingMeeting && (
-        <StudentMeetingDetailModal 
-          item={studentMeetings.find(i => i.id === editingMeeting.id) || editingMeeting}
-          onClose={() => setEditingMeeting(null)}
-          onUpdate={updateStudentMeeting}
-        />
-      )}
+
+
     </>
   );
 };
@@ -3040,12 +4499,12 @@ export const ContentTable: React.FC = () => {
    7. PRODUCT-WISE PIVOT BREAKDOWN SHEET
    ========================================================================= */
 export const ProductWiseSheet: React.FC = () => {
-  const { productItems, planItems, deleteProductItem, setPreviewProductId } = useDashboard();
+  const { productItems, planItems, deleteProductItem, setPreviewProductId, productGroups } = useDashboard();
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
   
   const products = Array.from(new Set([
-    ...productItems.map(p => p.product).filter(Boolean),
-    'Coach LMS Web', 'Coach LMS App', 'Admin Portal', 'Student Portal'
+    ...productGroups.map(g => g.name),
+    ...productItems.map(p => p.product).filter(Boolean)
   ]));
 
   return (

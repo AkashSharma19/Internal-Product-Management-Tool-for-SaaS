@@ -7,8 +7,12 @@ import type {
   AdminCall, 
   ContentItem, 
   DailyIssue, 
-  FeatureAdoption 
+  FeatureAdoption,
+  ConfigSpeaker,
+  ConfigProductGroup,
+  ConfigStatus
 } from './types';
+
 
 export const initialProductItems: ProductItem[] = [
   {
@@ -295,6 +299,66 @@ export const initialProductItems: ProductItem[] = [
     uiux: '',
     finalRelease: '',
     productDeadline: ''
+  },
+  {
+    id: 'prod-16',
+    feature: 'Fix QR scan lag in Attendance Tracking',
+    description: 'Lag in QR scan; sometimes marks students absent even after scanning QR successfully.',
+    tarunSirApproval: false,
+    raisedByTarunSir: false,
+    priority: 'P1',
+    poc: 'Akash',
+    status: 'In Progress',
+    clickupStatus: 'development',
+    taskLink: '',
+    blocker: '',
+    deadline: '',
+    notes: 'Reported in YLC 27 meeting log.',
+    product: '',
+    module: 'YLC 27',
+    uiux: '',
+    finalRelease: '',
+    productDeadline: ''
+  },
+  {
+    id: 'prod-17',
+    feature: 'Resolve login/auth barriers during peak deadline hours',
+    description: 'Persistent login/auth errors preventing entry right before assignment deadlines.',
+    tarunSirApproval: false,
+    raisedByTarunSir: true,
+    priority: 'P0',
+    poc: 'Nikhil',
+    status: 'In Progress',
+    clickupStatus: 'testing',
+    taskLink: '',
+    blocker: '',
+    deadline: '',
+    notes: 'Reported in UG-27,28,29 meeting log.',
+    product: '',
+    module: 'UG-27,28,29',
+    uiux: '',
+    finalRelease: '',
+    productDeadline: ''
+  },
+  {
+    id: 'prod-18',
+    feature: 'Professional feedback page submit button missing on mobile',
+    description: 'Professional feedback page submit button is missing in responsive mobile view.',
+    tarunSirApproval: false,
+    raisedByTarunSir: false,
+    priority: 'P2',
+    poc: 'Anushka',
+    status: 'In Progress',
+    clickupStatus: 'open',
+    taskLink: '',
+    blocker: '',
+    deadline: '',
+    notes: 'Reported in PGP TBM meeting log.',
+    product: '',
+    module: 'PGP TBM',
+    uiux: '',
+    finalRelease: '',
+    productDeadline: ''
   }
 ];
 
@@ -481,6 +545,7 @@ export const initialAMASessions: AMASession[] = [
     topic: 'Generative AI & LLMs in Production',
     speaker: 'Siddharth (Lead Research Engineer)',
     cohort: 'UG-27,28,29',
+    program: 'UG',
     link: 'https://zoom.us/j/983756281',
     status: 'Scheduled'
   },
@@ -490,6 +555,7 @@ export const initialAMASessions: AMASession[] = [
     topic: 'College Startups & Raising Pre-seed Capital',
     speaker: 'Varun (Co-founder, ReflowAI)',
     cohort: 'PGP TBM',
+    program: 'PGP',
     link: 'https://zoom.us/j/847291039',
     status: 'Scheduled'
   },
@@ -499,6 +565,7 @@ export const initialAMASessions: AMASession[] = [
     topic: 'Building Portfolio projects that stand out',
     speaker: 'Akash & Anushka',
     cohort: 'All Cohorts',
+    program: 'All',
     link: 'https://zoom.us/rec/29472',
     status: 'Completed'
   }
@@ -651,3 +718,39 @@ export const initialFeatureAdoptions: FeatureAdoption[] = [
     sentiment: 4.5
   }
 ];
+
+// ── Configuration Seed Data ───────────────────────────────────────────────────
+
+export const initialSpeakers: ConfigSpeaker[] = [
+  { id: 'spk-1',  name: 'Prof. Ashish Nanda',         role: 'Director, IIMA' },
+  { id: 'spk-2',  name: 'Prof. Bharat Rao',            role: 'Professor, Strategy' },
+  { id: 'spk-3',  name: 'Prof. Rekha Jain',            role: 'Professor, IT & Systems' },
+  { id: 'spk-4',  name: 'Prof. Chetan Subramanian',    role: 'Professor, Finance' },
+  { id: 'spk-5',  name: 'Prof. Sunil Handa',           role: 'Professor, OB & HR' },
+  { id: 'spk-6',  name: 'Prof. Anurag Kumar',          role: 'Professor, Marketing' },
+  { id: 'spk-7',  name: 'Prof. Vijaya Sherry Chand',   role: 'Professor, Public Systems' },
+  { id: 'spk-8',  name: 'Alumni Speaker',              role: 'Alumni' },
+  { id: 'spk-9',  name: 'Industry Expert',             role: 'Industry' },
+  { id: 'spk-10', name: 'Guest Speaker',               role: 'Guest' },
+];
+
+export const initialProductGroups: ConfigProductGroup[] = [
+  { id: 'pg-1', name: 'Coach LMS Web',        color: '#6366f1' },
+  { id: 'pg-2', name: 'Coach LMS App',        color: '#8b5cf6' },
+  { id: 'pg-3', name: 'Admin Portal',         color: '#0ea5e9' },
+  { id: 'pg-4', name: 'Student Portal',       color: '#10b981' },
+  { id: 'pg-5', name: 'Communication Engine', color: '#f59e0b' },
+  { id: 'pg-6', name: 'Career Coach',         color: '#ec4899' },
+];
+
+export const initialStatuses: ConfigStatus[] = [
+  { id: 'st-1',  label: 'On Hold',         color: '#6b7280', scope: 'product' },
+  { id: 'st-2',  label: 'In Progress',     color: '#3b82f6', scope: 'product' },
+  { id: 'st-3',  label: 'Ongoing',         color: '#8b5cf6', scope: 'product' },
+  { id: 'st-4',  label: 'Completed',       color: '#10b981', scope: 'product' },
+  { id: 'st-5',  label: 'Scheduled',       color: '#0ea5e9', scope: 'ama' },
+  { id: 'st-6',  label: 'Postponed',       color: '#f59e0b', scope: 'ama' },
+  { id: 'st-7',  label: 'Cancelled',       color: '#ef4444', scope: 'all' },
+  { id: 'st-8',  label: 'Under Review',    color: '#f97316', scope: 'all' },
+];
+
