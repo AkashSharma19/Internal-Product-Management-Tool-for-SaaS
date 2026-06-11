@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useDashboard } from '../context/DashboardContext';
-import type { ConfigSpeaker, ConfigProductGroup, ConfigStatus } from '../types';
+import type { ConfigSpeaker, ConfigProductGroup, ConfigStatus, ConfigProgram, ConfigCohort } from '../types';
 import { Plus, Trash2, Check, X, Pencil, Settings, Users, Layers, Tag } from 'lucide-react';
 
 // ─── Colour palette ────────────────────────────────────────────────────────────
@@ -664,15 +664,264 @@ const StatusesSection: React.FC = () => {
   );
 };
 
+const ProgramsSection: React.FC = () => {
+  const { 
+    programs, addProgram, updateProgram, deleteProgram,
+    cohorts, addCohort, updateCohort, deleteCohort 
+  } = useDashboard();
+
+  // Program edit states
+  const [editingProgramId, setEditingProgramId] = useState<string | null>(null);
+  const [editProgramName, setEditProgramName] = useState('');
+  const [newProgramName, setNewProgramName] = useState('');
+  const [showAddProgram, setShowAddProgram] = useState(false);
+
+  // Cohort edit states
+  const [editingCohortId, setEditingCohortId] = useState<string | null>(null);
+  const [editCohortName, setEditCohortName] = useState('');
+  
+  // Adding cohort state
+  const [addingCohortForProgramId, setAddingCohortForProgramId] = useState<string | null>(null);
+  const [newCohortName, setNewCohortName] = useState('');
+
+  const startProgramEdit = (p: ConfigProgram) => {
+    setEditingProgramId(p.id);
+    setEditProgramName(p.name);
+  };
+
+  const saveProgramEdit = () => {
+    if (!editProgramName.trim() || !editingProgramId) return;
+    updateProgram(editingProgramId, { name: editProgramName.trim() });
+    setEditingProgramId(null);
+  };
+
+  const handleAddProgram = () => {
+    if (!newProgramName.trim()) return;
+    addProgram({ id: `prog-${Date.now()}`, name: newProgramName.trim() });
+    setNewProgramName('');
+    setShowAddProgram(false);
+  };
+
+  const startCohortEdit = (c: ConfigCohort) => {
+    setEditingCohortId(c.id);
+    setEditCohortName(c.name);
+  };
+
+  const saveCohortEdit = () => {
+    if (!editCohortName.trim() || !editingCohortId) return;
+    updateCohort(editingCohortId, { name: editCohortName.trim() });
+    setEditingCohortId(null);
+  };
+
+  const handleAddCohort = (programId: string) => {
+    if (!newCohortName.trim()) return;
+    addCohort({ id: `coh-${Date.now()}`, name: newCohortName.trim(), programId });
+    setNewCohortName('');
+    setAddingCohortForProgramId(null);
+  };
+
+  return (
+    <SectionCard icon={<Layers size={16} />} title="Programs & Cohorts" subtitle="Manage academic programs and their associated student cohorts/sections">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem', marginTop: '0.5rem' }}>
+        {programs.map(p => {
+          const programCohorts = cohorts.filter(c => c.programId === p.id);
+          return (
+            <div key={p.id} style={{
+              background: 'var(--surface-elevated)',
+              border: '1px solid var(--border)',
+              borderRadius: '12px',
+              padding: '1.25rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem',
+              boxShadow: 'var(--shadow-sm)'
+            }}>
+              {/* Program Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                {editingProgramId === p.id ? (
+                  <input 
+                    autoFocus 
+                    style={{ ...inputStyle, width: 'calc(100% - 60px)' }} 
+                    value={editProgramName} 
+                    onChange={e => setEditProgramName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') saveProgramEdit();
+                      if (e.key === 'Escape') setEditingProgramId(null);
+                    }}
+                  />
+                ) : (
+                  <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--primary)', fontFamily: 'Outfit' }}>{p.name}</span>
+                )}
+
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {editingProgramId === p.id ? (
+                    <>
+                      <IconBtn onClick={saveProgramEdit} success><Check size={13} /></IconBtn>
+                      <IconBtn onClick={() => setEditingProgramId(null)} danger><X size={13} /></IconBtn>
+                    </>
+                  ) : (
+                    <>
+                      <IconBtn onClick={() => startProgramEdit(p)}><Pencil size={12} /></IconBtn>
+                      <IconBtn onClick={() => {
+                        if (window.confirm(`Are you sure you want to delete program "${p.name}"? All cohorts under it will also be deleted.`)) {
+                          // Cascade delete cohorts under this program
+                          programCohorts.forEach(c => deleteCohort(c.id));
+                          deleteProgram(p.id);
+                        }
+                      }} danger><Trash2 size={12} /></IconBtn>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Cohorts inside Program */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.02em' }}>Cohorts ({programCohorts.length})</span>
+                {programCohorts.length === 0 ? (
+                  <span style={{ fontSize: '0.775rem', color: 'var(--text-muted)', fontStyle: 'italic', margin: '0.5rem 0' }}>No cohorts added yet</span>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    {programCohorts.map(c => (
+                      <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--background)', padding: '5px 8px', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                        {editingCohortId === c.id ? (
+                          <input 
+                            autoFocus 
+                            style={{ ...inputStyle, padding: '2px 6px', fontSize: '0.775rem' }} 
+                            value={editCohortName} 
+                            onChange={e => setEditCohortName(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') saveCohortEdit();
+                              if (e.key === 'Escape') setEditingCohortId(null);
+                            }}
+                          />
+                        ) : (
+                          <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{c.name}</span>
+                        )}
+
+                        <div style={{ display: 'flex', gap: '2px' }}>
+                          {editingCohortId === c.id ? (
+                             <>
+                               <IconBtn onClick={saveCohortEdit} success><Check size={11} /></IconBtn>
+                               <IconBtn onClick={() => setEditingCohortId(null)} danger><X size={11} /></IconBtn>
+                             </>
+                           ) : (
+                             <>
+                               <IconBtn onClick={() => startCohortEdit(c)}><Pencil size={10} /></IconBtn>
+                               <IconBtn onClick={() => deleteCohort(c.id)} danger><Trash2 size={10} /></IconBtn>
+                             </>
+                           )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Add Cohort Inline Input */}
+              {addingCohortForProgramId === p.id ? (
+                <div style={{ display: 'flex', gap: '4px', marginTop: '0.25rem' }}>
+                  <input 
+                    autoFocus 
+                    placeholder="New cohort name..." 
+                    style={{ ...inputStyle, padding: '4px 8px', fontSize: '0.775rem' }} 
+                    value={newCohortName} 
+                    onChange={e => setNewCohortName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleAddCohort(p.id);
+                      if (e.key === 'Escape') setAddingCohortForProgramId(null);
+                    }}
+                  />
+                  <IconBtn onClick={() => handleAddCohort(p.id)} success><Check size={13} /></IconBtn>
+                  <IconBtn onClick={() => setAddingCohortForProgramId(null)} danger><X size={13} /></IconBtn>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setAddingCohortForProgramId(p.id); setNewCohortName(''); }}
+                  style={{
+                    marginTop: '0.25rem',
+                    padding: '6px',
+                    background: 'transparent',
+                    border: '1.5px dashed var(--border)',
+                    color: 'var(--text-secondary)',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    transition: 'all 0.15s'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.borderColor = 'var(--primary)';
+                    e.currentTarget.style.color = 'var(--primary)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.borderColor = 'var(--border)';
+                    e.currentTarget.style.color = 'var(--text-secondary)';
+                  }}
+                >
+                  <Plus size={12} /> Add Cohort
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {showAddProgram ? (
+        <div style={{ marginTop: '1.5rem', display: 'flex', gap: '8px', maxWidth: '320px', alignItems: 'center' }}>
+          <input 
+            autoFocus 
+            placeholder="Enter program name..." 
+            style={inputStyle} 
+            value={newProgramName} 
+            onChange={e => setNewProgramName(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') handleAddProgram();
+              if (e.key === 'Escape') setShowAddProgram(false);
+            }}
+          />
+          <IconBtn onClick={handleAddProgram} success><Check size={14} /></IconBtn>
+          <IconBtn onClick={() => setShowAddProgram(false)} danger><X size={14} /></IconBtn>
+        </div>
+      ) : (
+        <button
+          onClick={() => { setShowAddProgram(true); setNewProgramName(''); }}
+          style={{
+            marginTop: '1.5rem',
+            padding: '8px 16px',
+            background: 'var(--primary)',
+            color: '#fff',
+            display: 'flex', alignItems: 'center', gap: '6px',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '0.8rem',
+            fontWeight: 600,
+            transition: 'opacity 0.15s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
+          onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+        >
+          <Plus size={14} /> Add Program
+        </button>
+      )}
+    </SectionCard>
+  );
+};
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT — tabbed layout
 // ═══════════════════════════════════════════════════════════════════════════════
-type ConfigTab = 'speakers' | 'groups' | 'statuses';
+type ConfigTab = 'speakers' | 'groups' | 'statuses' | 'programs';
 
 const CONFIG_TABS: { id: ConfigTab; label: string; icon: React.ReactNode }[] = [
   { id: 'speakers', label: 'POC Owners / Speakers', icon: <Users size={15} /> },
   { id: 'groups',   label: 'Product Groups',         icon: <Layers size={15} /> },
   { id: 'statuses', label: 'Statuses',               icon: <Tag size={15} /> },
+  { id: 'programs', label: 'Programs & Cohorts',     icon: <Layers size={15} /> },
 ];
 
 export const ConfigSection: React.FC = () => {
@@ -688,31 +937,8 @@ export const ConfigSection: React.FC = () => {
         zIndex: 50,
         background: 'var(--panel-bg)',
         borderBottom: '1px solid var(--border)',
-        padding: '1.25rem 2rem 0',
+        padding: '1rem 2rem',
       }}>
-        {/* Title row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
-          <div style={{
-            width: 40, height: 40,
-            borderRadius: '11px',
-            background: 'linear-gradient(135deg, var(--primary), #4f46e5)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff',
-            boxShadow: '0 4px 14px rgba(99,102,241,0.35)',
-            flexShrink: 0,
-          }}>
-            <Settings size={20} />
-          </div>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-              Configuration
-            </h1>
-            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 1 }}>
-              Manage master lists used across all dropdowns in the dashboard
-            </p>
-          </div>
-        </div>
-
         {/* Tab bar */}
         <div style={{ display: 'flex', gap: '0.25rem' }}>
           {CONFIG_TABS.map(tab => {
@@ -754,33 +980,17 @@ export const ConfigSection: React.FC = () => {
       </div>
 
       {/* ── Tab content ───────────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '1.75rem 2rem' }}>
-
-        {/* Info banner */}
-        <div style={{
-          marginBottom: '1.25rem',
-          padding: '0.65rem 1rem',
-          borderRadius: '10px',
-          background: 'rgba(99,102,241,0.08)',
-          border: '1px solid rgba(99,102,241,0.2)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.6rem',
-          fontSize: '0.78rem',
-          color: 'var(--text-secondary)',
-        }}>
-          <span style={{ fontSize: '0.95rem' }}>💡</span>
-          Changes are reflected immediately in all dropdowns and persist to local storage.
-        </div>
-
+      <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem 2rem' }}>
         {/* Active section */}
-        <div style={{ maxWidth: 860 }}>
-          {activeTab === 'speakers'  && <SpeakersSection />}
-          {activeTab === 'groups'    && <ProductGroupsSection />}
-          {activeTab === 'statuses'  && <StatusesSection />}
+        <div>
+          {activeTab === 'speakers' && <SpeakersSection />}
+          {activeTab === 'groups' && <ProductGroupsSection />}
+          {activeTab === 'statuses' && <StatusesSection />}
+          {activeTab === 'programs' && <ProgramsSection />}
         </div>
       </div>
     </div>
   );
 };
+
 

@@ -2620,7 +2620,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .kanban-column {
-  flex: 0 0 290px;
+  flex: 1;
+  min-width: 280px;
   display: flex;
   flex-direction: column;
   background-color: var(--background-alt);
@@ -2648,10 +2649,9 @@ h1, h2, h3, h4, h5, h6 {
   border-top-right-radius: 12px;
 }
 
-.kanban-column-header.backlog { border-top: 3px solid var(--text-muted); }
+.kanban-column-header.product { border-top: 3px solid var(--text-muted); }
 .kanban-column-header.design { border-top: 3px solid var(--primary); }
 .kanban-column-header.dev { border-top: 3px solid var(--info); }
-.kanban-column-header.testing { border-top: 3px solid var(--warning); }
 .kanban-column-header.completed { border-top: 3px solid var(--success); }
 
 .kanban-column-title {
@@ -2699,10 +2699,24 @@ h1, h2, h3, h4, h5, h6 {
   user-select: none;
 }
 
+.kanban-card.completed-card {
+  border-color: rgba(16, 185, 129, 0.3) !important;
+  border-left: 4px solid var(--success) !important;
+  background-color: rgba(16, 185, 129, 0.08) !important;
+}
+
+:root[data-theme='light'] .kanban-card.completed-card {
+  background-color: rgba(16, 185, 129, 0.05) !important;
+}
+
 .kanban-card:hover {
   transform: translateY(-2px);
   border-color: var(--border-light);
   box-shadow: var(--shadow);
+}
+
+.kanban-card.completed-card:hover {
+  border-color: rgba(16, 185, 129, 0.5) !important;
 }
 
 .kanban-card:active {

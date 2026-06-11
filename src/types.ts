@@ -19,6 +19,10 @@ export interface ProductItem {
   uiux: string; // date or notes
   finalRelease: string; // date or notes
   productDeadline: string; // date or notes
+  productDeadlineCompleted?: boolean;
+  uiuxCompleted?: boolean;
+  deadlineCompleted?: boolean;
+  finalReleaseCompleted?: boolean;
 }
 
 export interface PlanItem {
@@ -28,6 +32,7 @@ export interface PlanItem {
   task: string;
   link: string;
   status: 'testing' | 'development' | 'closed' | 'tested' | 'open' | 'in design' | 'Done';
+  completed?: boolean;
 }
 
 export interface StudentProject {
@@ -105,8 +110,19 @@ export interface ContentItem {
   type: 'Video' | 'Quiz' | 'Worksheet' | 'Notes' | 'Syllabus';
   poc: string;
   draftLink: string;
-  status: 'Drafting' | 'Under Review' | 'Approved' | 'Published';
+  status: string;
   publishDate: string;
+  product?: string;
+  priority?: 'P0' | 'P1' | 'P2' | 'P3' | 'P4' | '';
+  clickupStatus?: string;
+  productDeadline?: string;
+  uiux?: string;
+  deadline?: string;
+  finalRelease?: string;
+  productDeadlineCompleted?: boolean;
+  uiuxCompleted?: boolean;
+  deadlineCompleted?: boolean;
+  finalReleaseCompleted?: boolean;
 }
 
 export interface DailyIssue {
@@ -128,6 +144,9 @@ export interface FeatureAdoption {
   adoptionRate: number; // percentage 0-100
   activeUsers: number;
   sentiment: number; // 1-5 rating
+  program?: string;
+  cohort?: string;
+  status?: 'Used' | 'Not Used';
 }
 
 // ── Configuration Types ──────────────────────────────────────────────────────
@@ -149,5 +168,16 @@ export interface ConfigStatus {
   label: string;
   color: string; // hex colour for status badge
   scope: 'product' | 'ama' | 'all'; // which dropdowns this applies to
+}
+
+export interface ConfigProgram {
+  id: string;
+  name: string;
+}
+
+export interface ConfigCohort {
+  id: string;
+  name: string;
+  programId: string;
 }
 

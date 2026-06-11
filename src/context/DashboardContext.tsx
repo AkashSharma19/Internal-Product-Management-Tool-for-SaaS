@@ -11,7 +11,9 @@ import type {
   FeatureAdoption,
   ConfigSpeaker,
   ConfigProductGroup,
-  ConfigStatus
+  ConfigStatus,
+  ConfigProgram,
+  ConfigCohort
 } from '../types';
 import {
   initialProductItems,
@@ -25,7 +27,9 @@ import {
   initialFeatureAdoptions,
   initialSpeakers,
   initialProductGroups,
-  initialStatuses
+  initialStatuses,
+  initialPrograms,
+  initialCohorts
 } from '../mockData';
 
 interface DashboardContextType {
@@ -109,7 +113,18 @@ interface DashboardContextType {
   addStatus: (item: ConfigStatus) => void;
   updateStatus: (id: string, updated: Partial<ConfigStatus>) => void;
   deleteStatus: (id: string) => void;
+
+  programs: ConfigProgram[];
+  addProgram: (item: ConfigProgram) => void;
+  updateProgram: (id: string, updated: Partial<ConfigProgram>) => void;
+  deleteProgram: (id: string) => void;
+
+  cohorts: ConfigCohort[];
+  addCohort: (item: ConfigCohort) => void;
+  updateCohort: (id: string, updated: Partial<ConfigCohort>) => void;
+  deleteCohort: (id: string) => void;
 }
+
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
 
@@ -198,7 +213,33 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [planItems, setPlanItems] = useState<PlanItem[]>(() => {
     const data = localStorage.getItem('data-plans');
-    return data ? JSON.parse(data) : initialPlanItems;
+    if (!data) return initialPlanItems;
+    try {
+      const items = JSON.parse(data) as PlanItem[];
+      return items.map(item => {
+        let updatedStatus = item.status;
+        let completed = item.completed;
+        if (item.status === 'testing' || item.status === 'tested') {
+          updatedStatus = 'development';
+        } else if (item.status === 'Done' || item.status === 'closed') {
+          completed = true;
+          if (item.category === 'Product') {
+            updatedStatus = 'open';
+          } else if (item.category === 'UI/UX') {
+            updatedStatus = 'in design';
+          } else {
+            updatedStatus = 'development';
+          }
+        }
+        return {
+          ...item,
+          status: updatedStatus,
+          completed: !!completed
+        };
+      });
+    } catch (e) {
+      return initialPlanItems;
+    }
   });
 
   const [studentProjects, setStudentProjects] = useState<StudentProject[]>(() => {
@@ -250,6 +291,16 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [statuses, setStatuses] = useState<ConfigStatus[]>(() => {
     const data = localStorage.getItem('config-statuses');
     return data ? JSON.parse(data) : initialStatuses;
+  });
+
+  const [programs, setPrograms] = useState<ConfigProgram[]>(() => {
+    const data = localStorage.getItem('config-programs');
+    return data ? JSON.parse(data) : initialPrograms;
+  });
+
+  const [cohorts, setCohorts] = useState<ConfigCohort[]>(() => {
+    const data = localStorage.getItem('config-cohorts');
+    return data ? JSON.parse(data) : initialCohorts;
   });
 
   // Persist settings
@@ -311,6 +362,14 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     localStorage.setItem('config-statuses', JSON.stringify(statuses));
   }, [statuses]);
 
+  useEffect(() => {
+    localStorage.setItem('config-programs', JSON.stringify(programs));
+  }, [programs]);
+
+  useEffect(() => {
+    localStorage.setItem('config-cohorts', JSON.stringify(cohorts));
+  }, [cohorts]);
+
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
@@ -371,6 +430,28 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             };
           }
           return m;
+        }));
+        setContentItems(ci => ci.map(p => {
+          if (p.module.toLowerCase() === updatedItem.feature.toLowerCase() || id === `prod-temp-${p.id}`) {
+            return {
+              ...p,
+              module: updatedItem.feature,
+              product: updatedItem.product,
+              priority: updatedItem.priority,
+              poc: updatedItem.poc,
+              clickupStatus: updatedItem.clickupStatus,
+              productDeadline: updatedItem.productDeadline,
+              uiux: updatedItem.uiux,
+              deadline: updatedItem.deadline,
+              finalRelease: updatedItem.finalRelease,
+              productDeadlineCompleted: updatedItem.productDeadlineCompleted,
+              uiuxCompleted: updatedItem.uiuxCompleted,
+              deadlineCompleted: updatedItem.deadlineCompleted,
+              finalReleaseCompleted: updatedItem.finalReleaseCompleted,
+              status: updatedItem.status,
+            };
+          }
+          return p;
         }));
       }
       return next;
@@ -434,7 +515,35 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const updateContentItem = (id: string, updated: Partial<ContentItem>) => {
-    setContentItems(prev => prev.map(item => item.id === id ? { ...item, ...updated } : item));
+    setContentItems(prev => {
+      const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
+      const updatedItem = next.find(item => item.id === id);
+      if (updatedItem) {
+        setProductItems(prod => prod.map(p => {
+          if (p.feature.toLowerCase() === updatedItem.module.toLowerCase() || p.id === `prod-temp-${updatedItem.id}`) {
+            return {
+              ...p,
+              feature: updatedItem.module,
+              product: updatedItem.product || p.product,
+              priority: updatedItem.priority || p.priority,
+              poc: updatedItem.poc || p.poc,
+              clickupStatus: updatedItem.clickupStatus || p.clickupStatus,
+              productDeadline: updatedItem.productDeadline || p.productDeadline,
+              uiux: updatedItem.uiux || p.uiux,
+              deadline: updatedItem.deadline || p.deadline,
+              finalRelease: updatedItem.finalRelease || p.finalRelease,
+              productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : p.productDeadlineCompleted,
+              uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : p.uiuxCompleted,
+              deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
+              finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted,
+              status: updatedItem.status
+            };
+          }
+          return p;
+        }));
+      }
+      return next;
+    });
   };
   const addContentItem = (item: ContentItem) => {
     setContentItems(prev => [item, ...prev]);
@@ -479,6 +588,16 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setStatuses(prev => prev.map(s => s.id === id ? { ...s, ...updated } : s));
   const deleteStatus = (id: string) => setStatuses(prev => prev.filter(s => s.id !== id));
 
+  const addProgram = (item: ConfigProgram) => setPrograms(prev => [...prev, item]);
+  const updateProgram = (id: string, updated: Partial<ConfigProgram>) =>
+    setPrograms(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p));
+  const deleteProgram = (id: string) => setPrograms(prev => prev.filter(p => p.id !== id));
+
+  const addCohort = (item: ConfigCohort) => setCohorts(prev => [...prev, item]);
+  const updateCohort = (id: string, updated: Partial<ConfigCohort>) =>
+    setCohorts(prev => prev.map(c => c.id === id ? { ...c, ...updated } : c));
+  const deleteCohort = (id: string) => setCohorts(prev => prev.filter(c => c.id !== id));
+
   const resetAllData = () => {
     if (window.confirm("Are you sure you want to reset all dashboard data back to initial spreadsheets? Your edits will be lost.")) {
       setProductItems(initialProductItems);
@@ -493,6 +612,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setSpeakers(initialSpeakers);
       setProductGroups(initialProductGroups);
       setStatuses(initialStatuses);
+      setPrograms(initialPrograms);
+      setCohorts(initialCohorts);
     }
   };
 
@@ -514,11 +635,14 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       speakers, addSpeaker, updateSpeaker, deleteSpeaker,
       productGroups, addProductGroup, updateProductGroup, deleteProductGroup,
       statuses, addStatus, updateStatus, deleteStatus,
+      programs, addProgram, updateProgram, deleteProgram,
+      cohorts, addCohort, updateCohort, deleteCohort,
     }}>
       {children}
     </DashboardContext.Provider>
   );
 };
+
 
 export const useDashboard = () => {
   const context = useContext(DashboardContext);

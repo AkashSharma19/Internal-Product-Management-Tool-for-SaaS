@@ -10,7 +10,9 @@ import type {
   FeatureAdoption,
   ConfigSpeaker,
   ConfigProductGroup,
-  ConfigStatus
+  ConfigStatus,
+  ConfigProgram,
+  ConfigCohort
 } from './types';
 
 
@@ -370,7 +372,7 @@ export const initialPlanItems: PlanItem[] = [
     category: 'Development',
     task: 'Student Course Overview: Add a new section "Recent Activity"',
     link: 'https://app.clickup.com/t/866y2rt01',
-    status: 'testing'
+    status: 'development'
   },
   {
     id: 'plan-2',
@@ -378,7 +380,7 @@ export const initialPlanItems: PlanItem[] = [
     category: 'Development',
     task: 'Student Month View Calendar & Reminders',
     link: 'https://app.clickup.com/t/866y2rt02',
-    status: 'testing'
+    status: 'development'
   },
   {
     id: 'plan-3',
@@ -410,7 +412,8 @@ export const initialPlanItems: PlanItem[] = [
     category: 'Development',
     task: 'PRS UIUX changes and API updates',
     link: 'https://app.clickup.com/t/866y2rt06',
-    status: 'tested'
+    status: 'development',
+    completed: true
   },
   // May UIUX
   {
@@ -427,7 +430,8 @@ export const initialPlanItems: PlanItem[] = [
     category: 'UI/UX',
     task: 'Absent Remarks workflow UI details',
     link: 'https://app.clickup.com/t/866y2rt21',
-    status: 'closed'
+    status: 'in design',
+    completed: true
   },
   {
     id: 'plan-9',
@@ -435,7 +439,8 @@ export const initialPlanItems: PlanItem[] = [
     category: 'UI/UX',
     task: 'Improve Bulk Upload (Pre-Read, In-class, Quizzes)',
     link: 'https://app.clickup.com/t/866y2rt22',
-    status: 'closed'
+    status: 'in design',
+    completed: true
   },
   {
     id: 'plan-10',
@@ -443,7 +448,7 @@ export const initialPlanItems: PlanItem[] = [
     category: 'UI/UX',
     task: 'Coach LMS | Concerns | POCs assigning panel UI',
     link: 'https://app.clickup.com/t/866y2rt23',
-    status: 'testing'
+    status: 'development'
   },
   // May Product
   {
@@ -452,7 +457,8 @@ export const initialPlanItems: PlanItem[] = [
     category: 'Product',
     task: 'Easy Video Upload Way & Compressor integration',
     link: '',
-    status: 'Done'
+    status: 'open',
+    completed: true
   },
   {
     id: 'plan-12',
@@ -621,8 +627,19 @@ export const initialContentItems: ContentItem[] = [
     type: 'Video',
     poc: 'Nikhil',
     draftLink: 'https://drive.google.com/drive/folders/react-intro',
-    status: 'Published',
-    publishDate: '2026-04-15'
+    status: 'Completed',
+    publishDate: '2026-04-15',
+    product: 'Coach LMS Web',
+    priority: 'P1',
+    clickupStatus: 'closed',
+    productDeadline: '2026-04-01',
+    uiux: '2026-04-05',
+    deadline: '2026-04-10',
+    finalRelease: '2026-04-15',
+    productDeadlineCompleted: true,
+    uiuxCompleted: true,
+    deadlineCompleted: true,
+    finalReleaseCompleted: true
   },
   {
     id: 'cont-2',
@@ -632,7 +649,18 @@ export const initialContentItems: ContentItem[] = [
     poc: 'Anushka',
     draftLink: 'https://docs.google.com/document/d/schema-design',
     status: 'Under Review',
-    publishDate: '2026-05-20'
+    publishDate: '2026-05-20',
+    product: 'Coach LMS Web',
+    priority: 'P2',
+    clickupStatus: 'in progress',
+    productDeadline: '2026-05-01',
+    uiux: '2026-05-10',
+    deadline: '2026-05-18',
+    finalRelease: '2026-05-20',
+    productDeadlineCompleted: true,
+    uiuxCompleted: true,
+    deadlineCompleted: false,
+    finalReleaseCompleted: false
   },
   {
     id: 'cont-3',
@@ -641,8 +669,19 @@ export const initialContentItems: ContentItem[] = [
     type: 'Notes',
     poc: 'Akash',
     draftLink: 'https://docs.google.com/document/d/system-design',
-    status: 'Drafting',
-    publishDate: ''
+    status: 'In Progress',
+    publishDate: '',
+    product: 'Coach LMS App',
+    priority: 'P3',
+    clickupStatus: 'open',
+    productDeadline: '',
+    uiux: '',
+    deadline: '',
+    finalRelease: '',
+    productDeadlineCompleted: false,
+    uiuxCompleted: false,
+    deadlineCompleted: false,
+    finalReleaseCompleted: false
   }
 ];
 
@@ -685,7 +724,10 @@ export const initialFeatureAdoptions: FeatureAdoption[] = [
     targetAudience: 'Students & Faculty',
     adoptionRate: 64,
     activeUsers: 450,
-    sentiment: 4.2
+    sentiment: 4.2,
+    program: 'UG-DSAI',
+    cohort: 'UG-DSAI-2029',
+    status: 'Used'
   },
   {
     id: 'adopt-2',
@@ -695,7 +737,10 @@ export const initialFeatureAdoptions: FeatureAdoption[] = [
     targetAudience: 'Parents',
     adoptionRate: 35,
     activeUsers: 180,
-    sentiment: 3.8
+    sentiment: 3.8,
+    program: 'UG-DSAI',
+    cohort: 'UG-DSAI-2028',
+    status: 'Not Used'
   },
   {
     id: 'adopt-3',
@@ -705,7 +750,10 @@ export const initialFeatureAdoptions: FeatureAdoption[] = [
     targetAudience: 'UG Classes',
     adoptionRate: 88,
     activeUsers: 920,
-    sentiment: 4.7
+    sentiment: 4.7,
+    program: 'Coop',
+    cohort: 'Coop-Cohort-1',
+    status: 'Used'
   },
   {
     id: 'adopt-4',
@@ -715,7 +763,10 @@ export const initialFeatureAdoptions: FeatureAdoption[] = [
     targetAudience: 'All Cohorts',
     adoptionRate: 95,
     activeUsers: 1420,
-    sentiment: 4.5
+    sentiment: 4.5,
+    program: 'All Programs',
+    cohort: 'All Cohorts',
+    status: 'Used'
   }
 ];
 
@@ -753,4 +804,19 @@ export const initialStatuses: ConfigStatus[] = [
   { id: 'st-7',  label: 'Cancelled',       color: '#ef4444', scope: 'all' },
   { id: 'st-8',  label: 'Under Review',    color: '#f97316', scope: 'all' },
 ];
+
+export const initialPrograms: ConfigProgram[] = [
+  { id: 'prog-1', name: 'UG-DSAI' },
+  { id: 'prog-2', name: 'Coop' },
+  { id: 'prog-3', name: 'All Programs' }
+];
+
+export const initialCohorts: ConfigCohort[] = [
+  { id: 'coh-1', name: 'UG-DSAI-2029', programId: 'prog-1' },
+  { id: 'coh-2', name: 'UG-DSAI-2028', programId: 'prog-1' },
+  { id: 'coh-3', name: 'Coop-Cohort-1', programId: 'prog-2' },
+  { id: 'coh-4', name: 'All Cohorts', programId: 'prog-3' }
+];
+
+
 

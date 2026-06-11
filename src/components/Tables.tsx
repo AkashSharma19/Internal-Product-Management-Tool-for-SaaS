@@ -331,13 +331,13 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     if (item.status === 'On Hold') return 12.5;
     
     let percentage = 12.5;
-    if (item.productDeadline || item.tarunSirApproval) {
+    if (item.productDeadlineCompleted || item.tarunSirApproval) {
       percentage = 12.5;
-      if (item.uiux) {
+      if (item.uiuxCompleted) {
         percentage = 37.5;
-        if (item.deadline) {
+        if (item.deadlineCompleted) {
           percentage = 62.5;
-          if (item.finalRelease) {
+          if (item.finalReleaseCompleted) {
             percentage = 87.5;
           }
         }
@@ -346,13 +346,13 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     return percentage;
   };
 
-  const isProductCompleted = !!item.productDeadline || item.tarunSirApproval || item.status === 'Completed';
-  const isUiuxCompleted = !!item.uiux || item.status === 'Completed';
-  const isUiuxActive = isProductCompleted && !item.uiux && item.status !== 'Completed';
-  const isDevCompleted = !!item.deadline || item.status === 'Completed' || item.clickupStatus?.toLowerCase() === 'closed';
-  const isDevActive = isUiuxCompleted && !item.deadline && item.status !== 'Completed' && item.clickupStatus?.toLowerCase() !== 'closed';
-  const isFinalCompleted = !!item.finalRelease || item.status === 'Completed';
-  const isFinalActive = isDevCompleted && !item.finalRelease && item.status !== 'Completed';
+  const isProductCompleted = !!item.productDeadlineCompleted || item.tarunSirApproval || item.status === 'Completed';
+  const isUiuxCompleted = !!item.uiuxCompleted || item.status === 'Completed';
+  const isUiuxActive = isProductCompleted && !item.uiuxCompleted && item.status !== 'Completed';
+  const isDevCompleted = !!item.deadlineCompleted || item.status === 'Completed' || item.clickupStatus?.toLowerCase() === 'closed';
+  const isDevActive = isUiuxCompleted && !item.deadlineCompleted && item.status !== 'Completed' && item.clickupStatus?.toLowerCase() !== 'closed';
+  const isFinalCompleted = !!item.finalReleaseCompleted || item.status === 'Completed';
+  const isFinalActive = isDevCompleted && !item.finalReleaseCompleted && item.status !== 'Completed';
 
   // Helper styles matching ClickUp status colors
   const getStatusColor = (status: string) => {
@@ -774,13 +774,20 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
               <span className="premium-property-label">
                 <Calendar size={13} /> product specs
               </span>
-              <div className="premium-property-value">
+              <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
                 <input
                   type="date"
                   style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)', border: 'none', background: 'transparent', outline: 'none', width: '120px', textAlign: 'right', cursor: 'pointer' }}
                   value={item.productDeadline || ''}
                   onClick={(e) => (e.target as any).showPicker?.()}
                   onChange={(e) => handleFieldUpdate('productDeadline', e.target.value)}
+                />
+                <input
+                  type="checkbox"
+                  checked={!!item.productDeadlineCompleted}
+                  onChange={(e) => handleFieldUpdate('productDeadlineCompleted', e.target.checked)}
+                  style={{ width: '14px', height: '14px', cursor: 'pointer' }}
+                  title="Mark Product Specs as Completed"
                 />
               </div>
             </div>
@@ -790,13 +797,20 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
               <span className="premium-property-label">
                 <Palette size={13} /> UI/UX design
               </span>
-              <div className="premium-property-value">
+              <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
                 <input
                   type="date"
                   style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)', border: 'none', background: 'transparent', outline: 'none', width: '120px', textAlign: 'right', cursor: 'pointer' }}
                   value={item.uiux || ''}
                   onClick={(e) => (e.target as any).showPicker?.()}
                   onChange={(e) => handleFieldUpdate('uiux', e.target.value)}
+                />
+                <input
+                  type="checkbox"
+                  checked={!!item.uiuxCompleted}
+                  onChange={(e) => handleFieldUpdate('uiuxCompleted', e.target.checked)}
+                  style={{ width: '14px', height: '14px', cursor: 'pointer' }}
+                  title="Mark UI/UX Design as Completed"
                 />
               </div>
             </div>
@@ -806,13 +820,20 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
               <span className="premium-property-label">
                 <Code size={13} /> dev deadline
               </span>
-              <div className="premium-property-value">
+              <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
                 <input
                   type="date"
                   style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)', border: 'none', background: 'transparent', outline: 'none', width: '120px', textAlign: 'right', cursor: 'pointer' }}
                   value={item.deadline || ''}
                   onClick={(e) => (e.target as any).showPicker?.()}
                   onChange={(e) => handleFieldUpdate('deadline', e.target.value)}
+                />
+                <input
+                  type="checkbox"
+                  checked={!!item.deadlineCompleted}
+                  onChange={(e) => handleFieldUpdate('deadlineCompleted', e.target.checked)}
+                  style={{ width: '14px', height: '14px', cursor: 'pointer' }}
+                  title="Mark Dev Deadline as Completed"
                 />
               </div>
             </div>
@@ -822,13 +843,20 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
               <span className="premium-property-label">
                 <Sparkles size={13} /> final release
               </span>
-              <div className="premium-property-value">
+              <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
                 <input
                   type="date"
                   style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)', border: 'none', background: 'transparent', outline: 'none', width: '120px', textAlign: 'right', cursor: 'pointer' }}
                   value={item.finalRelease || ''}
                   onClick={(e) => (e.target as any).showPicker?.()}
                   onChange={(e) => handleFieldUpdate('finalRelease', e.target.value)}
+                />
+                <input
+                  type="checkbox"
+                  checked={!!item.finalReleaseCompleted}
+                  onChange={(e) => handleFieldUpdate('finalReleaseCompleted', e.target.checked)}
+                  style={{ width: '14px', height: '14px', cursor: 'pointer' }}
+                  title="Mark Final Release as Completed"
                 />
               </div>
             </div>
@@ -1614,18 +1642,64 @@ export const ProductTable: React.FC = () => {
                       </span>
                     ) : '—'}
                   </td>
-                  <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{item.productDeadline ? formatDateToUserPattern(item.productDeadline) : '—'}</td>
+                  <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    {item.productDeadline ? (
+                      <span style={item.productDeadlineCompleted ? {
+                        backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                        color: '#10b981',
+                        fontWeight: 600,
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        display: 'inline-block'
+                      } : {}}>
+                        {formatDateToUserPattern(item.productDeadline)}
+                      </span>
+                    ) : '—'}
+                  </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                     <DateDiffBadge prevDate={item.productDeadline} currentDate={item.uiux} />
-                    {item.uiux ? formatDateToUserPattern(item.uiux) : '—'}
+                    {item.uiux ? (
+                      <span style={item.uiuxCompleted ? {
+                        backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                        color: '#10b981',
+                        fontWeight: 600,
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        display: 'inline-block'
+                      } : {}}>
+                        {formatDateToUserPattern(item.uiux)}
+                      </span>
+                    ) : '—'}
                   </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                     <DateDiffBadge prevDate={item.uiux} currentDate={item.deadline} />
-                    {item.deadline ? formatDateToUserPattern(item.deadline) : '—'}
+                    {item.deadline ? (
+                      <span style={item.deadlineCompleted ? {
+                        backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                        color: '#10b981',
+                        fontWeight: 600,
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        display: 'inline-block'
+                      } : {}}>
+                        {formatDateToUserPattern(item.deadline)}
+                      </span>
+                    ) : '—'}
                   </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                     <DateDiffBadge prevDate={item.deadline} currentDate={item.finalRelease} />
-                    {item.finalRelease ? formatDateToUserPattern(item.finalRelease) : '—'}
+                    {item.finalRelease ? (
+                      <span style={item.finalReleaseCompleted ? {
+                        backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                        color: '#10b981',
+                        fontWeight: 600,
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        display: 'inline-block'
+                      } : {}}>
+                        {formatDateToUserPattern(item.finalRelease)}
+                      </span>
+                    ) : '—'}
                   </td>
 
                   <td>
@@ -1740,14 +1814,23 @@ const PlanDetailModal: React.FC<PlanDetailModalProps> = ({ item, onClose, onUpda
                 value={draft.status}
                 onChange={(e) => setDraft({ ...draft, status: e.target.value as any })}
               >
-                <option value="open">Open</option>
-                <option value="development">Development</option>
-                <option value="testing">Testing</option>
-                <option value="tested">Tested</option>
+                <option value="open">Product</option>
                 <option value="in design">In Design</option>
+                <option value="development">Development</option>
                 <option value="closed">Closed</option>
                 <option value="Done">Done</option>
               </select>
+            </div>
+
+            <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1.8rem' }}>
+              <input 
+                type="checkbox" 
+                id="task-completed-checkbox"
+                checked={!!draft.completed} 
+                onChange={(e) => setDraft({ ...draft, completed: e.target.checked })} 
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              />
+              <label htmlFor="task-completed-checkbox" className="form-label" style={{ margin: 0, cursor: 'pointer' }}>Mark as Completed</label>
             </div>
 
             <div className="form-group form-group-full">
@@ -1783,12 +1866,24 @@ const PlanDetailModal: React.FC<PlanDetailModalProps> = ({ item, onClose, onUpda
               <div>
                 <span className={`badge ${
                   item.status === 'Done' ? 'status-done' :
-                  item.status === 'testing' ? 'clickup-testing' :
                   item.status === 'development' ? 'clickup-development' :
                   item.status === 'closed' ? 'clickup-closed' : 'clickup-open'
                 }`}>
-                  {item.status}
+                  {item.status === 'open' ? 'Product' : item.status}
                 </span>
+              </div>
+            </div>
+
+            <div className="detail-group">
+              <span className="detail-label">Completion Status</span>
+              <div>
+                {item.completed ? (
+                  <span className="badge status-done" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <CheckCircle size={12} /> Completed
+                  </span>
+                ) : (
+                  <span className="badge clickup-open">Active</span>
+                )}
               </div>
             </div>
 
@@ -1880,11 +1975,9 @@ export const PlanTable: React.FC = () => {
     if (!itemId) return;
 
     const columnConfigs = [
-      { id: 'backlog', fallbackStatus: 'open' },
+      { id: 'product', fallbackStatus: 'open' },
       { id: 'design', fallbackStatus: 'in design' },
-      { id: 'dev', fallbackStatus: 'development' },
-      { id: 'testing', fallbackStatus: 'testing' },
-      { id: 'completed', fallbackStatus: 'Done' }
+      { id: 'dev', fallbackStatus: 'development' }
     ];
 
     const column = columnConfigs.find(c => c.id === targetColId);
@@ -1894,11 +1987,9 @@ export const PlanTable: React.FC = () => {
   };
 
   const COLUMNS = [
-    { id: 'backlog', title: 'Backlog', statuses: ['open'], headerClass: 'backlog', icon: <Inbox size={14} style={{ color: 'var(--text-muted)' }} /> },
+    { id: 'product', title: 'Product', statuses: ['open'], headerClass: 'product', icon: <Inbox size={14} style={{ color: 'var(--text-muted)' }} /> },
     { id: 'design', title: 'In Design', statuses: ['in design'], headerClass: 'design', icon: <Palette size={14} style={{ color: 'var(--primary)' }} /> },
-    { id: 'dev', title: 'Development', statuses: ['development'], headerClass: 'dev', icon: <Code size={14} style={{ color: 'var(--info)' }} /> },
-    { id: 'testing', title: 'Testing', statuses: ['testing', 'tested'], headerClass: 'testing', icon: <CheckSquare size={14} style={{ color: 'var(--warning)' }} /> },
-    { id: 'completed', title: 'Completed', statuses: ['Done', 'closed'], headerClass: 'completed', icon: <CheckCircle size={14} style={{ color: 'var(--success)' }} /> }
+    { id: 'dev', title: 'Development', statuses: ['development', 'testing', 'tested'], headerClass: 'dev', icon: <Code size={14} style={{ color: 'var(--info)' }} /> }
   ];
 
   return (
@@ -1949,7 +2040,7 @@ export const PlanTable: React.FC = () => {
                   {colItems.map(item => (
                     <div 
                       key={item.id} 
-                      className="kanban-card"
+                      className={`kanban-card ${item.completed ? 'completed-card' : ''}`}
                       draggable
                       onDragStart={(e) => handleDragStart(e, item.id)}
                       onClick={() => openPreviewForFeature(item.task, { status: item.status as any, clickupStatus: item.status, taskLink: item.link })}
@@ -1968,6 +2059,23 @@ export const PlanTable: React.FC = () => {
                         </div>
                         
                         <div className="kanban-card-actions" onClick={(e) => e.stopPropagation()}>
+                          <button 
+                            onClick={() => updatePlanItem(item.id, { completed: !item.completed })}
+                            className={`kanban-complete-btn ${item.completed ? 'active' : ''}`}
+                            style={{ 
+                              background: 'none', 
+                              border: 'none', 
+                              cursor: 'pointer', 
+                              color: item.completed ? 'var(--success)' : 'var(--text-muted)', 
+                              display: 'inline-flex', 
+                              alignItems: 'center', 
+                              padding: '2px',
+                              transition: 'color 0.2s'
+                            }}
+                            title={item.completed ? "Mark Active" : "Mark Completed"}
+                          >
+                            <CheckCircle size={12} />
+                          </button>
                           {item.link && (
                             <a 
                               href={item.link} 
@@ -3311,6 +3419,10 @@ export const StudentMeetingsTable: React.FC = () => {
                                         <th style={{ width: '120px' }}>Status</th>
                                         <th style={{ width: '120px' }}>POC</th>
                                         <th style={{ width: '100px' }}>ClickUp</th>
+                                        <th style={{ width: '120px' }}>Specs Date</th>
+                                        <th style={{ width: '120px' }}>UI/UX Date</th>
+                                        <th style={{ width: '120px' }}>Dev Date</th>
+                                        <th style={{ width: '120px' }}>Release Date</th>
                                         <th style={{ width: '40px' }}></th>
                                       </tr>
                                     </thead>
@@ -3401,6 +3513,65 @@ export const StudentMeetingsTable: React.FC = () => {
                                             {feat.clickupStatus ? (
                                               <span className={`badge clickup-${feat.clickupStatus.toLowerCase()}`}>
                                                 {feat.clickupStatus}
+                                              </span>
+                                            ) : '—'}
+                                          </td>
+                                          <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                            {feat.productDeadline ? (
+                                              <span style={feat.productDeadlineCompleted ? {
+                                                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                                color: '#10b981',
+                                                fontWeight: 600,
+                                                padding: '2px 6px',
+                                                borderRadius: '4px',
+                                                display: 'inline-block'
+                                              } : {}}>
+                                                {formatDateToUserPattern(feat.productDeadline)}
+                                              </span>
+                                            ) : '—'}
+                                          </td>
+                                          <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                                            <DateDiffBadge prevDate={feat.productDeadline} currentDate={feat.uiux} />
+                                            {feat.uiux ? (
+                                              <span style={feat.uiuxCompleted ? {
+                                                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                                color: '#10b981',
+                                                fontWeight: 600,
+                                                padding: '2px 6px',
+                                                borderRadius: '4px',
+                                                display: 'inline-block'
+                                              } : {}}>
+                                                {formatDateToUserPattern(feat.uiux)}
+                                              </span>
+                                            ) : '—'}
+                                          </td>
+                                          <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                                            <DateDiffBadge prevDate={feat.uiux} currentDate={feat.deadline} />
+                                            {feat.deadline ? (
+                                              <span style={feat.deadlineCompleted ? {
+                                                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                                color: '#10b981',
+                                                fontWeight: 600,
+                                                padding: '2px 6px',
+                                                borderRadius: '4px',
+                                                display: 'inline-block'
+                                              } : {}}>
+                                                {formatDateToUserPattern(feat.deadline)}
+                                              </span>
+                                            ) : '—'}
+                                          </td>
+                                          <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                                            <DateDiffBadge prevDate={feat.deadline} currentDate={feat.finalRelease} />
+                                            {feat.finalRelease ? (
+                                              <span style={feat.finalReleaseCompleted ? {
+                                                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                                color: '#10b981',
+                                                fontWeight: 600,
+                                                padding: '2px 6px',
+                                                borderRadius: '4px',
+                                                display: 'inline-block'
+                                              } : {}}>
+                                                {formatDateToUserPattern(feat.finalRelease)}
                                               </span>
                                             ) : '—'}
                                           </td>
@@ -3901,18 +4072,64 @@ export const StudentMeetingsTable: React.FC = () => {
                           </span>
                         ) : '—'}
                       </td>
-                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{feat.productDeadline ? formatDateToUserPattern(feat.productDeadline) : '—'}</td>
+                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        {feat.productDeadline ? (
+                          <span style={feat.productDeadlineCompleted ? {
+                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                            color: '#10b981',
+                            fontWeight: 600,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            display: 'inline-block'
+                          } : {}}>
+                            {formatDateToUserPattern(feat.productDeadline)}
+                          </span>
+                        ) : '—'}
+                      </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                         <DateDiffBadge prevDate={feat.productDeadline} currentDate={feat.uiux} />
-                        {feat.uiux ? formatDateToUserPattern(feat.uiux) : '—'}
+                        {feat.uiux ? (
+                          <span style={feat.uiuxCompleted ? {
+                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                            color: '#10b981',
+                            fontWeight: 600,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            display: 'inline-block'
+                          } : {}}>
+                            {formatDateToUserPattern(feat.uiux)}
+                          </span>
+                        ) : '—'}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                         <DateDiffBadge prevDate={feat.uiux} currentDate={feat.deadline} />
-                        {feat.deadline ? formatDateToUserPattern(feat.deadline) : '—'}
+                        {feat.deadline ? (
+                          <span style={feat.deadlineCompleted ? {
+                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                            color: '#10b981',
+                            fontWeight: 600,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            display: 'inline-block'
+                          } : {}}>
+                            {formatDateToUserPattern(feat.deadline)}
+                          </span>
+                        ) : '—'}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                         <DateDiffBadge prevDate={feat.deadline} currentDate={feat.finalRelease} />
-                        {feat.finalRelease ? formatDateToUserPattern(feat.finalRelease) : '—'}
+                        {feat.finalRelease ? (
+                          <span style={feat.finalReleaseCompleted ? {
+                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                            color: '#10b981',
+                            fontWeight: 600,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            display: 'inline-block'
+                          } : {}}>
+                            {formatDateToUserPattern(feat.finalRelease)}
+                          </span>
+                        ) : '—'}
                       </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
@@ -3953,173 +4170,93 @@ export const StudentMeetingsTable: React.FC = () => {
 };
 
 /* =========================================================================
-   5. ADMIN CALLS MODAL & COMPONENT
+   5. ADMIN CALLS LOGS (INLINE EDITING & RELATED FEATURES SYSTEM)
    ========================================================================= */
-interface AdminCallDetailModalProps {
-  item: AdminCall;
-  onClose: () => void;
-  onUpdate: (id: string, updated: Partial<AdminCall>) => void;
-}
-
-const AdminCallDetailModal: React.FC<AdminCallDetailModalProps> = ({ item, onClose, onUpdate }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState<AdminCall>({ ...item });
-
-  React.useEffect(() => {
-    setDraft({ ...item });
-  }, [item]);
-
-  const handleSave = () => {
-    onUpdate(item.id, draft);
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    setDraft({ ...item });
-    setIsEditing(false);
-  };
-
-  return (
-    <div className="detail-overlay" onClick={onClose}>
-      <div className="detail-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3 className="modal-title" style={{ fontFamily: 'Outfit', color: 'var(--primary)' }}>
-            {isEditing ? 'Edit Admin Call Log' : 'Admin Call Details'}
-          </h3>
-          <button className="modal-close" onClick={onClose}><X size={18} /></button>
-        </div>
-
-        {isEditing ? (
-          <div className="form-grid" style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
-            <div className="form-group">
-              <label className="form-label">Call Date</label>
-              <input 
-                type="date" 
-                className="form-input" 
-                value={draft.date} 
-                onChange={(e) => setDraft({ ...draft, date: e.target.value })} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Admin / POC Owner</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={draft.adminPoc} 
-                onChange={(e) => setDraft({ ...draft, adminPoc: e.target.value })} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Call Topic / Subject</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={draft.cohortTopic} 
-                onChange={(e) => setDraft({ ...draft, cohortTopic: e.target.value })} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Call Status</label>
-              <select 
-                className="filter-select w-full"
-                style={{ height: '38px' }}
-                value={draft.status}
-                onChange={(e) => setDraft({ ...draft, status: e.target.value as any })}
-              >
-                <option value="Scheduled">Scheduled</option>
-                <option value="Pending Actions">Pending Actions</option>
-                <option value="Completed">Completed</option>
-              </select>
-            </div>
-
-            <div className="form-group form-group-full">
-              <label className="form-label">Discussion Details</label>
-              <textarea 
-                className="form-input" 
-                style={{ height: '80px', resize: 'vertical', fontFamily: 'inherit' }}
-                value={draft.discussion} 
-                onChange={(e) => setDraft({ ...draft, discussion: e.target.value })} 
-              />
-            </div>
-
-            <div className="form-group form-group-full">
-              <label className="form-label">Action Items / Assignments</label>
-              <textarea 
-                className="form-input" 
-                style={{ height: '80px', resize: 'vertical', fontFamily: 'inherit' }}
-                value={draft.actions} 
-                onChange={(e) => setDraft({ ...draft, actions: e.target.value })} 
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="detail-grid">
-            <div className="detail-group detail-group-full">
-              <span className="detail-label">Call Topic</span>
-              <span className="detail-value" style={{ fontSize: '1.05rem', fontWeight: 700 }}>{item.cohortTopic}</span>
-            </div>
-
-            <div className="detail-group">
-              <span className="detail-label">Admin POC</span>
-              <span className="detail-value" style={{ fontWeight: 600 }}>{item.adminPoc}</span>
-            </div>
-
-            <div className="detail-group">
-              <span className="detail-label">Date of Call</span>
-              <span className="detail-value">{item.date}</span>
-            </div>
-
-            <div className="detail-group">
-              <span className="detail-label">Call Status</span>
-              <div>
-                <span className={`badge ${
-                  item.status === 'Completed' ? 'status-done' :
-                  item.status === 'Pending Actions' ? 'status-hold' : 'status-progress'
-                }`}>
-                  {item.status}
-                </span>
-              </div>
-            </div>
-
-            <div className="detail-group detail-group-full">
-              <span className="detail-label">Key Discussion Minutes</span>
-              <div className="detail-value-block">{item.discussion || '—'}</div>
-            </div>
-
-            <div className="detail-group detail-group-full">
-              <span className="detail-label">Assigned Action Items</span>
-              <div className="detail-value-block" style={{ borderLeft: '4px solid var(--primary)' }}>
-                {item.actions || '—'}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="form-actions">
-          {isEditing ? (
-            <>
-              <button className="btn btn-secondary" onClick={handleCancel}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSave}>Save</button>
-            </>
-          ) : (
-            <>
-              <button className="btn btn-secondary" onClick={onClose}>Close</button>
-              <button className="btn btn-primary" onClick={() => setIsEditing(true)}>Edit Details</button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
 export const AdminCallsTable: React.FC = () => {
-  const { adminCalls, updateAdminCall, addAdminCall, deleteAdminCall, openPreviewForFeature } = useDashboard();
+  const { 
+    adminCalls, updateAdminCall, addAdminCall, deleteAdminCall, 
+    productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
+    speakers: configSpeakers 
+  } = useDashboard();
+  
+  const speakersList = configSpeakers.map(s => s.name);
   const [searchQuery, setSearchQuery] = useState('');
-  const [editingItem, setEditingItem] = useState<AdminCall | null>(null);
+  const [subTab, setSubTab] = useState<'schedule' | 'feedback'>('schedule');
+
+  // Inline editing states for Admin Calls
+  const [editingCallDateId, setEditingCallDateId] = useState<string | null>(null);
+  const [inlineCallDateValue, setInlineCallDateValue] = useState('');
+  const editCallDateInputRef = useRef<HTMLInputElement>(null);
+
+  const [editingCallPocId, setEditingCallPocId] = useState<string | null>(null);
+  const [inlineCallPocValue, setInlineCallPocValue] = useState('');
+
+  const [editingCallTopicId, setEditingCallTopicId] = useState<string | null>(null);
+  const [inlineCallTopicValue, setInlineCallTopicValue] = useState('');
+  const editCallTopicInputRef = useRef<HTMLInputElement>(null);
+
+  const [expandedCallId, setExpandedCallId] = useState<string | null>(null);
+
+  // Related features state
+  const [editingCallRelatedId, setEditingCallRelatedId] = useState<string | null>(null);
+  const [inlineCallRelatedValue, setInlineCallRelatedValue] = useState('');
+  const editCallRelatedInputRef = useRef<HTMLInputElement>(null);
+
+  // Inline editing states for Feedback tab
+  const [editingFeedbackFeatureId, setEditingFeedbackFeatureId] = useState<string | null>(null);
+  const [inlineFeedbackFeatureValue, setInlineFeedbackFeatureValue] = useState('');
+  const editFeedbackFeatureInputRef = useRef<HTMLInputElement>(null);
+
+  const [editingFeedbackDateId, setEditingFeedbackDateId] = useState<string | null>(null);
+  const [inlineFeedbackDateValue, setInlineFeedbackDateValue] = useState('');
+  const editFeedbackDateInputRef = useRef<HTMLInputElement>(null);
+
+  const [editingFeedbackPocId, setEditingFeedbackPocId] = useState<string | null>(null);
+  const [inlineFeedbackPocValue, setInlineFeedbackPocValue] = useState('');
+
+  const [editingFeedbackTopicId, setEditingFeedbackTopicId] = useState<string | null>(null);
+  const [inlineFeedbackTopicValue, setInlineFeedbackTopicValue] = useState('');
+  const editFeedbackTopicInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingCallTopicId && editCallTopicInputRef.current) {
+      editCallTopicInputRef.current.focus();
+      editCallTopicInputRef.current.select();
+    }
+  }, [editingCallTopicId]);
+
+  useEffect(() => {
+    if (editingCallDateId && editCallDateInputRef.current) {
+      editCallDateInputRef.current.focus();
+    }
+  }, [editingCallDateId]);
+
+  useEffect(() => {
+    if (editingCallRelatedId && editCallRelatedInputRef.current) {
+      editCallRelatedInputRef.current.focus();
+      editCallRelatedInputRef.current.select();
+    }
+  }, [editingCallRelatedId]);
+
+  useEffect(() => {
+    if (editingFeedbackFeatureId && editFeedbackFeatureInputRef.current) {
+      editFeedbackFeatureInputRef.current.focus();
+      editFeedbackFeatureInputRef.current.select();
+    }
+  }, [editingFeedbackFeatureId]);
+
+  useEffect(() => {
+    if (editingFeedbackDateId && editFeedbackDateInputRef.current) {
+      editFeedbackDateInputRef.current.focus();
+    }
+  }, [editingFeedbackDateId]);
+
+  useEffect(() => {
+    if (editingFeedbackTopicId && editFeedbackTopicInputRef.current) {
+      editFeedbackTopicInputRef.current.focus();
+      editFeedbackTopicInputRef.current.select();
+    }
+  }, [editingFeedbackTopicId]);
 
   const filtered = adminCalls.filter(c => 
     c.adminPoc.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -4131,15 +4268,73 @@ export const AdminCallsTable: React.FC = () => {
     const newCall: AdminCall = {
       id: `adm-${Date.now()}`,
       date: new Date().toISOString().slice(0, 10),
-      adminPoc: 'POC Owner',
-      cohortTopic: 'Discussion Topic Name',
-      discussion: 'Discussed key tools and coordination schedules.',
-      actions: 'Team to investigate integration blockers.',
+      adminPoc: speakersList.length > 0 ? speakersList[0] : 'Akash',
+      cohortTopic: '',
+      discussion: '',
+      actions: '',
       status: 'Scheduled'
     };
     addAdminCall(newCall);
-    setEditingItem(newCall);
+    setInlineCallTopicValue('');
+    setEditingCallTopicId(newCall.id);
+    setExpandedCallId(newCall.id);
   };
+
+  const getRelatedFeatures = (call: AdminCall) => {
+    if (!call.cohortTopic.trim()) {
+      return [];
+    }
+    const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+    const topicWords = clean(call.cohortTopic).split(/\s+/).filter(w => w.length > 3);
+    return productItems.filter(item => {
+      const notesLower = (item.notes || '').toLowerCase().trim();
+      const moduleLower = (item.module || '').toLowerCase().trim();
+      const featureLower = (item.feature || '').toLowerCase().trim();
+      const topicLower = (call.cohortTopic || '').toLowerCase().trim();
+      
+      if (notesLower.includes(topicLower) || moduleLower.includes(topicLower) || featureLower.includes(topicLower)) {
+        return true;
+      }
+      if (topicWords.some(word => notesLower.includes(word) || moduleLower.includes(word) || featureLower.includes(word))) {
+        return true;
+      }
+      return false;
+    });
+  };
+
+  const getParentCall = (item: ProductItem): AdminCall | undefined => {
+    return adminCalls.find(call => {
+      if (!call.cohortTopic.trim()) return false;
+      const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+      const topicWords = clean(call.cohortTopic).split(/\s+/).filter(w => w.length > 3);
+      const notesLower = (item.notes || '').toLowerCase().trim();
+      const moduleLower = (item.module || '').toLowerCase().trim();
+      const featureLower = (item.feature || '').toLowerCase().trim();
+      const topicLower = (call.cohortTopic || '').toLowerCase().trim();
+      
+      if (notesLower.includes(topicLower) || moduleLower.includes(topicLower) || featureLower.includes(topicLower)) {
+        return true;
+      }
+      if (topicWords.some(word => notesLower.includes(word) || moduleLower.includes(word) || featureLower.includes(word))) {
+        return true;
+      }
+      return false;
+    });
+  };
+
+  const filteredFeedbackFeatures = productItems.filter(item => {
+    const parent = getParentCall(item);
+    if (!parent) return false;
+
+    const matchesSearch = 
+      item.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.poc.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.notes.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.module || '').toLowerCase().includes(searchQuery.toLowerCase());
+      
+    return matchesSearch;
+  });
 
   return (
     <>
@@ -4147,284 +4342,1250 @@ export const AdminCallsTable: React.FC = () => {
         title="Admin Calls Schedule"
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-        onAddClick={handleAddNew}
-        addLabel="Add Admin Call"
+        onAddClick={subTab === 'schedule' ? handleAddNew : undefined}
+        addLabel={subTab === 'schedule' ? 'Add Admin Call' : undefined}
+        searchPlaceholder={subTab === 'schedule' ? 'Search admin calls...' : 'Search feedback features...'}
       >
-        <div className="table-responsive">
-          <table className="grid-table">
-            <thead>
-              <tr>
-                <th style={{ width: '130px' }}>Call Date</th>
-                <th style={{ width: '180px' }}>Admin / POC</th>
-                <th>Topic / Call Agenda</th>
-                <th style={{ width: '150px' }}>Status</th>
-                <th style={{ width: '40px' }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(call => (
-                <tr key={call.id} onClick={() => openPreviewForFeature(call.cohortTopic, { description: `Admin discussion: ${call.discussion}. Actions: ${call.actions}. POC: ${call.adminPoc}`, status: call.status === 'Completed' ? 'Completed' : 'In Progress', clickupStatus: call.status })} style={{ cursor: 'pointer' }}>
-                  <td>{formatDateToUserPattern(call.date)}</td>
-                  <td style={{ fontWeight: 600 }}>{call.adminPoc}</td>
-                  <td style={{ fontWeight: 500 }}>{call.cohortTopic}</td>
-                  <td>
-                    <span className={`badge ${
-                      call.status === 'Completed' ? 'status-done' :
-                      call.status === 'Pending Actions' ? 'status-hold' : 'status-progress'
-                    }`}>
-                      {call.status}
-                    </span>
-                  </td>
+        {/* Sub-tab Navigation */}
+        <div style={{ 
+          display: 'flex', 
+          borderBottom: '1px solid var(--border)', 
+          padding: '0.25rem 1.5rem 0 1.5rem', 
+          background: 'var(--panel-bg)', 
+          gap: '1.5rem' 
+        }}>
+          <button
+            onClick={() => {
+              setSubTab('schedule');
+              setSearchQuery('');
+              setEditingFeedbackFeatureId(null);
+              setEditingFeedbackDateId(null);
+              setEditingFeedbackPocId(null);
+              setEditingFeedbackTopicId(null);
+            }}
+            style={{
+              padding: '0.75rem 0.5rem',
+              border: 'none',
+              background: 'none',
+              borderBottom: subTab === 'schedule' ? '2px solid var(--primary)' : '2px solid transparent',
+              color: subTab === 'schedule' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              outline: 'none'
+            }}
+          >
+            Schedule
+          </button>
+          <button
+            onClick={() => {
+              setSubTab('feedback');
+              setSearchQuery('');
+              setEditingFeedbackFeatureId(null);
+              setEditingFeedbackDateId(null);
+              setEditingFeedbackPocId(null);
+              setEditingFeedbackTopicId(null);
+            }}
+            style={{
+              padding: '0.75rem 0.5rem',
+              border: 'none',
+              background: 'none',
+              borderBottom: subTab === 'feedback' ? '2px solid var(--primary)' : '2px solid transparent',
+              color: subTab === 'feedback' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              outline: 'none'
+            }}
+          >
+            Feedback
+          </button>
+        </div>
 
-                  <td>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (window.confirm("Are you sure you want to delete this call log?")) {
-                          deleteAdminCall(call.id);
+        {subTab === 'schedule' ? (
+          <div className="table-responsive">
+            <table className="grid-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '150px' }}>Call Date</th>
+                  <th style={{ width: '200px' }}>Admin / POC</th>
+                  <th>Topic / Call Agenda</th>
+                  <th style={{ width: '150px' }}>Status</th>
+                  <th style={{ width: '40px' }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(call => {
+                  const related = getRelatedFeatures(call);
+                  const isExpanded = expandedCallId === call.id;
+                  
+                  return (
+                    <React.Fragment key={call.id}>
+                      <tr 
+                        onClick={() => setExpandedCallId(isExpanded ? null : call.id)} 
+                        style={{ 
+                          cursor: 'pointer',
+                          backgroundColor: isExpanded ? 'var(--background-alt)' : 'transparent',
+                          transition: 'background-color 0.2s ease'
+                        }}
+                      >
+                        <td 
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setEditingCallDateId(call.id);
+                            setInlineCallDateValue(call.date);
+                          }}
+                          title="Double click to edit Date"
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center' }}>
+                            {isExpanded ? (
+                              <ChevronUp size={16} style={{ marginRight: '8px', color: 'var(--primary)', flexShrink: 0 }} />
+                            ) : (
+                              <ChevronDown size={16} style={{ marginRight: '8px', color: 'var(--text-secondary)', flexShrink: 0 }} />
+                            )}
+                            {editingCallDateId === call.id ? (
+                              <input
+                                ref={editCallDateInputRef}
+                                type="date"
+                                value={inlineCallDateValue}
+                                onChange={(e) => setInlineCallDateValue(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    updateAdminCall(call.id, { date: inlineCallDateValue });
+                                    setEditingCallDateId(null);
+                                  } else if (e.key === 'Escape') {
+                                    e.preventDefault();
+                                    setEditingCallDateId(null);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  updateAdminCall(call.id, { date: inlineCallDateValue });
+                                  setEditingCallDateId(null);
+                                }}
+                                style={{
+                                  padding: '4px 6px',
+                                  backgroundColor: 'var(--background)',
+                                  border: '1.5px solid var(--primary)',
+                                  borderRadius: '6px',
+                                  color: 'var(--text-primary)',
+                                  fontSize: '0.8rem',
+                                  outline: 'none',
+                                }}
+                              />
+                            ) : (
+                              <span>{formatDateToUserPattern(call.date)}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingCallPocId(call.id);
+                            setInlineCallPocValue(call.adminPoc);
+                          }}
+                          title="Click to edit POC"
+                        >
+                          {editingCallPocId === call.id ? (
+                            <select
+                              autoFocus
+                              value={inlineCallPocValue}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setInlineCallPocValue(val);
+                                updateAdminCall(call.id, { adminPoc: val });
+                                setEditingCallPocId(null);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              onBlur={() => setEditingCallPocId(null)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Escape') {
+                                  setEditingCallPocId(null);
+                                }
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '4px 6px',
+                                backgroundColor: 'var(--background)',
+                                border: '1.5px solid var(--primary)',
+                                borderRadius: '6px',
+                                color: 'var(--text-primary)',
+                                fontSize: '0.8rem',
+                                outline: 'none',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {speakersList.map(s => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                              {inlineCallPocValue && !speakersList.includes(inlineCallPocValue) && (
+                                <option value={inlineCallPocValue}>{inlineCallPocValue}</option>
+                              )}
+                            </select>
+                          ) : (
+                            <span style={{ fontWeight: 600 }}>{call.adminPoc}</span>
+                          )}
+                        </td>
+                        <td
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setEditingCallTopicId(call.id);
+                            setInlineCallTopicValue(call.cohortTopic);
+                          }}
+                          style={{ fontWeight: 500 }}
+                          title="Double click to edit Topic"
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', width: '100%' }}>
+                            {editingCallTopicId === call.id ? (
+                              <input
+                                ref={editCallTopicInputRef}
+                                type="text"
+                                value={inlineCallTopicValue}
+                                onChange={(e) => setInlineCallTopicValue(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    const finalVal = inlineCallTopicValue.trim() || 'New Call Topic';
+                                    updateAdminCall(call.id, { cohortTopic: finalVal });
+                                    setEditingCallTopicId(null);
+                                  } else if (e.key === 'Escape') {
+                                    e.preventDefault();
+                                    setEditingCallTopicId(null);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  const finalVal = inlineCallTopicValue.trim() || 'New Call Topic';
+                                  updateAdminCall(call.id, { cohortTopic: finalVal });
+                                  setEditingCallTopicId(null);
+                                }}
+                                style={{
+                                  width: '100%',
+                                  padding: '4px 6px',
+                                  backgroundColor: 'var(--background)',
+                                  border: '1.5px solid var(--primary)',
+                                  borderRadius: '6px',
+                                  color: 'var(--text-primary)',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 600,
+                                  outline: 'none',
+                                }}
+                              />
+                            ) : (
+                              <>
+                                <span>{call.cohortTopic || <span style={{ color: 'var(--text-muted)' }}>— (No topic)</span>}</span>
+                                {related.length > 0 && (
+                                  <span className="badge" style={{ 
+                                    fontSize: '0.7rem', 
+                                    padding: '2px 6px', 
+                                    background: 'var(--primary-glow)', 
+                                    color: 'var(--primary)', 
+                                    border: '1px solid var(--primary-border)',
+                                    fontWeight: 500
+                                  }}>
+                                    {related.length} {related.length === 1 ? 'feature' : 'features'}
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <select
+                            value={call.status || 'Scheduled'}
+                            onChange={(e) => updateAdminCall(call.id, { status: e.target.value as any })}
+                            onClick={(e) => e.stopPropagation()}
+                            className={`badge ${
+                              call.status === 'Completed' ? 'status-completed' :
+                              call.status === 'Pending Actions' ? 'status-hold' : 'status-progress'
+                            }`}
+                            style={{ 
+                              border: 'none', 
+                              outline: 'none', 
+                              cursor: 'pointer',
+                              padding: '2px 6px',
+                              fontFamily: 'inherit',
+                              fontWeight: 'inherit',
+                              fontSize: '0.75rem',
+                              borderRadius: '4px',
+                              appearance: 'none',
+                              textAlign: 'center'
+                            }}
+                          >
+                            <option value="Scheduled" style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>Scheduled</option>
+                            <option value="Completed" style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>Completed</option>
+                            <option value="Pending Actions" style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>Pending Actions</option>
+                          </select>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
+                            <button 
+                              onClick={() => {
+                                setEditingCallTopicId(call.id);
+                                setInlineCallTopicValue(call.cohortTopic);
+                              }} 
+                              style={{ 
+                                background: 'none', 
+                                border: 'none', 
+                                cursor: 'pointer', 
+                                color: 'var(--text-secondary)', 
+                                display: 'flex', 
+                                alignItems: 'center',
+                                padding: '4px'
+                              }}
+                              title="Edit Topic Inline"
+                            >
+                              <Edit2 size={12} />
+                            </button>
+                            <button 
+                              onClick={() => {
+                                if (window.confirm("Are you sure you want to delete this Call?")) {
+                                  deleteAdminCall(call.id);
+                                }
+                              }} 
+                              style={{ 
+                                background: 'none', 
+                                border: 'none', 
+                                cursor: 'pointer', 
+                                color: 'var(--danger)', 
+                                display: 'flex', 
+                                alignItems: 'center',
+                                padding: '4px'
+                              }}
+                              title="Delete Call"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Accordion Expansion */}
+                      {isExpanded && (
+                        <tr style={{ background: 'var(--background)' }}>
+                          <td colSpan={5} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
+                            <div style={{
+                              background: 'var(--panel-bg)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '8px',
+                              padding: '1.25rem',
+                              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '1.25rem'
+                            }}>
+                              {/* Top Split: Discussion & Actions */}
+                              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                                <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                  <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Discussion Minutes</label>
+                                  <textarea
+                                    value={call.discussion}
+                                    onChange={(e) => updateAdminCall(call.id, { discussion: e.target.value })}
+                                    placeholder="Enter discussion details..."
+                                    style={{
+                                      width: '100%',
+                                      height: '80px',
+                                      padding: '8px 10px',
+                                      backgroundColor: 'var(--background)',
+                                      border: '1px solid var(--border)',
+                                      borderRadius: '6px',
+                                      color: 'var(--text-primary)',
+                                      fontSize: '0.8rem',
+                                      fontFamily: 'inherit',
+                                      resize: 'vertical',
+                                      outline: 'none'
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                </div>
+                                <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                  <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Action Items / Assignments</label>
+                                  <textarea
+                                    value={call.actions}
+                                    onChange={(e) => updateAdminCall(call.id, { actions: e.target.value })}
+                                    placeholder="Enter action items..."
+                                    style={{
+                                      width: '100%',
+                                      height: '80px',
+                                      padding: '8px 10px',
+                                      backgroundColor: 'var(--background)',
+                                      border: '1px solid var(--border)',
+                                      borderRadius: '6px',
+                                      color: 'var(--text-primary)',
+                                      fontSize: '0.8rem',
+                                      fontFamily: 'inherit',
+                                      resize: 'vertical',
+                                      outline: 'none'
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                </div>
+                              </div>
+
+                              <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: 0 }} />
+
+                              {/* Bottom Section: Related Features table */}
+                              <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                  <h4 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', margin: 0 }}>Related Feature Requests</h4>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const newItem: ProductItem = {
+                                        id: `prod-${Date.now()}`,
+                                        feature: '',
+                                        description: '',
+                                        tarunSirApproval: false,
+                                        raisedByTarunSir: false,
+                                        priority: '',
+                                        poc: call.adminPoc !== 'POC Owner' ? call.adminPoc : '',
+                                        status: '',
+                                        clickupStatus: '',
+                                        taskLink: '',
+                                        blocker: '',
+                                        deadline: '',
+                                        notes: `Admin Call: ${call.cohortTopic}`,
+                                        product: '',
+                                        module: call.cohortTopic,
+                                        uiux: '',
+                                        finalRelease: '',
+                                        productDeadline: ''
+                                      };
+                                      addProductItem(newItem);
+                                      setInlineCallRelatedValue('');
+                                      setEditingCallRelatedId(newItem.id);
+                                    }}
+                                    className="btn btn-secondary"
+                                    style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                  >
+                                    + Add Related Feature
+                                  </button>
+                                </div>
+
+                                {related.length > 0 ? (
+                                  <div className="table-responsive" style={{ border: '1px solid var(--border)', borderRadius: '6px' }}>
+                                    <table className="grid-table" style={{ background: 'var(--background)' }}>
+                                      <thead>
+                                        <tr style={{ background: 'var(--background-alt)' }}>
+                                          <th>Feature</th>
+                                          <th style={{ width: '150px' }}>Product</th>
+                                          <th style={{ width: '80px' }}>Priority</th>
+                                          <th style={{ width: '120px' }}>Status</th>
+                                          <th style={{ width: '120px' }}>POC</th>
+                                          <th style={{ width: '100px' }}>ClickUp</th>
+                                          <th style={{ width: '120px' }}>Specs Date</th>
+                                          <th style={{ width: '120px' }}>UI/UX Date</th>
+                                          <th style={{ width: '120px' }}>Dev Date</th>
+                                          <th style={{ width: '120px' }}>Release Date</th>
+                                          <th style={{ width: '40px' }}></th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {related.map(feat => (
+                                          <tr 
+                                            key={feat.id} 
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              if (editingCallRelatedId !== feat.id) {
+                                                setPreviewProductId(feat.id);
+                                              }
+                                            }} 
+                                            style={{ cursor: 'pointer' }}
+                                          >
+                                            <td style={{ fontWeight: 600, whiteSpace: 'normal' }}>
+                                              {editingCallRelatedId === feat.id ? (
+                                                <input
+                                                  ref={editCallRelatedInputRef}
+                                                  type="text"
+                                                  value={inlineCallRelatedValue}
+                                                  onChange={(e) => setInlineCallRelatedValue(e.target.value)}
+                                                  onClick={(e) => e.stopPropagation()}
+                                                  onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                      e.preventDefault();
+                                                      const finalVal = inlineCallRelatedValue.trim() || 'New Feature';
+                                                      updateProductItem(feat.id, { feature: finalVal });
+                                                      setEditingCallRelatedId(null);
+                                                    } else if (e.key === 'Escape') {
+                                                      e.preventDefault();
+                                                      setEditingCallRelatedId(null);
+                                                    }
+                                                  }}
+                                                  onBlur={() => {
+                                                    const finalVal = inlineCallRelatedValue.trim() || 'New Feature';
+                                                    updateProductItem(feat.id, { feature: finalVal });
+                                                    setEditingCallRelatedId(null);
+                                                  }}
+                                                  style={{
+                                                    width: '100%',
+                                                    padding: '6px 8px',
+                                                    backgroundColor: 'var(--background)',
+                                                    border: '1.5px solid var(--primary)',
+                                                    borderRadius: '6px',
+                                                    color: 'var(--text-primary)',
+                                                    fontSize: '0.8rem',
+                                                    fontWeight: 600,
+                                                    outline: 'none',
+                                                    boxShadow: '0 0 0 2px var(--primary-glow)'
+                                                  }}
+                                                />
+                                              ) : (
+                                                <>
+                                                  {feat.feature || '—'}
+                                                  {feat.raisedByTarunSir && (
+                                                    <span className="badge-super-priority" style={{ padding: '1px 4px', fontSize: '0.6rem', borderRadius: '3px', marginLeft: '6px' }}>
+                                                      <Sparkles size={8} /> Super Priority
+                                                    </span>
+                                                  )}
+                                                </>
+                                              )}
+                                            </td>
+                                            <td>{feat.product || '—'}</td>
+                                            <td>
+                                              {feat.priority ? (
+                                                <span className={`badge badge-${feat.priority.toLowerCase()}`}>
+                                                  {feat.priority}
+                                                </span>
+                                              ) : '—'}
+                                            </td>
+                                            <td>
+                                              {feat.status ? (
+                                                <span className={`badge ${
+                                                  feat.status === 'On Hold' ? 'status-hold' :
+                                                  feat.status === 'In Progress' ? 'status-progress' :
+                                                  feat.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
+                                                }`}>
+                                                  {feat.status}
+                                                </span>
+                                              ) : '—'}
+                                            </td>
+                                            <td>{feat.poc || '—'}</td>
+                                            <td>
+                                              {feat.clickupStatus ? (
+                                                <span className={`badge clickup-${feat.clickupStatus.toLowerCase()}`}>
+                                                  {feat.clickupStatus}
+                                                </span>
+                                              ) : '—'}
+                                            </td>
+                                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                              {feat.productDeadline ? (
+                                                <span style={feat.productDeadlineCompleted ? {
+                                                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                                  color: '#10b981',
+                                                  fontWeight: 600,
+                                                  padding: '2px 6px',
+                                                  borderRadius: '4px',
+                                                  display: 'inline-block'
+                                                } : {}}>
+                                                  {formatDateToUserPattern(feat.productDeadline)}
+                                                </span>
+                                              ) : '—'}
+                                            </td>
+                                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                                              <DateDiffBadge prevDate={feat.productDeadline} currentDate={feat.uiux} />
+                                              {feat.uiux ? (
+                                                <span style={feat.uiuxCompleted ? {
+                                                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                                  color: '#10b981',
+                                                  fontWeight: 600,
+                                                  padding: '2px 6px',
+                                                  borderRadius: '4px',
+                                                  display: 'inline-block'
+                                                } : {}}>
+                                                  {formatDateToUserPattern(feat.uiux)}
+                                                </span>
+                                              ) : '—'}
+                                            </td>
+                                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                                              <DateDiffBadge prevDate={feat.uiux} currentDate={feat.deadline} />
+                                              {feat.deadline ? (
+                                                <span style={feat.deadlineCompleted ? {
+                                                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                                  color: '#10b981',
+                                                  fontWeight: 600,
+                                                  padding: '2px 6px',
+                                                  borderRadius: '4px',
+                                                  display: 'inline-block'
+                                                } : {}}>
+                                                  {formatDateToUserPattern(feat.deadline)}
+                                                </span>
+                                              ) : '—'}
+                                            </td>
+                                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                                              <DateDiffBadge prevDate={feat.deadline} currentDate={feat.finalRelease} />
+                                              {feat.finalRelease ? (
+                                                <span style={feat.finalReleaseCompleted ? {
+                                                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                                  color: '#10b981',
+                                                  fontWeight: 600,
+                                                  padding: '2px 6px',
+                                                  borderRadius: '4px',
+                                                  display: 'inline-block'
+                                                } : {}}>
+                                                  {formatDateToUserPattern(feat.finalRelease)}
+                                                </span>
+                                              ) : '—'}
+                                            </td>
+                                            <td>
+                                              <button 
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  if (window.confirm("Are you sure you want to delete this feature?")) {
+                                                    deleteProductItem(feat.id);
+                                                  }
+                                                }} 
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center', padding: '4px' }}
+                                                title="Delete Feature"
+                                              >
+                                                <Trash2 size={12} />
+                                              </button>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                ) : (
+                                  <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: '1.5rem',
+                                    border: '1px dashed var(--border)',
+                                    borderRadius: '6px',
+                                    color: 'var(--text-secondary)',
+                                    gap: '0.5rem',
+                                    background: 'var(--background)'
+                                  }}>
+                                    <span style={{ fontSize: '0.8rem' }}>No associated feature requests found for this discussion.</span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const newItem: ProductItem = {
+                                          id: `prod-${Date.now()}`,
+                                          feature: '',
+                                          description: '',
+                                          tarunSirApproval: false,
+                                          raisedByTarunSir: false,
+                                          priority: '',
+                                          poc: call.adminPoc !== 'POC Owner' ? call.adminPoc : '',
+                                          status: '',
+                                          clickupStatus: '',
+                                          taskLink: '',
+                                          blocker: '',
+                                          deadline: '',
+                                          notes: `Admin Call: ${call.cohortTopic}`,
+                                          product: '',
+                                          module: call.cohortTopic,
+                                          uiux: '',
+                                          finalRelease: '',
+                                          productDeadline: ''
+                                        };
+                                        addProductItem(newItem);
+                                        setInlineCallRelatedValue('');
+                                        setEditingCallRelatedId(newItem.id);
+                                      }}
+                                      className="btn btn-secondary"
+                                      style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                                    >
+                                      Create one now
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="table-responsive">
+            <table className="grid-table">
+              <thead>
+                <tr>
+                  <th className="sticky-header-col" style={{ width: '250px', minWidth: '250px', maxWidth: '250px' }}>Feature</th>
+                  <th style={{ width: '150px' }}>Call Date</th>
+                  <th style={{ width: '180px' }}>Admin / POC</th>
+                  <th style={{ width: '220px' }}>Topic / Call Agenda</th>
+                  <th style={{ width: '150px' }}>Product Group</th>
+                  <th style={{ width: '80px' }}>Priority</th>
+                  <th style={{ width: '120px' }}>POC Owner</th>
+                  <th style={{ width: '120px' }}>Status</th>
+                  <th style={{ width: '100px' }}>Clickup</th>
+                  <th style={{ width: '120px' }}>Specs Date</th>
+                  <th style={{ width: '120px' }}>UI/UX Date</th>
+                  <th style={{ width: '120px' }}>Dev Date</th>
+                  <th style={{ width: '120px' }}>Release Date</th>
+                  <th style={{ width: '40px' }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredFeedbackFeatures.map(feat => {
+                  const parentCall = getParentCall(feat);
+                  return (
+                    <tr 
+                      key={feat.id} 
+                      onClick={() => {
+                        if (
+                          editingFeedbackFeatureId !== feat.id &&
+                          editingFeedbackDateId !== feat.id &&
+                          editingFeedbackPocId !== feat.id &&
+                          editingFeedbackTopicId !== feat.id
+                        ) {
+                          setPreviewProductId(feat.id);
                         }
                       }} 
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
+                      style={{ 
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s ease'
+                      }}
                     >
-                      <Trash2 size={12} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                      <td className="sticky-col" style={{ fontWeight: 600, width: '250px', minWidth: '250px', maxWidth: '250px', whiteSpace: 'normal' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', width: '100%' }}>
+                          {editingFeedbackFeatureId === feat.id ? (
+                            <input
+                              ref={editFeedbackFeatureInputRef}
+                              type="text"
+                              value={inlineFeedbackFeatureValue}
+                              onChange={(e) => setInlineFeedbackFeatureValue(e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const finalVal = inlineFeedbackFeatureValue.trim() || 'New Feature';
+                                  updateProductItem(feat.id, { feature: finalVal });
+                                  setEditingFeedbackFeatureId(null);
+                                } else if (e.key === 'Escape') {
+                                  e.preventDefault();
+                                  setEditingFeedbackFeatureId(null);
+                                }
+                              }}
+                              onBlur={() => {
+                                const finalVal = inlineFeedbackFeatureValue.trim() || 'New Feature';
+                                updateProductItem(feat.id, { feature: finalVal });
+                                setEditingFeedbackFeatureId(null);
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '6px 8px',
+                                backgroundColor: 'var(--background)',
+                                border: '1.5px solid var(--primary)',
+                                borderRadius: '6px',
+                                color: 'var(--text-primary)',
+                                fontSize: '0.8rem',
+                                fontWeight: 600,
+                                outline: 'none',
+                                boxShadow: '0 0 0 2px var(--primary-glow)'
+                              }}
+                            />
+                          ) : (
+                            <div 
+                              onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                setEditingFeedbackFeatureId(feat.id);
+                                setInlineFeedbackFeatureValue(feat.feature || '');
+                              }}
+                              style={{ width: '100%', cursor: 'pointer' }}
+                              title="Double click to edit"
+                            >
+                              {feat.feature || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
+                              {feat.raisedByTarunSir && (
+                                <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', marginLeft: '8px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                                  <Sparkles size={10} /> Super Priority
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td
+                        onDoubleClick={(e) => {
+                          if (!parentCall) return;
+                          e.stopPropagation();
+                          setEditingFeedbackDateId(feat.id);
+                          setInlineFeedbackDateValue(parentCall.date);
+                        }}
+                        title={parentCall ? "Double click to edit Date" : undefined}
+                      >
+                        {parentCall ? (
+                          editingFeedbackDateId === feat.id ? (
+                            <input
+                              ref={editFeedbackDateInputRef}
+                              type="date"
+                              value={inlineFeedbackDateValue}
+                              onChange={(e) => setInlineFeedbackDateValue(e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  updateAdminCall(parentCall.id, { date: inlineFeedbackDateValue });
+                                  setEditingFeedbackDateId(null);
+                                } else if (e.key === 'Escape') {
+                                  e.preventDefault();
+                                  setEditingFeedbackDateId(null);
+                                }
+                              }}
+                              onBlur={() => {
+                                updateAdminCall(parentCall.id, { date: inlineFeedbackDateValue });
+                                setEditingFeedbackDateId(null);
+                              }}
+                              style={{
+                                padding: '4px 6px',
+                                backgroundColor: 'var(--background)',
+                                border: '1.5px solid var(--primary)',
+                                borderRadius: '6px',
+                                color: 'var(--text-primary)',
+                                fontSize: '0.8rem',
+                                outline: 'none',
+                              }}
+                            />
+                          ) : (
+                            formatDateToUserPattern(parentCall.date)
+                          )
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td
+                        onClick={(e) => {
+                          if (!parentCall) return;
+                          e.stopPropagation();
+                          setEditingFeedbackPocId(feat.id);
+                          setInlineFeedbackPocValue(parentCall.adminPoc || '');
+                        }}
+                        title={parentCall ? "Click to edit POC" : undefined}
+                      >
+                        {parentCall ? (
+                          editingFeedbackPocId === feat.id ? (
+                            <select
+                              autoFocus
+                              value={inlineFeedbackPocValue}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setInlineFeedbackPocValue(val);
+                                updateAdminCall(parentCall.id, { adminPoc: val });
+                                setEditingFeedbackPocId(null);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Escape') {
+                                  e.preventDefault();
+                                  setEditingFeedbackPocId(null);
+                                }
+                              }}
+                              onBlur={() => setEditingFeedbackPocId(null)}
+                              style={{
+                                width: '100%',
+                                padding: '4px 6px',
+                                backgroundColor: 'var(--background)',
+                                border: '1.5px solid var(--primary)',
+                                borderRadius: '6px',
+                                color: 'var(--text-primary)',
+                                fontSize: '0.8rem',
+                                outline: 'none',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {speakersList.map(s => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                              {inlineFeedbackPocValue && !speakersList.includes(inlineFeedbackPocValue) && (
+                                <option value={inlineFeedbackPocValue}>{inlineFeedbackPocValue}</option>
+                              )}
+                            </select>
+                          ) : (
+                            parentCall.adminPoc || '—'
+                          )
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td
+                        onDoubleClick={(e) => {
+                          if (!parentCall) return;
+                          e.stopPropagation();
+                          setEditingFeedbackTopicId(feat.id);
+                          setInlineFeedbackTopicValue(parentCall.cohortTopic || '');
+                        }}
+                        title={parentCall ? "Double click to edit Topic" : undefined}
+                      >
+                        {parentCall ? (
+                          editingFeedbackTopicId === feat.id ? (
+                            <input
+                              ref={editFeedbackTopicInputRef}
+                              type="text"
+                              value={inlineFeedbackTopicValue}
+                              onChange={(e) => setInlineFeedbackTopicValue(e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const finalVal = inlineFeedbackTopicValue.trim() || 'New Topic';
+                                  updateAdminCall(parentCall.id, { cohortTopic: finalVal });
+                                  setEditingFeedbackTopicId(null);
+                                } else if (e.key === 'Escape') {
+                                  e.preventDefault();
+                                  setEditingFeedbackTopicId(null);
+                                }
+                              }}
+                              onBlur={() => {
+                                const finalVal = inlineFeedbackTopicValue.trim() || 'New Topic';
+                                updateAdminCall(parentCall.id, { cohortTopic: finalVal });
+                                setEditingFeedbackTopicId(null);
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '4px 6px',
+                                backgroundColor: 'var(--background)',
+                                border: '1.5px solid var(--primary)',
+                                borderRadius: '6px',
+                                color: 'var(--text-primary)',
+                                fontSize: '0.8rem',
+                                outline: 'none',
+                              }}
+                            />
+                          ) : (
+                            parentCall.cohortTopic || '—'
+                          )
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td>{feat.product || '—'}</td>
+                      <td>
+                        {feat.priority ? (
+                          <span className={`badge badge-${feat.priority.toLowerCase()}`}>
+                            {feat.priority}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td style={{ fontWeight: 500 }}>{feat.poc || '—'}</td>
+                      <td>
+                        {feat.status ? (
+                          <span className={`badge ${
+                            feat.status === 'On Hold' ? 'status-hold' :
+                            feat.status === 'In Progress' ? 'status-progress' :
+                            feat.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
+                          }`}>
+                            {feat.status}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td>
+                        {feat.clickupStatus ? (
+                          <span className={`badge clickup-${feat.clickupStatus.toLowerCase()}`}>
+                            {feat.clickupStatus}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        {feat.productDeadline ? (
+                          <span style={feat.productDeadlineCompleted ? {
+                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                            color: '#10b981',
+                            fontWeight: 600,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            display: 'inline-block'
+                          } : {}}>
+                            {formatDateToUserPattern(feat.productDeadline)}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                        <DateDiffBadge prevDate={feat.productDeadline} currentDate={feat.uiux} />
+                        {feat.uiux ? (
+                          <span style={feat.uiuxCompleted ? {
+                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                            color: '#10b981',
+                            fontWeight: 600,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            display: 'inline-block'
+                          } : {}}>
+                            {formatDateToUserPattern(feat.uiux)}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                        <DateDiffBadge prevDate={feat.uiux} currentDate={feat.deadline} />
+                        {feat.deadline ? (
+                          <span style={feat.deadlineCompleted ? {
+                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                            color: '#10b981',
+                            fontWeight: 600,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            display: 'inline-block'
+                          } : {}}>
+                            {formatDateToUserPattern(feat.deadline)}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                        <DateDiffBadge prevDate={feat.deadline} currentDate={feat.finalRelease} />
+                        {feat.finalRelease ? (
+                          <span style={feat.finalReleaseCompleted ? {
+                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                            color: '#10b981',
+                            fontWeight: 600,
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            display: 'inline-block'
+                          } : {}}>
+                            {formatDateToUserPattern(feat.finalRelease)}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
+                          <button 
+                            onClick={() => {
+                              if (window.confirm("Are you sure you want to delete this feedback feature?")) {
+                                deleteProductItem(feat.id);
+                              }
+                            }} 
+                            style={{ 
+                              background: 'none', 
+                              border: 'none', 
+                              cursor: 'pointer', 
+                              color: 'var(--danger)', 
+                              display: 'flex', 
+                              alignItems: 'center',
+                              padding: '4px'
+                            }}
+                            title="Delete Feedback Feature"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </TabContainer>
-
-      {editingItem && (
-        <AdminCallDetailModal 
-          item={adminCalls.find(i => i.id === editingItem.id) || editingItem}
-          onClose={() => setEditingItem(null)}
-          onUpdate={updateAdminCall}
-        />
-      )}
     </>
   );
 };
 
-/* =========================================================================
-   6. CONTENT MANAGEMENT MODAL & COMPONENT
-   ========================================================================= */
-interface ContentDetailModalProps {
-  item: ContentItem;
-  onClose: () => void;
-  onUpdate: (id: string, updated: Partial<ContentItem>) => void;
-}
-
-const ContentDetailModal: React.FC<ContentDetailModalProps> = ({ item, onClose, onUpdate }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState<ContentItem>({ ...item });
-
-  React.useEffect(() => {
-    setDraft({ ...item });
-  }, [item]);
-
-  const handleSave = () => {
-    onUpdate(item.id, draft);
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    setDraft({ ...item });
-    setIsEditing(false);
-  };
-
-  return (
-    <div className="detail-overlay" onClick={onClose}>
-      <div className="detail-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3 className="modal-title" style={{ fontFamily: 'Outfit', color: 'var(--primary)' }}>
-            {isEditing ? 'Edit Content Pipeline Item' : 'Content Pipeline details'}
-          </h3>
-          <button className="modal-close" onClick={onClose}><X size={18} /></button>
-        </div>
-
-        {isEditing ? (
-          <div className="form-grid">
-            <div className="form-group form-group-full">
-              <label className="form-label">Module / Topic Title</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={draft.module} 
-                onChange={(e) => setDraft({ ...draft, module: e.target.value })} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Subject Category</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={draft.subject} 
-                onChange={(e) => setDraft({ ...draft, subject: e.target.value })} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Content Type</label>
-              <select 
-                className="filter-select w-full"
-                style={{ height: '38px' }}
-                value={draft.type}
-                onChange={(e) => setDraft({ ...draft, type: e.target.value as any })}
-              >
-                <option value="Video">Video Lecture</option>
-                <option value="Quiz">Interactive Quiz</option>
-                <option value="Worksheet">Practice Worksheet</option>
-                <option value="Notes">Revision Notes</option>
-                <option value="Syllabus">Syllabus Overview</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">POC Owner</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={draft.poc} 
-                onChange={(e) => setDraft({ ...draft, poc: e.target.value })} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Publish Target Date</label>
-              <input 
-                type="date" 
-                className="form-input" 
-                value={draft.publishDate} 
-                onChange={(e) => setDraft({ ...draft, publishDate: e.target.value })} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Pipeline Status</label>
-              <select 
-                className="filter-select w-full"
-                style={{ height: '38px' }}
-                value={draft.status}
-                onChange={(e) => setDraft({ ...draft, status: e.target.value as any })}
-              >
-                <option value="Drafting">Drafting</option>
-                <option value="Under Review">Under Review</option>
-                <option value="Approved">Approved</option>
-                <option value="Published">Published</option>
-              </select>
-            </div>
-
-            <div className="form-group form-group-full">
-              <label className="form-label">Draft Document URL</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={draft.draftLink} 
-                onChange={(e) => setDraft({ ...draft, draftLink: e.target.value })} 
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="detail-grid">
-            <div className="detail-group detail-group-full">
-              <span className="detail-label">Module / Course Topic</span>
-              <span className="detail-value" style={{ fontSize: '1.05rem', fontWeight: 700 }}>{item.module}</span>
-            </div>
-
-            <div className="detail-group">
-              <span className="detail-label">Subject Category</span>
-              <span className="detail-value">{item.subject}</span>
-            </div>
-
-            <div className="detail-group">
-              <span className="detail-label">Content Material Type</span>
-              <span className="detail-value">{item.type}</span>
-            </div>
-
-            <div className="detail-group">
-              <span className="detail-label">POC Curator</span>
-              <span className="detail-value" style={{ fontWeight: 600 }}>{item.poc}</span>
-            </div>
-
-            <div className="detail-group">
-              <span className="detail-label">Target Publish Date</span>
-              <span className="detail-value">{item.publishDate || 'Not Scheduled'}</span>
-            </div>
-
-            <div className="detail-group">
-              <span className="detail-label">Publish Status</span>
-              <div>
-                <span className={`badge ${
-                  item.status === 'Published' ? 'status-done' :
-                  item.status === 'Approved' ? 'status-ongoing' :
-                  item.status === 'Under Review' ? 'status-progress' : 'status-hold'
-                }`}>
-                  {item.status}
-                </span>
-              </div>
-            </div>
-
-            <div className="detail-group detail-group-full">
-              <span className="detail-label">Draft Document URL Link</span>
-              <div>
-                {item.draftLink ? (
-                  <a href={item.draftLink} target="_blank" rel="noreferrer" className="detail-link">
-                    Open Draft Document URL <ExternalLink size={14} />
-                  </a>
-                ) : (
-                  <span className="detail-value" style={{ color: 'var(--text-muted)' }}>No document link provided</span>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="form-actions">
-          {isEditing ? (
-            <>
-              <button className="btn btn-secondary" onClick={handleCancel}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSave}>Save</button>
-            </>
-          ) : (
-            <>
-              <button className="btn btn-secondary" onClick={onClose}>Close</button>
-              <button className="btn btn-primary" onClick={() => setIsEditing(true)}>Edit Details</button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
 export const ContentTable: React.FC = () => {
-  const { contentItems, updateContentItem, addContentItem, deleteContentItem, openPreviewForFeature } = useDashboard();
+  const { 
+    contentItems, updateContentItem, addContentItem, deleteContentItem, 
+    openPreviewForFeature, speakers: configSpeakers, productGroups, statuses: configStatuses 
+  } = useDashboard();
+  
+  const speakersList = configSpeakers.map(s => s.name);
+  const statusOptions = configStatuses.filter(s => s.scope === 'product' || s.scope === 'all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [editingItem, setEditingItem] = useState<ContentItem | null>(null);
 
-  const filtered = contentItems.filter(item => 
-    item.module.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.poc.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filtering states
+  const [filterStatus, setFilterStatus] = useState<string>('All');
 
+  // Sorting states
+  const [sortField, setSortField] = useState<keyof ContentItem>('module');
+  const [sortAsc, setSortAsc] = useState(true);
+
+  // CSV import state
+  const [isImportOpen, setIsImportOpen] = useState(false);
+
+  // Inline editing states for Content Table
+  const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
+  const [inlineModuleValue, setInlineModuleValue] = useState('');
+  const editModuleInputRef = useRef<HTMLInputElement>(null);
+
+  const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
+  const [inlineSubjectValue, setInlineSubjectValue] = useState('');
+  const editSubjectInputRef = useRef<HTMLInputElement>(null);
+
+  const [editingPocId, setEditingPocId] = useState<string | null>(null);
+  const [inlinePocValue, setInlinePocValue] = useState('');
+
+  const [editingDateId, setEditingDateId] = useState<string | null>(null); // targetDate / publishDate
+  const [inlineDateValue, setInlineDateValue] = useState('');
+  const editDateInputRef = useRef<HTMLInputElement>(null);
+
+  // Aligned fields inline editing states
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [inlineProductValue, setInlineProductValue] = useState('');
+
+  const [editingPriorityId, setEditingPriorityId] = useState<string | null>(null);
+  const [inlinePriorityValue, setInlinePriorityValue] = useState('');
+
+  const [editingClickupStatusId, setEditingClickupStatusId] = useState<string | null>(null);
+  const [inlineClickupStatusValue, setInlineClickupStatusValue] = useState('');
+  const editClickupStatusInputRef = useRef<HTMLInputElement>(null);
+
+  const [editingSpecsDateId, setEditingSpecsDateId] = useState<string | null>(null);
+  const [inlineSpecsDateValue, setInlineSpecsDateValue] = useState('');
+  const editSpecsDateInputRef = useRef<HTMLInputElement>(null);
+
+  const [editingUiuxDateId, setEditingUiuxDateId] = useState<string | null>(null);
+  const [inlineUiuxDateValue, setInlineUiuxDateValue] = useState('');
+  const editUiuxDateInputRef = useRef<HTMLInputElement>(null);
+
+  const [editingDevDateId, setEditingDevDateId] = useState<string | null>(null);
+  const [inlineDevDateValue, setInlineDevDateValue] = useState('');
+  const editDevDateInputRef = useRef<HTMLInputElement>(null);
+
+  const [editingReleaseDateId, setEditingReleaseDateId] = useState<string | null>(null);
+  const [inlineReleaseDateValue, setInlineReleaseDateValue] = useState('');
+  const editReleaseDateInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingModuleId && editModuleInputRef.current) {
+      editModuleInputRef.current.focus();
+      editModuleInputRef.current.select();
+    }
+  }, [editingModuleId]);
+
+  useEffect(() => {
+    if (editingSubjectId && editSubjectInputRef.current) {
+      editSubjectInputRef.current.focus();
+      editSubjectInputRef.current.select();
+    }
+  }, [editingSubjectId]);
+
+  useEffect(() => {
+    if (editingDateId && editDateInputRef.current) {
+      editDateInputRef.current.focus();
+    }
+  }, [editingDateId]);
+
+
+
+  useEffect(() => {
+    if (editingClickupStatusId && editClickupStatusInputRef.current) {
+      editClickupStatusInputRef.current.focus();
+      editClickupStatusInputRef.current.select();
+    }
+  }, [editingClickupStatusId]);
+
+  useEffect(() => {
+    if (editingSpecsDateId && editSpecsDateInputRef.current) {
+      editSpecsDateInputRef.current.focus();
+    }
+  }, [editingSpecsDateId]);
+
+  useEffect(() => {
+    if (editingUiuxDateId && editUiuxDateInputRef.current) {
+      editUiuxDateInputRef.current.focus();
+    }
+  }, [editingUiuxDateId]);
+
+  useEffect(() => {
+    if (editingDevDateId && editDevDateInputRef.current) {
+      editDevDateInputRef.current.focus();
+    }
+  }, [editingDevDateId]);
+
+  useEffect(() => {
+    if (editingReleaseDateId && editReleaseDateInputRef.current) {
+      editReleaseDateInputRef.current.focus();
+    }
+  }, [editingReleaseDateId]);
+
+  // Handle new item add inline
   const handleAddNew = () => {
     const newItem: ContentItem = {
       id: `cont-${Date.now()}`,
-      module: 'New Module Content Topic',
-      subject: 'Subject Category',
+      module: '',
+      subject: '',
       type: 'Video',
-      poc: 'Nikhil',
+      poc: speakersList[0] || 'Nikhil',
       draftLink: '',
-      status: 'Drafting',
-      publishDate: ''
+      status: '',
+      publishDate: '',
+      product: productGroups[0]?.name || '',
+      priority: 'P2',
+      clickupStatus: 'open',
+      productDeadline: '',
+      uiux: '',
+      deadline: '',
+      finalRelease: '',
+      productDeadlineCompleted: false,
+      uiuxCompleted: false,
+      deadlineCompleted: false,
+      finalReleaseCompleted: false
     };
     addContentItem(newItem);
-    setEditingItem(newItem);
+    setInlineModuleValue('');
+    setEditingModuleId(newItem.id);
   };
+
+  const handleImportCSV = (data: string[][]) => {
+    data.forEach(row => {
+      if (row.length < 2) return;
+      const newItem: ContentItem = {
+        id: `cont-${Math.random()}`,
+        module: row[0] || 'Imported Topic',
+        product: row[1] || 'Coach LMS Web',
+        priority: (row[2] as any) || 'P2',
+        poc: row[3] || speakersList[0] || 'Nikhil',
+        status: row[4] || '',
+        clickupStatus: row[5] || 'open',
+        productDeadline: row[6] || '',
+        uiux: row[7] || '',
+        deadline: row[8] || '',
+        finalRelease: row[9] || '',
+        type: 'Video',
+        draftLink: '',
+        publishDate: row[9] || '',
+        subject: row[1] || 'Subject',
+        productDeadlineCompleted: false,
+        uiuxCompleted: false,
+        deadlineCompleted: false,
+        finalReleaseCompleted: false
+      };
+      addContentItem(newItem);
+    });
+  };
+
+  // 1. Search filter
+  let filtered = contentItems.filter(item => 
+    item.module.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (item.product || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    item.poc.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+
+
+  // 3. Status filter
+  if (filterStatus !== 'All') {
+    filtered = filtered.filter(item => item.status === filterStatus);
+  }
+
+  // 4. Header sorting
+  const handleSort = (field: keyof ContentItem) => {
+    if (sortField === field) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+  };
+
+  const sorted = [...filtered].sort((a, b) => {
+    const aVal = a[sortField] || '';
+    const bVal = b[sortField] || '';
+    
+    if (typeof aVal === 'string') {
+      return sortAsc ? aVal.localeCompare(bVal as string) : (bVal as string).localeCompare(aVal);
+    }
+    return 0;
+  });
 
   return (
     <>
@@ -4434,36 +5595,623 @@ export const ContentTable: React.FC = () => {
         setSearchQuery={setSearchQuery}
         onAddClick={handleAddNew}
         addLabel="Add Content Item"
+        filterComponent={
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => setIsImportOpen(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '0.8rem', height: '36px' }}
+            >
+              Import CSV
+            </button>
+            <select className="filter-select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+              <option value="All">All Statuses</option>
+              {statusOptions.map(s => (
+                <option key={s.id} value={s.label}>{s.label}</option>
+              ))}
+            </select>
+          </div>
+        }
       >
         <div className="table-responsive">
           <table className="grid-table">
             <thead>
               <tr>
-                <th>Module / Topic Name</th>
-                <th style={{ width: '160px' }}>Subject</th>
-                <th style={{ width: '140px' }}>Type</th>
-                <th style={{ width: '150px' }}>Pipeline Status</th>
+                <th className="sticky-header-col" onClick={() => handleSort('module')} style={{ width: '250px', minWidth: '250px', maxWidth: '250px', cursor: 'pointer' }}>
+                  Feature {sortField === 'module' ? (sortAsc ? '▲' : '▼') : ''}
+                </th>
+                <th onClick={() => handleSort('product')} style={{ width: '150px', cursor: 'pointer' }}>
+                  Product Group {sortField === 'product' ? (sortAsc ? '▲' : '▼') : ''}
+                </th>
+                <th onClick={() => handleSort('priority')} style={{ width: '80px', cursor: 'pointer' }}>
+                  Priority {sortField === 'priority' ? (sortAsc ? '▲' : '▼') : ''}
+                </th>
+                <th onClick={() => handleSort('poc')} style={{ width: '120px', cursor: 'pointer' }}>
+                  POC Owner {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}
+                </th>
+                <th onClick={() => handleSort('status')} style={{ width: '120px', cursor: 'pointer' }}>
+                  Status {sortField === 'status' ? (sortAsc ? '▲' : '▼') : ''}
+                </th>
+                <th onClick={() => handleSort('clickupStatus')} style={{ width: '100px', cursor: 'pointer' }}>
+                  Clickup {sortField === 'clickupStatus' ? (sortAsc ? '▲' : '▼') : ''}
+                </th>
+                <th onClick={() => handleSort('productDeadline')} style={{ width: '120px', cursor: 'pointer' }}>
+                  Specs Date {sortField === 'productDeadline' ? (sortAsc ? '▲' : '▼') : ''}
+                </th>
+                <th onClick={() => handleSort('uiux')} style={{ width: '120px', cursor: 'pointer' }}>
+                  UI/UX Date {sortField === 'uiux' ? (sortAsc ? '▲' : '▼') : ''}
+                </th>
+                <th onClick={() => handleSort('deadline')} style={{ width: '120px', cursor: 'pointer' }}>
+                  Dev Date {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}
+                </th>
+                <th onClick={() => handleSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>
+                  Release Date {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}
+                </th>
                 <th style={{ width: '40px' }}></th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map(item => (
-                <tr key={item.id} onClick={() => openPreviewForFeature(item.module, { description: `Content topic: ${item.module}. Subject: ${item.subject}. Type: ${item.type}.`, status: item.status === 'Published' ? 'Completed' : 'In Progress', clickupStatus: item.status })} style={{ cursor: 'pointer' }}>
-                  <td style={{ fontWeight: 600 }}>{item.module}</td>
-                  <td>{item.subject}</td>
-                  <td>
-                    <span style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>{item.type}</span>
-                  </td>
-                  <td>
-                    <span className={`badge ${
-                      item.status === 'Published' ? 'status-done' :
-                      item.status === 'Approved' ? 'status-ongoing' :
-                      item.status === 'Under Review' ? 'status-progress' : 'status-hold'
-                    }`}>
-                      {item.status}
-                    </span>
+              {sorted.map(item => (
+                <tr 
+                  key={item.id} 
+                  onClick={() => {
+                    if (
+                      editingModuleId !== item.id &&
+                      editingSubjectId !== item.id &&
+                      editingPocId !== item.id &&
+                      editingDateId !== item.id &&
+                      editingProductId !== item.id &&
+                      editingPriorityId !== item.id &&
+                      editingClickupStatusId !== item.id &&
+                      editingSpecsDateId !== item.id &&
+                      editingUiuxDateId !== item.id &&
+                      editingDevDateId !== item.id &&
+                      editingReleaseDateId !== item.id
+                    ) {
+                      openPreviewForFeature(item.module, { 
+                        description: `Content topic: ${item.module}. Subject: ${item.subject || ''}. Type: ${item.type}.`, 
+                        status: item.status as any, 
+                        clickupStatus: item.clickupStatus || 'open',
+                        priority: item.priority || '',
+                        poc: item.poc || '',
+                        product: item.product || '',
+                        productDeadline: item.productDeadline || '',
+                        uiux: item.uiux || '',
+                        deadline: item.deadline || '',
+                        finalRelease: item.finalRelease || '',
+                        productDeadlineCompleted: item.productDeadlineCompleted || false,
+                        uiuxCompleted: item.uiuxCompleted || false,
+                        deadlineCompleted: item.deadlineCompleted || false,
+                        finalReleaseCompleted: item.finalReleaseCompleted || false
+                      });
+                    }
+                  }} 
+                  style={{ cursor: 'pointer' }}
+                >
+                  {/* Module Name (Feature) */}
+                  <td 
+                    className="sticky-col" 
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setEditingModuleId(item.id);
+                      setInlineModuleValue(item.module || '');
+                    }}
+                    style={{ fontWeight: 600, width: '250px', minWidth: '250px', maxWidth: '250px', whiteSpace: 'normal' }}
+                    title="Double click to edit Title"
+                  >
+                    {editingModuleId === item.id ? (
+                      <input
+                        ref={editModuleInputRef}
+                        type="text"
+                        value={inlineModuleValue}
+                        onChange={(e) => setInlineModuleValue(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const finalVal = inlineModuleValue.trim() || 'New Topic';
+                            updateContentItem(item.id, { module: finalVal });
+                            setEditingModuleId(null);
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            setEditingModuleId(null);
+                          }
+                        }}
+                        onBlur={() => {
+                          const finalVal = inlineModuleValue.trim() || 'New Topic';
+                          updateContentItem(item.id, { module: finalVal });
+                          setEditingModuleId(null);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '4px 6px',
+                          backgroundColor: 'var(--background)',
+                          border: '1.5px solid var(--primary)',
+                          borderRadius: '6px',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          outline: 'none',
+                        }}
+                      />
+                    ) : (
+                      item.module || <span style={{ color: 'var(--text-muted)' }}>— (No topic)</span>
+                    )}
                   </td>
 
+                  {/* Product Group */}
+                  <td
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingProductId(item.id);
+                      setInlineProductValue(item.product || '');
+                    }}
+                    title="Click to edit Product Group"
+                  >
+                    {editingProductId === item.id ? (
+                      <select
+                        autoFocus
+                        value={inlineProductValue}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setInlineProductValue(val);
+                          updateContentItem(item.id, { product: val });
+                          setEditingProductId(null);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') {
+                            setEditingProductId(null);
+                          }
+                        }}
+                        onBlur={() => setEditingProductId(null)}
+                        style={{
+                          width: '100%',
+                          padding: '4px 6px',
+                          backgroundColor: 'var(--background)',
+                          border: '1.5px solid var(--primary)',
+                          borderRadius: '6px',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.8rem',
+                          outline: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <option value="">— Select Product —</option>
+                        {productGroups.map(g => (
+                          <option key={g.id} value={g.name}>{g.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      item.product || '—'
+                    )}
+                  </td>
+
+                  {/* Priority */}
+                  <td
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingPriorityId(item.id);
+                      setInlinePriorityValue(item.priority || '');
+                    }}
+                    title="Click to edit Priority"
+                  >
+                    {editingPriorityId === item.id ? (
+                      <select
+                        autoFocus
+                        value={inlinePriorityValue}
+                        onChange={(e) => {
+                          const val = e.target.value as any;
+                          setInlinePriorityValue(val);
+                          updateContentItem(item.id, { priority: val });
+                          setEditingPriorityId(null);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') {
+                            setEditingPriorityId(null);
+                          }
+                        }}
+                        onBlur={() => setEditingPriorityId(null)}
+                        style={{
+                          width: '100%',
+                          padding: '4px 6px',
+                          backgroundColor: 'var(--background)',
+                          border: '1.5px solid var(--primary)',
+                          borderRadius: '6px',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.8rem',
+                          outline: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <option value="">— Select Priority —</option>
+                        <option value="P0">P0</option>
+                        <option value="P1">P1</option>
+                        <option value="P2">P2</option>
+                        <option value="P3">P3</option>
+                        <option value="P4">P4</option>
+                      </select>
+                    ) : (
+                      item.priority ? (
+                        <span className={`badge badge-${item.priority.toLowerCase()}`}>
+                          {item.priority}
+                        </span>
+                      ) : '—'
+                    )}
+                  </td>
+
+                  {/* POC Owner */}
+                  <td
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingPocId(item.id);
+                      setInlinePocValue(item.poc || '');
+                    }}
+                    title="Click to edit POC"
+                  >
+                    {editingPocId === item.id ? (
+                      <select
+                        autoFocus
+                        value={inlinePocValue}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setInlinePocValue(val);
+                          updateContentItem(item.id, { poc: val });
+                          setEditingPocId(null);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') {
+                            setEditingPocId(null);
+                          }
+                        }}
+                        onBlur={() => setEditingPocId(null)}
+                        style={{
+                          width: '100%',
+                          padding: '4px 6px',
+                          backgroundColor: 'var(--background)',
+                          border: '1.5px solid var(--primary)',
+                          borderRadius: '6px',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.8rem',
+                          outline: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {speakersList.map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                        {inlinePocValue && !speakersList.includes(inlinePocValue) && (
+                          <option value={inlinePocValue}>{inlinePocValue}</option>
+                        )}
+                      </select>
+                    ) : (
+                      item.poc || '—'
+                    )}
+                  </td>
+
+                  {/* Status */}
+                  <td>
+                    <select
+                      value={item.status || ''}
+                      onChange={(e) => updateContentItem(item.id, { status: e.target.value })}
+                      onClick={(e) => e.stopPropagation()}
+                      className="badge"
+                      style={{ 
+                        border: 'none', 
+                        outline: 'none', 
+                        cursor: 'pointer',
+                        padding: '2px 6px',
+                        fontFamily: 'inherit',
+                        fontWeight: '600',
+                        fontSize: '0.75rem',
+                        borderRadius: '4px',
+                        appearance: 'none',
+                        textAlign: 'center',
+                        backgroundColor: statusOptions.find(s => s.label === item.status)?.color || 'var(--surface-elevated)',
+                        color: '#fff'
+                      }}
+                    >
+                      <option value="" style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>— Select Status —</option>
+                      {statusOptions.map(s => (
+                        <option key={s.id} value={s.label} style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>
+                          {s.label}
+                        </option>
+                      ))}
+                      {item.status && !statusOptions.find(s => s.label === item.status) && (
+                        <option value={item.status} style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>
+                          {item.status}
+                        </option>
+                      )}
+                    </select>
+                  </td>
+
+                  {/* ClickUp Status */}
+                  <td
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setEditingClickupStatusId(item.id);
+                      setInlineClickupStatusValue(item.clickupStatus || '');
+                    }}
+                    title="Double click to edit ClickUp Status"
+                  >
+                    {editingClickupStatusId === item.id ? (
+                      <input
+                        ref={editClickupStatusInputRef}
+                        type="text"
+                        value={inlineClickupStatusValue}
+                        onChange={(e) => setInlineClickupStatusValue(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const finalVal = inlineClickupStatusValue.trim();
+                            updateContentItem(item.id, { clickupStatus: finalVal });
+                            setEditingClickupStatusId(null);
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            setEditingClickupStatusId(null);
+                          }
+                        }}
+                        onBlur={() => {
+                          const finalVal = inlineClickupStatusValue.trim();
+                          updateContentItem(item.id, { clickupStatus: finalVal });
+                          setEditingClickupStatusId(null);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '4px 6px',
+                          backgroundColor: 'var(--background)',
+                          border: '1.5px solid var(--primary)',
+                          borderRadius: '6px',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.8rem',
+                          outline: 'none',
+                        }}
+                      />
+                    ) : (
+                      item.clickupStatus ? (
+                        <span className={`badge clickup-${item.clickupStatus.toLowerCase()}`}>
+                          {item.clickupStatus}
+                        </span>
+                      ) : '—'
+                    )}
+                  </td>
+
+                  {/* Specs Date (productDeadline) */}
+                  <td
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setEditingSpecsDateId(item.id);
+                      setInlineSpecsDateValue(item.productDeadline || '');
+                    }}
+                    title="Double click to edit Specs Date"
+                  >
+                    {editingSpecsDateId === item.id ? (
+                      <input
+                        ref={editSpecsDateInputRef}
+                        type="date"
+                        value={inlineSpecsDateValue}
+                        onChange={(e) => setInlineSpecsDateValue(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            updateContentItem(item.id, { productDeadline: inlineSpecsDateValue });
+                            setEditingSpecsDateId(null);
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            setEditingSpecsDateId(null);
+                          }
+                        }}
+                        onBlur={() => {
+                          updateContentItem(item.id, { productDeadline: inlineSpecsDateValue });
+                          setEditingSpecsDateId(null);
+                        }}
+                        style={{
+                          padding: '4px 6px',
+                          backgroundColor: 'var(--background)',
+                          border: '1.5px solid var(--primary)',
+                          borderRadius: '6px',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.8rem',
+                          outline: 'none',
+                        }}
+                      />
+                    ) : (
+                      item.productDeadline ? (
+                        <span style={item.productDeadlineCompleted ? {
+                          backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                          color: '#10b981',
+                          fontWeight: 600,
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          display: 'inline-block'
+                        } : {}}>
+                          {formatDateToUserPattern(item.productDeadline)}
+                        </span>
+                      ) : '—'
+                    )}
+                  </td>
+
+                  {/* UI/UX Date */}
+                  <td
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setEditingUiuxDateId(item.id);
+                      setInlineUiuxDateValue(item.uiux || '');
+                    }}
+                    style={{ position: 'relative' }}
+                    title="Double click to edit UI/UX Date"
+                  >
+                    <DateDiffBadge prevDate={item.productDeadline} currentDate={item.uiux} />
+                    {editingUiuxDateId === item.id ? (
+                      <input
+                        ref={editUiuxDateInputRef}
+                        type="date"
+                        value={inlineUiuxDateValue}
+                        onChange={(e) => setInlineUiuxDateValue(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            updateContentItem(item.id, { uiux: inlineUiuxDateValue });
+                            setEditingUiuxDateId(null);
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            setEditingUiuxDateId(null);
+                          }
+                        }}
+                        onBlur={() => {
+                          updateContentItem(item.id, { uiux: inlineUiuxDateValue });
+                          setEditingUiuxDateId(null);
+                        }}
+                        style={{
+                          padding: '4px 6px',
+                          backgroundColor: 'var(--background)',
+                          border: '1.5px solid var(--primary)',
+                          borderRadius: '6px',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.8rem',
+                          outline: 'none',
+                        }}
+                      />
+                    ) : (
+                      item.uiux ? (
+                        <span style={item.uiuxCompleted ? {
+                          backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                          color: '#10b981',
+                          fontWeight: 600,
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          display: 'inline-block'
+                        } : {}}>
+                          {formatDateToUserPattern(item.uiux)}
+                        </span>
+                      ) : '—'
+                    )}
+                  </td>
+
+                  {/* Dev Date */}
+                  <td
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setEditingDevDateId(item.id);
+                      setInlineDevDateValue(item.deadline || '');
+                    }}
+                    style={{ position: 'relative' }}
+                    title="Double click to edit Dev Date"
+                  >
+                    <DateDiffBadge prevDate={item.uiux} currentDate={item.deadline} />
+                    {editingDevDateId === item.id ? (
+                      <input
+                        ref={editDevDateInputRef}
+                        type="date"
+                        value={inlineDevDateValue}
+                        onChange={(e) => setInlineDevDateValue(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            updateContentItem(item.id, { deadline: inlineDevDateValue });
+                            setEditingDevDateId(null);
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            setEditingDevDateId(null);
+                          }
+                        }}
+                        onBlur={() => {
+                          updateContentItem(item.id, { deadline: inlineDevDateValue });
+                          setEditingDevDateId(null);
+                        }}
+                        style={{
+                          padding: '4px 6px',
+                          backgroundColor: 'var(--background)',
+                          border: '1.5px solid var(--primary)',
+                          borderRadius: '6px',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.8rem',
+                          outline: 'none',
+                        }}
+                      />
+                    ) : (
+                      item.deadline ? (
+                        <span style={item.deadlineCompleted ? {
+                          backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                          color: '#10b981',
+                          fontWeight: 600,
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          display: 'inline-block'
+                        } : {}}>
+                          {formatDateToUserPattern(item.deadline)}
+                        </span>
+                      ) : '—'
+                    )}
+                  </td>
+
+                  {/* Release Date */}
+                  <td
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setEditingReleaseDateId(item.id);
+                      setInlineReleaseDateValue(item.finalRelease || '');
+                    }}
+                    style={{ position: 'relative' }}
+                    title="Double click to edit Release Date"
+                  >
+                    <DateDiffBadge prevDate={item.deadline} currentDate={item.finalRelease} />
+                    {editingReleaseDateId === item.id ? (
+                      <input
+                        ref={editReleaseDateInputRef}
+                        type="date"
+                        value={inlineReleaseDateValue}
+                        onChange={(e) => setInlineReleaseDateValue(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            updateContentItem(item.id, { finalRelease: inlineReleaseDateValue });
+                            setEditingReleaseDateId(null);
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            setEditingReleaseDateId(null);
+                          }
+                        }}
+                        onBlur={() => {
+                          updateContentItem(item.id, { finalRelease: inlineReleaseDateValue });
+                          setEditingReleaseDateId(null);
+                        }}
+                        style={{
+                          padding: '4px 6px',
+                          backgroundColor: 'var(--background)',
+                          border: '1.5px solid var(--primary)',
+                          borderRadius: '6px',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.8rem',
+                          outline: 'none',
+                        }}
+                      />
+                    ) : (
+                      item.finalRelease ? (
+                        <span style={item.finalReleaseCompleted ? {
+                          backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                          color: '#10b981',
+                          fontWeight: 600,
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          display: 'inline-block'
+                        } : {}}>
+                          {formatDateToUserPattern(item.finalRelease)}
+                        </span>
+                      ) : '—'
+                    )}
+                  </td>
+
+
+
+                  {/* Actions */}
                   <td>
                     <button 
                       onClick={(e) => {
@@ -4484,150 +6232,131 @@ export const ContentTable: React.FC = () => {
         </div>
       </TabContainer>
 
-      {editingItem && (
-        <ContentDetailModal 
-          item={contentItems.find(i => i.id === editingItem.id) || editingItem}
-          onClose={() => setEditingItem(null)}
-          onUpdate={updateContentItem}
-        />
-      )}
+      <CSVImportModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        onImport={handleImportCSV}
+        title="Content Management Pipeline"
+        headers={['Module / Topic Name', 'Product Group', 'Priority', 'POC Owner', 'Status', 'Clickup Status', 'Specs Date (YYYY-MM-DD)', 'UI/UX Date (YYYY-MM-DD)', 'Dev Date (YYYY-MM-DD)', 'Release Date (YYYY-MM-DD)']}
+      />
     </>
   );
 };
 
-/* =========================================================================
-   7. PRODUCT-WISE PIVOT BREAKDOWN SHEET
-   ========================================================================= */
 export const ProductWiseSheet: React.FC = () => {
   const { productItems, planItems, deleteProductItem, setPreviewProductId, productGroups } = useDashboard();
-  const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
+  const products = productGroups.map(g => g.name);
+  const [activeProductTab, setActiveProductTab] = useState<string>('');
   
-  const products = Array.from(new Set([
-    ...productGroups.map(g => g.name),
-    ...productItems.map(p => p.product).filter(Boolean)
-  ]));
+  const activeProduct = activeProductTab && products.includes(activeProductTab) ? activeProductTab : products[0] || '';
+
+  const features = productItems.filter(item => item.product === activeProduct);
+  const totalFeatures = features.length;
+  const completedFeatures = features.filter(item => item.status === 'Completed').length;
+  const progressPercent = totalFeatures > 0 ? Math.round((completedFeatures / totalFeatures) * 100) : 0;
+
+  const relatedPlans = planItems.filter(item => 
+    item.task.toLowerCase().includes(activeProduct.toLowerCase()) || 
+    (activeProduct === 'Coach LMS Web' && item.task.toLowerCase().includes('lms')) ||
+    (activeProduct === 'Coach LMS App' && item.task.toLowerCase().includes('app'))
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', padding: '1.5rem 0', overflowY: 'auto', height: '100%' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {products.map((prod) => {
-          const features = productItems.filter(item => item.product === prod);
-          const totalFeatures = features.length;
-          const completedFeatures = features.filter(item => item.status === 'Completed').length;
-          
-          const relatedPlans = planItems.filter(item => 
-            item.task.toLowerCase().includes(prod.toLowerCase()) || 
-            (prod === 'Coach LMS Web' && item.task.toLowerCase().includes('lms')) ||
-            (prod === 'Coach LMS App' && item.task.toLowerCase().includes('app'))
-          );
-          const progressPercent = totalFeatures > 0 ? Math.round((completedFeatures / totalFeatures) * 100) : 0;
-          const isExpanded = expandedProduct === prod;
-
-          return (
-            <div 
-              key={prod} 
-              style={{ 
-                borderBottom: '1px solid var(--border)',
-                paddingBottom: '0.75rem',
-                marginBottom: '0.25rem',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              {/* Accordion Header */}
-              <div 
-                onClick={() => setExpandedProduct(isExpanded ? null : prod)}
-                style={{ 
-                  padding: '1rem 1.25rem', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'space-between', 
-                  cursor: 'pointer',
-                  backgroundColor: isExpanded ? 'var(--background-alt)' : 'transparent',
-                  transition: 'background-color 0.2s',
-                  userSelect: 'none',
-                  borderRadius: '8px'
-                }}
-                className="accordion-header-row"
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: 0 }}>
-                  <span style={{ fontSize: '0.95rem', fontWeight: 600, fontFamily: 'Outfit', color: 'var(--text-primary)' }}>
-                    {prod}
-                  </span>
-                  
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <span className="badge badge-p0" style={{ fontSize: '0.65rem', padding: '2px 8px' }}>
-                      {totalFeatures} Priorities
-                    </span>
-                    <span className="badge badge-p2" style={{ fontSize: '0.65rem', padding: '2px 8px', backgroundColor: 'var(--accent-hover)', color: 'white' }}>
-                      {relatedPlans.length} Sprints
-                    </span>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                  {/* Completion Rate Compact Bar */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '160px' }}>
-                    <div className="progress-bar-container" style={{ flex: 1, height: '6px', backgroundColor: 'var(--border)' }}>
-                      <div className="progress-bar-fill" style={{ width: `${progressPercent}%`, backgroundColor: 'var(--success)' }} />
-                    </div>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', width: '32px', textAlign: 'right' }}>
-                      {progressPercent}%
-                    </span>
-                  </div>
-
-                  <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
-                    {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                  </span>
-                </div>
-              </div>
-
-              {/* Accordion Content */}
-              {isExpanded && (
-                <div 
-                  style={{ 
-                    padding: '1.5rem 1.25rem 0.5rem 1.25rem', 
-                    animation: 'fadeIn 0.2s ease-out'
+      {products.length === 0 ? (
+        <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+          No products configured. Please add products in the Configuration tab.
+        </div>
+      ) : (
+        <>
+          {/* Top Tabs Bar */}
+          <div style={{ 
+            display: 'flex', 
+            borderBottom: '1px solid var(--border)', 
+            padding: '0.25rem 1.5rem 0 1.5rem', 
+            background: 'var(--panel-bg)', 
+            gap: '1.5rem',
+            overflowX: 'auto',
+            whiteSpace: 'nowrap',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none'
+          }}>
+            {products.map((prod) => {
+              const isActive = prod === activeProduct;
+              return (
+                <button
+                  key={prod}
+                  onClick={() => setActiveProductTab(prod)}
+                  style={{
+                    padding: '0.75rem 0.5rem',
+                    border: 'none',
+                    background: 'none',
+                    borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
+                    color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    fontWeight: 600,
+                    fontSize: '0.875rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    outline: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
                   }}
                 >
-                  {features.length > 0 ? (
-                    <div className="table-responsive" style={{ margin: 0 }}>
-                      <table className="grid-table">
-                        <thead>
-                          <tr>
-                            <th className="sticky-header-col" style={{ width: '280px', minWidth: '280px', maxWidth: '280px' }}>Feature</th>
-                            <th style={{ width: '80px' }}>Priority</th>
-                            <th style={{ width: '120px' }}>POC Owner</th>
-                            <th style={{ width: '120px' }}>Status</th>
-                            <th style={{ width: '100px' }}>Clickup</th>
-                            <th style={{ width: '120px' }}>Specs Date</th>
-                            <th style={{ width: '120px' }}>UI/UX Date</th>
-                            <th style={{ width: '120px' }}>Dev Date</th>
-                            <th style={{ width: '120px' }}>Release Date</th>
-                            <th style={{ width: '40px' }}></th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {features.map(item => (
-                            <tr key={item.id} onClick={() => setPreviewProductId(item.id)} style={{ cursor: 'pointer' }}>
-                              <td className="sticky-col" style={{ fontWeight: 600, width: '280px', minWidth: '280px', maxWidth: '280px', whiteSpace: 'normal' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
-                                  <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
-                                    {item.feature}
+                  {prod}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active Product Details Content */}
+          {activeProduct && (
+            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              {/* Table of Features */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                
+                {features.length > 0 ? (
+                  <div className="table-responsive" style={{ margin: 0, border: '1px solid var(--border)', borderRadius: '8px' }}>
+                    <table className="grid-table">
+                      <thead>
+                        <tr>
+                          <th className="sticky-header-col" style={{ width: '280px', minWidth: '280px', maxWidth: '280px' }}>Feature</th>
+                          <th style={{ width: '80px' }}>Priority</th>
+                          <th style={{ width: '120px' }}>POC Owner</th>
+                          <th style={{ width: '120px' }}>Status</th>
+                          <th style={{ width: '100px' }}>Clickup</th>
+                          <th style={{ width: '120px' }}>Specs Date</th>
+                          <th style={{ width: '120px' }}>UI/UX Date</th>
+                          <th style={{ width: '120px' }}>Dev Date</th>
+                          <th style={{ width: '120px' }}>Release Date</th>
+                          <th style={{ width: '40px' }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {features.map(item => (
+                          <tr key={item.id} onClick={() => setPreviewProductId(item.id)} style={{ cursor: 'pointer' }}>
+                            <td className="sticky-col" style={{ fontWeight: 600, width: '280px', minWidth: '280px', maxWidth: '280px', whiteSpace: 'normal' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
+                                <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
+                                  {item.feature}
+                                </span>
+                                {item.raisedByTarunSir && (
+                                  <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                                    <Sparkles size={10} /> Super Priority
                                   </span>
-                                  {item.raisedByTarunSir && (
-                                    <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                                      <Sparkles size={10} /> Super Priority
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                              <td>
+                                )}
+                              </div>
+                            </td>
+                            <td>
+                              {item.priority ? (
                                 <span className={`badge badge-${item.priority.toLowerCase()}`}>
                                   {item.priority}
                                 </span>
-                              </td>
-                              <td style={{ fontWeight: 500 }}>{item.poc}</td>
-                              <td>
+                              ) : '—'}
+                            </td>
+                            <td style={{ fontWeight: 500 }}>{item.poc || '—'}</td>
+                            <td>
+                              {item.status ? (
                                 <span className={`badge ${
                                   item.status === 'On Hold' ? 'status-hold' :
                                   item.status === 'In Progress' ? 'status-progress' :
@@ -4635,55 +6364,102 @@ export const ProductWiseSheet: React.FC = () => {
                                 }`}>
                                   {item.status}
                                 </span>
-                              </td>
-                              <td>
-                                <span className={`badge clickup-${(item.clickupStatus || 'open').toLowerCase()}`}>
-                                  {item.clickupStatus || 'open'}
+                              ) : '—'}
+                            </td>
+                            <td>
+                              {item.clickupStatus ? (
+                                <span className={`badge clickup-${item.clickupStatus.toLowerCase()}`}>
+                                  {item.clickupStatus}
                                 </span>
-                              </td>
-                              <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{item.productDeadline ? formatDateToUserPattern(item.productDeadline) : '—'}</td>
-                              <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                                <DateDiffBadge prevDate={item.productDeadline} currentDate={item.uiux} />
-                                {item.uiux ? formatDateToUserPattern(item.uiux) : '—'}
-                              </td>
-                              <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                                <DateDiffBadge prevDate={item.uiux} currentDate={item.deadline} />
-                                {item.deadline ? formatDateToUserPattern(item.deadline) : '—'}
-                              </td>
-                              <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                                <DateDiffBadge prevDate={item.deadline} currentDate={item.finalRelease} />
-                                {item.finalRelease ? formatDateToUserPattern(item.finalRelease) : '—'}
-                              </td>
-
-                              <td>
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (window.confirm("Are you sure you want to delete this feature?")) {
-                                      deleteProductItem(item.id);
-                                    }
-                                  }}
-                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic', border: '1px dashed var(--border)', borderRadius: '8px' }}>
-                      No priority features mapped to this product.
-                    </div>
-                  )}
-                </div>
-              )}
+                              ) : '—'}
+                            </td>
+                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              {item.productDeadline ? (
+                                <span style={item.productDeadlineCompleted ? {
+                                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                  color: '#10b981',
+                                  fontWeight: 600,
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  display: 'inline-block'
+                                } : {}}>
+                                  {formatDateToUserPattern(item.productDeadline)}
+                                </span>
+                              ) : '—'}
+                            </td>
+                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                              <DateDiffBadge prevDate={item.productDeadline} currentDate={item.uiux} />
+                              {item.uiux ? (
+                                <span style={item.uiuxCompleted ? {
+                                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                  color: '#10b981',
+                                  fontWeight: 600,
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  display: 'inline-block'
+                                } : {}}>
+                                  {formatDateToUserPattern(item.uiux)}
+                                </span>
+                              ) : '—'}
+                            </td>
+                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                              <DateDiffBadge prevDate={item.uiux} currentDate={item.deadline} />
+                              {item.deadline ? (
+                                <span style={item.deadlineCompleted ? {
+                                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                  color: '#10b981',
+                                  fontWeight: 600,
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  display: 'inline-block'
+                                } : {}}>
+                                  {formatDateToUserPattern(item.deadline)}
+                                </span>
+                              ) : '—'}
+                            </td>
+                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                              <DateDiffBadge prevDate={item.deadline} currentDate={item.finalRelease} />
+                              {item.finalRelease ? (
+                                <span style={item.finalReleaseCompleted ? {
+                                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                  color: '#10b981',
+                                  fontWeight: 600,
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  display: 'inline-block'
+                                } : {}}>
+                                  {formatDateToUserPattern(item.finalRelease)}
+                                </span>
+                              ) : '—'}
+                            </td>
+                            <td>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (window.confirm("Are you sure you want to delete this feature?")) {
+                                    deleteProductItem(item.id);
+                                  }
+                                }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic', border: '1px dashed var(--border)', borderRadius: '8px' }}>
+                    No priority features mapped to this product.
+                  </div>
+                )}
+              </div>
             </div>
-          );
-        })}
-      </div>
+          )}
+        </>
+      )}
     </div>
   );
 };
@@ -4986,6 +6762,7 @@ interface AdoptionDetailModalProps {
 }
 
 const AdoptionDetailModal: React.FC<AdoptionDetailModalProps> = ({ item, onClose, onUpdate }) => {
+  const { programs, cohorts } = useDashboard();
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<FeatureAdoption>({ ...item });
 
@@ -5008,7 +6785,7 @@ const AdoptionDetailModal: React.FC<AdoptionDetailModalProps> = ({ item, onClose
       <div className="detail-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="modal-title" style={{ fontFamily: 'Outfit', color: 'var(--primary)' }}>
-            {isEditing ? 'Edit Adoption Metrics' : 'Feature Adoption details'}
+            {isEditing ? 'Edit Adoption Metrics' : 'Feature Adoption Details'}
           </h3>
           <button className="modal-close" onClick={onClose}><X size={18} /></button>
         </div>
@@ -5022,16 +6799,6 @@ const AdoptionDetailModal: React.FC<AdoptionDetailModalProps> = ({ item, onClose
                 className="form-input" 
                 value={draft.feature} 
                 onChange={(e) => setDraft({ ...draft, feature: e.target.value })} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Product Module</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={draft.product} 
-                onChange={(e) => setDraft({ ...draft, product: e.target.value })} 
               />
             </div>
 
@@ -5053,6 +6820,65 @@ const AdoptionDetailModal: React.FC<AdoptionDetailModalProps> = ({ item, onClose
                 value={draft.targetAudience} 
                 onChange={(e) => setDraft({ ...draft, targetAudience: e.target.value })} 
               />
+            </div>
+
+            {/* Programs Active Checkboxes */}
+            <div className="form-group form-group-full">
+              <label className="form-label" style={{ fontWeight: 600 }}>Programs Active</label>
+              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+                {programs.map(p => {
+                  const current = (draft.program || '').split(',').map(s => s.trim()).filter(Boolean);
+                  const isChecked = current.includes(p.name);
+                  return (
+                    <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={isChecked}
+                        onChange={() => {
+                          const updated = isChecked ? current.filter(x => x !== p.name) : [...current, p.name];
+                          setDraft({ ...draft, program: updated.join(', ') });
+                        }}
+                        style={{ cursor: 'pointer', accentColor: 'var(--primary)' }}
+                      />
+                      {p.name}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Cohorts Active Checkboxes Grouped by Program */}
+            <div className="form-group form-group-full" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <label className="form-label" style={{ fontWeight: 600, marginBottom: 0 }}>Cohorts Active</label>
+              {programs.map(p => {
+                const programCohorts = cohorts.filter(c => c.programId === p.id);
+                if (programCohorts.length === 0) return null;
+                return (
+                  <div key={p.id} style={{ background: 'var(--background)', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <span style={{ fontSize: '0.725rem', color: 'var(--primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em', display: 'block', marginBottom: '0.5rem' }}>{p.name} Cohorts</span>
+                    <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                      {programCohorts.map(c => {
+                        const current = (draft.cohort || '').split(',').map(s => s.trim()).filter(Boolean);
+                        const isChecked = current.includes(c.name);
+                        return (
+                          <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.825rem' }}>
+                            <input 
+                              type="checkbox" 
+                              checked={isChecked}
+                              onChange={() => {
+                                const updated = isChecked ? current.filter(x => x !== c.name) : [...current, c.name];
+                                setDraft({ ...draft, cohort: updated.join(', ') });
+                              }}
+                              style={{ cursor: 'pointer', accentColor: 'var(--primary)' }}
+                            />
+                            {c.name}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             <div className="form-group">
@@ -5098,11 +6924,6 @@ const AdoptionDetailModal: React.FC<AdoptionDetailModalProps> = ({ item, onClose
             </div>
 
             <div className="detail-group">
-              <span className="detail-label">Product Group</span>
-              <span className="detail-value">{item.product}</span>
-            </div>
-
-            <div className="detail-group">
               <span className="detail-label">Launch Date</span>
               <span className="detail-value">{item.launchDate}</span>
             </div>
@@ -5110,6 +6931,34 @@ const AdoptionDetailModal: React.FC<AdoptionDetailModalProps> = ({ item, onClose
             <div className="detail-group">
               <span className="detail-label">Audience Target Scope</span>
               <span className="detail-value">{item.targetAudience}</span>
+            </div>
+
+            {/* Read-only Programs Badges */}
+            <div className="detail-group detail-group-full">
+              <span className="detail-label">Active Programs</span>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+                {(item.program || '').split(',').map(s => s.trim()).filter(Boolean).length > 0 ? (
+                  (item.program || '').split(',').map(s => s.trim()).filter(Boolean).map(p => (
+                    <span key={p} className="badge badge-delivered" style={{ textTransform: 'none' }}>{p}</span>
+                  ))
+                ) : (
+                  <span style={{ color: 'var(--text-muted)' }}>None</span>
+                )}
+              </div>
+            </div>
+
+            {/* Read-only Cohorts Badges */}
+            <div className="detail-group detail-group-full">
+              <span className="detail-label">Active Cohorts</span>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+                {(item.cohort || '').split(',').map(s => s.trim()).filter(Boolean).length > 0 ? (
+                  (item.cohort || '').split(',').map(s => s.trim()).filter(Boolean).map(c => (
+                    <span key={c} className="badge badge-info" style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: 'var(--info)', textTransform: 'none' }}>{c}</span>
+                  ))
+                ) : (
+                  <span style={{ color: 'var(--text-muted)' }}>None</span>
+                )}
+              </div>
             </div>
 
             <div className="detail-group">
@@ -5159,14 +7008,39 @@ const AdoptionDetailModal: React.FC<AdoptionDetailModalProps> = ({ item, onClose
 };
 
 export const AdoptionTable: React.FC = () => {
-  const { featureAdoptions, updateFeatureAdoption, addFeatureAdoption, deleteFeatureAdoption, openPreviewForFeature } = useDashboard();
+  const { 
+    featureAdoptions, updateFeatureAdoption, addFeatureAdoption, deleteFeatureAdoption, 
+    openPreviewForFeature, programs, cohorts 
+  } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
   const [editingItem, setEditingItem] = useState<FeatureAdoption | null>(null);
 
-  const filtered = featureAdoptions.filter(adopt => 
-    adopt.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    adopt.product.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filtering states
+  const [filterProgram, setFilterProgram] = useState('All');
+  const [filterCohort, setFilterCohort] = useState('All');
+
+  const filteredCohortsForSelect = filterProgram === 'All'
+    ? cohorts
+    : cohorts.filter(c => {
+        const parentProgram = programs.find(p => p.name === filterProgram);
+        return parentProgram ? c.programId === parentProgram.id : true;
+      });
+
+  const filtered = featureAdoptions.filter(adopt => {
+    const matchesSearch = 
+      adopt.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      adopt.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (adopt.program || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (adopt.cohort || '').toLowerCase().includes(searchQuery.toLowerCase());
+      
+    const currentPrograms = (adopt.program || '').split(',').map(s => s.trim()).filter(Boolean);
+    const currentCohorts = (adopt.cohort || '').split(',').map(s => s.trim()).filter(Boolean);
+
+    const matchesProgram = filterProgram === 'All' || currentPrograms.includes(filterProgram);
+    const matchesCohort = filterCohort === 'All' || currentCohorts.includes(filterCohort);
+    
+    return matchesSearch && matchesProgram && matchesCohort;
+  });
 
   const handleAddNew = () => {
     const newItem: FeatureAdoption = {
@@ -5177,7 +7051,9 @@ export const AdoptionTable: React.FC = () => {
       targetAudience: 'All Cohorts',
       adoptionRate: 0,
       activeUsers: 0,
-      sentiment: 3.0
+      sentiment: 3.0,
+      program: '',
+      cohort: ''
     };
     addFeatureAdoption(newItem);
     setEditingItem(newItem);
@@ -5191,25 +7067,99 @@ export const AdoptionTable: React.FC = () => {
         setSearchQuery={setSearchQuery}
         onAddClick={handleAddNew}
         addLabel="Track Feature"
+        filterComponent={
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <select 
+              className="filter-select" 
+              value={filterProgram} 
+              onChange={(e) => {
+                setFilterProgram(e.target.value);
+                setFilterCohort('All');
+              }}
+            >
+              <option value="All">All Programs</option>
+              {programs.map(p => (
+                <option key={p.id} value={p.name}>{p.name}</option>
+              ))}
+            </select>
+            <select 
+              className="filter-select" 
+              value={filterCohort} 
+              onChange={(e) => setFilterCohort(e.target.value)}
+            >
+              <option value="All">All Cohorts</option>
+              {filteredCohortsForSelect.map(c => (
+                <option key={c.id} value={c.name}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+        }
       >
         <div className="table-responsive">
           <table className="grid-table">
             <thead>
+              <tr style={{ backgroundColor: 'var(--surface-elevated)' }}>
+                <th rowSpan={2} style={{ verticalAlign: 'middle' }}>Feature Name</th>
+                <th colSpan={programs.length} style={{ textAlign: 'center', borderBottom: '1px solid var(--border)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Programs</th>
+                <th colSpan={cohorts.length} style={{ textAlign: 'center', borderBottom: '1px solid var(--border)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cohorts</th>
+                <th rowSpan={2} style={{ width: '150px', verticalAlign: 'middle' }}>Adoption Rate (%)</th>
+                <th rowSpan={2} style={{ width: '80px', verticalAlign: 'middle' }}></th>
+              </tr>
               <tr>
-                <th>Feature Name</th>
-                <th>Product Module</th>
-                <th style={{ width: '220px' }}>Adoption Rate (%)</th>
-                <th style={{ width: '40px' }}></th>
+                {programs.map(p => (
+                  <th key={p.id} style={{ fontSize: '0.725rem', textAlign: 'center', padding: '6px 8px', fontWeight: 600 }}>{p.name}</th>
+                ))}
+                {cohorts.map(c => (
+                  <th key={c.id} style={{ fontSize: '0.725rem', textAlign: 'center', padding: '6px 8px', fontWeight: 600 }}>{c.name}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {filtered.map(adopt => (
-                <tr key={adopt.id} onClick={() => openPreviewForFeature(adopt.feature, { product: adopt.product, description: `Launch Date: ${adopt.launchDate}. Target Audience: ${adopt.targetAudience}. Adoption Rate: ${adopt.adoptionRate}%. Sentiment Rating: ${adopt.sentiment}/5.0.` })} style={{ cursor: 'pointer' }}>
+                <tr key={adopt.id} onClick={() => openPreviewForFeature(adopt.feature, { product: adopt.product, description: `Launch Date: ${adopt.launchDate}. Programs: ${adopt.program || '—'}. Cohorts: ${adopt.cohort || '—'}. Target Audience: ${adopt.targetAudience}. Adoption Rate: ${adopt.adoptionRate}%. Sentiment Rating: ${adopt.sentiment}/5.0.` })} style={{ cursor: 'pointer' }}>
                   <td style={{ fontWeight: 600 }}>{adopt.feature}</td>
-                  <td>{adopt.product}</td>
+                  
+                  {/* Programs Matrix Checkboxes */}
+                  {programs.map(p => {
+                    const current = (adopt.program || '').split(',').map(s => s.trim()).filter(Boolean);
+                    const isChecked = current.includes(p.name);
+                    return (
+                      <td key={p.id} style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                        <input 
+                          type="checkbox" 
+                          checked={isChecked}
+                          onChange={() => {
+                            const updated = isChecked ? current.filter(x => x !== p.name) : [...current, p.name];
+                            updateFeatureAdoption(adopt.id, { program: updated.join(', ') });
+                          }}
+                          style={{ cursor: 'pointer', width: '15px', height: '15px', accentColor: 'var(--primary)' }}
+                        />
+                      </td>
+                    );
+                  })}
+
+                  {/* Cohorts Matrix Checkboxes */}
+                  {cohorts.map(c => {
+                    const current = (adopt.cohort || '').split(',').map(s => s.trim()).filter(Boolean);
+                    const isChecked = current.includes(c.name);
+                    return (
+                      <td key={c.id} style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                        <input 
+                          type="checkbox" 
+                          checked={isChecked}
+                          onChange={() => {
+                            const updated = isChecked ? current.filter(x => x !== c.name) : [...current, c.name];
+                            updateFeatureAdoption(adopt.id, { cohort: updated.join(', ') });
+                          }}
+                          style={{ cursor: 'pointer', width: '15px', height: '15px', accentColor: 'var(--primary)' }}
+                        />
+                      </td>
+                    );
+                  })}
+
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <div className="progress-bar-container" style={{ width: '100px', height: '8px' }}>
+                      <div className="progress-bar-container" style={{ width: '80px', height: '8px' }}>
                         <div className="progress-bar-fill" style={{ width: `${adopt.adoptionRate}%` }}></div>
                       </div>
                       <span style={{ fontWeight: 700, fontSize: '0.8rem', width: '32px' }}>{adopt.adoptionRate}%</span>
@@ -5217,17 +7167,26 @@ export const AdoptionTable: React.FC = () => {
                   </td>
 
                   <td>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (window.confirm("Are you sure you want to delete this launch metrics tracker?")) {
-                          deleteFeatureAdoption(adopt.id);
-                        }
-                      }} 
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
-                    >
-                      <Trash2 size={12} />
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                      <button 
+                        onClick={() => setEditingItem(adopt)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', display: 'flex', alignItems: 'center' }}
+                        title="Edit Details"
+                      >
+                        <Edit2 size={12} />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (window.confirm("Are you sure you want to delete this launch metrics tracker?")) {
+                            deleteFeatureAdoption(adopt.id);
+                          }
+                        }} 
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
+                        title="Delete Tracker"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -5246,3 +7205,4 @@ export const AdoptionTable: React.FC = () => {
     </>
   );
 };
+
