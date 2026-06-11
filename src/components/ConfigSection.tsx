@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import type { ConfigSpeaker, ConfigProductGroup, ConfigStatus, ConfigProgram, ConfigCohort } from '../types';
-import { Plus, Trash2, Check, X, Pencil, Settings, Users, Layers, Tag } from 'lucide-react';
+import { Plus, Trash2, Check, X, Pencil, Users, Layers, Tag } from 'lucide-react';
 
 // ─── Colour palette ────────────────────────────────────────────────────────────
 const PALETTE = [

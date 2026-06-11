@@ -536,7 +536,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : p.uiuxCompleted,
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
               finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted,
-              status: updatedItem.status
+              status: updatedItem.status as ProductItem['status']
             };
           }
           return p;

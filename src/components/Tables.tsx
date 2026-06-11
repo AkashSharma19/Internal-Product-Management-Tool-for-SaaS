@@ -5406,15 +5406,15 @@ export const ContentTable: React.FC = () => {
   const [inlineModuleValue, setInlineModuleValue] = useState('');
   const editModuleInputRef = useRef<HTMLInputElement>(null);
 
-  const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
-  const [inlineSubjectValue, setInlineSubjectValue] = useState('');
+  const [_editingSubjectId, _setEditingSubjectId] = useState<string | null>(null);
+  const [_inlineSubjectValue, _setInlineSubjectValue] = useState('');
   const editSubjectInputRef = useRef<HTMLInputElement>(null);
 
   const [editingPocId, setEditingPocId] = useState<string | null>(null);
   const [inlinePocValue, setInlinePocValue] = useState('');
 
-  const [editingDateId, setEditingDateId] = useState<string | null>(null); // targetDate / publishDate
-  const [inlineDateValue, setInlineDateValue] = useState('');
+  const [_editingDateId, _setEditingDateId] = useState<string | null>(null); // targetDate / publishDate
+  const [_inlineDateValue, _setInlineDateValue] = useState('');
   const editDateInputRef = useRef<HTMLInputElement>(null);
 
   // Aligned fields inline editing states
@@ -5452,17 +5452,17 @@ export const ContentTable: React.FC = () => {
   }, [editingModuleId]);
 
   useEffect(() => {
-    if (editingSubjectId && editSubjectInputRef.current) {
+    if (_editingSubjectId && editSubjectInputRef.current) {
       editSubjectInputRef.current.focus();
       editSubjectInputRef.current.select();
     }
-  }, [editingSubjectId]);
+  }, [_editingSubjectId]);
 
   useEffect(() => {
-    if (editingDateId && editDateInputRef.current) {
+    if (_editingDateId && editDateInputRef.current) {
       editDateInputRef.current.focus();
     }
-  }, [editingDateId]);
+  }, [_editingDateId]);
 
 
 
@@ -5657,9 +5657,9 @@ export const ContentTable: React.FC = () => {
                   onClick={() => {
                     if (
                       editingModuleId !== item.id &&
-                      editingSubjectId !== item.id &&
+                      _editingSubjectId !== item.id &&
                       editingPocId !== item.id &&
-                      editingDateId !== item.id &&
+                      _editingDateId !== item.id &&
                       editingProductId !== item.id &&
                       editingPriorityId !== item.id &&
                       editingClickupStatusId !== item.id &&
@@ -6244,23 +6244,13 @@ export const ContentTable: React.FC = () => {
 };
 
 export const ProductWiseSheet: React.FC = () => {
-  const { productItems, planItems, deleteProductItem, setPreviewProductId, productGroups } = useDashboard();
+  const { productItems, deleteProductItem, setPreviewProductId, productGroups } = useDashboard();
   const products = productGroups.map(g => g.name);
   const [activeProductTab, setActiveProductTab] = useState<string>('');
   
   const activeProduct = activeProductTab && products.includes(activeProductTab) ? activeProductTab : products[0] || '';
 
   const features = productItems.filter(item => item.product === activeProduct);
-  const totalFeatures = features.length;
-  const completedFeatures = features.filter(item => item.status === 'Completed').length;
-  const progressPercent = totalFeatures > 0 ? Math.round((completedFeatures / totalFeatures) * 100) : 0;
-
-  const relatedPlans = planItems.filter(item => 
-    item.task.toLowerCase().includes(activeProduct.toLowerCase()) || 
-    (activeProduct === 'Coach LMS Web' && item.task.toLowerCase().includes('lms')) ||
-    (activeProduct === 'Coach LMS App' && item.task.toLowerCase().includes('app'))
-  );
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', padding: '1.5rem 0', overflowY: 'auto', height: '100%' }}>
       {products.length === 0 ? (
@@ -6752,278 +6742,6 @@ export const IssuesTable: React.FC = () => {
   );
 };
 
-/* =========================================================================
-   9. ADOPTION TRACKER METRICS MODAL & COMPONENT
-   ========================================================================= */
-interface AdoptionDetailModalProps {
-  item: FeatureAdoption;
-  onClose: () => void;
-  onUpdate: (id: string, updated: Partial<FeatureAdoption>) => void;
-}
-
-const AdoptionDetailModal: React.FC<AdoptionDetailModalProps> = ({ item, onClose, onUpdate }) => {
-  const { programs, cohorts, productGroups } = useDashboard();
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState<FeatureAdoption>({ ...item });
-
-  // Only active programs & cohorts
-  const activeCohorts = cohorts.filter(c => c.active !== false);
-  const activePrograms = programs.filter(p => activeCohorts.some(c => c.programId === p.id));
-
-  React.useEffect(() => {
-    setDraft({ ...item });
-  }, [item]);
-
-  const handleSave = () => {
-    onUpdate(item.id, draft);
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    setDraft({ ...item });
-    setIsEditing(false);
-  };
-
-  return (
-    <div className="detail-overlay" onClick={onClose}>
-      <div className="detail-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3 className="modal-title" style={{ fontFamily: 'Outfit', color: 'var(--primary)' }}>
-            {isEditing ? 'Edit Adoption Metrics' : 'Feature Adoption Details'}
-          </h3>
-          <button className="modal-close" onClick={onClose}><X size={18} /></button>
-        </div>
-
-        {isEditing ? (
-          <div className="form-grid" style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
-            <div className="form-group form-group-full">
-              <label className="form-label">Feature Name</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={draft.feature} 
-                onChange={(e) => setDraft({ ...draft, feature: e.target.value })} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Product (from Product Groups)</label>
-              <select
-                className="filter-select"
-                style={{ height: '38px', width: '100%' }}
-                value={draft.product}
-                onChange={(e) => setDraft({ ...draft, product: e.target.value })}
-              >
-                {productGroups.map(g => (
-                  <option key={g.id} value={g.name}>{g.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Launch Date</label>
-              <input 
-                type="date" 
-                className="form-input" 
-                value={draft.launchDate} 
-                onChange={(e) => setDraft({ ...draft, launchDate: e.target.value })} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Audience Scope / Target Cohorts</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={draft.targetAudience} 
-                onChange={(e) => setDraft({ ...draft, targetAudience: e.target.value })} 
-              />
-            </div>
-
-            {/* Programs Active Checkboxes — active only */}
-            <div className="form-group form-group-full">
-              <label className="form-label" style={{ fontWeight: 600 }}>Programs Active</label>
-              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
-                {activePrograms.map(p => {
-                  const current = (draft.program || '').split(',').map(s => s.trim()).filter(Boolean);
-                  const isChecked = current.includes(p.name);
-                  return (
-                    <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={isChecked}
-                        onChange={() => {
-                          const updated = isChecked ? current.filter(x => x !== p.name) : [...current, p.name];
-                          setDraft({ ...draft, program: updated.join(', ') });
-                        }}
-                        style={{ cursor: 'pointer', accentColor: 'var(--primary)' }}
-                      />
-                      {p.name}
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Cohorts Active Checkboxes Grouped by Program — active only */}
-            <div className="form-group form-group-full" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <label className="form-label" style={{ fontWeight: 600, marginBottom: 0 }}>Cohorts Active</label>
-              {activePrograms.map(p => {
-                const programCohorts = activeCohorts.filter(c => c.programId === p.id);
-                if (programCohorts.length === 0) return null;
-                return (
-                  <div key={p.id} style={{ background: 'var(--background)', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                    <span style={{ fontSize: '0.725rem', color: 'var(--primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em', display: 'block', marginBottom: '0.5rem' }}>{p.name} Cohorts</span>
-                    <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-                      {programCohorts.map(c => {
-                        const current = (draft.cohort || '').split(',').map(s => s.trim()).filter(Boolean);
-                        const isChecked = current.includes(c.name);
-                        return (
-                          <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.825rem' }}>
-                            <input 
-                              type="checkbox" 
-                              checked={isChecked}
-                              onChange={() => {
-                                const updated = isChecked ? current.filter(x => x !== c.name) : [...current, c.name];
-                                setDraft({ ...draft, cohort: updated.join(', ') });
-                              }}
-                              style={{ cursor: 'pointer', accentColor: 'var(--primary)' }}
-                            />
-                            {c.name}
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Active Weekly Users</label>
-              <input 
-                type="number" 
-                className="form-input" 
-                value={draft.activeUsers} 
-                onChange={(e) => setDraft({ ...draft, activeUsers: parseInt(e.target.value) || 0 })} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Adoption Rate ({draft.adoptionRate}%)</label>
-              <input 
-                type="range" 
-                min="0" 
-                max="100"
-                style={{ cursor: 'pointer', accentColor: 'var(--primary)', height: '38px' }}
-                value={draft.adoptionRate} 
-                onChange={(e) => setDraft({ ...draft, adoptionRate: parseInt(e.target.value) || 0 })} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Sentiment Score (1.0 to 5.0★)</label>
-              <input 
-                type="number" 
-                min="1.0"
-                max="5.0"
-                step="0.1"
-                className="form-input" 
-                value={draft.sentiment} 
-                onChange={(e) => setDraft({ ...draft, sentiment: parseFloat(e.target.value) || 1.0 })} 
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="detail-grid">
-            <div className="detail-group detail-group-full">
-              <span className="detail-label">Feature Scope</span>
-              <span className="detail-value" style={{ fontSize: '1.1rem', fontWeight: 700 }}>{item.feature}</span>
-            </div>
-
-            <div className="detail-group">
-              <span className="detail-label">Launch Date</span>
-              <span className="detail-value">{item.launchDate}</span>
-            </div>
-
-            <div className="detail-group">
-              <span className="detail-label">Audience Target Scope</span>
-              <span className="detail-value">{item.targetAudience}</span>
-            </div>
-
-            {/* Read-only Programs Badges */}
-            <div className="detail-group detail-group-full">
-              <span className="detail-label">Active Programs</span>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
-                {(item.program || '').split(',').map(s => s.trim()).filter(Boolean).length > 0 ? (
-                  (item.program || '').split(',').map(s => s.trim()).filter(Boolean).map(p => (
-                    <span key={p} className="badge badge-delivered" style={{ textTransform: 'none' }}>{p}</span>
-                  ))
-                ) : (
-                  <span style={{ color: 'var(--text-muted)' }}>None</span>
-                )}
-              </div>
-            </div>
-
-            {/* Read-only Cohorts Badges */}
-            <div className="detail-group detail-group-full">
-              <span className="detail-label">Active Cohorts</span>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
-                {(item.cohort || '').split(',').map(s => s.trim()).filter(Boolean).length > 0 ? (
-                  (item.cohort || '').split(',').map(s => s.trim()).filter(Boolean).map(c => (
-                    <span key={c} className="badge badge-info" style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: 'var(--info)', textTransform: 'none' }}>{c}</span>
-                  ))
-                ) : (
-                  <span style={{ color: 'var(--text-muted)' }}>None</span>
-                )}
-              </div>
-            </div>
-
-            <div className="detail-group">
-              <span className="detail-label">Active Users Tracked</span>
-              <span className="detail-value" style={{ fontSize: '1.05rem', fontWeight: 600 }}>{item.activeUsers} Users</span>
-            </div>
-
-            <div className="detail-group">
-              <span className="detail-label">Adoption Rate Percentage</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
-                <div className="progress-bar-container" style={{ height: '10px', width: '100px' }}>
-                  <div className="progress-bar-fill" style={{ width: `${item.adoptionRate}%` }}></div>
-                </div>
-                <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>{item.adoptionRate}%</span>
-              </div>
-            </div>
-
-            <div className="detail-group">
-              <span className="detail-label">User Satisfaction Sentiment</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{item.sentiment} / 5.0</span>
-                <span style={{ color: 'var(--warning)', fontSize: '1.1rem' }}>
-                  {'★'.repeat(Math.round(item.sentiment))}
-                  <span style={{ opacity: 0.2 }}>{'★'.repeat(5 - Math.round(item.sentiment))}</span>
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="form-actions">
-          {isEditing ? (
-            <>
-              <button className="btn btn-secondary" onClick={handleCancel}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSave}>Save</button>
-            </>
-          ) : (
-            <>
-              <button className="btn btn-secondary" onClick={onClose}>Close</button>
-              <button className="btn btn-primary" onClick={() => setIsEditing(true)}>Edit Details</button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export const AdoptionTable: React.FC = () => {
   const { 
