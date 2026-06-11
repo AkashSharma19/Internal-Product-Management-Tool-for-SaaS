@@ -812,10 +812,10 @@ export const initialPrograms: ConfigProgram[] = [
 ];
 
 export const initialCohorts: ConfigCohort[] = [
-  { id: 'coh-1', name: 'UG-DSAI-2029', programId: 'prog-1' },
-  { id: 'coh-2', name: 'UG-DSAI-2028', programId: 'prog-1' },
-  { id: 'coh-3', name: 'Coop-Cohort-1', programId: 'prog-2' },
-  { id: 'coh-4', name: 'All Cohorts', programId: 'prog-3' }
+  { id: 'coh-1', name: 'UG-DSAI-2029',  programId: 'prog-1', active: true },
+  { id: 'coh-2', name: 'UG-DSAI-2028',  programId: 'prog-1', active: true },
+  { id: 'coh-3', name: 'Coop-Cohort-1', programId: 'prog-2', active: true },
+  { id: 'coh-4', name: 'All Cohorts',   programId: 'prog-3', active: true },
 ];
 
 

@@ -6762,9 +6762,13 @@ interface AdoptionDetailModalProps {
 }
 
 const AdoptionDetailModal: React.FC<AdoptionDetailModalProps> = ({ item, onClose, onUpdate }) => {
-  const { programs, cohorts } = useDashboard();
+  const { programs, cohorts, productGroups } = useDashboard();
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<FeatureAdoption>({ ...item });
+
+  // Only active programs & cohorts
+  const activeCohorts = cohorts.filter(c => c.active !== false);
+  const activePrograms = programs.filter(p => activeCohorts.some(c => c.programId === p.id));
 
   React.useEffect(() => {
     setDraft({ ...item });
@@ -6803,6 +6807,20 @@ const AdoptionDetailModal: React.FC<AdoptionDetailModalProps> = ({ item, onClose
             </div>
 
             <div className="form-group">
+              <label className="form-label">Product (from Product Groups)</label>
+              <select
+                className="filter-select"
+                style={{ height: '38px', width: '100%' }}
+                value={draft.product}
+                onChange={(e) => setDraft({ ...draft, product: e.target.value })}
+              >
+                {productGroups.map(g => (
+                  <option key={g.id} value={g.name}>{g.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
               <label className="form-label">Launch Date</label>
               <input 
                 type="date" 
@@ -6822,11 +6840,11 @@ const AdoptionDetailModal: React.FC<AdoptionDetailModalProps> = ({ item, onClose
               />
             </div>
 
-            {/* Programs Active Checkboxes */}
+            {/* Programs Active Checkboxes — active only */}
             <div className="form-group form-group-full">
               <label className="form-label" style={{ fontWeight: 600 }}>Programs Active</label>
               <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
-                {programs.map(p => {
+                {activePrograms.map(p => {
                   const current = (draft.program || '').split(',').map(s => s.trim()).filter(Boolean);
                   const isChecked = current.includes(p.name);
                   return (
@@ -6847,11 +6865,11 @@ const AdoptionDetailModal: React.FC<AdoptionDetailModalProps> = ({ item, onClose
               </div>
             </div>
 
-            {/* Cohorts Active Checkboxes Grouped by Program */}
+            {/* Cohorts Active Checkboxes Grouped by Program — active only */}
             <div className="form-group form-group-full" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <label className="form-label" style={{ fontWeight: 600, marginBottom: 0 }}>Cohorts Active</label>
-              {programs.map(p => {
-                const programCohorts = cohorts.filter(c => c.programId === p.id);
+              {activePrograms.map(p => {
+                const programCohorts = activeCohorts.filter(c => c.programId === p.id);
                 if (programCohorts.length === 0) return null;
                 return (
                   <div key={p.id} style={{ background: 'var(--background)', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
@@ -7010,19 +7028,54 @@ const AdoptionDetailModal: React.FC<AdoptionDetailModalProps> = ({ item, onClose
 export const AdoptionTable: React.FC = () => {
   const { 
     featureAdoptions, updateFeatureAdoption, addFeatureAdoption, deleteFeatureAdoption, 
-    openPreviewForFeature, programs, cohorts 
+    programs, cohorts, productGroups
   } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
-  const [editingItem, setEditingItem] = useState<FeatureAdoption | null>(null);
+  
+  // Inline editing states
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<FeatureAdoption | null>(null);
+
+  // Add feature states
+  const [isAddingFeature, setIsAddingFeature] = useState(false);
+  const [newFeatureName, setNewFeatureName] = useState('');
+  const [newProductGroup, setNewProductGroup] = useState('');
 
   // Filtering states
   const [filterProgram, setFilterProgram] = useState('All');
   const [filterCohort, setFilterCohort] = useState('All');
 
+  // Only show active cohorts and programs that have at least one active cohort
+  const activeCohorts = cohorts.filter(c => c.active !== false);
+  const activePrograms = programs.filter(p => activeCohorts.some(c => c.programId === p.id));
+
+  // Determine cohorts to display based on filters
+  const displayCohorts = (() => {
+    if (filterCohort !== 'All') {
+      return activeCohorts.filter(c => c.name === filterCohort);
+    }
+    if (filterProgram !== 'All') {
+      const parentProgram = activePrograms.find(p => p.name === filterProgram);
+      return parentProgram 
+        ? activeCohorts.filter(c => c.programId === parentProgram.id)
+        : activeCohorts;
+    }
+    return activeCohorts;
+  })();
+
+  // Group cohorts by program
+  const cohortsByProgram = activePrograms.map(p => {
+    return {
+      program: p,
+      cohorts: displayCohorts.filter(c => c.programId === p.id)
+    };
+  }).filter(group => group.cohorts.length > 0);
+
+  // Cohorts list filter dropdown should show cohorts of selected program
   const filteredCohortsForSelect = filterProgram === 'All'
-    ? cohorts
-    : cohorts.filter(c => {
-        const parentProgram = programs.find(p => p.name === filterProgram);
+    ? activeCohorts
+    : activeCohorts.filter(c => {
+        const parentProgram = activePrograms.find(p => p.name === filterProgram);
         return parentProgram ? c.programId === parentProgram.id : true;
       });
 
@@ -7033,30 +7086,59 @@ export const AdoptionTable: React.FC = () => {
       (adopt.program || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (adopt.cohort || '').toLowerCase().includes(searchQuery.toLowerCase());
       
-    const currentPrograms = (adopt.program || '').split(',').map(s => s.trim()).filter(Boolean);
-    const currentCohorts = (adopt.cohort || '').split(',').map(s => s.trim()).filter(Boolean);
-
-    const matchesProgram = filterProgram === 'All' || currentPrograms.includes(filterProgram);
-    const matchesCohort = filterCohort === 'All' || currentCohorts.includes(filterCohort);
-    
-    return matchesSearch && matchesProgram && matchesCohort;
+    return matchesSearch;
   });
 
-  const handleAddNew = () => {
-    const newItem: FeatureAdoption = {
-      id: `adopt-${Date.now()}`,
-      feature: 'New Feature Track Name',
-      product: 'Coach LMS Web',
-      launchDate: new Date().toISOString().slice(0, 10),
-      targetAudience: 'All Cohorts',
-      adoptionRate: 0,
-      activeUsers: 0,
-      sentiment: 3.0,
-      program: '',
-      cohort: ''
+  const handleCohortToggle = (cohortName: string, isChecked: boolean, target: FeatureAdoption) => {
+    const cohortsList = (target.cohort || '').split(',').map(s => s.trim()).filter(Boolean);
+    const updatedCohorts = isChecked 
+      ? [...cohortsList, cohortName] 
+      : cohortsList.filter(x => x !== cohortName);
+    
+    // Find unique program names for these cohorts
+    const updatedPrograms: string[] = [];
+    updatedCohorts.forEach(cName => {
+      const coh = cohorts.find(c => c.name === cName);
+      if (coh) {
+        const prog = programs.find(p => p.id === coh.programId);
+        if (prog && !updatedPrograms.includes(prog.name)) {
+          updatedPrograms.push(prog.name);
+        }
+      }
+    });
+
+    // Dynamic adoption rate across ALL active cohorts (global state rate)
+    const rate = activeCohorts.length > 0 
+      ? Math.round((updatedCohorts.length / activeCohorts.length) * 100)
+      : 0;
+
+    return {
+      cohort: updatedCohorts.join(', '),
+      program: updatedPrograms.join(', '),
+      adoptionRate: rate
     };
-    addFeatureAdoption(newItem);
-    setEditingItem(newItem);
+  };
+
+  const handleAddNewClick = () => {
+    setNewFeatureName('');
+    setNewProductGroup(productGroups[0]?.name || 'Coach LMS Web');
+    setIsAddingFeature(true);
+  };
+
+  const handleSaveInline = () => {
+    if (!editDraft) return;
+    if (!editDraft.feature.trim()) {
+      alert("Feature name is required.");
+      return;
+    }
+    updateFeatureAdoption(editDraft.id, editDraft);
+    setEditingRowId(null);
+    setEditDraft(null);
+  };
+
+  const handleCancelInline = () => {
+    setEditingRowId(null);
+    setEditDraft(null);
   };
 
   return (
@@ -7065,7 +7147,7 @@ export const AdoptionTable: React.FC = () => {
         title="Feature Launch & Adoption Metrics Tracker"
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-        onAddClick={handleAddNew}
+        onAddClick={handleAddNewClick}
         addLabel="Track Feature"
         filterComponent={
           <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -7078,7 +7160,7 @@ export const AdoptionTable: React.FC = () => {
               }}
             >
               <option value="All">All Programs</option>
-              {programs.map(p => (
+              {activePrograms.map(p => (
                 <option key={p.id} value={p.name}>{p.name}</option>
               ))}
             </select>
@@ -7100,109 +7182,324 @@ export const AdoptionTable: React.FC = () => {
             <thead>
               <tr style={{ backgroundColor: 'var(--surface-elevated)' }}>
                 <th rowSpan={2} style={{ verticalAlign: 'middle' }}>Feature Name</th>
-                <th colSpan={programs.length} style={{ textAlign: 'center', borderBottom: '1px solid var(--border)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Programs</th>
-                <th colSpan={cohorts.length} style={{ textAlign: 'center', borderBottom: '1px solid var(--border)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Cohorts</th>
+                <th rowSpan={2} style={{ verticalAlign: 'middle', width: 130 }}>Product</th>
+                {cohortsByProgram.map(g => (
+                  <th 
+                    key={g.program.id} 
+                    colSpan={g.cohorts.length} 
+                    style={{ 
+                      textAlign: 'center', 
+                      borderBottom: '1px solid var(--border)', 
+                      fontSize: '0.75rem', 
+                      fontWeight: 700, 
+                      textTransform: 'uppercase', 
+                      letterSpacing: '0.05em' 
+                    }}
+                  >
+                    {g.program.name}
+                  </th>
+                ))}
                 <th rowSpan={2} style={{ width: '150px', verticalAlign: 'middle' }}>Adoption Rate (%)</th>
                 <th rowSpan={2} style={{ width: '80px', verticalAlign: 'middle' }}></th>
               </tr>
               <tr>
-                {programs.map(p => (
-                  <th key={p.id} style={{ fontSize: '0.725rem', textAlign: 'center', padding: '6px 8px', fontWeight: 600 }}>{p.name}</th>
-                ))}
-                {cohorts.map(c => (
+                {displayCohorts.map(c => (
                   <th key={c.id} style={{ fontSize: '0.725rem', textAlign: 'center', padding: '6px 8px', fontWeight: 600 }}>{c.name}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filtered.map(adopt => (
-                <tr key={adopt.id} onClick={() => openPreviewForFeature(adopt.feature, { product: adopt.product, description: `Launch Date: ${adopt.launchDate}. Programs: ${adopt.program || '—'}. Cohorts: ${adopt.cohort || '—'}. Target Audience: ${adopt.targetAudience}. Adoption Rate: ${adopt.adoptionRate}%. Sentiment Rating: ${adopt.sentiment}/5.0.` })} style={{ cursor: 'pointer' }}>
-                  <td style={{ fontWeight: 600 }}>{adopt.feature}</td>
-                  
-                  {/* Programs Matrix Checkboxes */}
-                  {programs.map(p => {
-                    const current = (adopt.program || '').split(',').map(s => s.trim()).filter(Boolean);
-                    const isChecked = current.includes(p.name);
-                    return (
-                      <td key={p.id} style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                        <input 
-                          type="checkbox" 
-                          checked={isChecked}
-                          onChange={() => {
-                            const updated = isChecked ? current.filter(x => x !== p.name) : [...current, p.name];
-                            updateFeatureAdoption(adopt.id, { program: updated.join(', ') });
-                          }}
-                          style={{ cursor: 'pointer', width: '15px', height: '15px', accentColor: 'var(--primary)' }}
-                        />
+              {filtered.map(adopt => {
+                const isEditing = editingRowId === adopt.id;
+                
+                return (
+                  <React.Fragment key={adopt.id}>
+                    <tr 
+                      style={{ 
+                        backgroundColor: isEditing ? 'rgba(99, 102, 241, 0.05)' : undefined,
+                        borderLeft: isEditing ? '3px solid var(--primary)' : undefined
+                      }}
+                    >
+                      {/* Feature Name */}
+                      <td style={{ fontWeight: 600 }}>
+                        {isEditing && editDraft ? (
+                          <input
+                            type="text"
+                            value={editDraft.feature}
+                            onChange={(e) => setEditDraft({ ...editDraft, feature: e.target.value })}
+                            style={{
+                              width: '100%',
+                              padding: '6px 10px',
+                              borderRadius: '6px',
+                              border: '1px solid var(--border)',
+                              background: 'var(--surface)',
+                              color: 'var(--text-primary)',
+                              fontSize: '0.875rem',
+                              fontWeight: 600,
+                            }}
+                            placeholder="Enter feature name..."
+                          />
+                        ) : (
+                          adopt.feature
+                        )}
                       </td>
-                    );
-                  })}
 
-                  {/* Cohorts Matrix Checkboxes */}
-                  {cohorts.map(c => {
-                    const current = (adopt.cohort || '').split(',').map(s => s.trim()).filter(Boolean);
-                    const isChecked = current.includes(c.name);
-                    return (
-                      <td key={c.id} style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                        <input 
-                          type="checkbox" 
-                          checked={isChecked}
-                          onChange={() => {
-                            const updated = isChecked ? current.filter(x => x !== c.name) : [...current, c.name];
-                            updateFeatureAdoption(adopt.id, { cohort: updated.join(', ') });
-                          }}
-                          style={{ cursor: 'pointer', width: '15px', height: '15px', accentColor: 'var(--primary)' }}
-                        />
+                      {/* Product column */}
+                      <td style={{ fontSize: '0.78rem' }}>
+                        {isEditing && editDraft ? (
+                          <select
+                            value={editDraft.product}
+                            onChange={(e) => setEditDraft({ ...editDraft, product: e.target.value })}
+                            style={{
+                              width: '100%',
+                              padding: '6px 10px',
+                              borderRadius: '6px',
+                              border: '1px solid var(--border)',
+                              background: 'var(--surface)',
+                              color: 'var(--text-primary)',
+                              fontSize: '0.85rem',
+                              fontWeight: 600,
+                            }}
+                          >
+                            {productGroups.map(pg => (
+                              <option key={pg.id} value={pg.name}>{pg.name}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span style={{
+                            display: 'inline-block',
+                            background: (() => { const g = productGroups.find(g => g.name === adopt.product); return g ? g.color + '22' : 'var(--surface-elevated)'; })(),
+                            color: (() => { const g = productGroups.find(g => g.name === adopt.product); return g ? g.color : 'var(--text-secondary)'; })(),
+                            border: `1px solid ${(() => { const g = productGroups.find(g => g.name === adopt.product); return g ? g.color + '55' : 'var(--border)'; })()}`,
+                            borderRadius: '6px',
+                            padding: '2px 8px',
+                            fontWeight: 600,
+                            fontSize: '0.72rem',
+                            whiteSpace: 'nowrap',
+                          }}>{adopt.product || '—'}</span>
+                        )}
                       </td>
-                    );
-                  })}
+                      
+                      {/* Cohorts Columns Checkboxes */}
+                      {displayCohorts.map(c => {
+                        const current = ((isEditing ? editDraft?.cohort : adopt.cohort) || '')
+                          .split(',')
+                          .map(s => s.trim())
+                          .filter(Boolean);
+                        const isChecked = current.includes(c.name);
+                        
+                        return (
+                          <td key={c.id} style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                            <input 
+                              type="checkbox" 
+                              checked={isChecked}
+                              onChange={() => {
+                                if (isEditing && editDraft) {
+                                  const changes = handleCohortToggle(c.name, !isChecked, editDraft);
+                                  setEditDraft({ ...editDraft, ...changes });
+                                } else {
+                                  const changes = handleCohortToggle(c.name, !isChecked, adopt);
+                                  updateFeatureAdoption(adopt.id, changes);
+                                }
+                              }}
+                              style={{ 
+                                cursor: 'pointer', 
+                                width: '15px', 
+                                height: '15px', 
+                                accentColor: 'var(--primary)'
+                              }}
+                            />
+                          </td>
+                        );
+                      })}
 
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <div className="progress-bar-container" style={{ width: '80px', height: '8px' }}>
-                        <div className="progress-bar-fill" style={{ width: `${adopt.adoptionRate}%` }}></div>
-                      </div>
-                      <span style={{ fontWeight: 700, fontSize: '0.8rem', width: '32px' }}>{adopt.adoptionRate}%</span>
-                    </div>
-                  </td>
+                      {/* Adoption Rate Column */}
+                      <td>
+                        {(() => {
+                          const displayRate = (() => {
+                            const current = ((isEditing ? editDraft?.cohort : adopt.cohort) || '')
+                              .split(',')
+                              .map(s => s.trim())
+                              .filter(Boolean);
+                            const checkedVisibleCount = displayCohorts.filter(c => current.includes(c.name)).length;
+                            return displayCohorts.length > 0 
+                              ? Math.round((checkedVisibleCount / displayCohorts.length) * 100)
+                              : 0;
+                          })();
+                          return (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                              <div className="progress-bar-container" style={{ width: '80px', height: '8px' }}>
+                                <div className="progress-bar-fill" style={{ width: `${displayRate}%` }}></div>
+                              </div>
+                              <span style={{ fontWeight: 700, fontSize: '0.8rem', width: '32px' }}>{displayRate}%</span>
+                            </div>
+                          );
+                        })()}
+                      </td>
 
-                  <td>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
-                      <button 
-                        onClick={() => setEditingItem(adopt)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', display: 'flex', alignItems: 'center' }}
-                        title="Edit Details"
-                      >
-                        <Edit2 size={12} />
-                      </button>
-                      <button 
-                        onClick={() => {
-                          if (window.confirm("Are you sure you want to delete this launch metrics tracker?")) {
-                            deleteFeatureAdoption(adopt.id);
-                          }
-                        }} 
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
-                        title="Delete Tracker"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                      {/* Actions Column */}
+                      <td>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                          {isEditing ? (
+                            <>
+                              <button 
+                                onClick={handleSaveInline}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--success, #10b981)', display: 'flex', alignItems: 'center' }}
+                                title="Save Changes"
+                              >
+                                <CheckCircle size={14} />
+                              </button>
+                              <button 
+                                onClick={handleCancelInline}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center' }}
+                                title="Cancel"
+                              >
+                                <X size={14} />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button 
+                                onClick={() => {
+                                  setEditingRowId(adopt.id);
+                                  setEditDraft({ ...adopt });
+                                }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', display: 'flex', alignItems: 'center' }}
+                                title="Edit Details Inline"
+                              >
+                                <Edit2 size={12} />
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  if (window.confirm("Are you sure you want to delete this launch metrics tracker?")) {
+                                    deleteFeatureAdoption(adopt.id);
+                                  }
+                                }} 
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
+                                title="Delete Tracker"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </TabContainer>
 
-      {editingItem && (
-        <AdoptionDetailModal 
-          item={featureAdoptions.find(i => i.id === editingItem.id) || editingItem}
-          onClose={() => setEditingItem(null)}
-          onUpdate={updateFeatureAdoption}
-        />
+      {/* Add Feature Modal overlay */}
+      {isAddingFeature && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: '12px',
+            padding: '1.5rem',
+            width: '100%',
+            maxWidth: '400px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 10px 10px -5px rgba(0, 0, 0, 0.15)'
+          }}>
+            <h3 style={{ marginTop: 0, marginBottom: '1.25rem', color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: 600 }}>Add Feature</h3>
+            
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>Feature Name</label>
+              <input 
+                type="text" 
+                value={newFeatureName}
+                onChange={(e) => setNewFeatureName(e.target.value)}
+                placeholder="e.g. AI Grading Assistant"
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface-elevated)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.9rem'
+                }}
+                autoFocus
+              />
+            </div>
+
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>Product Group</label>
+              <select 
+                value={newProductGroup}
+                onChange={(e) => setNewProductGroup(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface-elevated)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.9rem'
+                }}
+              >
+                {productGroups.map(pg => (
+                  <option key={pg.id} value={pg.name}>{pg.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setIsAddingFeature(false)}
+                style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={() => {
+                  if (!newFeatureName.trim()) {
+                    alert("Feature name is required.");
+                    return;
+                  }
+                  const newItem: FeatureAdoption = {
+                    id: `adopt-${Date.now()}`,
+                    feature: newFeatureName.trim(),
+                    product: newProductGroup,
+                    launchDate: new Date().toISOString().slice(0, 10),
+                    targetAudience: 'All Cohorts',
+                    adoptionRate: 0,
+                    activeUsers: 0,
+                    sentiment: 3.0,
+                    program: '',
+                    cohort: ''
+                  };
+                  addFeatureAdoption(newItem);
+                  setIsAddingFeature(false);
+                }}
+                style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+              >
+                Add Feature
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
 };
+
 

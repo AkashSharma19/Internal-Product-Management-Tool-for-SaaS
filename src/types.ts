@@ -179,5 +179,6 @@ export interface ConfigCohort {
   id: string;
   name: string;
   programId: string;
+  active?: boolean; // true = Active, false = Inactive
 }
 
