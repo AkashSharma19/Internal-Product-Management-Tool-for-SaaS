@@ -33,8 +33,6 @@ import {
 } from '../mockData';
 
 interface DashboardContextType {
-  theme: 'light' | 'dark';
-  toggleTheme: () => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
   
@@ -92,7 +90,6 @@ interface DashboardContextType {
   addFeatureAdoption: (item: FeatureAdoption) => void;
   deleteFeatureAdoption: (id: string) => void;
 
-  resetAllData: () => void;
 
   previewProductId: string | null;
   setPreviewProductId: (id: string | null) => void;
@@ -147,11 +144,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }
   // ────────────────────────────────────────────────────────────────────────────
 
-  // Theme state
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const savedTheme = localStorage.getItem('app-theme');
-    return (savedTheme as 'light' | 'dark') || 'dark';
-  });
+  // Set static light theme
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }, []);
 
   // Active Tab state
   const [activeTab, setActiveTab] = useState<string>(() => {
@@ -186,12 +182,16 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setPreviewProductId(match.id);
     } else {
       // Map statuses from other task types to ProductItem statuses
-      let productStatus: 'On Hold' | 'In Progress' | 'Ongoing' | 'Completed' = 'In Progress';
+      let productStatus: 'On Hold' | 'In Progress' | 'Ongoing' | 'Completed' | '' = '';
       const statusLower = String(fallbackData?.status || '').toLowerCase();
       if (statusLower === 'done' || statusLower === 'closed' || statusLower === 'tested' || statusLower === 'completed' || statusLower === 'delivered') {
         productStatus = 'Completed';
       } else if (statusLower === 'on hold' || statusLower === 'cancelled') {
         productStatus = 'On Hold';
+      } else if (statusLower === 'in progress' || statusLower === 'in-progress') {
+        productStatus = 'In Progress';
+      } else if (statusLower === 'ongoing') {
+        productStatus = 'Ongoing';
       }
 
       const tempId = fallbackData?.id ? `prod-temp-${fallbackData.id}` : `prod-temp-${Date.now()}`;
@@ -199,18 +199,18 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const newTempProduct: ProductItem = {
         id: tempId,
         feature: featureName,
-        description: fallbackData?.description || `Operations task details.`,
+        description: fallbackData?.description || '',
         tarunSirApproval: fallbackData?.tarunSirApproval || false,
         raisedByTarunSir: fallbackData?.raisedByTarunSir || false,
-        priority: fallbackData?.priority || 'P2',
-        poc: fallbackData?.poc || 'Akash',
+        priority: (fallbackData?.priority as any) || '',
+        poc: fallbackData?.poc || '',
         status: productStatus,
-        clickupStatus: fallbackData?.clickupStatus || fallbackData?.status || 'open',
+        clickupStatus: fallbackData?.clickupStatus || fallbackData?.status || '',
         taskLink: fallbackData?.taskLink || '',
         blocker: fallbackData?.blocker || '',
         deadline: fallbackData?.deadline || '',
         notes: fallbackData?.notes || '',
-        product: fallbackData?.product || 'Coach LMS Web',
+        product: fallbackData?.product || '',
         module: fallbackData?.module || '',
         type: fallbackData?.type || '',
         uiux: fallbackData?.uiux || '',
@@ -321,11 +321,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return data ? JSON.parse(data) : initialCohorts;
   });
 
-  // Persist settings
-  useEffect(() => {
-    localStorage.setItem('app-theme', theme);
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
 
   useEffect(() => {
     localStorage.setItem('active-tab', activeTab);
@@ -388,9 +383,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     localStorage.setItem('config-cohorts', JSON.stringify(cohorts));
   }, [cohorts]);
 
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  };
 
   // Helper Updaters
   const updateProductItem = (id: string, updated: Partial<ProductItem>) => {
@@ -399,7 +391,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const updatedItem = next.find(item => item.id === id);
       if (updatedItem) {
         setStudentProjects(sp => sp.map(p => {
-          if (p.title.toLowerCase() === updatedItem.feature.toLowerCase() || id === `prod-temp-${p.id}`) {
+          const featureName = (updatedItem.feature || '').trim();
+          const projectTitle = (p.title || '').trim();
+          if ((featureName && projectTitle && projectTitle.toLowerCase() === featureName.toLowerCase()) || id === `prod-temp-${p.id}`) {
             return {
               ...p,
               title: updatedItem.feature,
@@ -425,7 +419,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           return p;
         }));
         setStudentMeetings(sm => sm.map(m => {
-          if (m.cohort.toLowerCase() === updatedItem.feature.toLowerCase() || id === `prod-temp-${m.id}`) {
+          const featureName = (updatedItem.feature || '').trim();
+          const meetingCohort = (m.cohort || '').trim();
+          if ((featureName && meetingCohort && meetingCohort.toLowerCase() === featureName.toLowerCase()) || id === `prod-temp-${m.id}`) {
             return {
               ...m,
               cohort: updatedItem.feature,
@@ -450,7 +446,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           return m;
         }));
         setContentItems(ci => ci.map(p => {
-          if (p.module.toLowerCase() === updatedItem.feature.toLowerCase() || id === `prod-temp-${p.id}`) {
+          const featureName = (updatedItem.feature || '').trim();
+          const contentModule = (p.module || '').trim();
+          if ((featureName && contentModule && contentModule.toLowerCase() === featureName.toLowerCase()) || id === `prod-temp-${p.id}`) {
             return {
               ...p,
               module: updatedItem.feature,
@@ -616,28 +614,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setCohorts(prev => prev.map(c => c.id === id ? { ...c, ...updated } : c));
   const deleteCohort = (id: string) => setCohorts(prev => prev.filter(c => c.id !== id));
 
-  const resetAllData = () => {
-    if (window.confirm("Are you sure you want to reset all dashboard data back to initial spreadsheets? Your edits will be lost.")) {
-      setProductItems(initialProductItems);
-      setPlanItems(initialPlanItems);
-      setStudentProjects(initialStudentProjects);
-      setAMASessions(initialAMASessions);
-      setStudentMeetings(initialStudentMeetings);
-      setAdminCalls(initialAdminCalls);
-      setContentItems(initialContentItems);
-      setDailyIssues(initialDailyIssues);
-      setFeatureAdoptions(initialFeatureAdoptions);
-      setSpeakers(initialSpeakers);
-      setProductGroups(initialProductGroups);
-      setStatuses(initialStatuses);
-      setPrograms(initialPrograms);
-      setCohorts(initialCohorts);
-    }
-  };
 
   return (
     <DashboardContext.Provider value={{
-      theme, toggleTheme,
       activeTab, setActiveTab,
       productItems, setProductItems, updateProductItem, addProductItem, deleteProductItem,
       planItems, setPlanItems, updatePlanItem, addPlanItem, deletePlanItem,
@@ -648,7 +627,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       contentItems, setContentItems, updateContentItem, addContentItem, deleteContentItem,
       dailyIssues, setDailyIssues, updateDailyIssue, addDailyIssue, deleteDailyIssue,
       featureAdoptions, setFeatureAdoptions, updateFeatureAdoption, addFeatureAdoption, deleteFeatureAdoption,
-      resetAllData,
       previewProductId, setPreviewProductId, openPreviewForFeature,
       speakers, addSpeaker, updateSpeaker, deleteSpeaker,
       productGroups, addProductGroup, updateProductGroup, deleteProductGroup,

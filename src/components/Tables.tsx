@@ -1429,6 +1429,7 @@ export const ProductTable: React.FC = () => {
 
   // Filter & Search
   const filtered = productItems.filter(item => {
+    if (item.id.startsWith('prod-temp-') || item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-')) return false;
     const matchesSearch = 
       item.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.poc.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1921,25 +1922,312 @@ const PlanDetailModal: React.FC<PlanDetailModalProps> = ({ item, onClose, onUpda
 };
 
 export const PlanTable: React.FC = () => {
-  const { planItems, updatePlanItem, addPlanItem, deletePlanItem, openPreviewForFeature } = useDashboard();
-  const [selectedMonth, setSelectedMonth] = useState('May 2026');
+  const {
+    planItems, updatePlanItem, addPlanItem, deletePlanItem,
+    productItems, studentProjects, contentItems, studentMeetings,
+    openPreviewForFeature
+  } = useDashboard();
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.toLocaleString('default', { month: 'long' })} ${now.getFullYear()}`;
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('All');
   const [editingItem, setEditingItem] = useState<PlanItem | null>(null);
   const [draggedOverColumn, setDraggedOverColumn] = useState<string | null>(null);
+  const [showAutoItems, setShowAutoItems] = useState(true);
 
-  const months = Array.from(new Set(planItems.map(item => item.month)));
-  if (!months.includes(selectedMonth) && months.length > 0) {
-    months.push(selectedMonth);
+  // Helper to find a matching product item to read completion status
+  const findMatchingProductItem = (title: string) => {
+    if (!title) return null;
+    const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cleanName = clean(title);
+    
+    // 1. Check exact or substring match
+    let match = productItems.find(item => {
+      const cleanFeature = clean(item.feature);
+      return cleanName.includes(cleanFeature) || cleanFeature.includes(cleanName);
+    });
+
+    // 2. Token overlap match
+    if (!match) {
+      const nameWords = title.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      match = productItems.find(item => {
+        const featureWords = item.feature.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+        const common = nameWords.filter(w => featureWords.includes(w));
+        return common.length >= 2;
+      });
+    }
+    return match;
+  };
+
+  // ── Month options ──────────────────────────────────────────────────────────
+  const manualMonths = Array.from(new Set(planItems.map(item => item.month)));
+  const extraMonths = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'].flatMap(m =>
+    ['2026', '2027'].map(y => `${m} ${y}`)
+  );
+  const allMonths = Array.from(new Set([...manualMonths, ...extraMonths]));
+
+  // ── Parse a date string → { year, month } (1-indexed) ─────────────────────
+  const parseDateMonth = (dateStr: string | undefined): { year: number; month: number } | null => {
+    if (!dateStr) return null;
+    const iso = parseDateToYYYYMMDD(dateStr);
+    if (!iso) return null;
+    const [y, m] = iso.split('-').map(Number);
+    if (!y || !m) return null;
+    return { year: y, month: m };
+  };
+
+  // Parse the selected month label → { year, month }
+  const parseSelectedMonth = (): { year: number; month: number } | null => {
+    const months: Record<string, number> = {
+      january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
+      july: 7, august: 8, september: 9, october: 10, november: 11, december: 12
+    };
+    const parts = selectedMonth.trim().split(/\s+/);
+    if (parts.length !== 2) return null;
+    const m = months[parts[0].toLowerCase()];
+    const y = parseInt(parts[1], 10);
+    if (!m || !y) return null;
+    return { year: y, month: m };
+  };
+
+  const dateInSelectedMonth = (dateStr: string | undefined): boolean => {
+    const sm = parseSelectedMonth();
+    if (!sm) return false;
+    const dm = parseDateMonth(dateStr);
+    if (!dm) return false;
+    return dm.year === sm.year && dm.month === sm.month;
+  };
+
+  // ── Build aggregated "auto" items from all data sources ────────────────────
+  interface AutoItem {
+    id: string;
+    title: string;
+    source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA & Meetings';
+    column: 'product' | 'design' | 'dev';
+    priority?: string;
+    poc?: string;
+    status?: string;
+    date: string;
+    dateLabel: string;
+    rawItem: any;
   }
 
-  // Filter lists
-  const filtered = planItems.filter(item => {
+  const autoItems: AutoItem[] = [];
+
+  if (showAutoItems) {
+    // ProductItems
+    productItems.forEach(item => {
+      if (item.id.startsWith('prod-temp-')) return;
+      if (item.status === 'Completed') return;
+      const isRelatedFeature = item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-');
+      const itemSource = isRelatedFeature ? 'AMA & Meetings' : 'Priority Requests';
+      if (dateInSelectedMonth(item.productDeadline)) {
+        autoItems.push({
+          id: `auto-prod-specs-${item.id}`,
+          title: item.feature,
+          source: itemSource,
+          column: 'product',
+          priority: item.priority,
+          poc: item.poc,
+          status: item.status,
+          date: item.productDeadline,
+          dateLabel: 'Specs',
+          rawItem: item
+        });
+      }
+      if (dateInSelectedMonth(item.uiux)) {
+        autoItems.push({
+          id: `auto-prod-uiux-${item.id}`,
+          title: item.feature,
+          source: itemSource,
+          column: 'design',
+          priority: item.priority,
+          poc: item.poc,
+          status: item.status,
+          date: item.uiux,
+          dateLabel: 'UI/UX',
+          rawItem: item
+        });
+      }
+      if (dateInSelectedMonth(item.deadline)) {
+        autoItems.push({
+          id: `auto-prod-dev-${item.id}`,
+          title: item.feature,
+          source: itemSource,
+          column: 'dev',
+          priority: item.priority,
+          poc: item.poc,
+          status: item.status,
+          date: item.deadline,
+          dateLabel: 'Dev',
+          rawItem: item
+        });
+      }
+    });
+
+    // StudentProjects
+    studentProjects.forEach(p => {
+      if (p.status === 'Delivered' || p.status === 'Cancelled') return;
+      if (dateInSelectedMonth(p.productDeadline)) {
+        autoItems.push({
+          id: `auto-proj-specs-${p.id}`,
+          title: p.title,
+          source: 'Student Projects',
+          column: 'product',
+          priority: p.priority,
+          poc: p.poc,
+          status: p.status,
+          date: p.productDeadline!,
+          dateLabel: 'Specs',
+          rawItem: p
+        });
+      }
+      if (dateInSelectedMonth(p.uiux)) {
+        autoItems.push({
+          id: `auto-proj-uiux-${p.id}`,
+          title: p.title,
+          source: 'Student Projects',
+          column: 'design',
+          priority: p.priority,
+          poc: p.poc,
+          status: p.status,
+          date: p.uiux!,
+          dateLabel: 'UI/UX',
+          rawItem: p
+        });
+      }
+      if (dateInSelectedMonth(p.deadline || p.completeInfoDate)) {
+        autoItems.push({
+          id: `auto-proj-dev-${p.id}`,
+          title: p.title,
+          source: 'Student Projects',
+          column: 'dev',
+          priority: p.priority,
+          poc: p.poc,
+          status: p.status,
+          date: p.deadline || p.completeInfoDate,
+          dateLabel: 'Dev',
+          rawItem: p
+        });
+      }
+    });
+
+    // ContentItems
+    contentItems.forEach(item => {
+      if (dateInSelectedMonth(item.productDeadline)) {
+        autoItems.push({
+          id: `auto-content-specs-${item.id}`,
+          title: item.module,
+          source: 'Content Pipeline',
+          column: 'product',
+          priority: item.priority,
+          poc: item.poc,
+          status: item.status,
+          date: item.productDeadline!,
+          dateLabel: 'Specs',
+          rawItem: item
+        });
+      }
+      if (dateInSelectedMonth(item.uiux)) {
+        autoItems.push({
+          id: `auto-content-uiux-${item.id}`,
+          title: item.module,
+          source: 'Content Pipeline',
+          column: 'design',
+          priority: item.priority,
+          poc: item.poc,
+          status: item.status,
+          date: item.uiux!,
+          dateLabel: 'UI/UX',
+          rawItem: item
+        });
+      }
+      if (dateInSelectedMonth(item.deadline)) {
+        autoItems.push({
+          id: `auto-content-dev-${item.id}`,
+          title: item.module,
+          source: 'Content Pipeline',
+          column: 'dev',
+          priority: item.priority,
+          poc: item.poc,
+          status: item.status,
+          date: item.deadline!,
+          dateLabel: 'Dev',
+          rawItem: item
+        });
+      }
+    });
+
+    // StudentMeetings
+    studentMeetings.forEach(m => {
+      if (m.status === 'Completed') return;
+      if (dateInSelectedMonth(m.productDeadline)) {
+        autoItems.push({
+          id: `auto-meet-specs-${m.id}`,
+          title: m.cohort,
+          source: 'AMA & Meetings',
+          column: 'product',
+          priority: m.priority,
+          poc: m.poc,
+          status: m.status,
+          date: m.productDeadline!,
+          dateLabel: 'Specs',
+          rawItem: m
+        });
+      }
+      if (dateInSelectedMonth(m.uiux)) {
+        autoItems.push({
+          id: `auto-meet-uiux-${m.id}`,
+          title: m.cohort,
+          source: 'AMA & Meetings',
+          column: 'design',
+          priority: m.priority,
+          poc: m.poc,
+          status: m.status,
+          date: m.uiux!,
+          dateLabel: 'UI/UX',
+          rawItem: m
+        });
+      }
+      if (dateInSelectedMonth(m.deadline)) {
+        autoItems.push({
+          id: `auto-meet-dev-${m.id}`,
+          title: m.cohort,
+          source: 'AMA & Meetings',
+          column: 'dev',
+          priority: m.priority,
+          poc: m.poc,
+          status: m.status,
+          date: m.deadline!,
+          dateLabel: 'Dev',
+          rawItem: m
+        });
+      }
+    });
+  }
+
+  // Sort auto items by date
+  autoItems.sort((a, b) => {
+    const da = parseDateToYYYYMMDD(a.date);
+    const db = parseDateToYYYYMMDD(b.date);
+    return da.localeCompare(db);
+  });
+
+  // ── Manual plan items ──────────────────────────────────────────────────────
+  const filteredPlan = planItems.filter(item => {
     const matchesMonth = item.month === selectedMonth;
     const matchesCategory = filterCategory === 'All' || item.category === filterCategory;
     const matchesSearch = item.task.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesMonth && matchesCategory && matchesSearch;
   });
+
+  // ── Filtered auto items by search ──────────────────────────────────────────
+  const filteredAuto = autoItems.filter(a =>
+    a.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const handleAddNew = () => {
     const newTask: PlanItem = {
@@ -1954,58 +2242,61 @@ export const PlanTable: React.FC = () => {
     setEditingItem(newTask);
   };
 
-  // HTML5 Drag-and-drop operations
+  // HTML5 Drag-and-drop operations (manual items only)
   const handleDragStart = (e: React.DragEvent, id: string) => {
     e.dataTransfer.setData('text/plain', id);
   };
-
   const handleDragOver = (e: React.DragEvent, colId: string) => {
     e.preventDefault();
     setDraggedOverColumn(colId);
   };
-
-  const handleDragLeave = () => {
-    setDraggedOverColumn(null);
-  };
-
+  const handleDragLeave = () => setDraggedOverColumn(null);
   const handleDrop = (e: React.DragEvent, targetColId: string) => {
     e.preventDefault();
     setDraggedOverColumn(null);
     const itemId = e.dataTransfer.getData('text/plain');
-    if (!itemId) return;
-
-    const columnConfigs = [
-      { id: 'product', fallbackStatus: 'open' },
-      { id: 'design', fallbackStatus: 'in design' },
-      { id: 'dev', fallbackStatus: 'development' }
-    ];
-
-    const column = columnConfigs.find(c => c.id === targetColId);
-    if (!column) return;
-
-    updatePlanItem(itemId, { status: column.fallbackStatus as any });
+    if (!itemId || itemId.startsWith('auto-')) return;
+    const statusMap: Record<string, string> = {
+      product: 'open',
+      design: 'in design',
+      dev: 'development'
+    };
+    if (statusMap[targetColId]) updatePlanItem(itemId, { status: statusMap[targetColId] as any });
   };
 
   const COLUMNS = [
-    { id: 'product', title: 'Product', statuses: ['open'], headerClass: 'product', icon: <Inbox size={14} style={{ color: 'var(--text-muted)' }} /> },
-    { id: 'design', title: 'In Design', statuses: ['in design'], headerClass: 'design', icon: <Palette size={14} style={{ color: 'var(--primary)' }} /> },
+    { id: 'product', title: 'Product Specs', statuses: ['open'], headerClass: 'product', icon: <Inbox size={14} style={{ color: 'var(--text-muted)' }} /> },
+    { id: 'design', title: 'UI/UX Design', statuses: ['in design'], headerClass: 'design', icon: <Palette size={14} style={{ color: 'var(--primary)' }} /> },
     { id: 'dev', title: 'Development', statuses: ['development', 'testing', 'tested'], headerClass: 'dev', icon: <Code size={14} style={{ color: 'var(--info)' }} /> }
   ];
+
+  // Source badge colour map
+  const sourceColors: Record<string, { bg: string; color: string }> = {
+    'Priority Requests': { bg: 'hsla(245,80%,60%,0.12)', color: 'hsl(245,70%,50%)' },
+    'Student Projects':  { bg: 'hsla(199,80%,50%,0.12)', color: 'hsl(199,80%,38%)' },
+    'Content Pipeline':  { bg: 'hsla(38,90%,50%,0.12)',  color: 'hsl(38,85%,38%)' },
+    'AMA & Meetings':    { bg: 'hsla(142,70%,45%,0.12)', color: 'hsl(142,65%,32%)' },
+  };
+
+  const totalAutoCount = filteredAuto.length;
+  const totalManualCount = filteredPlan.length;
 
   return (
     <>
       <TabContainer
-        title="Next Months Roadmap Planning"
+        title="Next Month's Roadmap Planning"
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onAddClick={handleAddNew}
         addLabel="Add Task"
         filterComponent={
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <select className="filter-select" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}>
-              {months.map(m => <option key={m} value={m}>{m}</option>)}
-              <option value="June 2026">June 2026</option>
-              <option value="July 2026">July 2026</option>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <select
+              className="filter-select"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+            >
+              {allMonths.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
             <select className="filter-select" value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
               <option value="All">All Categories</option>
@@ -2013,16 +2304,61 @@ export const PlanTable: React.FC = () => {
               <option value="UI/UX">UI/UX</option>
               <option value="Product">Product</option>
             </select>
+            <button
+              onClick={() => setShowAutoItems(p => !p)}
+              style={{
+                background: showAutoItems ? 'hsla(245,80%,60%,0.1)' : 'var(--panel-bg)',
+                border: `1px solid ${showAutoItems ? 'hsla(245,70%,50%,0.35)' : 'var(--border)'}`,
+                color: showAutoItems ? 'hsl(245,70%,50%)' : 'var(--text-secondary)',
+                borderRadius: '8px',
+                padding: '5px 12px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                transition: 'all 0.2s'
+              }}
+              title="Toggle auto-aggregated items from all lists"
+            >
+              <Calendar size={13} />
+              {showAutoItems ? `Aggregated (${totalAutoCount})` : 'Show Aggregated'}
+            </button>
           </div>
         }
       >
+        {/* Legend */}
+        {showAutoItems && totalAutoCount > 0 && (
+          <div style={{
+            display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center',
+            marginBottom: '0.75rem', padding: '0.5rem 0.75rem',
+            background: 'var(--panel-bg)', borderRadius: '8px',
+            border: '1px solid var(--border)', fontSize: '0.72rem', color: 'var(--text-secondary)'
+          }}>
+            <span style={{ fontWeight: 700, color: 'var(--text-primary)', marginRight: '0.25rem' }}>Sources:</span>
+            {Object.entries(sourceColors).map(([src, clr]) => (
+              <span key={src} style={{
+                background: clr.bg, color: clr.color, border: `1px solid ${clr.color}44`,
+                borderRadius: '12px', padding: '2px 8px', fontWeight: 600
+              }}>{src}</span>
+            ))}
+            <span style={{ marginLeft: 'auto' }}>
+              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{totalAutoCount}</span> features with deadlines in <strong>{selectedMonth}</strong>
+              {totalManualCount > 0 && <> + <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{totalManualCount}</span> manual tasks</>}
+            </span>
+          </div>
+        )}
+
         <div className="kanban-board-container">
           {COLUMNS.map(col => {
-            const colItems = filtered.filter(item => col.statuses.includes(item.status));
-            
+            const manualColItems = filteredPlan.filter(item => col.statuses.includes(item.status));
+            const autoColItems = filteredAuto.filter(a => a.column === col.id);
+            const totalCount = manualColItems.length + autoColItems.length;
+
             return (
-              <div 
-                key={col.id} 
+              <div
+                key={col.id}
                 className={`kanban-column ${draggedOverColumn === col.id ? 'drag-over' : ''}`}
                 onDragOver={(e) => handleDragOver(e, col.id)}
                 onDragLeave={handleDragLeave}
@@ -2033,20 +2369,102 @@ export const PlanTable: React.FC = () => {
                     {col.icon}
                     <span>{col.title}</span>
                   </div>
-                  <span className="kanban-card-count">{colItems.length}</span>
+                  <span className="kanban-card-count">{totalCount}</span>
                 </div>
-                
+
                 <div className="kanban-column-body">
-                  {colItems.map(item => (
-                    <div 
-                      key={item.id} 
+                  {/* ── Auto-aggregated cards ── */}
+                  {autoColItems.map(a => {
+                    const clr = sourceColors[a.source] || { bg: 'var(--panel-bg)', color: 'var(--text-secondary)' };
+                    
+                    // Determine if the card is completed based on its column/milestone
+                    const matchedProduct = findMatchingProductItem(a.title);
+                    let isCompleted = false;
+                    if (a.column === 'product') {
+                      const isProductCompleted = matchedProduct
+                        ? (!!matchedProduct.productDeadlineCompleted || !!matchedProduct.tarunSirApproval || matchedProduct.status === 'Completed')
+                        : false;
+                      isCompleted = isProductCompleted || a.status === 'Completed' || a.status === 'Delivered';
+                    } else if (a.column === 'design') {
+                      const isUiuxCompleted = matchedProduct
+                        ? (!!matchedProduct.uiuxCompleted || matchedProduct.status === 'Completed')
+                        : false;
+                      isCompleted = isUiuxCompleted || a.status === 'Completed' || a.status === 'Delivered';
+                    } else if (a.column === 'dev') {
+                      const isDevCompleted = matchedProduct
+                        ? (!!matchedProduct.deadlineCompleted || matchedProduct.status === 'Completed' || matchedProduct.clickupStatus?.toLowerCase() === 'closed')
+                        : false;
+                      isCompleted = isDevCompleted || a.status === 'Completed' || a.status === 'Delivered';
+                    }
+
+                    return (
+                      <div
+                        key={a.id}
+                        className={`kanban-card ${isCompleted ? 'completed-card' : ''}`}
+                        style={{
+                          borderLeft: isCompleted ? undefined : `3px solid ${clr.color}`,
+                          cursor: 'pointer',
+                          opacity: 1
+                        }}
+                        onClick={() => openPreviewForFeature(a.title, {
+                          status: a.status as any,
+                          priority: a.priority as any,
+                          poc: a.poc,
+                        })}
+                      >
+                        <div className="kanban-card-title" style={{ fontSize: '0.8rem', lineHeight: 1.35 }}>
+                          {a.title}
+                        </div>
+                        <div className="kanban-card-footer" style={{ marginTop: '0.5rem' }}>
+                          <div className="kanban-card-tags" style={{ gap: '0.3rem', flexWrap: 'wrap' }}>
+                            {/* Source badge */}
+                            <span style={{
+                              background: clr.bg, color: clr.color,
+                              border: `1px solid ${clr.color}44`,
+                              borderRadius: '10px', padding: '1px 6px',
+                              fontSize: '0.65rem', fontWeight: 700
+                            }}>{a.source}</span>
+
+                            {/* Date label badge */}
+                            <span style={{
+                              background: 'var(--background)', color: 'var(--text-secondary)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '10px', padding: '1px 6px',
+                              fontSize: '0.65rem', fontWeight: 600,
+                              display: 'inline-flex', alignItems: 'center', gap: '3px'
+                            }}>
+                              <Clock size={9} />
+                              {a.dateLabel}: {formatDateToUserPattern(a.date)}
+                            </span>
+
+                            {/* Priority */}
+                            {a.priority && (
+                              <span className={`badge badge-${a.priority.toLowerCase()}`} style={{ fontSize: '0.6rem', padding: '1px 5px' }}>
+                                {a.priority}
+                              </span>
+                            )}
+                          </div>
+                          {a.poc && (
+                            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                              {a.poc}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* ── Manual plan task cards ── */}
+                  {manualColItems.map(item => (
+                    <div
+                      key={item.id}
                       className={`kanban-card ${item.completed ? 'completed-card' : ''}`}
                       draggable
                       onDragStart={(e) => handleDragStart(e, item.id)}
                       onClick={() => openPreviewForFeature(item.task, { status: item.status as any, clickupStatus: item.status, taskLink: item.link })}
                     >
                       <div className="kanban-card-title">{item.task}</div>
-                      
+
                       <div className="kanban-card-footer">
                         <div className="kanban-card-tags">
                           <span className={`kanban-badge-category ${item.category.toLowerCase().replace('/', '')}`}>
@@ -2057,30 +2475,26 @@ export const PlanTable: React.FC = () => {
                             {item.month}
                           </span>
                         </div>
-                        
+
                         <div className="kanban-card-actions" onClick={(e) => e.stopPropagation()}>
-                          <button 
+                          <button
                             onClick={() => updatePlanItem(item.id, { completed: !item.completed })}
                             className={`kanban-complete-btn ${item.completed ? 'active' : ''}`}
-                            style={{ 
-                              background: 'none', 
-                              border: 'none', 
-                              cursor: 'pointer', 
-                              color: item.completed ? 'var(--success)' : 'var(--text-muted)', 
-                              display: 'inline-flex', 
-                              alignItems: 'center', 
-                              padding: '2px',
+                            style={{
+                              background: 'none', border: 'none', cursor: 'pointer',
+                              color: item.completed ? 'var(--success)' : 'var(--text-muted)',
+                              display: 'inline-flex', alignItems: 'center', padding: '2px',
                               transition: 'color 0.2s'
                             }}
-                            title={item.completed ? "Mark Active" : "Mark Completed"}
+                            title={item.completed ? 'Mark Active' : 'Mark Completed'}
                           >
                             <CheckCircle size={12} />
                           </button>
                           {item.link && (
-                            <a 
-                              href={item.link} 
-                              target="_blank" 
-                              rel="noreferrer" 
+                            <a
+                              href={item.link}
+                              target="_blank"
+                              rel="noreferrer"
                               className="clickup-action-link"
                               style={{ padding: '2px', borderRadius: '4px' }}
                               title="Open Reference Link"
@@ -2088,9 +2502,9 @@ export const PlanTable: React.FC = () => {
                               <ExternalLink size={12} />
                             </a>
                           )}
-                          <button 
+                          <button
                             onClick={() => {
-                              if (window.confirm("Are you sure you want to delete this sprint task?")) {
+                              if (window.confirm('Are you sure you want to delete this sprint task?')) {
                                 deletePlanItem(item.id);
                               }
                             }}
@@ -2103,10 +2517,14 @@ export const PlanTable: React.FC = () => {
                       </div>
                     </div>
                   ))}
-                  
-                  {colItems.length === 0 && (
-                    <div style={{ textAlign: 'center', padding: '1.5rem 0.5rem', color: 'var(--text-muted)', fontSize: '0.75rem', border: '1px dashed var(--border)', borderRadius: '8px' }}>
-                      Drag items here
+
+                  {totalCount === 0 && (
+                    <div style={{
+                      textAlign: 'center', padding: '1.5rem 0.5rem',
+                      color: 'var(--text-muted)', fontSize: '0.75rem',
+                      border: '1px dashed var(--border)', borderRadius: '8px'
+                    }}>
+                      No items for {selectedMonth}
                     </div>
                   )}
                 </div>
@@ -2117,7 +2535,7 @@ export const PlanTable: React.FC = () => {
       </TabContainer>
 
       {editingItem && (
-        <PlanDetailModal 
+        <PlanDetailModal
           item={planItems.find(i => i.id === editingItem.id) || editingItem}
           onClose={() => setEditingItem(null)}
           onUpdate={updatePlanItem}
@@ -2126,6 +2544,7 @@ export const PlanTable: React.FC = () => {
     </>
   );
 };
+
 
 /* =========================================================================
    3. STUDENT PROJECTS TABLE MODAL & COMPONENT
@@ -2315,27 +2734,46 @@ const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ item, onClose, 
 export const StudentProjectsTable: React.FC = () => {
   const { studentProjects, updateStudentProject, addStudentProject, deleteStudentProject, openPreviewForFeature } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
-  const [editingItem, setEditingItem] = useState<StudentProject | null>(null);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [inlineEditValue, setInlineEditValue] = useState('');
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingProjectId && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingProjectId]);
 
   const filtered = studentProjects.filter(p => 
     p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.thingsWeBuild.toLowerCase().includes(searchQuery.toLowerCase())
+    (p.description || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (p.thingsWeBuild || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleAddNew = () => {
+    setSearchQuery('');
     const newItem: StudentProject = {
       id: `proj-${Date.now()}`,
-      title: 'New Student Project App',
-      description: 'Describe what the student project accomplishes.',
-      thingsWeBuild: 'Core features, dashboard tools, backend databases',
-      status: 'In-Progress',
-      assigned: 'Akash (Unassigned)',
+      title: '',
+      description: '',
+      thingsWeBuild: '',
+      status: '',
+      assigned: '',
       blocker: '',
-      completeInfoDate: '30 Jun 2026'
+      completeInfoDate: '',
+      priority: '',
+      poc: '',
+      clickupStatus: '',
+      taskLink: '',
+      productDeadline: '',
+      uiux: '',
+      deadline: '',
+      finalRelease: ''
     };
     addStudentProject(newItem);
-    setEditingItem(newItem);
+    setInlineEditValue('');
+    setEditingProjectId(newItem.id);
   };
 
   return (
@@ -2368,32 +2806,74 @@ export const StudentProjectsTable: React.FC = () => {
               {filtered.map(p => (
                 <tr 
                   key={p.id} 
-                  onClick={() => openPreviewForFeature(p.title, { 
-                    id: p.id,
-                    description: p.description, 
-                    status: p.status === 'Delivered' ? 'Completed' : p.status === 'Cancelled' ? 'On Hold' : 'In Progress', 
-                    priority: p.priority || 'P2',
-                    poc: p.poc || 'Akash',
-                    clickupStatus: p.clickupStatus || 'open',
-                    taskLink: p.taskLink || '',
-                    blocker: p.blocker || '',
-                    deadline: p.deadline || p.completeInfoDate || '',
-                    uiux: p.uiux || '',
-                    finalRelease: p.finalRelease || '',
-                    productDeadline: p.productDeadline || '',
-                    raisedByTarunSir: p.raisedByTarunSir || false,
-                    tarunSirApproval: p.tarunSirApproval || false,
-                    product: p.product || 'Student Portal',
-                    module: p.module || '',
-                    type: p.type || ''
-                  })} 
+                  onClick={() => {
+                    if (editingProjectId !== p.id && p.title.trim()) {
+                      openPreviewForFeature(p.title, { 
+                        id: p.id,
+                        description: p.description, 
+                        status: p.status === 'Delivered' ? 'Completed' : p.status === 'Cancelled' ? 'On Hold' : 'In Progress', 
+                        priority: p.priority || 'P2',
+                        poc: p.poc || 'Akash',
+                        clickupStatus: p.clickupStatus || 'open',
+                        taskLink: p.taskLink || '',
+                        blocker: p.blocker || '',
+                        deadline: p.deadline || p.completeInfoDate || '',
+                        uiux: p.uiux || '',
+                        finalRelease: p.finalRelease || '',
+                        productDeadline: p.productDeadline || '',
+                        raisedByTarunSir: p.raisedByTarunSir || false,
+                        tarunSirApproval: p.tarunSirApproval || false,
+                        product: p.product || 'Student Portal',
+                        module: p.module || '',
+                        type: p.type || ''
+                      });
+                    }
+                  }} 
                   style={{ cursor: 'pointer' }}
                 >
                   <td className="sticky-col" style={{ fontWeight: 600, width: '280px', minWidth: '280px', maxWidth: '280px', whiteSpace: 'normal' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
-                      <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
-                        {p.title}
-                      </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', width: '100%' }}>
+                      {editingProjectId === p.id ? (
+                        <input
+                          ref={editInputRef}
+                          type="text"
+                          value={inlineEditValue}
+                          onChange={(e) => setInlineEditValue(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const finalVal = inlineEditValue.trim() || 'New Student Project';
+                              updateStudentProject(p.id, { title: finalVal });
+                              setEditingProjectId(null);
+                            } else if (e.key === 'Escape') {
+                              e.preventDefault();
+                              setEditingProjectId(null);
+                            }
+                          }}
+                          onBlur={() => {
+                            const finalVal = inlineEditValue.trim() || 'New Student Project';
+                            updateStudentProject(p.id, { title: finalVal });
+                            setEditingProjectId(null);
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '6px 8px',
+                            backgroundColor: 'var(--background)',
+                            border: '1.5px solid var(--primary)',
+                            borderRadius: '6px',
+                            color: 'var(--text-primary)',
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            outline: 'none',
+                            boxShadow: '0 0 0 2px var(--primary-glow)'
+                          }}
+                        />
+                      ) : (
+                        <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
+                          {p.title || 'Untitled Project'}
+                        </span>
+                      )}
                       {p.raisedByTarunSir && (
                         <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
                           <Sparkles size={10} /> Super Priority
@@ -2401,25 +2881,31 @@ export const StudentProjectsTable: React.FC = () => {
                       )}
                     </div>
                   </td>
-                  <td>{p.product || 'Student Portal'}</td>
+                  <td>{p.product || '—'}</td>
                   <td>
-                    <span className={`badge badge-${(p.priority || 'P2').toLowerCase()}`}>
-                      {p.priority || 'P2'}
-                    </span>
+                    {p.priority ? (
+                      <span className={`badge badge-${p.priority.toLowerCase()}`}>
+                        {p.priority}
+                      </span>
+                    ) : '—'}
                   </td>
-                  <td style={{ fontWeight: 500 }}>{p.poc || 'Akash'}</td>
+                  <td style={{ fontWeight: 500 }}>{p.poc || '—'}</td>
                   <td>
-                    <span className={`badge ${
-                      p.status === 'Delivered' ? 'status-completed' :
-                      p.status === 'Cancelled' ? 'status-hold' : 'status-progress'
-                    }`}>
-                      {p.status}
-                    </span>
+                    {p.status ? (
+                      <span className={`badge ${
+                        p.status === 'Delivered' ? 'status-completed' :
+                        p.status === 'Cancelled' ? 'status-hold' : 'status-progress'
+                      }`}>
+                        {p.status}
+                      </span>
+                    ) : '—'}
                   </td>
                   <td>
-                    <span className={`badge clickup-${(p.clickupStatus || 'open').toLowerCase()}`}>
-                      {p.clickupStatus || 'open'}
-                    </span>
+                    {p.clickupStatus ? (
+                      <span className={`badge clickup-${p.clickupStatus.toLowerCase()}`}>
+                        {p.clickupStatus}
+                      </span>
+                    ) : '—'}
                   </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{p.productDeadline ? formatDateToUserPattern(p.productDeadline) : '—'}</td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
@@ -2454,14 +2940,6 @@ export const StudentProjectsTable: React.FC = () => {
           </table>
         </div>
       </TabContainer>
-
-      {editingItem && (
-        <ProjectDetailModal
-          item={studentProjects.find(i => i.id === editingItem.id) || editingItem}
-          onClose={() => setEditingItem(null)}
-          onUpdate={updateStudentProject}
-        />
-      )}
     </>
   );
 };
@@ -2665,14 +3143,22 @@ export const StudentMeetingsTable: React.FC = () => {
   const editRelatedFeatureInputRef = useRef<HTMLInputElement>(null);
 
   const getRelatedFeatures = (ama: AMASession) => {
+    const matchesId = productItems.filter(item => 
+      !item.id.startsWith('prod-temp-') && 
+      item.notes && 
+      item.notes.includes(`AMA Session ID: ${ama.id}`)
+    );
     if (!ama.topic.trim() && !ama.cohort.trim()) {
-      return [];
+      return matchesId;
     }
     const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ');
     const topicWords = clean(ama.topic).split(/\s+/).filter(w => w.length > 3);
     const cohortWords = clean(ama.cohort).split(/\s+/).filter(w => w.length > 2);
     const searchTerms = [...topicWords, ...cohortWords];
-    return productItems.filter(item => {
+    const textMatches = productItems.filter(item => {
+      if (item.id.startsWith('prod-temp-')) return false;
+      // Admin Call features must NEVER appear in AMA sessions via text matching
+      if (item.id.startsWith('prod-call-')) return false;
       const productLower = (item.product || '').toLowerCase().trim();
       const moduleLower = (item.module || '').toLowerCase().trim();
       const notesLower = (item.notes || '').toLowerCase().trim();
@@ -2694,12 +3180,30 @@ export const StudentMeetingsTable: React.FC = () => {
       const matchesKeyword = searchTerms.some(word => text.includes(word));
       return directCohortMatch || matchesKeyword;
     });
+
+    // Merge without duplicates
+    const combined = [...matchesId];
+    textMatches.forEach(item => {
+      if (!combined.some(c => c.id === item.id)) {
+        combined.push(item);
+      }
+    });
+    return combined;
   };
 
 
 
   // Helper to find the parent AMA session for a feedback item
   const getParentAma = (item: ProductItem): AMASession | undefined => {
+    if (item.notes && item.notes.includes('AMA Session ID:')) {
+      const match = item.notes.match(/AMA Session ID:\s*([^\s,;\]]+)/);
+      if (match && match[1]) {
+        const found = amaSessions.find(ama => ama.id === match[1]);
+        if (found) return found;
+      }
+    }
+    // Admin Call features (prod-call-) should never be matched to an AMA session
+    if (item.id.startsWith('prod-call-')) return undefined;
     return amaSessions.find(ama => {
       if (!ama.topic.trim() && !ama.cohort.trim()) return false;
       const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ');
@@ -2800,6 +3304,9 @@ export const StudentMeetingsTable: React.FC = () => {
   );
 
   const filteredFeedbackFeatures = productItems.filter(item => {
+    if (item.id.startsWith('prod-temp-')) return false;
+    // Admin Call features must never appear in the AMA Feedback tab
+    if (item.id.startsWith('prod-call-')) return false;
     // Check if the item matches any AMA session
     const matchesAma = amaSessions.some(ama => {
       if (!ama.topic.trim() && !ama.cohort.trim()) return false;
@@ -3378,7 +3885,7 @@ export const StudentMeetingsTable: React.FC = () => {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     const newItem: ProductItem = {
-                                      id: `prod-${Date.now()}`,
+                                      id: `prod-ama-${Date.now()}`,
                                       feature: '',
                                       description: '',
                                       tarunSirApproval: false,
@@ -3390,7 +3897,7 @@ export const StudentMeetingsTable: React.FC = () => {
                                       taskLink: '',
                                       blocker: '',
                                       deadline: '',
-                                      notes: `AMA Cohort: ${ama.cohort}`,
+                                      notes: `AMA Session ID: ${ama.id} | AMA Cohort: ${ama.cohort || ''}`,
                                       product: '',
                                       module: ama.cohort,
                                       uiux: '',
@@ -3612,7 +4119,7 @@ export const StudentMeetingsTable: React.FC = () => {
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       const newItem: ProductItem = {
-                                        id: `prod-${Date.now()}`,
+                                        id: `prod-ama-${Date.now()}`,
                                         feature: '',
                                         description: '',
                                         tarunSirApproval: false,
@@ -3624,7 +4131,7 @@ export const StudentMeetingsTable: React.FC = () => {
                                         taskLink: '',
                                         blocker: '',
                                         deadline: '',
-                                        notes: `AMA Cohort: ${ama.cohort}`,
+                                        notes: `AMA Session ID: ${ama.id} | AMA Cohort: ${ama.cohort || ''}`,
                                         product: '',
                                         module: ama.cohort,
                                         uiux: '',
@@ -4281,12 +4788,20 @@ export const AdminCallsTable: React.FC = () => {
   };
 
   const getRelatedFeatures = (call: AdminCall) => {
+    const matchesId = productItems.filter(item => 
+      !item.id.startsWith('prod-temp-') && 
+      item.notes && 
+      item.notes.includes(`Admin Call ID: ${call.id}`)
+    );
     if (!call.cohortTopic.trim()) {
-      return [];
+      return matchesId;
     }
     const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ');
     const topicWords = clean(call.cohortTopic).split(/\s+/).filter(w => w.length > 3);
-    return productItems.filter(item => {
+    const textMatches = productItems.filter(item => {
+      if (item.id.startsWith('prod-temp-')) return false;
+      // AMA features must NEVER appear in Admin Call sessions via text matching
+      if (item.id.startsWith('prod-ama-')) return false;
       const notesLower = (item.notes || '').toLowerCase().trim();
       const moduleLower = (item.module || '').toLowerCase().trim();
       const featureLower = (item.feature || '').toLowerCase().trim();
@@ -4300,9 +4815,27 @@ export const AdminCallsTable: React.FC = () => {
       }
       return false;
     });
+
+    // Merge without duplicates
+    const combined = [...matchesId];
+    textMatches.forEach(item => {
+      if (!combined.some(c => c.id === item.id)) {
+        combined.push(item);
+      }
+    });
+    return combined;
   };
 
   const getParentCall = (item: ProductItem): AdminCall | undefined => {
+    if (item.notes && item.notes.includes('Admin Call ID:')) {
+      const match = item.notes.match(/Admin Call ID:\s*([^\s,;\]]+)/);
+      if (match && match[1]) {
+        const found = adminCalls.find(call => call.id === match[1]);
+        if (found) return found;
+      }
+    }
+    // AMA features (prod-ama-) should never be matched to an Admin Call
+    if (item.id.startsWith('prod-ama-')) return undefined;
     return adminCalls.find(call => {
       if (!call.cohortTopic.trim()) return false;
       const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ');
@@ -4323,6 +4856,9 @@ export const AdminCallsTable: React.FC = () => {
   };
 
   const filteredFeedbackFeatures = productItems.filter(item => {
+    if (item.id.startsWith('prod-temp-')) return false;
+    // AMA features must never appear in the Admin Calls Feedback tab
+    if (item.id.startsWith('prod-ama-')) return false;
     const parent = getParentCall(item);
     if (!parent) return false;
 
@@ -4735,21 +5271,21 @@ export const AdminCallsTable: React.FC = () => {
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       const newItem: ProductItem = {
-                                        id: `prod-${Date.now()}`,
+                                        id: `prod-call-${Date.now()}`,
                                         feature: '',
                                         description: '',
                                         tarunSirApproval: false,
                                         raisedByTarunSir: false,
                                         priority: '',
-                                        poc: call.adminPoc !== 'POC Owner' ? call.adminPoc : '',
+                                        poc: '',
                                         status: '',
                                         clickupStatus: '',
                                         taskLink: '',
                                         blocker: '',
                                         deadline: '',
-                                        notes: `Admin Call: ${call.cohortTopic}`,
+                                        notes: `Admin Call ID: ${call.id} | Admin Call: ${call.cohortTopic || ''}`,
                                         product: '',
-                                        module: call.cohortTopic,
+                                        module: '',
                                         uiux: '',
                                         finalRelease: '',
                                         productDeadline: ''
@@ -4966,21 +5502,21 @@ export const AdminCallsTable: React.FC = () => {
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         const newItem: ProductItem = {
-                                          id: `prod-${Date.now()}`,
+                                          id: `prod-call-${Date.now()}`,
                                           feature: '',
                                           description: '',
                                           tarunSirApproval: false,
                                           raisedByTarunSir: false,
                                           priority: '',
-                                          poc: call.adminPoc !== 'POC Owner' ? call.adminPoc : '',
+                                          poc: '',
                                           status: '',
                                           clickupStatus: '',
                                           taskLink: '',
                                           blocker: '',
                                           deadline: '',
-                                          notes: `Admin Call: ${call.cohortTopic}`,
+                                          notes: `Admin Call ID: ${call.id} | Admin Call: ${call.cohortTopic || ''}`,
                                           product: '',
-                                          module: call.cohortTopic,
+                                          module: '',
                                           uiux: '',
                                           finalRelease: '',
                                           productDeadline: ''
@@ -5504,13 +6040,13 @@ export const ContentTable: React.FC = () => {
       module: '',
       subject: '',
       type: 'Video',
-      poc: speakersList[0] || 'Nikhil',
+      poc: '',
       draftLink: '',
       status: '',
       publishDate: '',
-      product: productGroups[0]?.name || '',
-      priority: 'P2',
-      clickupStatus: 'open',
+      product: '',
+      priority: '',
+      clickupStatus: '',
       productDeadline: '',
       uiux: '',
       deadline: '',
@@ -6250,7 +6786,7 @@ export const ProductWiseSheet: React.FC = () => {
   
   const activeProduct = activeProductTab && products.includes(activeProductTab) ? activeProductTab : products[0] || '';
 
-  const features = productItems.filter(item => item.product === activeProduct);
+  const features = productItems.filter(item => !item.id.startsWith('prod-temp-') && !item.id.startsWith('prod-ama-') && !item.id.startsWith('prod-call-') && item.product === activeProduct);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', padding: '1.5rem 0', overflowY: 'auto', height: '100%' }}>
       {products.length === 0 ? (

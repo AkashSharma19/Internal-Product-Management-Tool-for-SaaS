@@ -23,9 +23,6 @@ import {
   PieChart,
   AlertTriangle,
   LineChart,
-  Moon,
-  Sun,
-  RotateCcw,
   ChevronLeft,
   ChevronRight,
   Settings
@@ -33,11 +30,8 @@ import {
 
 const DashboardContent: React.FC = () => {
   const { 
-    theme, 
-    toggleTheme, 
     activeTab, 
     setActiveTab, 
-    resetAllData,
     previewProductId,
     setPreviewProductId,
     productItems,
@@ -143,42 +137,7 @@ const DashboardContent: React.FC = () => {
           ))}
         </nav>
 
-        <div className="sidebar-footer" style={{ display: 'flex', flexDirection: isCollapsed ? 'column' : 'row', gap: '0.5rem', width: '100%' }}>
-          <button 
-            className="btn btn-secondary btn-sm" 
-            onClick={resetAllData} 
-            style={{ 
-              flex: 1,
-              width: isCollapsed ? '100%' : 'auto',
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: isCollapsed ? 'center' : 'flex-start',
-              gap: '0.5rem',
-              color: 'var(--danger)',
-              borderColor: 'rgba(239, 68, 68, 0.2)'
-            }}
-            title="Reset Mock Data"
-          >
-            <RotateCcw size={16} />
-            {!isCollapsed && <span className="btn-text">Reset Data</span>}
-          </button>
-          
-          <button 
-            className="btn btn-secondary btn-sm" 
-            onClick={toggleTheme} 
-            style={{ 
-              width: isCollapsed ? '100%' : 'auto',
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              padding: '6px 10px',
-              borderRadius: '8px'
-            }}
-            title="Toggle Dark/Light Mode"
-          >
-            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
-        </div>
+
       </aside>
 
       {/* Main Viewport */}
