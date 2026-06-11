@@ -129,6 +129,24 @@ interface DashboardContextType {
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
 
 export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // ── Data version reset ──────────────────────────────────────────────────────
+  // Bump this version string whenever a clean-slate wipe is needed.
+  // Any browser that has an older (or missing) version key will have all
+  // its cached data cleared before the state initialisers run below.
+  const DATA_VERSION = 'v2-clean';
+  if (localStorage.getItem('data-version') !== DATA_VERSION) {
+    const keysToRemove = [
+      'data-products', 'data-plans', 'data-student-projects',
+      'data-ama-sessions', 'data-student-meetings', 'data-admin-calls',
+      'data-content-items', 'data-daily-issues', 'data-feature-adoptions',
+      'config-speakers', 'config-product-groups', 'config-statuses',
+      'config-programs', 'config-cohorts',
+    ];
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+    localStorage.setItem('data-version', DATA_VERSION);
+  }
+  // ────────────────────────────────────────────────────────────────────────────
+
   // Theme state
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const savedTheme = localStorage.getItem('app-theme');
