@@ -6780,13 +6780,217 @@ export const ContentTable: React.FC = () => {
 };
 
 export const ProductWiseSheet: React.FC = () => {
-  const { productItems, deleteProductItem, setPreviewProductId, productGroups } = useDashboard();
+  const {
+    productItems,
+    studentProjects,
+    contentItems,
+    studentMeetings,
+    dailyIssues,
+    featureAdoptions,
+    deleteProductItem,
+    setPreviewProductId,
+    openPreviewForFeature,
+    productGroups
+  } = useDashboard();
   const products = productGroups.map(g => g.name);
   const [activeProductTab, setActiveProductTab] = useState<string>('');
   
   const activeProduct = activeProductTab && products.includes(activeProductTab) ? activeProductTab : products[0] || '';
 
-  const features = productItems.filter(item => !item.id.startsWith('prod-temp-') && !item.id.startsWith('prod-ama-') && !item.id.startsWith('prod-call-') && item.product === activeProduct);
+  type BreakdownFeature = ProductItem & {
+    sourceLabel: string;
+    sourceId: string;
+    openPreview: () => void;
+    canDelete: boolean;
+  };
+
+  const toProductStatus = (status?: string): ProductItem['status'] => {
+    const cleanStatus = (status || '').toLowerCase();
+    if (['completed', 'delivered', 'done', 'closed', 'tested', 'used'].includes(cleanStatus)) return 'Completed';
+    if (['cancelled', 'canceled', 'on hold', 'not used'].includes(cleanStatus)) return 'On Hold';
+    if (['in-progress', 'in progress', 'development', 'testing'].includes(cleanStatus)) return 'In Progress';
+    if (cleanStatus === 'ongoing') return 'Ongoing';
+    return '';
+  };
+
+  const features: BreakdownFeature[] = [
+    ...productItems
+      .filter(item => !item.id.startsWith('prod-temp-') && item.product === activeProduct)
+      .map(item => ({
+        ...item,
+        sourceLabel: item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-') ? 'Feedback' : 'Priority Requests',
+        sourceId: item.id,
+        openPreview: () => setPreviewProductId(item.id),
+        canDelete: true
+      })),
+    ...studentProjects
+      .filter(item => item.product === activeProduct)
+      .map(item => ({
+        id: `breakdown-project-${item.id}`,
+        feature: item.title,
+        description: item.description || item.thingsWeBuild || '',
+        tarunSirApproval: item.tarunSirApproval || false,
+        raisedByTarunSir: item.raisedByTarunSir || false,
+        priority: item.priority || '',
+        poc: item.poc || '',
+        status: toProductStatus(item.status),
+        clickupStatus: item.clickupStatus || item.status || '',
+        taskLink: item.taskLink || '',
+        blocker: item.blocker || '',
+        deadline: item.deadline || item.completeInfoDate || '',
+        notes: item.thingsWeBuild || '',
+        product: item.product || '',
+        module: item.module || '',
+        type: item.type || 'Student Project',
+        uiux: item.uiux || '',
+        finalRelease: item.finalRelease || '',
+        productDeadline: item.productDeadline || '',
+        sourceLabel: 'Student Projects',
+        sourceId: item.id,
+        openPreview: () => openPreviewForFeature(item.title, item as Partial<ProductItem>),
+        canDelete: false
+      })),
+    ...contentItems
+      .filter(item => item.product === activeProduct)
+      .map(item => ({
+        id: `breakdown-content-${item.id}`,
+        feature: item.module,
+        description: `Content topic: ${item.module}. Subject: ${item.subject || ''}. Type: ${item.type}.`,
+        tarunSirApproval: false,
+        raisedByTarunSir: false,
+        priority: item.priority || '',
+        poc: item.poc || '',
+        status: toProductStatus(item.status),
+        clickupStatus: item.clickupStatus || item.status || '',
+        taskLink: item.draftLink || '',
+        blocker: '',
+        deadline: item.deadline || '',
+        notes: item.subject || '',
+        product: item.product || '',
+        module: item.module || '',
+        type: item.type || 'Content',
+        uiux: item.uiux || '',
+        finalRelease: item.finalRelease || item.publishDate || '',
+        productDeadline: item.productDeadline || '',
+        productDeadlineCompleted: item.productDeadlineCompleted,
+        uiuxCompleted: item.uiuxCompleted,
+        deadlineCompleted: item.deadlineCompleted,
+        finalReleaseCompleted: item.finalReleaseCompleted,
+        sourceLabel: 'Content Pipeline',
+        sourceId: item.id,
+        openPreview: () => openPreviewForFeature(item.module, {
+          description: `Content topic: ${item.module}. Subject: ${item.subject || ''}. Type: ${item.type}.`,
+          status: item.status as any,
+          clickupStatus: item.clickupStatus || item.status || '',
+          priority: item.priority || '',
+          poc: item.poc || '',
+          product: item.product || '',
+          productDeadline: item.productDeadline || '',
+          uiux: item.uiux || '',
+          deadline: item.deadline || '',
+          finalRelease: item.finalRelease || item.publishDate || ''
+        }),
+        canDelete: false
+      })),
+    ...studentMeetings
+      .filter(item => item.product === activeProduct)
+      .map(item => ({
+        id: `breakdown-meeting-${item.id}`,
+        feature: item.cohort,
+        description: item.summary || '',
+        tarunSirApproval: item.tarunSirApproval || false,
+        raisedByTarunSir: item.raisedByTarunSir || false,
+        priority: item.priority || '',
+        poc: item.poc || '',
+        status: toProductStatus(item.status),
+        clickupStatus: item.clickupStatus || item.status || '',
+        taskLink: item.taskLink || '',
+        blocker: item.blocker || '',
+        deadline: item.deadline || '',
+        notes: item.notes || item.summary || '',
+        product: item.product || '',
+        module: item.module || '',
+        type: item.type || 'Student Meeting',
+        uiux: item.uiux || '',
+        finalRelease: item.finalRelease || '',
+        productDeadline: item.productDeadline || '',
+        sourceLabel: 'Student Meetings',
+        sourceId: item.id,
+        openPreview: () => openPreviewForFeature(item.module || item.cohort, item as Partial<ProductItem>),
+        canDelete: false
+      })),
+    ...dailyIssues
+      .filter(item => item.product === activeProduct)
+      .map(item => ({
+        id: `breakdown-issue-${item.id}`,
+        feature: item.module || `Issue #${item.id}`,
+        description: item.issues || '',
+        tarunSirApproval: false,
+        raisedByTarunSir: false,
+        priority: item.priority || '',
+        poc: item.poc || item.contact || '',
+        status: item.status || '',
+        clickupStatus: item.clickupStatus || item.type || '',
+        taskLink: item.taskLink || '',
+        blocker: item.blocker || '',
+        deadline: item.deadline || '',
+        notes: item.notes || item.issues || '',
+        product: item.product || '',
+        module: item.module || '',
+        type: item.type || 'Daily Issue',
+        uiux: item.uiux || '',
+        finalRelease: item.finalRelease || '',
+        productDeadline: item.productDeadline || '',
+        productDeadlineCompleted: item.productDeadlineCompleted,
+        uiuxCompleted: item.uiuxCompleted,
+        deadlineCompleted: item.deadlineCompleted,
+        finalReleaseCompleted: item.finalReleaseCompleted,
+        sourceLabel: 'Daily Issues',
+        sourceId: item.id,
+        openPreview: () => openPreviewForFeature(item.module || `${item.cohort} - ${item.id}`, {
+          description: item.issues,
+          product: item.product,
+          module: item.module,
+          notes: item.cohort,
+          clickupStatus: item.type
+        }),
+        canDelete: false
+      })),
+    ...featureAdoptions
+      .filter(item => item.product === activeProduct)
+      .map(item => ({
+        id: `breakdown-adoption-${item.id}`,
+        feature: item.feature,
+        description: `Adoption: ${item.adoptionRate}%${item.cohort ? ` across ${item.cohort}` : ''}`,
+        tarunSirApproval: false,
+        raisedByTarunSir: false,
+        priority: '',
+        poc: '',
+        status: toProductStatus(item.status || (item.adoptionRate > 0 ? 'Used' : 'Not Used')),
+        clickupStatus: item.status || `${item.adoptionRate}% adoption`,
+        taskLink: '',
+        blocker: '',
+        deadline: '',
+        notes: item.program || item.targetAudience || '',
+        product: item.product || '',
+        module: item.feature || '',
+        type: 'Feature Adoption',
+        uiux: '',
+        finalRelease: '',
+        productDeadline: item.launchDate || '',
+        sourceLabel: 'Adoption Metrics',
+        sourceId: item.id,
+        openPreview: () => openPreviewForFeature(item.feature, {
+          description: `Adoption: ${item.adoptionRate}%${item.cohort ? ` across ${item.cohort}` : ''}`,
+          product: item.product,
+          productDeadline: item.launchDate,
+          status: item.status as any,
+          notes: item.program || item.targetAudience || ''
+        }),
+        canDelete: false
+      }))
+  ];
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', padding: '1.5rem 0', overflowY: 'auto', height: '100%' }}>
       {products.length === 0 ? (
@@ -6848,6 +7052,7 @@ export const ProductWiseSheet: React.FC = () => {
                         <tr>
                           <th className="sticky-header-col" style={{ width: '280px', minWidth: '280px', maxWidth: '280px' }}>Feature</th>
                           <th style={{ width: '80px' }}>Priority</th>
+                          <th style={{ width: '140px' }}>Source</th>
                           <th style={{ width: '120px' }}>POC Owner</th>
                           <th style={{ width: '120px' }}>Status</th>
                           <th style={{ width: '100px' }}>Clickup</th>
@@ -6860,7 +7065,7 @@ export const ProductWiseSheet: React.FC = () => {
                       </thead>
                       <tbody>
                         {features.map(item => (
-                          <tr key={item.id} onClick={() => setPreviewProductId(item.id)} style={{ cursor: 'pointer' }}>
+                          <tr key={item.id} onClick={item.openPreview} style={{ cursor: 'pointer' }}>
                             <td className="sticky-col" style={{ fontWeight: 600, width: '280px', minWidth: '280px', maxWidth: '280px', whiteSpace: 'normal' }}>
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
                                 <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
@@ -6879,6 +7084,9 @@ export const ProductWiseSheet: React.FC = () => {
                                   {item.priority}
                                 </span>
                               ) : '—'}
+                            </td>
+                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                              {item.sourceLabel}
                             </td>
                             <td style={{ fontWeight: 500 }}>{item.poc || '—'}</td>
                             <td>
@@ -6959,17 +7167,19 @@ export const ProductWiseSheet: React.FC = () => {
                               ) : '—'}
                             </td>
                             <td>
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (window.confirm("Are you sure you want to delete this feature?")) {
-                                    deleteProductItem(item.id);
-                                  }
-                                }}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
-                              >
-                                <Trash2 size={14} />
-                              </button>
+                              {item.canDelete && (
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm("Are you sure you want to delete this feature?")) {
+                                      deleteProductItem(item.sourceId);
+                                    }
+                                  }}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -7169,112 +7379,426 @@ const DailyIssueDetailModal: React.FC<DailyIssueDetailModalProps> = ({ item, onC
 };
 
 export const IssuesTable: React.FC = () => {
-  const { dailyIssues, updateDailyIssue, addDailyIssue, deleteDailyIssue, openPreviewForFeature } = useDashboard();
+  const { dailyIssues, updateDailyIssue, addDailyIssue, deleteDailyIssue, openPreviewForFeature, productGroups } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState('All');
-  const [editingItem, setEditingItem] = useState<DailyIssue | null>(null);
+  const [filterPriority, setFilterPriority] = useState('All');
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const [sortField, setSortField] = useState<keyof DailyIssue | null>(null);
+  const [sortAsc, setSortAsc] = useState(true);
+  const [editingFeatureId, setEditingFeatureId] = useState<string | null>(null);
+  const [inlineEditValue, setInlineEditValue] = useState('');
+  const [editingCell, setEditingCell] = useState<{ id: string; field: keyof DailyIssue } | null>(null);
+  const [inlineCellValue, setInlineCellValue] = useState('');
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingFeatureId && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingFeatureId]);
+
+  const handleSort = (field: keyof DailyIssue) => {
+    if (sortField === field) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+  };
 
   const filtered = dailyIssues.filter(item => {
     const matchesSearch = 
-      item.cohort.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.issues.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.contact.toLowerCase().includes(searchQuery.toLowerCase());
+      (item.module || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.poc || item.contact || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.notes || item.issues || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.product || '').toLowerCase().includes(searchQuery.toLowerCase());
       
-    const matchesType = filterType === 'All' || item.type === filterType;
-    return matchesSearch && matchesType;
+    const matchesPriority = filterPriority === 'All' || item.priority === filterPriority;
+    const matchesStatus = filterStatuses.length === 0 || filterStatuses.includes(item.status || '');
+    
+    return matchesSearch && matchesPriority && matchesStatus;
   });
+
+  if (sortField) {
+    filtered.sort((a, b) => {
+      const valA = String(a[sortField] || '').toLowerCase();
+      const valB = String(b[sortField] || '').toLowerCase();
+      return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+    });
+  }
 
   const handleAddNew = () => {
     const newId = String(Math.max(...dailyIssues.map(i => parseInt(i.id) || 0), 0) + 1);
     const newItem: DailyIssue = {
       id: newId,
-      cohort: 'UG-DSAI-2029',
-      product: 'Coach LMS Web',
-      module: 'Module Name',
+      cohort: '',
+      product: '',
+      module: '',
       type: 'Bug/Defect',
-      issues: 'Describe the bug details here',
-      contact: 'Internal Support'
+      issues: '',
+      contact: '',
+      priority: '',
+      poc: '',
+      status: '',
+      clickupStatus: '',
+      taskLink: '',
+      blocker: '',
+      deadline: '',
+      notes: '',
+      uiux: '',
+      finalRelease: '',
+      productDeadline: ''
     };
     addDailyIssue(newItem);
-    setEditingItem(newItem);
+    setSearchQuery('');
+    setSortField(null);
+    setInlineEditValue('');
+    setEditingFeatureId(newItem.id);
+  };
+
+  const startFeatureEdit = (item: DailyIssue) => {
+    setEditingCell(null);
+    setInlineEditValue(item.module || '');
+    setEditingFeatureId(item.id);
+  };
+
+  const startCellEdit = (item: DailyIssue, field: keyof DailyIssue) => {
+    setEditingFeatureId(null);
+    setInlineCellValue(String(item[field] || ''));
+    setEditingCell({ id: item.id, field });
+  };
+
+  const saveCellEdit = () => {
+    if (!editingCell) return;
+    updateDailyIssue(editingCell.id, { [editingCell.field]: inlineCellValue } as Partial<DailyIssue>);
+    setEditingCell(null);
+  };
+
+  const renderTextCell = (item: DailyIssue, field: keyof DailyIssue, fallback = '—') => {
+    const isEditing = editingCell?.id === item.id && editingCell.field === field;
+    if (isEditing) {
+      return (
+        <input
+          autoFocus
+          type="text"
+          value={inlineCellValue}
+          onChange={(e) => setInlineCellValue(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              saveCellEdit();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              setEditingCell(null);
+            }
+          }}
+          onBlur={saveCellEdit}
+          style={{
+            width: '100%',
+            padding: '4px 6px',
+            backgroundColor: 'var(--background)',
+            border: '1.5px solid var(--primary)',
+            borderRadius: '6px',
+            color: 'var(--text-primary)',
+            fontSize: '0.8rem',
+            outline: 'none'
+          }}
+        />
+      );
+    }
+    return (
+      <span onClick={(e) => { e.stopPropagation(); startCellEdit(item, field); }}>
+        {String(item[field] || fallback)}
+      </span>
+    );
+  };
+
+  const renderSelectCell = (item: DailyIssue, field: keyof DailyIssue, options: string[], display: React.ReactNode) => {
+    const isEditing = editingCell?.id === item.id && editingCell.field === field;
+    if (isEditing) {
+      return (
+        <select
+          autoFocus
+          value={inlineCellValue}
+          onChange={(e) => {
+            updateDailyIssue(item.id, { [field]: e.target.value } as Partial<DailyIssue>);
+            setEditingCell(null);
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onBlur={() => setEditingCell(null)}
+          style={{
+            width: '100%',
+            padding: '4px 6px',
+            backgroundColor: 'var(--background)',
+            border: '1.5px solid var(--primary)',
+            borderRadius: '6px',
+            color: 'var(--text-primary)',
+            fontSize: '0.8rem',
+            outline: 'none'
+          }}
+        >
+          <option value="">—</option>
+          {options.map(option => (
+            <option key={option} value={option}>{option}</option>
+          ))}
+        </select>
+      );
+    }
+    return (
+      <span onClick={(e) => { e.stopPropagation(); startCellEdit(item, field); }}>
+        {display}
+      </span>
+    );
+  };
+
+  const renderDateCell = (item: DailyIssue, field: keyof DailyIssue, previousField?: keyof DailyIssue) => {
+    const isEditing = editingCell?.id === item.id && editingCell.field === field;
+    if (isEditing) {
+      return (
+        <input
+          autoFocus
+          type="date"
+          value={inlineCellValue}
+          onChange={(e) => setInlineCellValue(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              saveCellEdit();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              setEditingCell(null);
+            }
+          }}
+          onBlur={saveCellEdit}
+          style={{
+            padding: '4px 6px',
+            backgroundColor: 'var(--background)',
+            border: '1.5px solid var(--primary)',
+            borderRadius: '6px',
+            color: 'var(--text-primary)',
+            fontSize: '0.8rem',
+            outline: 'none'
+          }}
+        />
+      );
+    }
+
+    const value = String(item[field] || '');
+    const completedField = `${String(field)}Completed` as keyof DailyIssue;
+    const completed = Boolean(item[completedField]);
+    return (
+      <>
+        {previousField && <DateDiffBadge prevDate={String(item[previousField] || '')} currentDate={value} />}
+        <span
+          onClick={(e) => { e.stopPropagation(); startCellEdit(item, field); }}
+          style={value && completed ? {
+            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+            color: '#10b981',
+            fontWeight: 600,
+            padding: '2px 6px',
+            borderRadius: '4px',
+            display: 'inline-block'
+          } : {}}
+        >
+          {value ? formatDateToUserPattern(value) : '—'}
+        </span>
+      </>
+    );
   };
 
   return (
-    <>
-      <TabContainer
-        title="Daily Classroom Issues & Improvements Log"
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        onAddClick={handleAddNew}
-        addLabel="Report Issue"
-        filterComponent={
-          <select className="filter-select" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-            <option value="All">All Types</option>
-            <option value="Bug/Defect">Bug/Defect</option>
-            <option value="Performance">Performance</option>
-            <option value="UX">UX</option>
-            <option value="Enhancement">Enhancement</option>
-            <option value="Feature Gap">Feature Gap</option>
-            <option value="Information Lack">Information Lack</option>
+    <TabContainer
+      title="Daily Classroom Issues & Improvements Log"
+      searchQuery={searchQuery}
+      setSearchQuery={setSearchQuery}
+      onAddClick={handleAddNew}
+      addLabel="Add Feature"
+      filterComponent={
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <select className="filter-select" value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)}>
+            <option value="All">All Priorities</option>
+            <option value="P0">P0 (Critical)</option>
+            <option value="P1">P1</option>
+            <option value="P2">P2</option>
+            <option value="P3">P3</option>
+            <option value="P4">P4</option>
           </select>
-        }
-      >
-        <div className="table-responsive">
-          <table className="grid-table">
-            <thead>
-              <tr>
-                <th style={{ width: '80px', textTransform: 'uppercase' }}>Ticket ID</th>
-                <th>Cohort / Section</th>
-                <th style={{ width: '160px' }}>Issue Type</th>
-                <th>Product Module</th>
-                <th style={{ width: '40px' }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(issue => (
-                <tr key={issue.id} onClick={() => openPreviewForFeature(issue.module || issue.cohort + ' - ' + issue.id, { description: issue.issues, product: issue.product })} style={{ cursor: 'pointer' }}>
-                  <td style={{ fontWeight: 700, textAlign: 'center' }}>#{issue.id}</td>
-                  <td style={{ fontWeight: 600 }}>{issue.cohort}</td>
-                  <td>
-                    <span className={`badge ${
-                      issue.type === 'Bug/Defect' ? 'badge-bug' : 
-                      issue.type === 'Performance' ? 'badge-performance' : 
-                      issue.type === 'UX' ? 'badge-ux' : 'badge-enhancement'
-                    }`}>
-                      {issue.type}
-                    </span>
-                  </td>
-                  <td>{issue.product}</td>
-
-                  <td>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (window.confirm("Are you sure you want to delete this issue log?")) {
-                          deleteDailyIssue(issue.id);
-                        }
-                      }} 
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <MultiSelectDropdown
+            options={['On Hold', 'In Progress', 'Ongoing', 'Completed']}
+            selectedValues={filterStatuses}
+            onChange={setFilterStatuses}
+            placeholder="Status"
+          />
         </div>
-      </TabContainer>
-
-      {editingItem && (
-        <DailyIssueDetailModal 
-          item={dailyIssues.find(i => i.id === editingItem.id) || editingItem}
-          onClose={() => setEditingItem(null)}
-          onUpdate={updateDailyIssue}
-        />
-      )}
-    </>
+      }
+    >
+      <div className="table-responsive">
+        <table className="grid-table">
+          <thead>
+            <tr>
+              <th className="sticky-header-col" onClick={() => handleSort('module')} style={{ width: '280px', minWidth: '280px', maxWidth: '280px' }}>Feature {sortField === 'module' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('product')}>Product Group</th>
+              <th onClick={() => handleSort('priority')}>Priority</th>
+              <th onClick={() => handleSort('poc')}>POC Owner</th>
+              <th onClick={() => handleSort('status')}>Status</th>
+              <th onClick={() => handleSort('clickupStatus')}>Clickup</th>
+              <th onClick={() => handleSort('productDeadline')}>Prod {sortField === 'productDeadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('uiux')}>UIUX {sortField === 'uiux' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('deadline')}>Dev {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('finalRelease')}>Final {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th style={{ width: '40px' }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(item => (
+              <tr 
+                key={item.id} 
+                onClick={() => {
+                  if (editingFeatureId !== item.id) {
+                    openPreviewForFeature(item.module || `Issue #${item.id}`, {
+                      description: item.issues || item.notes || '',
+                      priority: item.priority || '',
+                      poc: item.poc || item.contact || '',
+                      status: item.status || '',
+                      clickupStatus: item.clickupStatus || item.type || '',
+                      taskLink: item.taskLink || '',
+                      blocker: item.blocker || '',
+                      deadline: item.deadline || '',
+                      notes: item.notes || item.issues || '',
+                      product: item.product || '',
+                      module: item.module || '',
+                      type: item.type || '',
+                      uiux: item.uiux || '',
+                      finalRelease: item.finalRelease || '',
+                      productDeadline: item.productDeadline || ''
+                    });
+                  }
+                }} 
+                style={{ cursor: 'pointer' }}
+              >
+                <td
+                  className="sticky-col"
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    startFeatureEdit(item);
+                  }}
+                  title="Double click to edit Feature"
+                  style={{ fontWeight: 600, width: '280px', minWidth: '280px', maxWidth: '280px', whiteSpace: 'normal' }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', width: '100%' }}>
+                    {editingFeatureId === item.id ? (
+                      <input
+                        ref={editInputRef}
+                        type="text"
+                        value={inlineEditValue}
+                        onChange={(e) => setInlineEditValue(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const finalVal = inlineEditValue.trim() || 'New Feature Request';
+                            updateDailyIssue(item.id, { module: finalVal });
+                            setEditingFeatureId(null);
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            setEditingFeatureId(null);
+                          }
+                        }}
+                        onBlur={() => {
+                          const finalVal = inlineEditValue.trim() || 'New Feature Request';
+                          updateDailyIssue(item.id, { module: finalVal });
+                          setEditingFeatureId(null);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '6px 8px',
+                          backgroundColor: 'var(--background)',
+                          border: '1.5px solid var(--primary)',
+                          borderRadius: '6px',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          outline: 'none',
+                          boxShadow: '0 0 0 2px var(--primary-glow)'
+                        }}
+                      />
+                    ) : (
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startFeatureEdit(item);
+                        }}
+                        style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}
+                      >
+                        {item.module || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td>
+                  {renderSelectCell(item, 'product', productGroups.map(g => g.name), item.product || '—')}
+                </td>
+                <td>
+                  {renderSelectCell(item, 'priority', ['P0', 'P1', 'P2', 'P3', 'P4'], item.priority ? (
+                    <span className={`badge badge-${item.priority.toLowerCase()}`}>{item.priority}</span>
+                  ) : '—')}
+                </td>
+                <td style={{ fontWeight: 500 }}>{renderTextCell(item, 'poc', item.contact || '—')}</td>
+                <td>
+                  {renderSelectCell(item, 'status', ['On Hold', 'In Progress', 'Ongoing', 'Completed'], item.status ? (
+                    <span className={`badge ${
+                      item.status === 'On Hold' ? 'status-hold' :
+                      item.status === 'In Progress' ? 'status-progress' :
+                      item.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
+                    }`}>
+                      {item.status}
+                    </span>
+                  ) : '—')}
+                </td>
+                <td>
+                  {editingCell?.id === item.id && editingCell.field === 'clickupStatus' ? renderTextCell(item, 'clickupStatus') : (item.clickupStatus || item.type) ? (
+                    <span
+                      onClick={(e) => { e.stopPropagation(); startCellEdit(item, 'clickupStatus'); }}
+                      className={`badge clickup-${(item.clickupStatus || item.type).toLowerCase()}`}
+                    >
+                      {item.clickupStatus || item.type}
+                    </span>
+                  ) : renderTextCell(item, 'clickupStatus')}
+                </td>
+                <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  {renderDateCell(item, 'productDeadline')}
+                </td>
+                <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                  {renderDateCell(item, 'uiux', 'productDeadline')}
+                </td>
+                <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                  {renderDateCell(item, 'deadline', 'uiux')}
+                </td>
+                <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                  {renderDateCell(item, 'finalRelease', 'deadline')}
+                </td>
+                <td>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (window.confirm("Are you sure you want to delete this feature?")) {
+                        deleteDailyIssue(item.id);
+                      }
+                    }} 
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </TabContainer>
   );
 };
 
@@ -7290,10 +7814,8 @@ export const AdoptionTable: React.FC = () => {
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<FeatureAdoption | null>(null);
 
-  // Add feature states
+  // Add feature state
   const [isAddingFeature, setIsAddingFeature] = useState(false);
-  const [newFeatureName, setNewFeatureName] = useState('');
-  const [newProductGroup, setNewProductGroup] = useState('');
 
   // Filtering states
   const [filterProgram, setFilterProgram] = useState('All');
@@ -7374,8 +7896,21 @@ export const AdoptionTable: React.FC = () => {
   };
 
   const handleAddNewClick = () => {
-    setNewFeatureName('');
-    setNewProductGroup(productGroups[0]?.name || 'Coach LMS Web');
+    const draft: FeatureAdoption = {
+      id: `adopt-${Date.now()}`,
+      feature: '',
+      product: productGroups[0]?.name || '',
+      launchDate: new Date().toISOString().slice(0, 10),
+      targetAudience: 'All Cohorts',
+      adoptionRate: 0,
+      activeUsers: 0,
+      sentiment: 3.0,
+      program: '',
+      cohort: ''
+    };
+    setSearchQuery('');
+    setEditDraft(draft);
+    setEditingRowId(draft.id);
     setIsAddingFeature(true);
   };
 
@@ -7385,12 +7920,18 @@ export const AdoptionTable: React.FC = () => {
       alert("Feature name is required.");
       return;
     }
-    updateFeatureAdoption(editDraft.id, editDraft);
+    if (isAddingFeature) {
+      addFeatureAdoption(editDraft);
+      setIsAddingFeature(false);
+    } else {
+      updateFeatureAdoption(editDraft.id, editDraft);
+    }
     setEditingRowId(null);
     setEditDraft(null);
   };
 
   const handleCancelInline = () => {
+    setIsAddingFeature(false);
     setEditingRowId(null);
     setEditDraft(null);
   };
@@ -7463,7 +8004,7 @@ export const AdoptionTable: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(adopt => {
+              {(isAddingFeature && editDraft ? [editDraft, ...filtered] : filtered).map(adopt => {
                 const isEditing = editingRowId === adopt.id;
                 
                 return (
@@ -7478,9 +8019,19 @@ export const AdoptionTable: React.FC = () => {
                       <td style={{ fontWeight: 600 }}>
                         {isEditing && editDraft ? (
                           <input
+                            autoFocus
                             type="text"
                             value={editDraft.feature}
                             onChange={(e) => setEditDraft({ ...editDraft, feature: e.target.value })}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleSaveInline();
+                              } else if (e.key === 'Escape') {
+                                e.preventDefault();
+                                handleCancelInline();
+                              }
+                            }}
                             style={{
                               width: '100%',
                               padding: '6px 10px',
@@ -7504,6 +8055,15 @@ export const AdoptionTable: React.FC = () => {
                           <select
                             value={editDraft.product}
                             onChange={(e) => setEditDraft({ ...editDraft, product: e.target.value })}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleSaveInline();
+                              } else if (e.key === 'Escape') {
+                                e.preventDefault();
+                                handleCancelInline();
+                              }
+                            }}
                             style={{
                               width: '100%',
                               padding: '6px 10px',
@@ -7647,111 +8207,6 @@ export const AdoptionTable: React.FC = () => {
         </div>
       </TabContainer>
 
-      {/* Add Feature Modal overlay */}
-      {isAddingFeature && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          backdropFilter: 'blur(4px)'
-        }}>
-          <div style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: '12px',
-            padding: '1.5rem',
-            width: '100%',
-            maxWidth: '400px',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 10px 10px -5px rgba(0, 0, 0, 0.15)'
-          }}>
-            <h3 style={{ marginTop: 0, marginBottom: '1.25rem', color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: 600 }}>Add Feature</h3>
-            
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>Feature Name</label>
-              <input 
-                type="text" 
-                value={newFeatureName}
-                onChange={(e) => setNewFeatureName(e.target.value)}
-                placeholder="e.g. AI Grading Assistant"
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface-elevated)',
-                  color: 'var(--text-primary)',
-                  fontSize: '0.9rem'
-                }}
-                autoFocus
-              />
-            </div>
-
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>Product Group</label>
-              <select 
-                value={newProductGroup}
-                onChange={(e) => setNewProductGroup(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface-elevated)',
-                  color: 'var(--text-primary)',
-                  fontSize: '0.9rem'
-                }}
-              >
-                {productGroups.map(pg => (
-                  <option key={pg.id} value={pg.name}>{pg.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-              <button 
-                className="btn btn-secondary" 
-                onClick={() => setIsAddingFeature(false)}
-                style={{ padding: '6px 12px', fontSize: '0.85rem' }}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn btn-primary" 
-                onClick={() => {
-                  if (!newFeatureName.trim()) {
-                    alert("Feature name is required.");
-                    return;
-                  }
-                  const newItem: FeatureAdoption = {
-                    id: `adopt-${Date.now()}`,
-                    feature: newFeatureName.trim(),
-                    product: newProductGroup,
-                    launchDate: new Date().toISOString().slice(0, 10),
-                    targetAudience: 'All Cohorts',
-                    adoptionRate: 0,
-                    activeUsers: 0,
-                    sentiment: 3.0,
-                    program: '',
-                    cohort: ''
-                  };
-                  addFeatureAdoption(newItem);
-                  setIsAddingFeature(false);
-                }}
-                style={{ padding: '6px 12px', fontSize: '0.85rem' }}
-              >
-                Add Feature
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 };

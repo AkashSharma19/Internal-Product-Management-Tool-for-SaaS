@@ -133,6 +133,21 @@ export interface DailyIssue {
   type: 'Bug/Defect' | 'Performance' | 'Information Lack' | 'Enhancement' | 'Feature Gap' | 'UX';
   issues: string;
   contact: string;
+  priority?: 'P0' | 'P1' | 'P2' | 'P3' | 'P4' | '';
+  poc?: string;
+  status?: 'On Hold' | 'In Progress' | 'Ongoing' | 'Completed' | '';
+  clickupStatus?: string;
+  taskLink?: string;
+  blocker?: string;
+  deadline?: string;
+  notes?: string;
+  uiux?: string;
+  finalRelease?: string;
+  productDeadline?: string;
+  productDeadlineCompleted?: boolean;
+  uiuxCompleted?: boolean;
+  deadlineCompleted?: boolean;
+  finalReleaseCompleted?: boolean;
 }
 
 export interface FeatureAdoption {
