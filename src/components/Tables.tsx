@@ -27,7 +27,8 @@ import {
   Clock,
   ChevronUp,
   ChevronDown,
-  RefreshCw
+  RefreshCw,
+  Search
 } from 'lucide-react';
 import type { 
   ProductItem, 
@@ -6630,6 +6631,7 @@ export const ProductWiseSheet: React.FC = () => {
   } = useDashboard();
   const products = productGroups.map(g => g.name);
   const [activeProductTab, setActiveProductTab] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
   
   const activeProduct = activeProductTab && products.includes(activeProductTab) ? activeProductTab : products[0] || '';
 
@@ -6827,207 +6829,235 @@ export const ProductWiseSheet: React.FC = () => {
       }))
   ];
 
+  const filteredFeatures = features.filter(item => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      (item.feature || '').toLowerCase().includes(q) ||
+      (item.description || '').toLowerCase().includes(q) ||
+      (item.poc || '').toLowerCase().includes(q) ||
+      (item.sourceLabel || '').toLowerCase().includes(q)
+    );
+  });
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', padding: '1.5rem 0', overflowY: 'auto', height: '100%' }}>
+    <div className="full-canvas-workspace">
       {products.length === 0 ? (
         <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
           No products configured. Please add products in the Configuration tab.
         </div>
       ) : (
         <>
-          {/* Top Tabs Bar */}
-          <div style={{ 
-            display: 'flex', 
-            borderBottom: '1px solid var(--border)', 
-            padding: '0.25rem 1.5rem 0 1.5rem', 
-            background: 'var(--panel-bg)', 
-            gap: '1.5rem',
-            overflowX: 'auto',
-            whiteSpace: 'nowrap',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none'
-          }}>
-            {products.map((prod) => {
-              const isActive = prod === activeProduct;
-              return (
-                <button
-                  key={prod}
-                  onClick={() => setActiveProductTab(prod)}
-                  style={{
-                    padding: '0.75rem 0.5rem',
-                    border: 'none',
-                    background: 'none',
-                    borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
-                    color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                    fontWeight: 600,
-                    fontSize: '0.875rem',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    outline: 'none',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  {prod}
-                </button>
-              );
-            })}
+          {/* Top Tabs & Search Toolbar */}
+          <div className="sheet-toolbar">
+            <div className="toolbar-left" style={{ flex: 1, overflow: 'hidden', flexWrap: 'nowrap' }}>
+              <h2 style={{ fontSize: '1.25rem', marginRight: '1.5rem', whiteSpace: 'nowrap' }}>Product Breakdown</h2>
+              
+              {/* Product Tabs inline in toolbar-left */}
+              <div style={{ 
+                display: 'flex', 
+                gap: '1.25rem',
+                overflowX: 'auto',
+                whiteSpace: 'nowrap',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+                flex: 1,
+                alignSelf: 'stretch',
+                alignItems: 'center',
+                paddingTop: '2px'
+              }}>
+                {products.map((prod) => {
+                  const isActive = prod === activeProduct;
+                  return (
+                    <button
+                      key={prod}
+                      onClick={() => setActiveProductTab(prod)}
+                      style={{
+                        padding: '0.5rem 0.25rem',
+                        border: 'none',
+                        background: 'none',
+                        borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
+                        color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        fontWeight: 600,
+                        fontSize: '0.875rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        outline: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        height: '100%',
+                        transform: 'translateY(1px)'
+                      }}
+                    >
+                      {prod}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            
+            <div className="toolbar-right">
+              <div className="search-input-wrapper">
+                <Search size={16} />
+                <input 
+                  type="text" 
+                  className="search-input" 
+                  placeholder="Search features..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
           </div>
 
-          {/* Active Product Details Content */}
+          {/* Active Product Details Content - Full Canvas Table */}
           {activeProduct && (
-            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              {/* Table of Features */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                
-                {features.length > 0 ? (
-                  <div className="table-responsive" style={{ margin: 0, border: '1px solid var(--border)', borderRadius: '8px' }}>
-                    <table className="grid-table">
-                      <thead>
-                        <tr>
-                          <th className="sticky-header-col" style={{ width: '280px', minWidth: '280px', maxWidth: '280px' }}>Feature</th>
-                          <th style={{ width: '80px' }}>Priority</th>
-                          <th style={{ width: '140px' }}>Source</th>
-                          <th style={{ width: '120px' }}>POC Owner</th>
-                          <th style={{ width: '120px' }}>Status</th>
-                          <th style={{ width: '100px' }}>Clickup</th>
-                          <th style={{ width: '120px' }}>Specs Date</th>
-                          <th style={{ width: '120px' }}>UI/UX Date</th>
-                          <th style={{ width: '120px' }}>Dev Date</th>
-                          <th style={{ width: '120px' }}>Release Date</th>
-                          <th style={{ width: '40px' }}></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {features.map(item => (
-                          <tr key={item.id} onClick={item.openPreview} style={{ cursor: 'pointer' }}>
-                            <td className="sticky-col" style={{ fontWeight: 600, width: '280px', minWidth: '280px', maxWidth: '280px', whiteSpace: 'normal' }}>
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
-                                <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
-                                  {item.feature}
-                                </span>
-                                {item.raisedByTarunSir && (
-                                  <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                                    <Sparkles size={10} /> Super Priority
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                            <td>
-                              {item.priority ? (
-                                <span className={`badge badge-${item.priority.toLowerCase()}`}>
-                                  {item.priority}
-                                </span>
-                              ) : '—'}
-                            </td>
-                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                              {item.sourceLabel}
-                            </td>
-                            <td style={{ fontWeight: 500 }}>{item.poc || '—'}</td>
-                            <td>
-                              {item.status ? (
-                                <span className={`badge ${
-                                  item.status === 'On Hold' ? 'status-hold' :
-                                  item.status === 'In Progress' ? 'status-progress' :
-                                  item.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
-                                }`}>
-                                  {item.status}
-                                </span>
-                              ) : '—'}
-                            </td>
-                            <td>
-                              {item.clickupStatus ? (
-                                <span className={`badge clickup-${item.clickupStatus.toLowerCase()}`}>
-                                  {item.clickupStatus}
-                                </span>
-                              ) : '—'}
-                            </td>
-                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                              {item.productDeadline ? (
-                                <span style={item.productDeadlineCompleted ? {
-                                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                                  color: '#10b981',
-                                  fontWeight: 600,
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
-                                  display: 'inline-block'
-                                } : {}}>
-                                  {formatDateToUserPattern(item.productDeadline)}
-                                </span>
-                              ) : '—'}
-                            </td>
-                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                              <DateDiffBadge prevDate={item.productDeadline} currentDate={item.uiux} />
-                              {item.uiux ? (
-                                <span style={item.uiuxCompleted ? {
-                                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                                  color: '#10b981',
-                                  fontWeight: 600,
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
-                                  display: 'inline-block'
-                                } : {}}>
-                                  {formatDateToUserPattern(item.uiux)}
-                                </span>
-                              ) : '—'}
-                            </td>
-                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                              <DateDiffBadge prevDate={item.uiux} currentDate={item.deadline} />
-                              {item.deadline ? (
-                                <span style={item.deadlineCompleted ? {
-                                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                                  color: '#10b981',
-                                  fontWeight: 600,
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
-                                  display: 'inline-block'
-                                } : {}}>
-                                  {formatDateToUserPattern(item.deadline)}
-                                </span>
-                              ) : '—'}
-                            </td>
-                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                              <DateDiffBadge prevDate={item.deadline} currentDate={item.finalRelease} />
-                              {item.finalRelease ? (
-                                <span style={item.finalReleaseCompleted ? {
-                                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                                  color: '#10b981',
-                                  fontWeight: 600,
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
-                                  display: 'inline-block'
-                                } : {}}>
-                                  {formatDateToUserPattern(item.finalRelease)}
-                                </span>
-                              ) : '—'}
-                            </td>
-                            <td>
-                              {item.canDelete && (
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (window.confirm("Are you sure you want to delete this feature?")) {
-                                      deleteProductItem(item.sourceId);
-                                    }
-                                  }}
-                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic', border: '1px dashed var(--border)', borderRadius: '8px' }}>
-                    No priority features mapped to this product.
-                  </div>
-                )}
-              </div>
+            <div className="table-responsive" style={{ flex: 1, width: '100%', border: 'none', borderRadius: 0 }}>
+              {filteredFeatures.length > 0 ? (
+                <table className="grid-table">
+                  <thead>
+                    <tr>
+                      <th className="sticky-header-col" style={{ width: '280px', minWidth: '280px', maxWidth: '280px' }}>Feature</th>
+                      <th style={{ width: '80px' }}>Priority</th>
+                      <th style={{ width: '140px' }}>Source</th>
+                      <th style={{ width: '120px' }}>POC Owner</th>
+                      <th style={{ width: '120px' }}>Status</th>
+                      <th style={{ width: '100px' }}>Clickup</th>
+                      <th style={{ width: '120px' }}>Specs Date</th>
+                      <th style={{ width: '120px' }}>UI/UX Date</th>
+                      <th style={{ width: '120px' }}>Dev Date</th>
+                      <th style={{ width: '120px' }}>Release Date</th>
+                      <th style={{ width: '40px' }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredFeatures.map(item => (
+                      <tr key={item.id} onClick={item.openPreview} style={{ cursor: 'pointer' }}>
+                        <td className="sticky-col" style={{ fontWeight: 600, width: '280px', minWidth: '280px', maxWidth: '280px', whiteSpace: 'normal' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
+                            <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
+                              {item.feature}
+                            </span>
+                            {item.raisedByTarunSir && (
+                              <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                                <Sparkles size={10} /> Super Priority
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          {item.priority ? (
+                            <span className={`badge badge-${item.priority.toLowerCase()}`}>
+                              {item.priority}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                          {item.sourceLabel}
+                        </td>
+                        <td style={{ fontWeight: 500 }}>{item.poc || '—'}</td>
+                        <td>
+                          {item.status ? (
+                            <span className={`badge ${
+                              item.status === 'On Hold' ? 'status-hold' :
+                              item.status === 'In Progress' ? 'status-progress' :
+                              item.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
+                            }`}>
+                              {item.status}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td>
+                          {item.clickupStatus ? (
+                            <span className={`badge clickup-${item.clickupStatus.toLowerCase()}`}>
+                              {item.clickupStatus}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                          {item.productDeadline ? (
+                            <span style={item.productDeadlineCompleted ? {
+                              backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                              color: '#10b981',
+                              fontWeight: 600,
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              display: 'inline-block'
+                            } : {}}>
+                              {formatDateToUserPattern(item.productDeadline)}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                          <DateDiffBadge prevDate={item.productDeadline} currentDate={item.uiux} />
+                          {item.uiux ? (
+                            <span style={item.uiuxCompleted ? {
+                              backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                              color: '#10b981',
+                              fontWeight: 600,
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              display: 'inline-block'
+                            } : {}}>
+                              {formatDateToUserPattern(item.uiux)}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                          <DateDiffBadge prevDate={item.uiux} currentDate={item.deadline} />
+                          {item.deadline ? (
+                            <span style={item.deadlineCompleted ? {
+                              backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                              color: '#10b981',
+                              fontWeight: 600,
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              display: 'inline-block'
+                            } : {}}>
+                              {formatDateToUserPattern(item.deadline)}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                          <DateDiffBadge prevDate={item.deadline} currentDate={item.finalRelease} />
+                          {item.finalRelease ? (
+                            <span style={item.finalReleaseCompleted ? {
+                              backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                              color: '#10b981',
+                              fontWeight: 600,
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              display: 'inline-block'
+                            } : {}}>
+                              {formatDateToUserPattern(item.finalRelease)}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td>
+                          {item.canDelete && (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm("Are you sure you want to delete this feature?")) {
+                                  deleteProductItem(item.sourceId);
+                                }
+                              }}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                  No priority features mapped to this product.
+                </div>
+              )}
             </div>
           )}
         </>
