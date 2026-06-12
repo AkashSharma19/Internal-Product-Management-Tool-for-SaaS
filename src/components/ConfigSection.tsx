@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import type { ConfigSpeaker, ConfigProductGroup, ConfigStatus, ConfigProgram, ConfigCohort } from '../types';
-import { Plus, Trash2, Check, X, Pencil, Users, Layers, Tag } from 'lucide-react';
+import { Plus, Trash2, Check, X, Pencil, Users, Layers, Tag, Settings, Key, Eye, EyeOff, RefreshCw, AlertCircle } from 'lucide-react';
 
 // ─── Colour palette ────────────────────────────────────────────────────────────
 const PALETTE = [
@@ -982,15 +982,233 @@ const ProgramsSection: React.FC = () => {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// CLICKUP INTEGRATION SECTION
+// ═══════════════════════════════════════════════════════════════════════════════
+const ClickupSettingsSection: React.FC = () => {
+  const { clickupApiKey, setClickupApiKey, syncClickupTask } = useDashboard();
+  const [apiKeyInput, setApiKeyInput] = useState(clickupApiKey);
+  const [showKey, setShowKey] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  // Test states
+  const [testLink, setTestLink] = useState('');
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    message: string;
+    status?: string;
+  } | null>(null);
+
+  const handleSave = () => {
+    setClickupApiKey(apiKeyInput.trim());
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 3000);
+  };
+
+  const handleTest = async () => {
+    if (!testLink.trim()) return;
+    setIsTesting(true);
+    setTestResult(null);
+    try {
+      // Temporarily save first to context so it can be tested
+      setClickupApiKey(apiKeyInput.trim());
+      
+      const status = await syncClickupTask(testLink.trim());
+      if (status) {
+        setTestResult({
+          success: true,
+          message: `Successfully connected! Task status is:`,
+          status: status
+        });
+      } else {
+        setTestResult({
+          success: false,
+          message: 'Failed to fetch status. Check your API key or task ID (note that CORS restrictions may block browser requests).'
+        });
+      }
+    } catch (err: any) {
+      setTestResult({
+        success: false,
+        message: err.message || 'An error occurred during verification.'
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  return (
+    <SectionCard
+      icon={<Key size={16} />}
+      title="ClickUp Settings"
+      subtitle="Configure your ClickUp API credentials to pull task status automatically"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '600px' }}>
+        
+        {/* Credentials Form */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            Personal API Key
+          </label>
+          <div style={{ display: 'flex', gap: '0.5rem', position: 'relative', alignItems: 'center' }}>
+            <input
+              type={showKey ? 'text' : 'password'}
+              value={apiKeyInput}
+              onChange={e => setApiKeyInput(e.target.value)}
+              placeholder="pk_..."
+              style={{
+                ...inputStyle,
+                paddingRight: '40px',
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey(!showKey)}
+              style={{
+                position: 'absolute',
+                right: '10px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '4px',
+              }}
+              title={showKey ? "Hide API Key" : "Show API Key"}
+            >
+              {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+            Get your token from ClickUp: <strong>Settings &gt; Apps &gt; API Token</strong> (generate a personal token).
+          </p>
+        </div>
+
+        <div>
+          <button
+            onClick={handleSave}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 16px',
+              background: isSaved ? '#10b981' : 'var(--primary)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              transition: 'background-color 0.15s, opacity 0.15s',
+            }}
+            onMouseEnter={e => { if (!isSaved) e.currentTarget.style.opacity = '0.85'; }}
+            onMouseLeave={e => { if (!isSaved) e.currentTarget.style.opacity = '1'; }}
+          >
+            {isSaved ? <Check size={14} /> : null}
+            {isSaved ? 'Saved Settings!' : 'Save Credentials'}
+          </button>
+        </div>
+
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem', marginTop: '0.5rem' }}>
+          <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+            Test Connection
+          </h4>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0 0 1rem 0' }}>
+            Enter a ClickUp Task URL or ID to verify the key.
+          </p>
+
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <input
+              type="text"
+              value={testLink}
+              onChange={e => setTestLink(e.target.value)}
+              placeholder="e.g., https://app.clickup.com/t/86ay8h4v9 or 86ay8h4v9"
+              style={inputStyle}
+              onKeyDown={e => { if (e.key === 'Enter') handleTest(); }}
+            />
+            <button
+              onClick={handleTest}
+              disabled={isTesting || !testLink.trim() || !apiKeyInput.trim()}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                background: 'var(--surface-elevated)',
+                color: 'var(--text-primary)',
+                border: '1.5px solid var(--border)',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                transition: 'all 0.15s',
+                opacity: (isTesting || !testLink.trim() || !apiKeyInput.trim()) ? 0.5 : 1,
+              }}
+            >
+              {isTesting ? <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> : 'Verify'}
+            </button>
+          </div>
+
+          {testResult && (
+            <div
+              style={{
+                marginTop: '1rem',
+                padding: '0.75rem 1rem',
+                borderRadius: '8px',
+                border: `1px solid ${testResult.success ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                background: testResult.success ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: '0.8rem',
+              }}
+            >
+              {testResult.success ? (
+                <Check size={16} style={{ color: '#10b981', flexShrink: 0 }} />
+              ) : (
+                <AlertCircle size={16} style={{ color: 'var(--danger)', flexShrink: 0 }} />
+              )}
+              <div style={{ color: testResult.success ? 'var(--text-primary)' : 'var(--danger)' }}>
+                {testResult.message}
+                {testResult.status && (
+                  <span
+                    style={{
+                      marginLeft: '0.5rem',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      background: 'rgba(59,130,246,0.15)',
+                      color: '#3b82f6',
+                      border: '1px solid rgba(59,130,246,0.3)',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {testResult.status}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </SectionCard>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT — tabbed layout
 // ═══════════════════════════════════════════════════════════════════════════════
-type ConfigTab = 'speakers' | 'groups' | 'statuses' | 'programs';
+type ConfigTab = 'speakers' | 'groups' | 'statuses' | 'programs' | 'clickup';
 
 const CONFIG_TABS: { id: ConfigTab; label: string; icon: React.ReactNode }[] = [
   { id: 'speakers', label: 'POC Owners / Speakers', icon: <Users size={15} /> },
   { id: 'groups',   label: 'Product Groups',         icon: <Layers size={15} /> },
   { id: 'statuses', label: 'Statuses',               icon: <Tag size={15} /> },
   { id: 'programs', label: 'Programs & Cohorts',     icon: <Layers size={15} /> },
+  { id: 'clickup',  label: 'ClickUp Integration',    icon: <Settings size={15} /> },
 ];
 
 export const ConfigSection: React.FC = () => {
@@ -1056,6 +1274,7 @@ export const ConfigSection: React.FC = () => {
           {activeTab === 'groups' && <ProductGroupsSection />}
           {activeTab === 'statuses' && <StatusesSection />}
           {activeTab === 'programs' && <ProgramsSection />}
+          {activeTab === 'clickup' && <ClickupSettingsSection />}
         </div>
       </div>
     </div>

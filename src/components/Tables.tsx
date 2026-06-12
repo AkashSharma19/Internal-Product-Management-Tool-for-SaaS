@@ -26,7 +26,8 @@ import {
   CheckCircle,
   Clock,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  RefreshCw
 } from 'lucide-react';
 import type { 
   ProductItem, 
@@ -309,7 +310,9 @@ const DateDiffBadge: React.FC<{ prevDate?: string; currentDate?: string }> = ({ 
 
 
 export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBack, onUpdate }) => {
-  const { speakers: configSpeakers, productGroups, statuses: configStatuses } = useDashboard();
+  const { speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask } = useDashboard();
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const pocList = configSpeakers.map(s => s.name);
   const productList = productGroups.map(g => g.name);
   const productStatuses = configStatuses.filter(s => s.scope === 'product' || s.scope === 'all');
@@ -494,6 +497,24 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
         }
       ]), logItem]
     }));
+  };
+
+  const handleSyncClickup = async (taskLinkValue: string) => {
+    if (!taskLinkValue) return;
+    setIsSyncing(true);
+    setSyncError(null);
+    try {
+      const fetchedStatus = await syncClickupTask(taskLinkValue);
+      if (fetchedStatus) {
+        handleFieldUpdate('clickupStatus', fetchedStatus);
+      } else {
+        setSyncError('Could not fetch status from ClickUp API. Please check your credentials or connection.');
+      }
+    } catch (err: any) {
+      setSyncError(err.message || 'Sync failed.');
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleAddComment = () => {
@@ -875,8 +896,8 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                     const val = e.target.value.trim();
                     if (val !== item.taskLink) {
                       handleFieldUpdate('taskLink', val);
-                      if (val && !item.clickupStatus) {
-                        handleFieldUpdate('clickupStatus', 'open');
+                      if (val) {
+                        handleSyncClickup(val);
                       }
                     }
                   }}
@@ -887,22 +908,48 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                     <a href={item.taskLink} target="_blank" rel="noreferrer" title="Open Link" style={{ display: 'inline-flex', alignItems: 'center' }}>
                       <ExternalLink size={11} style={{ color: 'var(--text-muted)' }} />
                     </a>
-                    <input
-                      type="text"
-                      className="premium-clickup-badge"
-                      style={{ 
-                        borderColor: getClickupStatusColor(item.clickupStatus), 
-                        color: getClickupStatusColor(item.clickupStatus) 
-                      }}
-                      placeholder="Status"
-                      onBlur={(e) => {
-                        const val = e.target.value.trim();
-                        if (val !== item.clickupStatus) {
-                          handleFieldUpdate('clickupStatus', val);
-                        }
-                      }}
-                      defaultValue={item.clickupStatus || ''}
-                    />
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', position: 'relative' }}>
+                      <input
+                        type="text"
+                        className="premium-clickup-badge"
+                        style={{ 
+                          borderColor: getClickupStatusColor(item.clickupStatus), 
+                          color: getClickupStatusColor(item.clickupStatus),
+                          paddingRight: isSyncing ? '20px' : '8px'
+                        }}
+                        placeholder="Status"
+                        onBlur={(e) => {
+                          const val = e.target.value.trim();
+                          if (val !== item.clickupStatus) {
+                            handleFieldUpdate('clickupStatus', val);
+                          }
+                        }}
+                        defaultValue={item.clickupStatus || ''}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSyncClickup(item.taskLink)}
+                        disabled={isSyncing || !clickupApiKey}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: (isSyncing || !clickupApiKey) ? 'not-allowed' : 'pointer',
+                          color: 'var(--text-muted)',
+                          padding: '2px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          opacity: !clickupApiKey ? 0.3 : 1
+                        }}
+                        title={!clickupApiKey ? "Configure API Key in Settings to sync" : "Sync status with ClickUp"}
+                      >
+                        <RefreshCw size={11} style={{ animation: isSyncing ? 'spin 1s linear infinite' : 'none' }} />
+                      </button>
+                      {syncError && (
+                        <span style={{ color: 'var(--danger)', display: 'inline-flex', alignItems: 'center', cursor: 'help' }} title={syncError}>
+                          <AlertCircle size={12} />
+                        </span>
+                      )}
+                    </div>
                   </>
                 )}
               </div>
@@ -2549,187 +2596,7 @@ export const PlanTable: React.FC = () => {
 /* =========================================================================
    3. STUDENT PROJECTS TABLE MODAL & COMPONENT
    ========================================================================= */
-interface ProjectDetailModalProps {
-  item: StudentProject;
-  onClose: () => void;
-  onUpdate: (id: string, updated: Partial<StudentProject>) => void;
-}
-
-const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({ item, onClose, onUpdate }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState<StudentProject>({ ...item });
-
-  React.useEffect(() => {
-    setDraft({ ...item });
-  }, [item]);
-
-  const handleSave = () => {
-    onUpdate(item.id, draft);
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    setDraft({ ...item });
-    setIsEditing(false);
-  };
-
-  return (
-    <div className="detail-overlay" onClick={onClose}>
-      <div className="detail-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3 className="modal-title" style={{ fontFamily: 'Outfit', color: 'var(--primary)' }}>
-            {isEditing ? 'Edit Project Details' : 'Student Project Portfolio'}
-          </h3>
-          <button className="modal-close" onClick={onClose}><X size={18} /></button>
-        </div>
-
-        {isEditing ? (
-          <div className="form-grid" style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
-            <div className="form-group form-group-full">
-              <label className="form-label">Project Title</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={draft.title} 
-                onChange={(e) => setDraft({ ...draft, title: e.target.value })} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Target Completion Date</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={draft.completeInfoDate} 
-                onChange={(e) => setDraft({ ...draft, completeInfoDate: e.target.value })} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Assigned Status / Student POC</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={draft.assigned} 
-                onChange={(e) => setDraft({ ...draft, assigned: e.target.value })} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Status</label>
-              <select 
-                className="filter-select w-full"
-                style={{ height: '38px' }}
-                value={draft.status}
-                onChange={(e) => setDraft({ ...draft, status: e.target.value as any })}
-              >
-                <option value="In-Progress">In-Progress</option>
-                <option value="Delivered">Delivered</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
-            </div>
-
-            <div className="form-group form-group-full">
-              <label className="form-label">Blocker Details</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={draft.blocker} 
-                onChange={(e) => setDraft({ ...draft, blocker: e.target.value })} 
-                placeholder="No Blockers"
-              />
-            </div>
-
-            <div className="form-group form-group-full">
-              <label className="form-label">Project Description</label>
-              <textarea 
-                className="form-input" 
-                style={{ height: '70px', resize: 'vertical', fontFamily: 'inherit' }}
-                value={draft.description} 
-                onChange={(e) => setDraft({ ...draft, description: e.target.value })} 
-              />
-            </div>
-
-            <div className="form-group form-group-full">
-              <label className="form-label">Things We Build</label>
-              <textarea 
-                className="form-input" 
-                style={{ height: '70px', resize: 'vertical', fontFamily: 'inherit' }}
-                value={draft.thingsWeBuild} 
-                onChange={(e) => setDraft({ ...draft, thingsWeBuild: e.target.value })} 
-                placeholder="e.g. backend api, dashboard pages, databases"
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="detail-grid">
-            <div className="detail-group detail-group-full">
-              <span className="detail-label">Project Title</span>
-              <span className="detail-value" style={{ fontSize: '1.1rem', fontWeight: 700 }}>{item.title}</span>
-            </div>
-
-            <div className="detail-group">
-              <span className="detail-label">Status</span>
-              <div>
-                <span className={`badge ${
-                  item.status === 'Delivered' ? 'status-done' :
-                  item.status === 'Cancelled' ? 'badge-cancelled' : 'status-progress'
-                }`}>
-                  {item.status}
-                </span>
-              </div>
-            </div>
-
-            <div className="detail-group">
-              <span className="detail-label">Target Completion Date</span>
-              <span className="detail-value">{item.completeInfoDate}</span>
-            </div>
-
-            <div className="detail-group">
-              <span className="detail-label">Assigned Status / Students</span>
-              <span className="detail-value">{item.assigned}</span>
-            </div>
-
-            {item.blocker && (
-              <div className="detail-group detail-group-full">
-                <span className="detail-label" style={{ color: 'var(--danger)' }}>Blockers & Obstacles</span>
-                <div className="detail-value-block" style={{ borderLeft: '4px solid var(--danger)' }}>
-                  {item.blocker}
-                </div>
-              </div>
-            )}
-
-            <div className="detail-group detail-group-full">
-              <span className="detail-label">Overview Description</span>
-              <div className="detail-value-block">{item.description}</div>
-            </div>
-
-            <div className="detail-group detail-group-full">
-              <span className="detail-label">Components & Things We Build</span>
-              <div className="detail-value-block" style={{ backgroundColor: 'var(--panel-bg)', borderColor: 'var(--border)' }}>
-                {item.thingsWeBuild}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="form-actions">
-          {isEditing ? (
-            <>
-              <button className="btn btn-secondary" onClick={handleCancel}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSave}>Save</button>
-            </>
-          ) : (
-            <>
-              <button className="btn btn-secondary" onClick={onClose}>Close</button>
-              <button className="btn btn-primary" onClick={() => setIsEditing(true)}>Edit Details</button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
+// ProjectDetailModal is deprecated in favor of unified ProductDetailView
 
 export const StudentProjectsTable: React.FC = () => {
   const { studentProjects, updateStudentProject, addStudentProject, deleteStudentProject, openPreviewForFeature } = useDashboard();
@@ -2758,11 +2625,11 @@ export const StudentProjectsTable: React.FC = () => {
       title: '',
       description: '',
       thingsWeBuild: '',
-      status: '',
+      status: 'In-Progress',
       assigned: '',
       blocker: '',
       completeInfoDate: '',
-      priority: '',
+      priority: undefined,
       poc: '',
       clickupStatus: '',
       taskLink: '',
@@ -2826,7 +2693,7 @@ export const StudentProjectsTable: React.FC = () => {
                         product: p.product || 'Student Portal',
                         module: p.module || '',
                         type: p.type || ''
-                      });
+                      } as Partial<ProductItem>);
                     }
                   }} 
                   style={{ cursor: 'pointer' }}
@@ -6831,7 +6698,7 @@ export const ProductWiseSheet: React.FC = () => {
         description: item.description || item.thingsWeBuild || '',
         tarunSirApproval: item.tarunSirApproval || false,
         raisedByTarunSir: item.raisedByTarunSir || false,
-        priority: item.priority || '',
+        priority: (item.priority || '') as ProductItem['priority'],
         poc: item.poc || '',
         status: toProductStatus(item.status),
         clickupStatus: item.clickupStatus || item.status || '',
@@ -6847,7 +6714,7 @@ export const ProductWiseSheet: React.FC = () => {
         productDeadline: item.productDeadline || '',
         sourceLabel: 'Student Projects',
         sourceId: item.id,
-        openPreview: () => openPreviewForFeature(item.title, item as Partial<ProductItem>),
+        openPreview: () => openPreviewForFeature(item.title, item as unknown as Partial<ProductItem>),
         canDelete: false
       })),
     ...contentItems
@@ -6858,7 +6725,7 @@ export const ProductWiseSheet: React.FC = () => {
         description: `Content topic: ${item.module}. Subject: ${item.subject || ''}. Type: ${item.type}.`,
         tarunSirApproval: false,
         raisedByTarunSir: false,
-        priority: item.priority || '',
+        priority: (item.priority || '') as ProductItem['priority'],
         poc: item.poc || '',
         status: toProductStatus(item.status),
         clickupStatus: item.clickupStatus || item.status || '',
@@ -6900,7 +6767,7 @@ export const ProductWiseSheet: React.FC = () => {
         description: item.summary || '',
         tarunSirApproval: item.tarunSirApproval || false,
         raisedByTarunSir: item.raisedByTarunSir || false,
-        priority: item.priority || '',
+        priority: (item.priority || '') as ProductItem['priority'],
         poc: item.poc || '',
         status: toProductStatus(item.status),
         clickupStatus: item.clickupStatus || item.status || '',
@@ -6916,7 +6783,7 @@ export const ProductWiseSheet: React.FC = () => {
         productDeadline: item.productDeadline || '',
         sourceLabel: 'Student Meetings',
         sourceId: item.id,
-        openPreview: () => openPreviewForFeature(item.module || item.cohort, item as Partial<ProductItem>),
+        openPreview: () => openPreviewForFeature(item.module || item.cohort, item as unknown as Partial<ProductItem>),
         canDelete: false
       })),
     ...dailyIssues
@@ -6927,9 +6794,9 @@ export const ProductWiseSheet: React.FC = () => {
         description: item.issues || '',
         tarunSirApproval: false,
         raisedByTarunSir: false,
-        priority: item.priority || '',
+        priority: (item.priority || '') as ProductItem['priority'],
         poc: item.poc || item.contact || '',
-        status: item.status || '',
+        status: (item.status || '') as ProductItem['status'],
         clickupStatus: item.clickupStatus || item.type || '',
         taskLink: item.taskLink || '',
         blocker: item.blocker || '',
@@ -6964,7 +6831,7 @@ export const ProductWiseSheet: React.FC = () => {
         description: `Adoption: ${item.adoptionRate}%${item.cohort ? ` across ${item.cohort}` : ''}`,
         tarunSirApproval: false,
         raisedByTarunSir: false,
-        priority: '',
+        priority: '' as ProductItem['priority'],
         poc: '',
         status: toProductStatus(item.status || (item.adoptionRate > 0 ? 'Used' : 'Not Used')),
         clickupStatus: item.status || `${item.adoptionRate}% adoption`,
@@ -7203,180 +7070,7 @@ export const ProductWiseSheet: React.FC = () => {
 /* =========================================================================
    8. DAILY ISSUES / IMPROVEMENTS LOG MODAL & COMPONENT
    ========================================================================= */
-interface DailyIssueDetailModalProps {
-  item: DailyIssue;
-  onClose: () => void;
-  onUpdate: (id: string, updated: Partial<DailyIssue>) => void;
-}
-
-const DailyIssueDetailModal: React.FC<DailyIssueDetailModalProps> = ({ item, onClose, onUpdate }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState<DailyIssue>({ ...item });
-
-  React.useEffect(() => {
-    setDraft({ ...item });
-  }, [item]);
-
-  const handleSave = () => {
-    onUpdate(item.id, draft);
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    setDraft({ ...item });
-    setIsEditing(false);
-  };
-
-  return (
-    <div className="detail-overlay" onClick={onClose}>
-      <div className="detail-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3 className="modal-title" style={{ fontFamily: 'Outfit', color: 'var(--primary)' }}>
-            {isEditing ? 'Edit Reported Issue' : 'Daily Classroom Issue Details'}
-          </h3>
-          <button className="modal-close" onClick={onClose}><X size={18} /></button>
-        </div>
-
-        {isEditing ? (
-          <div className="form-grid" style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: '0.5rem' }}>
-            <div className="form-group">
-              <label className="form-label">Ticket ID Number</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={draft.id} 
-                onChange={(e) => setDraft({ ...draft, id: e.target.value })} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Cohort / Section</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={draft.cohort} 
-                onChange={(e) => setDraft({ ...draft, cohort: e.target.value })} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Product / Platform</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={draft.product} 
-                onChange={(e) => setDraft({ ...draft, product: e.target.value })} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Sub-Module / Topic</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={draft.module} 
-                onChange={(e) => setDraft({ ...draft, module: e.target.value })} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Issue Category Type</label>
-              <select 
-                className="filter-select w-full"
-                style={{ height: '38px' }}
-                value={draft.type}
-                onChange={(e) => setDraft({ ...draft, type: e.target.value as any })}
-              >
-                <option value="Bug/Defect">Bug / Defect</option>
-                <option value="Performance">Performance Issue</option>
-                <option value="Information Lack">Information Lack</option>
-                <option value="Enhancement">Enhancement request</option>
-                <option value="Feature Gap">Feature Gap</option>
-                <option value="UX">UX / Design issue</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Contact / Reporter</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={draft.contact} 
-                onChange={(e) => setDraft({ ...draft, contact: e.target.value })} 
-              />
-            </div>
-
-            <div className="form-group form-group-full">
-              <label className="form-label">Ticket Descriptions / Details</label>
-              <textarea 
-                className="form-input" 
-                style={{ height: '100px', resize: 'vertical', fontFamily: 'inherit' }}
-                value={draft.issues} 
-                onChange={(e) => setDraft({ ...draft, issues: e.target.value })} 
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="detail-grid">
-            <div className="detail-group">
-              <span className="detail-label">Ticket Reference ID</span>
-              <span className="detail-value" style={{ fontSize: '1.1rem', fontWeight: 700 }}>#{item.id}</span>
-            </div>
-
-            <div className="detail-group">
-              <span className="detail-label">Issue Category Type</span>
-              <div>
-                <span className={`badge ${
-                  item.type === 'Bug/Defect' ? 'badge-bug' : 
-                  item.type === 'Performance' ? 'badge-performance' : 
-                  item.type === 'UX' ? 'badge-ux' : 'badge-enhancement'
-                }`}>
-                  {item.type}
-                </span>
-              </div>
-            </div>
-
-            <div className="detail-group">
-              <span className="detail-label">Cohort / Class Section</span>
-              <span className="detail-value" style={{ fontWeight: 600 }}>{item.cohort}</span>
-            </div>
-
-            <div className="detail-group">
-              <span className="detail-label">Product / Sub-Module</span>
-              <span className="detail-value">{item.product} {item.module ? `(${item.module})` : ''}</span>
-            </div>
-
-            <div className="detail-group detail-group-full">
-              <span className="detail-label">Reporter Contact details</span>
-              <span className="detail-value">{item.contact || 'No contact specified'}</span>
-            </div>
-
-            <div className="detail-group detail-group-full">
-              <span className="detail-label">Detailed Ticket Issue Descriptions</span>
-              <div className="detail-value-block" style={{ borderLeft: '4px solid var(--warning)' }}>
-                {item.issues}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="form-actions">
-          {isEditing ? (
-            <>
-              <button className="btn btn-secondary" onClick={handleCancel}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSave}>Save</button>
-            </>
-          ) : (
-            <>
-              <button className="btn btn-secondary" onClick={onClose}>Close</button>
-              <button className="btn btn-primary" onClick={() => setIsEditing(true)}>Edit Details</button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
+// DailyIssueDetailModal is deprecated in favor of unified ProductDetailView
 
 export const IssuesTable: React.FC = () => {
   const { dailyIssues, updateDailyIssue, addDailyIssue, deleteDailyIssue, openPreviewForFeature, productGroups } = useDashboard();

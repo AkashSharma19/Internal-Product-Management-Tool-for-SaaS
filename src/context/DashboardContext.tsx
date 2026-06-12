@@ -120,6 +120,11 @@ interface DashboardContextType {
   addCohort: (item: ConfigCohort) => void;
   updateCohort: (id: string, updated: Partial<ConfigCohort>) => void;
   deleteCohort: (id: string) => void;
+
+  // ClickUp Integration
+  clickupApiKey: string;
+  setClickupApiKey: (key: string) => void;
+  syncClickupTask: (taskIdOrUrl: string) => Promise<string | null>;
 }
 
 
@@ -321,6 +326,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return data ? JSON.parse(data) : initialCohorts;
   });
 
+  const [clickupApiKey, setClickupApiKey] = useState<string>(() => {
+    return localStorage.getItem('config-clickup-api-key') || '';
+  });
+
 
   useEffect(() => {
     localStorage.setItem('active-tab', activeTab);
@@ -382,6 +391,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     localStorage.setItem('config-cohorts', JSON.stringify(cohorts));
   }, [cohorts]);
+
+  useEffect(() => {
+    localStorage.setItem('config-clickup-api-key', clickupApiKey);
+  }, [clickupApiKey]);
 
 
   // Helper Updaters
@@ -614,6 +627,60 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setCohorts(prev => prev.map(c => c.id === id ? { ...c, ...updated } : c));
   const deleteCohort = (id: string) => setCohorts(prev => prev.filter(c => c.id !== id));
 
+  const extractClickupTaskId = (url: string): string | null => {
+    if (!url) return null;
+    const trimmed = url.trim();
+    if (/^[a-zA-Z0-9\-_]{7,12}$/.test(trimmed)) {
+      return trimmed;
+    }
+    try {
+      const parsed = new URL(trimmed);
+      if (parsed.hostname.includes('clickup.com')) {
+        const pathParts = parsed.pathname.split('/').filter(Boolean);
+        const tIndex = pathParts.indexOf('t');
+        if (tIndex !== -1 && tIndex < pathParts.length - 1) {
+          const nextPart = pathParts[tIndex + 1];
+          if (nextPart === 'h' && tIndex < pathParts.length - 2) {
+            return pathParts[tIndex + 2];
+          }
+          const lastPart = pathParts[pathParts.length - 1];
+          if (/^[a-zA-Z0-9\-_]{7,12}$/.test(lastPart)) {
+            return lastPart;
+          }
+        }
+      }
+    } catch (e) {}
+    const match = trimmed.match(/\/t\/(?:h\/)?(?:[a-zA-Z0-9\-]+\/)?([a-zA-Z0-9\-_]{7,12})/);
+    if (match) return match[1];
+    const endMatch = trimmed.match(/\/([a-zA-Z0-9\-_]{7,12})(?:\?|$)/);
+    if (endMatch) return endMatch[1];
+    return null;
+  };
+
+  const syncClickupTask = async (taskIdOrUrl: string): Promise<string | null> => {
+    const taskId = extractClickupTaskId(taskIdOrUrl);
+    if (!taskId) return null;
+    if (!clickupApiKey.trim()) return null;
+
+    try {
+      const response = await fetch(`https://api.clickup.com/api/v2/task/${taskId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': clickupApiKey.trim(),
+          'Content-Type': 'application/json'
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.status && data.status.status) {
+          return data.status.status;
+        }
+      }
+    } catch (err) {
+      console.warn('ClickUp API call failed:', err);
+    }
+    return null;
+  };
 
   return (
     <DashboardContext.Provider value={{
@@ -633,6 +700,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       statuses, addStatus, updateStatus, deleteStatus,
       programs, addProgram, updateProgram, deleteProgram,
       cohorts, addCohort, updateCohort, deleteCohort,
+      clickupApiKey, setClickupApiKey, syncClickupTask,
     }}>
       {children}
     </DashboardContext.Provider>
