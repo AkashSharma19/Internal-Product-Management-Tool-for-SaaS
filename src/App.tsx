@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DashboardProvider, useDashboard } from './context/DashboardContext';
 import {
   ProductTable,
@@ -25,8 +25,217 @@ import {
   LineChart,
   ChevronLeft,
   ChevronRight,
-  Settings
+  Settings,
+  Eye,
+  EyeOff,
+  Lock,
+  User,
+  LogOut
 } from 'lucide-react';
+
+const LoginView: React.FC = () => {
+  const { speakers, loginUser } = useDashboard();
+  const [selectedUser, setSelectedUser] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUser) {
+      setError('Please select your name');
+      return;
+    }
+    setIsLoggingIn(true);
+    setError(null);
+    try {
+      const res = await loginUser(selectedUser, password);
+      if (!res.success) {
+        setError(res.error || 'Login failed');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '100vh',
+      background: 'radial-gradient(circle at 20% 20%, #1e1b4b, #0f172a 80%)',
+      fontFamily: 'Outfit, sans-serif',
+      color: '#fff',
+      padding: '1rem'
+    }}>
+      <div style={{
+        background: 'rgba(30, 41, 59, 0.45)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        borderRadius: '24px',
+        padding: '2.5rem 2.25rem',
+        width: '100%',
+        maxWidth: '420px',
+        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2rem'
+      }}>
+        {/* Header */}
+        <div>
+          <div style={{
+            width: '60px',
+            height: '60px',
+            borderRadius: '16px',
+            background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 1.25rem',
+            boxShadow: '0 8px 16px rgba(99, 102, 241, 0.25)'
+          }}>
+            <Lock size={28} color="#fff" />
+          </div>
+          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase' }}>OPERATIONS CONTROL</h2>
+          <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.7rem', color: 'rgba(255, 255, 255, 0.45)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Secure Identity Portal</p>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', textAlign: 'left' }}>
+          {/* User Select */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'rgba(255, 255, 255, 0.6)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Select POC Name</label>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255, 255, 255, 0.4)' }}>
+                <User size={16} />
+              </span>
+              <select
+                value={selectedUser}
+                onChange={e => setSelectedUser(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px 12px 12px 38px',
+                  background: 'rgba(15, 23, 42, 0.6)',
+                  border: '1.5px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px',
+                  color: '#fff',
+                  fontSize: '0.85rem',
+                  outline: 'none',
+                  cursor: 'pointer',
+                  appearance: 'none',
+                  WebkitAppearance: 'none'
+                }}
+              >
+                <option value="" style={{ background: '#0f172a' }}>-- Select Name --</option>
+                {speakers.map(s => (
+                  <option key={s.id} value={s.id} style={{ background: '#0f172a' }}>{s.name}</option>
+                ))}
+              </select>
+              <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255, 255, 255, 0.4)', pointerEvents: 'none', fontSize: '0.65rem' }}>▼</span>
+            </div>
+          </div>
+
+          {/* Password Input */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'rgba(255, 255, 255, 0.6)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Portal Password</label>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255, 255, 255, 0.4)' }}>
+                <Lock size={16} />
+              </span>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Enter password..."
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px 42px 12px 38px',
+                  background: 'rgba(15, 23, 42, 0.6)',
+                  border: '1.5px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px',
+                  color: '#fff',
+                  fontSize: '0.85rem',
+                  outline: 'none'
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'rgba(255, 255, 255, 0.4)',
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Error Alert */}
+          {error && (
+            <div style={{
+              backgroundColor: 'rgba(239, 68, 68, 0.15)',
+              border: '1px solid rgba(239, 68, 68, 0.25)',
+              borderRadius: '10px',
+              padding: '8px 12px',
+              fontSize: '0.75rem',
+              color: '#fca5a5',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              <span>⚠️</span>
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={isLoggingIn}
+            style={{
+              marginTop: '0.5rem',
+              width: '100%',
+              padding: '12px',
+              background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+              border: 'none',
+              borderRadius: '12px',
+              color: '#fff',
+              fontSize: '0.875rem',
+              fontWeight: 700,
+              cursor: isLoggingIn ? 'not-allowed' : 'pointer',
+              boxShadow: '0 8px 20px rgba(99, 102, 241, 0.25)',
+              transition: 'opacity 0.2s',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+            onMouseEnter={e => { if (!isLoggingIn) e.currentTarget.style.opacity = '0.9'; }}
+            onMouseLeave={e => { if (!isLoggingIn) e.currentTarget.style.opacity = '1'; }}
+          >
+            {isLoggingIn ? 'Verifying Credentials...' : 'Access Portal'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
 
 const DashboardContent: React.FC = () => {
   const { 
@@ -36,9 +245,35 @@ const DashboardContent: React.FC = () => {
     setPreviewProductId,
     productItems,
     updateProductItem,
-    syncStatus
+    syncStatus,
+    currentUser,
+    logoutUser
   } = useDashboard();
   const [isCollapsed, setIsCollapsed] = React.useState(true);
+
+  if (!currentUser) {
+    return <LoginView />;
+  }
+
+  // Helper styles matching user initials
+  const getAssigneeColor = (name: string) => {
+    const colors: Record<string, string> = {
+      'Akash': '#7c3aed',
+      'Anushka': '#db2777',
+      'Nikhil': '#0284c7',
+      'Nikhil Jain': '#059669',
+    };
+    return colors[name] || '#6b7280';
+  };
+
+  const getInitials = (name: string) => {
+    if (!name) return 'U';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
 
   // Sidebar navigation mappings
   const navItems = [
@@ -105,6 +340,42 @@ const DashboardContent: React.FC = () => {
                     {syncStatus === 'synced' ? 'DB Connected' : syncStatus === 'syncing' ? 'Syncing...' : 'Sync Offline'}
                   </span>
                 </div>
+
+                {/* Profile Badge inside Logo block */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', padding: '4px 8px', background: 'var(--surface-elevated)', border: '1px solid var(--border)', borderRadius: '12px' }}>
+                  <span style={{
+                    width: '18px', height: '18px', borderRadius: '50%',
+                    background: getAssigneeColor(currentUser.name),
+                    color: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '0.55rem', fontWeight: 800
+                  }}>
+                    {getInitials(currentUser.name)}
+                  </span>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-primary)', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80px' }}>
+                    {currentUser.name}
+                  </span>
+                </div>
+              </div>
+            )}
+            
+            {/* Initials badge if sidebar is collapsed */}
+            {isCollapsed && (
+              <div style={{
+                width: '24px',
+                height: '24px',
+                borderRadius: '50%',
+                background: getAssigneeColor(currentUser.name),
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.65rem',
+                fontWeight: 800,
+                marginTop: '0.5rem',
+                border: '1.5px solid var(--border)'
+              }} title={`Logged in as ${currentUser.name}`}>
+                {getInitials(currentUser.name)}
               </div>
             )}
           </div>
@@ -150,13 +421,37 @@ const DashboardContent: React.FC = () => {
           ))}
         </nav>
 
-
+        {/* Logout button at the footer of sidebar */}
+        <div style={{ marginTop: 'auto', padding: '1rem 0 0.5rem 0', borderTop: '1px solid var(--border-light)', width: '100%', display: 'flex', justifyContent: isCollapsed ? 'center' : 'flex-start' }}>
+          <button
+            onClick={logoutUser}
+            className="menu-item"
+            style={{ 
+              width: '100%', 
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: isCollapsed ? 'center' : 'flex-start',
+              gap: isCollapsed ? '0' : '0.75rem',
+              color: 'var(--danger)',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              background: 'transparent',
+              transition: 'background-color 0.2s'
+            }}
+            title={isCollapsed ? "Log Out" : undefined}
+            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.08)'; }}
+            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+          >
+            <LogOut size={18} />
+            {!isCollapsed && <span className="menu-item-text" style={{ fontWeight: 600 }}>Log Out</span>}
+          </button>
+        </div>
       </aside>
 
       {/* Main Viewport */}
       <main className="viewport">
-
-
         {/* Content Area */}
         <div key={activeTab} className="content-area animate-fade-in">
           {renderActiveView()}

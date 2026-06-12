@@ -126,6 +126,11 @@ interface DashboardContextType {
   setClickupApiKey: (key: string) => void;
   syncClickupTask: (taskIdOrUrl: string) => Promise<string | null>;
 
+  // User Authentication
+  currentUser: ConfigSpeaker | null;
+  loginUser: (speakerId: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  logoutUser: () => void;
+
   isLoading: boolean;
   syncStatus: 'syncing' | 'synced' | 'error';
 }
@@ -333,6 +338,27 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return localStorage.getItem('config-clickup-api-key') || '';
   });
 
+  const [currentUser, setCurrentUser] = useState<ConfigSpeaker | null>(null);
+
+  const loginUser = async (speakerId: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    const speaker = speakers.find(s => s.id === speakerId);
+    if (!speaker) {
+      return { success: false, error: 'User not found' };
+    }
+    const dbPassword = speaker.password || '1234';
+    if (dbPassword !== password) {
+      return { success: false, error: 'Incorrect password' };
+    }
+    setCurrentUser(speaker);
+    localStorage.setItem('logged-in-user-id', speakerId);
+    return { success: true };
+  };
+
+  const logoutUser = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('logged-in-user-id');
+  };
+
 
   useEffect(() => {
     localStorage.setItem('active-tab', activeTab);
@@ -447,7 +473,16 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             if (db.dailyIssues && db.dailyIssues.length > 0) setDailyIssues(db.dailyIssues);
             if (db.featureAdoptions && db.featureAdoptions.length > 0) setFeatureAdoptions(db.featureAdoptions);
             
-            if (db.speakers && db.speakers.length > 0) setSpeakers(db.speakers);
+            if (db.speakers && db.speakers.length > 0) {
+              setSpeakers(db.speakers);
+              const savedUserId = localStorage.getItem('logged-in-user-id');
+              if (savedUserId) {
+                const matchedUser = db.speakers.find((s: any) => s.id === savedUserId);
+                if (matchedUser) {
+                  setCurrentUser(matchedUser);
+                }
+              }
+            }
             if (db.productGroups && db.productGroups.length > 0) setProductGroups(db.productGroups);
             if (db.statuses && db.statuses.length > 0) setStatuses(db.statuses);
             if (db.programs && db.programs.length > 0) setPrograms(db.programs);
@@ -906,6 +941,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       programs, addProgram, updateProgram, deleteProgram,
       cohorts, addCohort, updateCohort, deleteCohort,
       clickupApiKey, setClickupApiKey: updateClickupApiKey, syncClickupTask,
+      currentUser, loginUser, logoutUser,
       isLoading, syncStatus,
     }}>
       {children}

@@ -166,25 +166,48 @@ const SpeakersSection: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editRole, setEditRole] = useState('');
+  const [editPassword, setEditPassword] = useState('');
   const [addName, setAddName] = useState('');
   const [addRole, setAddRole] = useState('');
+  const [addPassword, setAddPassword] = useState('1234');
   const [showAdd, setShowAdd] = useState(false);
+
+  // Visibility toggles for passwords
+  const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
+  const [showAddPassword, setShowAddPassword] = useState(false);
+
+  const togglePasswordVisibility = (id: string) => {
+    setShowPasswordMap(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const startEdit = (s: ConfigSpeaker) => {
     setEditingId(s.id);
     setEditName(s.name);
     setEditRole(s.role ?? '');
+    setEditPassword(s.password ?? '1234');
   };
+
   const saveEdit = () => {
     if (!editName.trim() || !editingId) return;
-    updateSpeaker(editingId, { name: editName.trim(), role: editRole.trim() });
+    updateSpeaker(editingId, { 
+      name: editName.trim(), 
+      role: editRole.trim(), 
+      password: editPassword.trim() 
+    });
     setEditingId(null);
   };
+
   const handleAdd = () => {
     if (!addName.trim()) return;
-    addSpeaker({ id: `spk-${Date.now()}`, name: addName.trim(), role: addRole.trim() });
+    addSpeaker({ 
+      id: `spk-${Date.now()}`, 
+      name: addName.trim(), 
+      role: addRole.trim(),
+      password: addPassword.trim() || '1234'
+    });
     setAddName('');
     setAddRole('');
+    setAddPassword('1234');
     setShowAdd(false);
   };
 
@@ -195,6 +218,7 @@ const SpeakersSection: React.FC = () => {
           <tr>
             <th style={th}>Name</th>
             <th style={th}>Role / Title</th>
+            <th style={{ ...th, width: 150 }}>Password</th>
             <th style={{ ...th, width: 72 }}>Actions</th>
           </tr>
         </thead>
@@ -217,12 +241,49 @@ const SpeakersSection: React.FC = () => {
                       onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingId(null); }} />
                   : <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{s.role || '—'}</span>}
               </td>
+              <td style={td}>
+                {editingId === s.id ? (
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input 
+                      type={showPasswordMap[s.id] ? 'text' : 'password'}
+                      style={{ ...inputStyle, paddingRight: '30px' }} 
+                      value={editPassword} 
+                      onChange={e => setEditPassword(e.target.value)}
+                      placeholder="Password"
+                      onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingId(null); }} 
+                    />
+                    <button
+                      type="button"
+                      onClick={() => togglePasswordVisibility(s.id)}
+                      style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', padding: 0 }}
+                    >
+                      {showPasswordMap[s.id] ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.8rem', letterSpacing: showPasswordMap[s.id] ? 'normal' : '0.15em', fontFamily: showPasswordMap[s.id] ? 'Outfit, sans-serif' : 'monospace', color: showPasswordMap[s.id] ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                      {showPasswordMap[s.id] ? (s.password || '1234') : '••••••'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => togglePasswordVisibility(s.id)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', padding: '4px', borderRadius: '4px' }}
+                      title={showPasswordMap[s.id] ? "Hide Password" : "Show Password"}
+                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--surface-elevated)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                    >
+                      {showPasswordMap[s.id] ? <EyeOff size={12} /> : <Eye size={12} />}
+                    </button>
+                  </div>
+                )}
+              </td>
               <td style={{ ...td, borderBottom: 'none' }}>
                 <div style={{ display: 'flex', gap: 2 }}>
                   {editingId === s.id ? (
                     <>
                       <IconBtn onClick={saveEdit} success title="Save"><Check size={14} /></IconBtn>
-                      <IconBtn onClick={() => setEditingId(null)} title="Cancel"><X size={14} /></IconBtn>
+                      <IconBtn onClick={() => { setEditingId(null); }} title="Cancel"><X size={14} /></IconBtn>
                     </>
                   ) : (
                     <>
@@ -247,6 +308,25 @@ const SpeakersSection: React.FC = () => {
                 <input style={inputStyle} value={addRole} onChange={e => setAddRole(e.target.value)}
                   placeholder="Role / Title (optional)"
                   onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setShowAdd(false); }} />
+              </td>
+              <td style={td}>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <input 
+                    type={showAddPassword ? 'text' : 'password'}
+                    style={{ ...inputStyle, paddingRight: '30px' }} 
+                    value={addPassword} 
+                    onChange={e => setAddPassword(e.target.value)}
+                    placeholder="Password (default 1234)"
+                    onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setShowAdd(false); }} 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAddPassword(!showAddPassword)}
+                    style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', padding: 0 }}
+                  >
+                    {showAddPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
               </td>
               <td style={{ ...td, borderBottom: 'none' }}>
                 <div style={{ display: 'flex', gap: 2 }}>

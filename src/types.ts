@@ -170,6 +170,7 @@ export interface ConfigSpeaker {
   id: string;
   name: string;
   role?: string; // e.g. "Lead Research Engineer", "Alumni", "Industry Expert"
+  password?: string;
 }
 
 export interface ConfigProductGroup {

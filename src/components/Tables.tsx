@@ -310,7 +310,7 @@ const DateDiffBadge: React.FC<{ prevDate?: string; currentDate?: string }> = ({ 
 
 
 export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBack, onUpdate }) => {
-  const { speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask } = useDashboard();
+  const { speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, currentUser } = useDashboard();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const pocList = configSpeakers.map(s => s.name);
@@ -457,11 +457,15 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
     const changeText = `changed ${label} from "${formatValue(oldValue)}" to "${formatValue(newValue)}"`;
 
+    const userAuthor = currentUser ? currentUser.name : 'Unknown User';
+    const userInitials = currentUser ? getInitials(currentUser.name) : 'UN';
+    const userColor = currentUser ? getAssigneeColor(currentUser.name) : '#6b7280';
+
     const logItem = {
       id: `log-${Date.now()}-${Math.random()}`,
-      author: 'Akash (You)',
-      initials: 'AK',
-      color: '#7c3aed',
+      author: userAuthor,
+      initials: userInitials,
+      color: userColor,
       text: changeText,
       time: 'Just now',
       isLog: true
@@ -493,11 +497,15 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
   const handleAddComment = () => {
     if (!commentText.trim()) return;
+    const userAuthor = currentUser ? currentUser.name : 'Unknown User';
+    const userInitials = currentUser ? getInitials(currentUser.name) : 'UN';
+    const userColor = currentUser ? getAssigneeColor(currentUser.name) : '#6b7280';
+
     const newComment = {
       id: Date.now().toString(),
-      author: 'Akash (You)',
-      initials: 'AK',
-      color: '#7c3aed',
+      author: userAuthor,
+      initials: userInitials,
+      color: userColor,
       text: commentText,
       time: 'Just now'
     };

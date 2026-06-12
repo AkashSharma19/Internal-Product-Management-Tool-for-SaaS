@@ -180,7 +180,8 @@ const FeatureAdoptionSchema = new Schema({
 const ConfigSpeakerSchema = new Schema({
   id: { type: String, required: true, unique: true },
   name: { type: String, required: true },
-  role: { type: String, default: "" }
+  role: { type: String, default: "" },
+  password: { type: String, default: "1234" }
 });
 
 // Product Group
