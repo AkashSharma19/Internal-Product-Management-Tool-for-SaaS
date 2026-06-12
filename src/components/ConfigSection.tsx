@@ -990,6 +990,11 @@ const ClickupSettingsSection: React.FC = () => {
   const [showKey, setShowKey] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
+  // Sync local input with database value when loaded
+  React.useEffect(() => {
+    setApiKeyInput(clickupApiKey);
+  }, [clickupApiKey]);
+
   // Test states
   const [testLink, setTestLink] = useState('');
   const [isTesting, setIsTesting] = useState(false);
