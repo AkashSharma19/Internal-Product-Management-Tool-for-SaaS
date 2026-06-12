@@ -82,14 +82,18 @@ export default async function handler(req: any, res: any) {
       if (action === 'update') {
         if (!id) return res.status(400).json({ success: false, error: 'ID is required for update' });
         
-        // Use id field instead of mongodb's default _id, as we generate our own custom string IDs
-        const updatedItem = await Model.findOneAndUpdate({ id }, data, { new: true, upsert: true });
+        // Use key for settings, and id for all other tables
+        const query = type === 'settings' ? { key: id } : { id };
+        const updatedItem = await Model.findOneAndUpdate(query, data, { new: true, upsert: true });
         return res.status(200).json({ success: true, item: updatedItem });
       }
 
       if (action === 'delete') {
         if (!id) return res.status(400).json({ success: false, error: 'ID is required for delete' });
-        await Model.findOneAndDelete({ id });
+        
+        // Use key for settings, and id for all other tables
+        const query = type === 'settings' ? { key: id } : { id };
+        await Model.findOneAndDelete(query);
         return res.status(200).json({ success: true });
       }
 
