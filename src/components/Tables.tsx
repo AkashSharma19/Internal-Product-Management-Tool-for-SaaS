@@ -28,7 +28,8 @@ import {
   ChevronUp,
   ChevronDown,
   RefreshCw,
-  Search
+  Search,
+  Plus
 } from 'lucide-react';
 import type { 
   ProductItem, 
@@ -41,6 +42,154 @@ import type {
   DailyIssue, 
   FeatureAdoption 
 } from '../types';
+
+// Global POC/Assignee color mapping and badge styling
+const getPOCBadgeStyle = (name: string) => {
+  if (!name) return {};
+  
+  // Custom HSL lookup for known speakers (matching sidebar / priority styles)
+  const ASSIGNEE_COLORS: Record<string, { h: number; s: number; l: number }> = {
+    'akash': { h: 262, s: 80, l: 60 },      // Purple
+    'anushka': { h: 330, s: 75, l: 55 },    // Pink
+    'nikhil': { h: 199, s: 98, l: 45 },     // Blue
+    'nikhil jain': { h: 162, s: 94, l: 35 },// Green
+    'tarun': { h: 0, s: 72, l: 50 },        // Red
+    'tarun sir': { h: 0, s: 72, l: 50 },
+  };
+
+  const cleanName = name.trim().toLowerCase();
+  let colorParts = { h: 215, s: 15, l: 60 }; // Default gray
+
+  // Try exact lookup first
+  if (ASSIGNEE_COLORS[cleanName]) {
+    colorParts = ASSIGNEE_COLORS[cleanName];
+  } else {
+    // Try partial match
+    let found = false;
+    for (const key of Object.keys(ASSIGNEE_COLORS)) {
+      if (cleanName.includes(key) || key.includes(cleanName)) {
+        colorParts = ASSIGNEE_COLORS[key];
+        found = true;
+        break;
+      }
+    }
+    
+    if (!found) {
+      // Generate a beautiful, stable HSL color based on string hash
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      colorParts = {
+        h: Math.abs(hash) % 360,
+        s: 65,
+        l: 50
+      };
+    }
+  }
+
+  const { h, s } = colorParts;
+  
+  // Check if current theme is light or dark
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  
+  // Theme-specific lightness and opacity matching priority badges in index.css
+  const textLightness = isLight ? 35 : colorParts.l;
+  const bgOpacity = isLight ? '0.08' : '0.15';
+  const borderOpacity = isLight ? '0.18' : '0.3';
+
+  return {
+    backgroundColor: `hsla(${h}, ${s}%, ${textLightness}%, ${bgOpacity})`,
+    color: `hsl(${h}, ${s}%, ${textLightness}%)`,
+    borderColor: `hsla(${h}, ${s}%, ${textLightness}%, ${borderOpacity})`,
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    padding: '0.2rem 0.5rem',
+    borderRadius: '6px',
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    display: 'inline-flex',
+    alignItems: 'center',
+    lineHeight: 1
+  };
+};
+
+const getClickupBadgeStyle = (status: string) => {
+  if (!status) return {};
+  
+  const cleanStatus = status.trim().toLowerCase();
+  
+  // Custom HSL colors for known ClickUp statuses
+  const CLICKUP_COLORS: Record<string, { h: number; s: number; l: number }> = {
+    'open': { h: 215, s: 15, l: 60 },
+    'todo': { h: 215, s: 15, l: 60 },
+    'to do': { h: 215, s: 15, l: 60 },
+    'backlog': { h: 215, s: 15, l: 60 },
+    
+    'in progress': { h: 205, s: 85, l: 55 },
+    'in-progress': { h: 205, s: 85, l: 55 },
+    'active': { h: 205, s: 85, l: 55 },
+    'development': { h: 205, s: 85, l: 55 },
+    
+    'testing': { h: 290, s: 80, l: 60 },
+    'review': { h: 290, s: 80, l: 60 },
+    
+    'closed': { h: 142, s: 70, l: 45 },
+    'done': { h: 142, s: 70, l: 45 },
+    'completed': { h: 142, s: 70, l: 45 },
+    'delivered': { h: 142, s: 70, l: 45 },
+  };
+
+  let colorParts = { h: 260, s: 75, l: 60 }; // Default violet for custom/other statuses
+  
+  if (CLICKUP_COLORS[cleanStatus]) {
+    colorParts = CLICKUP_COLORS[cleanStatus];
+  } else {
+    // Try substring matching
+    let found = false;
+    for (const key of Object.keys(CLICKUP_COLORS)) {
+      if (cleanStatus.includes(key) || key.includes(cleanStatus)) {
+        colorParts = CLICKUP_COLORS[key];
+        found = true;
+        break;
+      }
+    }
+    
+    if (!found) {
+      // Generate a stable color based on status string hash
+      let hash = 0;
+      for (let i = 0; i < cleanStatus.length; i++) {
+        hash = cleanStatus.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      colorParts = {
+        h: Math.abs(hash) % 360,
+        s: 70,
+        l: 50
+      };
+    }
+  }
+
+  const { h, s } = colorParts;
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  const textLightness = isLight ? 35 : colorParts.l;
+  const bgOpacity = isLight ? '0.08' : '0.15';
+  const borderOpacity = isLight ? '0.18' : '0.3';
+
+  return {
+    backgroundColor: `hsla(${h}, ${s}%, ${textLightness}%, ${bgOpacity})`,
+    color: `hsl(${h}, ${s}%, ${textLightness}%)`,
+    borderColor: `hsla(${h}, ${s}%, ${textLightness}%, ${borderOpacity})`,
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    padding: '0.2rem 0.5rem',
+    borderRadius: '6px',
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    display: 'inline-flex',
+    alignItems: 'center',
+    lineHeight: 1
+  };
+};
 
 /* =========================================================================
    CSV IMPORT MODAL
@@ -1413,11 +1562,14 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
 };
 
 export const ProductTable: React.FC = () => {
-  const { productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId } = useDashboard();
+  const { productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId, statuses } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState('All');
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
+  const productStatuses = statuses.filter(s => s.scope === 'product' || s.scope === 'all').map(s => s.label);
+  const statusOptions = productStatuses.length > 0 ? productStatuses : ['On Hold', 'In Progress', 'Ongoing', 'Completed'];
 
   // Sorting state
   const [sortField, setSortField] = useState<keyof ProductItem | null>(null);
@@ -1446,7 +1598,7 @@ export const ProductTable: React.FC = () => {
 
   // Filter & Search
   const filtered = productItems.filter(item => {
-    if (item.id.startsWith('prod-temp-') || item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-')) return false;
+    if (item.id.startsWith('prod-temp-') || item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-') || item.id.startsWith('prod-breakdown-')) return false;
     const matchesSearch = 
       item.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.poc.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1455,8 +1607,9 @@ export const ProductTable: React.FC = () => {
       
     const matchesPriority = filterPriority === 'All' || item.priority === filterPriority;
     const matchesStatus = filterStatuses.length === 0 || filterStatuses.includes(item.status);
+    const matchesSuperPriority = !filterSuperPriorityOnly || !!item.raisedByTarunSir;
     
-    return matchesSearch && matchesPriority && matchesStatus;
+    return matchesSearch && matchesPriority && matchesStatus && matchesSuperPriority;
   });
 
   // Sort
@@ -1534,7 +1687,7 @@ export const ProductTable: React.FC = () => {
         onAddClick={handleAddNew}
         addLabel="Add Feature"
         filterComponent={
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <select className="filter-select" value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)}>
               <option value="All">All Priorities</option>
               <option value="P0">P0 (Critical)</option>
@@ -1544,11 +1697,21 @@ export const ProductTable: React.FC = () => {
               <option value="P4">P4</option>
             </select>
             <MultiSelectDropdown
-              options={['On Hold', 'In Progress', 'Ongoing', 'Completed']}
+              options={statusOptions}
               selectedValues={filterStatuses}
               onChange={setFilterStatuses}
               placeholder="Status"
             />
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', marginLeft: '0.5rem', whiteSpace: 'nowrap' }}>
+              <input 
+                type="checkbox" 
+                className="form-checkbox"
+                checked={filterSuperPriorityOnly} 
+                onChange={(e) => setFilterSuperPriorityOnly(e.target.checked)} 
+                style={{ cursor: 'pointer' }}
+              />
+              Super Priority Only
+            </label>
           </div>
         }
       >
@@ -1622,7 +1785,14 @@ export const ProductTable: React.FC = () => {
                           }}
                         />
                       ) : (
-                        <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
+                        <span 
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setEditingFeatureId(item.id);
+                            setInlineEditValue(item.feature);
+                          }}
+                          style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}
+                        >
                           {item.feature}
                         </span>
                       )}
@@ -1641,21 +1811,43 @@ export const ProductTable: React.FC = () => {
                       </span>
                     ) : '—'}
                   </td>
-                  <td style={{ fontWeight: 500 }}>{item.poc || '—'}</td>
                   <td>
-                    {item.status ? (
-                      <span className={`badge ${
-                        item.status === 'On Hold' ? 'status-hold' :
-                        item.status === 'In Progress' ? 'status-progress' :
-                        item.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
-                      }`}>
-                        {item.status}
+                    {item.poc ? (
+                      <span style={getPOCBadgeStyle(item.poc)}>
+                        {item.poc}
                       </span>
                     ) : '—'}
                   </td>
                   <td>
+                    {item.status ? (() => {
+                      const matched = statuses.find(s => s.label === item.status);
+                      if (matched) {
+                        return (
+                          <span className="badge" style={{
+                            backgroundColor: `${matched.color}14`,
+                            color: matched.color,
+                            borderColor: `${matched.color}33`,
+                            borderStyle: 'solid',
+                            borderWidth: '1px'
+                          }}>
+                            {item.status}
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className={`badge ${
+                          item.status === 'On Hold' ? 'status-hold' :
+                          item.status === 'In Progress' ? 'status-progress' :
+                          item.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
+                        }`}>
+                          {item.status}
+                        </span>
+                      );
+                    })() : '—'}
+                  </td>
+                  <td>
                     {item.clickupStatus ? (
-                      <span className={`badge clickup-${item.clickupStatus.toLowerCase()}`}>
+                      <span style={getClickupBadgeStyle(item.clickupStatus)}>
                         {item.clickupStatus}
                       </span>
                     ) : '—'}
@@ -1953,6 +2145,7 @@ export const PlanTable: React.FC = () => {
   const [editingItem, setEditingItem] = useState<PlanItem | null>(null);
   const [draggedOverColumn, setDraggedOverColumn] = useState<string | null>(null);
   const [showAutoItems, setShowAutoItems] = useState(true);
+  const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
 
   // Helper to find a matching product item to read completion status
   const findMatchingProductItem = (title: string) => {
@@ -2022,7 +2215,7 @@ export const PlanTable: React.FC = () => {
   interface AutoItem {
     id: string;
     title: string;
-    source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA & Meetings';
+    source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA & Meetings' | 'Product Breakdown';
     column: 'product' | 'design' | 'dev';
     priority?: string;
     poc?: string;
@@ -2040,7 +2233,12 @@ export const PlanTable: React.FC = () => {
       if (item.id.startsWith('prod-temp-')) return;
       if (item.status === 'Completed') return;
       const isRelatedFeature = item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-');
-      const itemSource = isRelatedFeature ? 'AMA & Meetings' : 'Priority Requests';
+      const isBreakdown = item.id.startsWith('prod-breakdown-');
+      const itemSource = isRelatedFeature 
+        ? 'AMA & Meetings' 
+        : isBreakdown 
+          ? 'Product Breakdown' 
+          : 'Priority Requests';
       if (dateInSelectedMonth(item.productDeadline)) {
         autoItems.push({
           id: `auto-prod-specs-${item.id}`,
@@ -2238,13 +2436,17 @@ export const PlanTable: React.FC = () => {
     const matchesMonth = item.month === selectedMonth;
     const matchesCategory = filterCategory === 'All' || item.category === filterCategory;
     const matchesSearch = item.task.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesMonth && matchesCategory && matchesSearch;
+    const matchedProduct = findMatchingProductItem(item.task);
+    const matchesSuperPriority = !filterSuperPriorityOnly || !!matchedProduct?.raisedByTarunSir;
+    return matchesMonth && matchesCategory && matchesSearch && matchesSuperPriority;
   });
 
   // ── Filtered auto items by search ──────────────────────────────────────────
-  const filteredAuto = autoItems.filter(a =>
-    a.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredAuto = autoItems.filter(a => {
+    const matchesSearch = a.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSuperPriority = !filterSuperPriorityOnly || !!a.rawItem?.raisedByTarunSir;
+    return matchesSearch && matchesSuperPriority;
+  });
 
   const handleAddNew = () => {
     const newTask: PlanItem = {
@@ -2293,6 +2495,7 @@ export const PlanTable: React.FC = () => {
     'Student Projects':  { bg: 'hsla(199,80%,50%,0.12)', color: 'hsl(199,80%,38%)' },
     'Content Pipeline':  { bg: 'hsla(38,90%,50%,0.12)',  color: 'hsl(38,85%,38%)' },
     'AMA & Meetings':    { bg: 'hsla(142,70%,45%,0.12)', color: 'hsl(142,65%,32%)' },
+    'Product Breakdown': { bg: 'hsla(271,80%,60%,0.12)', color: 'hsl(271,70%,50%)' },
   };
 
   const totalAutoCount = filteredAuto.length;
@@ -2342,6 +2545,16 @@ export const PlanTable: React.FC = () => {
               <Calendar size={13} />
               {showAutoItems ? `Aggregated (${totalAutoCount})` : 'Show Aggregated'}
             </button>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+              <input 
+                type="checkbox" 
+                className="form-checkbox"
+                checked={filterSuperPriorityOnly} 
+                onChange={(e) => setFilterSuperPriorityOnly(e.target.checked)} 
+                style={{ cursor: 'pointer' }}
+              />
+              Super Priority Only
+            </label>
           </div>
         }
       >
@@ -2460,6 +2673,13 @@ export const PlanTable: React.FC = () => {
                                 {a.priority}
                               </span>
                             )}
+
+                            {/* Super Priority */}
+                            {(a.rawItem?.raisedByTarunSir || matchedProduct?.raisedByTarunSir) && (
+                              <span className="badge-super-priority" style={{ fontSize: '0.6rem', padding: '1px 5px', gap: '2px', display: 'inline-flex', alignItems: 'center' }}>
+                                <Sparkles size={8} /> Super Priority
+                              </span>
+                            )}
                           </div>
                           {a.poc && (
                             <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 500 }}>
@@ -2491,6 +2711,17 @@ export const PlanTable: React.FC = () => {
                             <Clock size={10} />
                             {item.month}
                           </span>
+                          {(() => {
+                            const matchedProduct = findMatchingProductItem(item.task);
+                            if (matchedProduct?.raisedByTarunSir) {
+                              return (
+                                <span className="badge-super-priority" style={{ fontSize: '0.6rem', padding: '1px 5px', gap: '2px', display: 'inline-flex', alignItems: 'center' }}>
+                                  <Sparkles size={8} /> Super Priority
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
 
                         <div className="kanban-card-actions" onClick={(e) => e.stopPropagation()}>
@@ -2574,6 +2805,20 @@ export const StudentProjectsTable: React.FC = () => {
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [inlineEditValue, setInlineEditValue] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
+  const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('All');
+
+  const filtered = studentProjects.filter(p => {
+    const matchesSuperPriority = !filterSuperPriorityOnly || !!p.raisedByTarunSir;
+    if (!matchesSuperPriority) return false;
+
+    const matchesStatus = filterStatus === 'All' || p.status === filterStatus;
+    if (!matchesStatus) return false;
+    
+    return p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.description || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.thingsWeBuild || '').toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   useEffect(() => {
     if (editingProjectId && editInputRef.current) {
@@ -2581,12 +2826,6 @@ export const StudentProjectsTable: React.FC = () => {
       editInputRef.current.select();
     }
   }, [editingProjectId]);
-
-  const filtered = studentProjects.filter(p => 
-    p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (p.description || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (p.thingsWeBuild || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   const handleAddNew = () => {
     setSearchQuery('');
@@ -2613,6 +2852,8 @@ export const StudentProjectsTable: React.FC = () => {
     setEditingProjectId(newItem.id);
   };
 
+  const allStatuses = Array.from(new Set(studentProjects.map(p => p.status).filter(Boolean)));
+
   return (
     <>
       <TabContainer
@@ -2621,6 +2862,26 @@ export const StudentProjectsTable: React.FC = () => {
         setSearchQuery={setSearchQuery}
         onAddClick={handleAddNew}
         addLabel="Add Project"
+        filterComponent={
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <select className="filter-select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+              <option value="All">All Statuses</option>
+              {allStatuses.map(status => (
+                <option key={status} value={status}>{status}</option>
+              ))}
+            </select>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+              <input 
+                type="checkbox" 
+                className="form-checkbox"
+                checked={filterSuperPriorityOnly} 
+                onChange={(e) => setFilterSuperPriorityOnly(e.target.checked)} 
+                style={{ cursor: 'pointer' }}
+              />
+              Super Priority Only
+            </label>
+          </div>
+        }
       >
         <div className="table-responsive">
           <table className="grid-table">
@@ -2726,7 +2987,13 @@ export const StudentProjectsTable: React.FC = () => {
                       </span>
                     ) : '—'}
                   </td>
-                  <td style={{ fontWeight: 500 }}>{p.poc || '—'}</td>
+                  <td>
+                    {p.poc ? (
+                      <span style={getPOCBadgeStyle(p.poc)}>
+                        {p.poc}
+                      </span>
+                    ) : '—'}
+                  </td>
                   <td>
                     {p.status ? (
                       <span className={`badge ${
@@ -2739,7 +3006,7 @@ export const StudentProjectsTable: React.FC = () => {
                   </td>
                   <td>
                     {p.clickupStatus ? (
-                      <span className={`badge clickup-${p.clickupStatus.toLowerCase()}`}>
+                      <span style={getClickupBadgeStyle(p.clickupStatus)}>
                         {p.clickupStatus}
                       </span>
                     ) : '—'}
@@ -2928,6 +3195,12 @@ export const StudentMeetingsTable: React.FC = () => {
 
   const [subTab, setSubTab] = useState<'schedule' | 'feedback'>('schedule');
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('All');
+
+  useEffect(() => {
+    setFilterStatus('All');
+  }, [subTab]);
 
   // Dropdown other state
   const [showCustomProgramInput, setShowCustomProgramInput] = useState(false);
@@ -3025,6 +3298,9 @@ export const StudentMeetingsTable: React.FC = () => {
         combined.push(item);
       }
     });
+    if (filterSuperPriorityOnly) {
+      return combined.filter(feat => feat.raisedByTarunSir);
+    }
     return combined;
   };
 
@@ -3134,16 +3410,34 @@ export const StudentMeetingsTable: React.FC = () => {
     }
   }, [editingRelatedFeatureId]);
 
-  const filteredAMASessions = amaSessions.filter(ama => 
-    ama.topic.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    ama.speaker.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    ama.cohort.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredAMASessions = amaSessions.filter(ama => {
+    const matchesSearch = 
+      ama.topic.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ama.speaker.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ama.cohort.toLowerCase().includes(searchQuery.toLowerCase());
+      
+    if (!matchesSearch) return false;
+    
+    if (filterStatus !== 'All' && ama.status !== filterStatus) return false;
+    
+    if (filterSuperPriorityOnly) {
+      const related = getRelatedFeatures(ama);
+      return related.length > 0;
+    }
+    
+    return true;
+  });
 
   const filteredFeedbackFeatures = productItems.filter(item => {
     if (item.id.startsWith('prod-temp-')) return false;
     // Admin Call features must never appear in the AMA Feedback tab
     if (item.id.startsWith('prod-call-')) return false;
+    
+    const matchesSuperPriority = !filterSuperPriorityOnly || !!item.raisedByTarunSir;
+    if (!matchesSuperPriority) return false;
+    
+    if (filterStatus !== 'All' && item.status !== filterStatus) return false;
+
     // Check if the item matches any AMA session
     const matchesAma = amaSessions.some(ama => {
       if (!ama.topic.trim() && !ama.cohort.trim()) return false;
@@ -3215,6 +3509,37 @@ export const StudentMeetingsTable: React.FC = () => {
         onAddClick={subTab === 'schedule' ? handleAddNew : undefined}
         addLabel={subTab === 'schedule' ? 'Add AMA Session' : undefined}
         searchPlaceholder={subTab === 'schedule' ? 'Search AMA sessions...' : 'Search feedback features...'}
+        filterComponent={
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <select className="filter-select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+              <option value="All">All Statuses</option>
+              {subTab === 'schedule' ? (
+                <>
+                  <option value="Scheduled">Scheduled</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Postponed">Postponed</option>
+                </>
+              ) : (
+                <>
+                  <option value="On Hold">On Hold</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Ongoing">Ongoing</option>
+                  <option value="Completed">Completed</option>
+                </>
+              )}
+            </select>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', marginLeft: '0.5rem', whiteSpace: 'nowrap' }}>
+              <input 
+                type="checkbox" 
+                className="form-checkbox"
+                checked={filterSuperPriorityOnly} 
+                onChange={(e) => setFilterSuperPriorityOnly(e.target.checked)} 
+                style={{ cursor: 'pointer' }}
+              />
+              Super Priority Only
+            </label>
+          </div>
+        }
       >
         {/* Sub-tab Navigation */}
         <div style={{ 
@@ -3468,7 +3793,11 @@ export const StudentMeetingsTable: React.FC = () => {
                               )}
                             </select>
                           ) : (
-                            ama.speaker || '—'
+                            ama.speaker ? (
+                              <span style={getPOCBadgeStyle(ama.speaker)}>
+                                {ama.speaker}
+                              </span>
+                            ) : '—'
                           )}
                         </td>
                         <td
@@ -3852,10 +4181,16 @@ export const StudentMeetingsTable: React.FC = () => {
                                               </span>
                                             ) : '—'}
                                           </td>
-                                          <td>{feat.poc || '—'}</td>
+                                          <td>
+                                            {feat.poc ? (
+                                              <span style={getPOCBadgeStyle(feat.poc)}>
+                                                {feat.poc}
+                                              </span>
+                                            ) : '—'}
+                                          </td>
                                           <td>
                                             {feat.clickupStatus ? (
-                                              <span className={`badge clickup-${feat.clickupStatus.toLowerCase()}`}>
+                                              <span style={getClickupBadgeStyle(feat.clickupStatus)}>
                                                 {feat.clickupStatus}
                                               </span>
                                             ) : '—'}
@@ -4383,7 +4718,11 @@ export const StudentMeetingsTable: React.FC = () => {
                               )}
                             </select>
                           ) : (
-                            parentAma.speaker || '—'
+                            parentAma.speaker ? (
+                              <span style={getPOCBadgeStyle(parentAma.speaker)}>
+                                {parentAma.speaker}
+                              </span>
+                            ) : '—'
                           )
                         ) : (
                           '—'
@@ -4397,7 +4736,13 @@ export const StudentMeetingsTable: React.FC = () => {
                           </span>
                         ) : '—'}
                       </td>
-                      <td style={{ fontWeight: 500 }}>{feat.poc || '—'}</td>
+                      <td>
+                        {feat.poc ? (
+                          <span style={getPOCBadgeStyle(feat.poc)}>
+                            {feat.poc}
+                          </span>
+                        ) : '—'}
+                      </td>
                       <td>
                         {feat.status ? (
                           <span className={`badge ${
@@ -4411,7 +4756,7 @@ export const StudentMeetingsTable: React.FC = () => {
                       </td>
                       <td>
                         {feat.clickupStatus ? (
-                          <span className={`badge clickup-${feat.clickupStatus.toLowerCase()}`}>
+                          <span style={getClickupBadgeStyle(feat.clickupStatus)}>
                             {feat.clickupStatus}
                           </span>
                         ) : '—'}
@@ -4526,6 +4871,12 @@ export const AdminCallsTable: React.FC = () => {
   const speakersList = configSpeakers.map(s => s.name);
   const [searchQuery, setSearchQuery] = useState('');
   const [subTab, setSubTab] = useState<'schedule' | 'feedback'>('schedule');
+  const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('All');
+
+  useEffect(() => {
+    setFilterStatus('All');
+  }, [subTab]);
 
   // Inline editing states for Admin Calls
   const [editingCallDateId, setEditingCallDateId] = useState<string | null>(null);
@@ -4602,11 +4953,23 @@ export const AdminCallsTable: React.FC = () => {
     }
   }, [editingFeedbackTopicId]);
 
-  const filtered = adminCalls.filter(c => 
-    c.adminPoc.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.cohortTopic.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.discussion.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filtered = adminCalls.filter(c => {
+    const matchesSearch = 
+      c.adminPoc.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.cohortTopic.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.discussion.toLowerCase().includes(searchQuery.toLowerCase());
+      
+    if (!matchesSearch) return false;
+    
+    if (filterStatus !== 'All' && c.status !== filterStatus) return false;
+    
+    if (filterSuperPriorityOnly) {
+      const related = getRelatedFeatures(c);
+      return related.length > 0;
+    }
+    
+    return true;
+  });
 
   const handleAddNew = () => {
     const newCall: AdminCall = {
@@ -4660,6 +5023,9 @@ export const AdminCallsTable: React.FC = () => {
         combined.push(item);
       }
     });
+    if (filterSuperPriorityOnly) {
+      return combined.filter(feat => feat.raisedByTarunSir);
+    }
     return combined;
   };
 
@@ -4698,6 +5064,11 @@ export const AdminCallsTable: React.FC = () => {
     if (item.id.startsWith('prod-ama-')) return false;
     const parent = getParentCall(item);
     if (!parent) return false;
+    
+    const matchesSuperPriority = !filterSuperPriorityOnly || !!item.raisedByTarunSir;
+    if (!matchesSuperPriority) return false;
+    
+    if (filterStatus !== 'All' && item.status !== filterStatus) return false;
 
     const matchesSearch = 
       item.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -4718,6 +5089,37 @@ export const AdminCallsTable: React.FC = () => {
         onAddClick={subTab === 'schedule' ? handleAddNew : undefined}
         addLabel={subTab === 'schedule' ? 'Add Admin Call' : undefined}
         searchPlaceholder={subTab === 'schedule' ? 'Search admin calls...' : 'Search feedback features...'}
+        filterComponent={
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <select className="filter-select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+              <option value="All">All Statuses</option>
+              {subTab === 'schedule' ? (
+                <>
+                  <option value="Scheduled">Scheduled</option>
+                  <option value="Pending Actions">Pending Actions</option>
+                  <option value="Completed">Completed</option>
+                </>
+              ) : (
+                <>
+                  <option value="On Hold">On Hold</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Ongoing">Ongoing</option>
+                  <option value="Completed">Completed</option>
+                </>
+              )}
+            </select>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', marginLeft: '0.5rem', whiteSpace: 'nowrap' }}>
+              <input 
+                type="checkbox" 
+                className="form-checkbox"
+                checked={filterSuperPriorityOnly} 
+                onChange={(e) => setFilterSuperPriorityOnly(e.target.checked)} 
+                style={{ cursor: 'pointer' }}
+              />
+              Super Priority Only
+            </label>
+          </div>
+        }
       >
         {/* Sub-tab Navigation */}
         <div style={{ 
@@ -5235,10 +5637,16 @@ export const AdminCallsTable: React.FC = () => {
                                                 </span>
                                               ) : '—'}
                                             </td>
-                                            <td>{feat.poc || '—'}</td>
+                                            <td>
+                                              {feat.poc ? (
+                                                <span style={getPOCBadgeStyle(feat.poc)}>
+                                                  {feat.poc}
+                                                </span>
+                                              ) : '—'}
+                                            </td>
                                             <td>
                                               {feat.clickupStatus ? (
-                                                <span className={`badge clickup-${feat.clickupStatus.toLowerCase()}`}>
+                                                <span style={getClickupBadgeStyle(feat.clickupStatus)}>
                                                   {feat.clickupStatus}
                                                 </span>
                                               ) : '—'}
@@ -5641,7 +6049,13 @@ export const AdminCallsTable: React.FC = () => {
                           </span>
                         ) : '—'}
                       </td>
-                      <td style={{ fontWeight: 500 }}>{feat.poc || '—'}</td>
+                      <td>
+                        {feat.poc ? (
+                          <span style={getPOCBadgeStyle(feat.poc)}>
+                            {feat.poc}
+                          </span>
+                        ) : '—'}
+                      </td>
                       <td>
                         {feat.status ? (
                           <span className={`badge ${
@@ -5655,7 +6069,7 @@ export const AdminCallsTable: React.FC = () => {
                       </td>
                       <td>
                         {feat.clickupStatus ? (
-                          <span className={`badge clickup-${feat.clickupStatus.toLowerCase()}`}>
+                          <span style={getClickupBadgeStyle(feat.clickupStatus)}>
                             {feat.clickupStatus}
                           </span>
                         ) : '—'}
@@ -5766,6 +6180,7 @@ export const ContentTable: React.FC = () => {
 
   // Filtering states
   const [filterStatus, setFilterStatus] = useState<string>('All');
+  const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
 
   // Sorting states
   const [sortField, setSortField] = useState<keyof ContentItem>('module');
@@ -5926,14 +6341,16 @@ export const ContentTable: React.FC = () => {
     });
   };
 
-  // 1. Search filter
-  let filtered = contentItems.filter(item => 
-    item.module.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (item.product || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.poc.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-
+  // 1. Search & Super Priority filter
+  let filtered = contentItems.filter(item => {
+    const matchesSearch = 
+      item.module.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.product || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.poc.toLowerCase().includes(searchQuery.toLowerCase());
+      
+    const matchesSuperPriority = !filterSuperPriorityOnly || !!item.raisedByTarunSir;
+    return matchesSearch && matchesSuperPriority;
+  });
 
   // 3. Status filter
   if (filterStatus !== 'All') {
@@ -5969,7 +6386,7 @@ export const ContentTable: React.FC = () => {
         onAddClick={handleAddNew}
         addLabel="Add Content Item"
         filterComponent={
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <button 
               className="btn btn-secondary" 
               onClick={() => setIsImportOpen(true)}
@@ -5983,6 +6400,16 @@ export const ContentTable: React.FC = () => {
                 <option key={s.id} value={s.label}>{s.label}</option>
               ))}
             </select>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', marginLeft: '0.5rem', whiteSpace: 'nowrap' }}>
+              <input 
+                type="checkbox" 
+                className="form-checkbox"
+                checked={filterSuperPriorityOnly} 
+                onChange={(e) => setFilterSuperPriorityOnly(e.target.checked)} 
+                style={{ cursor: 'pointer' }}
+              />
+              Super Priority Only
+            </label>
           </div>
         }
       >
@@ -6042,6 +6469,7 @@ export const ContentTable: React.FC = () => {
                       editingReleaseDateId !== item.id
                     ) {
                       openPreviewForFeature(item.module, { 
+                        id: item.id,
                         description: `Content topic: ${item.module}. Subject: ${item.subject || ''}. Type: ${item.type}.`, 
                         status: item.status as any, 
                         clickupStatus: item.clickupStatus || 'open',
@@ -6055,7 +6483,8 @@ export const ContentTable: React.FC = () => {
                         productDeadlineCompleted: item.productDeadlineCompleted || false,
                         uiuxCompleted: item.uiuxCompleted || false,
                         deadlineCompleted: item.deadlineCompleted || false,
-                        finalReleaseCompleted: item.finalReleaseCompleted || false
+                        finalReleaseCompleted: item.finalReleaseCompleted || false,
+                        raisedByTarunSir: item.raisedByTarunSir || false
                       });
                     }
                   }} 
@@ -6108,7 +6537,14 @@ export const ContentTable: React.FC = () => {
                         }}
                       />
                     ) : (
-                      item.module || <span style={{ color: 'var(--text-muted)' }}>— (No topic)</span>
+                      <>
+                        <span>{item.module || <span style={{ color: 'var(--text-muted)' }}>— (No topic)</span>}</span>
+                        {item.raisedByTarunSir && (
+                          <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px', marginLeft: '8px' }}>
+                            <Sparkles size={10} /> Super Priority
+                          </span>
+                        )}
+                      </>
                     )}
                   </td>
 
@@ -6260,7 +6696,11 @@ export const ContentTable: React.FC = () => {
                         )}
                       </select>
                     ) : (
-                      item.poc || '—'
+                      item.poc ? (
+                        <span style={getPOCBadgeStyle(item.poc)}>
+                          {item.poc}
+                        </span>
+                      ) : '—'
                     )}
                   </td>
 
@@ -6345,7 +6785,7 @@ export const ContentTable: React.FC = () => {
                       />
                     ) : (
                       item.clickupStatus ? (
-                        <span className={`badge clickup-${item.clickupStatus.toLowerCase()}`}>
+                        <span style={getClickupBadgeStyle(item.clickupStatus)}>
                           {item.clickupStatus}
                         </span>
                       ) : '—'
@@ -6624,14 +7064,30 @@ export const ProductWiseSheet: React.FC = () => {
     studentMeetings,
     dailyIssues,
     featureAdoptions,
+    addProductItem,
+    updateProductItem,
     deleteProductItem,
     setPreviewProductId,
     openPreviewForFeature,
-    productGroups
+    productGroups,
+    statuses
   } = useDashboard();
   const products = productGroups.map(g => g.name);
   const [activeProductTab, setActiveProductTab] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingFeatureId, setEditingFeatureId] = useState<string | null>(null);
+  const [inlineEditValue, setInlineEditValue] = useState('');
+  const editInputRef = useRef<HTMLInputElement>(null);
+  const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('All');
+
+
+  useEffect(() => {
+    if (editingFeatureId && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingFeatureId]);
   
   const activeProduct = activeProductTab && products.includes(activeProductTab) ? activeProductTab : products[0] || '';
 
@@ -6656,7 +7112,12 @@ export const ProductWiseSheet: React.FC = () => {
       .filter(item => !item.id.startsWith('prod-temp-') && item.product === activeProduct)
       .map(item => ({
         ...item,
-        sourceLabel: item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-') ? 'Feedback' : 'Priority Requests',
+        sourceLabel: 
+          item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-') 
+            ? 'Feedback' 
+            : item.id.startsWith('prod-breakdown-')
+              ? 'Product Breakdown'
+              : 'Priority Requests',
         sourceId: item.id,
         openPreview: () => setPreviewProductId(item.id),
         canDelete: true
@@ -6829,7 +7290,45 @@ export const ProductWiseSheet: React.FC = () => {
       }))
   ];
 
+  const handleAddNewFeature = () => {
+    if (!activeProduct) {
+      alert("Please select a product category tab first.");
+      return;
+    }
+    
+    setSearchQuery('');
+
+    const newItem: ProductItem = {
+      id: `prod-breakdown-${Date.now()}`,
+      feature: '',
+      description: '',
+      tarunSirApproval: false,
+      raisedByTarunSir: false,
+      priority: '',
+      poc: '',
+      status: '',
+      clickupStatus: '',
+      taskLink: '',
+      blocker: '',
+      deadline: '',
+      notes: '',
+      product: activeProduct,
+      uiux: '',
+      finalRelease: '',
+      productDeadline: ''
+    };
+    
+    addProductItem(newItem);
+    setInlineEditValue('');
+    setEditingFeatureId(newItem.id);
+  };
+
   const filteredFeatures = features.filter(item => {
+    const matchesSuperPriority = !filterSuperPriorityOnly || !!item.raisedByTarunSir;
+    if (!matchesSuperPriority) return false;
+
+    if (filterStatus !== 'All' && item.status !== filterStatus) return false;
+
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -6897,7 +7396,24 @@ export const ProductWiseSheet: React.FC = () => {
               </div>
             </div>
             
-            <div className="toolbar-right">
+            <div className="toolbar-right" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexShrink: 0 }}>
+              <select className="filter-select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+                <option value="All">All Statuses</option>
+                <option value="On Hold">On Hold</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Ongoing">Ongoing</option>
+                <option value="Completed">Completed</option>
+              </select>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', marginRight: '0.5rem', whiteSpace: 'nowrap' }}>
+                <input 
+                  type="checkbox" 
+                  className="form-checkbox"
+                  checked={filterSuperPriorityOnly} 
+                  onChange={(e) => setFilterSuperPriorityOnly(e.target.checked)} 
+                  style={{ cursor: 'pointer' }}
+                />
+                Super Priority Only
+              </label>
               <div className="search-input-wrapper">
                 <Search size={16} />
                 <input 
@@ -6908,6 +7424,9 @@ export const ProductWiseSheet: React.FC = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
+              <button className="btn btn-primary btn-sm" onClick={handleAddNewFeature} style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+                <Plus size={14} /> Add Feature
+              </button>
             </div>
           </div>
 
@@ -6933,12 +7452,66 @@ export const ProductWiseSheet: React.FC = () => {
                   </thead>
                   <tbody>
                     {filteredFeatures.map(item => (
-                      <tr key={item.id} onClick={item.openPreview} style={{ cursor: 'pointer' }}>
+                      <tr key={item.id} onClick={() => {
+                        if (editingFeatureId !== item.id) {
+                          item.openPreview();
+                        }
+                      }} style={{ cursor: 'pointer' }}>
                         <td className="sticky-col" style={{ fontWeight: 600, width: '280px', minWidth: '280px', maxWidth: '280px', whiteSpace: 'normal' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem' }}>
-                            <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
-                              {item.feature}
-                            </span>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', width: '100%' }}>
+                            {editingFeatureId === item.id ? (
+                              <input
+                                ref={editInputRef}
+                                type="text"
+                                value={inlineEditValue}
+                                onChange={(e) => setInlineEditValue(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    const finalVal = inlineEditValue.trim() || 'New Feature Request';
+                                    updateProductItem(item.sourceId, { feature: finalVal });
+                                    setEditingFeatureId(null);
+                                    if (e.ctrlKey) {
+                                      item.openPreview();
+                                    }
+                                  } else if (e.key === 'Escape') {
+                                    e.preventDefault();
+                                    setEditingFeatureId(null);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  const finalVal = inlineEditValue.trim() || 'New Feature Request';
+                                  updateProductItem(item.sourceId, { feature: finalVal });
+                                  setEditingFeatureId(null);
+                                }}
+                                style={{
+                                  width: '100%',
+                                  padding: '6px 8px',
+                                  backgroundColor: 'var(--background)',
+                                  border: '1.5px solid var(--primary)',
+                                  borderRadius: '6px',
+                                  color: 'var(--text-primary)',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 600,
+                                  outline: 'none',
+                                  boxShadow: '0 0 0 2px var(--primary-glow)'
+                                }}
+                              />
+                            ) : (
+                              <span 
+                                onDoubleClick={(e) => {
+                                  if (item.canDelete) {
+                                    e.stopPropagation();
+                                    setEditingFeatureId(item.id);
+                                    setInlineEditValue(item.feature || '');
+                                  }
+                                }}
+                                style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}
+                              >
+                                {item.feature || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
+                              </span>
+                            )}
                             {item.raisedByTarunSir && (
                               <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
                                 <Sparkles size={10} /> Super Priority
@@ -6956,21 +7529,43 @@ export const ProductWiseSheet: React.FC = () => {
                         <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
                           {item.sourceLabel}
                         </td>
-                        <td style={{ fontWeight: 500 }}>{item.poc || '—'}</td>
                         <td>
-                          {item.status ? (
-                            <span className={`badge ${
-                              item.status === 'On Hold' ? 'status-hold' :
-                              item.status === 'In Progress' ? 'status-progress' :
-                              item.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
-                            }`}>
-                              {item.status}
+                          {item.poc ? (
+                            <span style={getPOCBadgeStyle(item.poc)}>
+                              {item.poc}
                             </span>
                           ) : '—'}
                         </td>
                         <td>
+                          {item.status ? (() => {
+                            const matched = statuses.find(s => s.label === item.status);
+                            if (matched) {
+                              return (
+                                <span className="badge" style={{
+                                  backgroundColor: `${matched.color}14`,
+                                  color: matched.color,
+                                  borderColor: `${matched.color}33`,
+                                  borderStyle: 'solid',
+                                  borderWidth: '1px'
+                                }}>
+                                  {item.status}
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className={`badge ${
+                                item.status === 'On Hold' ? 'status-hold' :
+                                item.status === 'In Progress' ? 'status-progress' :
+                                item.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
+                              }`}>
+                                {item.status}
+                              </span>
+                            );
+                          })() : '—'}
+                        </td>
+                        <td>
                           {item.clickupStatus ? (
-                            <span className={`badge clickup-${item.clickupStatus.toLowerCase()}`}>
+                            <span style={getClickupBadgeStyle(item.clickupStatus)}>
                               {item.clickupStatus}
                             </span>
                           ) : '—'}
@@ -7072,10 +7667,13 @@ export const ProductWiseSheet: React.FC = () => {
 // DailyIssueDetailModal is deprecated in favor of unified ProductDetailView
 
 export const IssuesTable: React.FC = () => {
-  const { dailyIssues, updateDailyIssue, addDailyIssue, deleteDailyIssue, openPreviewForFeature, productGroups } = useDashboard();
+  const { dailyIssues, updateDailyIssue, addDailyIssue, deleteDailyIssue, openPreviewForFeature, productGroups, statuses } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState('All');
+  const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const productStatuses = statuses.filter(s => s.scope === 'product' || s.scope === 'all').map(s => s.label);
+  const statusOptions = productStatuses.length > 0 ? productStatuses : ['On Hold', 'In Progress', 'Ongoing', 'Completed'];
   const [sortField, setSortField] = useState<keyof DailyIssue | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
   const [editingFeatureId, setEditingFeatureId] = useState<string | null>(null);
@@ -7109,8 +7707,9 @@ export const IssuesTable: React.FC = () => {
       
     const matchesPriority = filterPriority === 'All' || item.priority === filterPriority;
     const matchesStatus = filterStatuses.length === 0 || filterStatuses.includes(item.status || '');
+    const matchesSuperPriority = !filterSuperPriorityOnly || !!item.raisedByTarunSir;
     
-    return matchesSearch && matchesPriority && matchesStatus;
+    return matchesSearch && matchesPriority && matchesStatus && matchesSuperPriority;
   });
 
   if (sortField) {
@@ -7201,9 +7800,20 @@ export const IssuesTable: React.FC = () => {
         />
       );
     }
+    const val = String(item[field] || fallback);
+    if (field === 'poc' && item[field]) {
+      return (
+        <span 
+          onClick={(e) => { e.stopPropagation(); startCellEdit(item, field); }}
+          style={getPOCBadgeStyle(String(item[field]))}
+        >
+          {val}
+        </span>
+      );
+    }
     return (
       <span onClick={(e) => { e.stopPropagation(); startCellEdit(item, field); }}>
-        {String(item[field] || fallback)}
+        {val}
       </span>
     );
   };
@@ -7310,7 +7920,7 @@ export const IssuesTable: React.FC = () => {
       onAddClick={handleAddNew}
       addLabel="Add Feature"
       filterComponent={
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <select className="filter-select" value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)}>
             <option value="All">All Priorities</option>
             <option value="P0">P0 (Critical)</option>
@@ -7320,11 +7930,21 @@ export const IssuesTable: React.FC = () => {
             <option value="P4">P4</option>
           </select>
           <MultiSelectDropdown
-            options={['On Hold', 'In Progress', 'Ongoing', 'Completed']}
+            options={statusOptions}
             selectedValues={filterStatuses}
             onChange={setFilterStatuses}
             placeholder="Status"
           />
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', marginLeft: '0.5rem', whiteSpace: 'nowrap' }}>
+            <input 
+              type="checkbox" 
+              className="form-checkbox"
+              checked={filterSuperPriorityOnly} 
+              onChange={(e) => setFilterSuperPriorityOnly(e.target.checked)} 
+              style={{ cursor: 'pointer' }}
+            />
+            Super Priority Only
+          </label>
         </div>
       }
     >
@@ -7352,6 +7972,7 @@ export const IssuesTable: React.FC = () => {
                 onClick={() => {
                   if (editingFeatureId !== item.id) {
                     openPreviewForFeature(item.module || `Issue #${item.id}`, {
+                      id: item.id,
                       description: item.issues || item.notes || '',
                       priority: item.priority || '',
                       poc: item.poc || item.contact || '',
@@ -7366,7 +7987,8 @@ export const IssuesTable: React.FC = () => {
                       type: item.type || '',
                       uiux: item.uiux || '',
                       finalRelease: item.finalRelease || '',
-                      productDeadline: item.productDeadline || ''
+                      productDeadline: item.productDeadline || '',
+                      raisedByTarunSir: item.raisedByTarunSir || false
                     });
                   }
                 }} 
@@ -7419,15 +8041,22 @@ export const IssuesTable: React.FC = () => {
                         }}
                       />
                     ) : (
-                      <span
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          startFeatureEdit(item);
-                        }}
-                        style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}
-                      >
-                        {item.module || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startFeatureEdit(item);
+                          }}
+                          style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}
+                        >
+                          {item.module || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
+                        </span>
+                        {item.raisedByTarunSir && (
+                          <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                            <Sparkles size={10} /> Super Priority
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
                 </td>
@@ -7441,21 +8070,37 @@ export const IssuesTable: React.FC = () => {
                 </td>
                 <td style={{ fontWeight: 500 }}>{renderTextCell(item, 'poc', item.contact || '—')}</td>
                 <td>
-                  {renderSelectCell(item, 'status', ['On Hold', 'In Progress', 'Ongoing', 'Completed'], item.status ? (
-                    <span className={`badge ${
-                      item.status === 'On Hold' ? 'status-hold' :
-                      item.status === 'In Progress' ? 'status-progress' :
-                      item.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
-                    }`}>
-                      {item.status}
-                    </span>
-                  ) : '—')}
+                  {renderSelectCell(item, 'status', statusOptions, item.status ? (() => {
+                    const matched = statuses.find(s => s.label === item.status);
+                    if (matched) {
+                      return (
+                        <span className="badge" style={{
+                          backgroundColor: `${matched.color}14`,
+                          color: matched.color,
+                          borderColor: `${matched.color}33`,
+                          borderStyle: 'solid',
+                          borderWidth: '1px'
+                        }}>
+                          {item.status}
+                        </span>
+                      );
+                    }
+                    return (
+                      <span className={`badge ${
+                        item.status === 'On Hold' ? 'status-hold' :
+                        item.status === 'In Progress' ? 'status-progress' :
+                        item.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
+                      }`}>
+                        {item.status}
+                      </span>
+                    );
+                  })() : '—')}
                 </td>
                 <td>
                   {editingCell?.id === item.id && editingCell.field === 'clickupStatus' ? renderTextCell(item, 'clickupStatus') : (item.clickupStatus || item.type) ? (
                     <span
                       onClick={(e) => { e.stopPropagation(); startCellEdit(item, 'clickupStatus'); }}
-                      className={`badge clickup-${(item.clickupStatus || item.type).toLowerCase()}`}
+                      style={getClickupBadgeStyle(item.clickupStatus || item.type)}
                     >
                       {item.clickupStatus || item.type}
                     </span>

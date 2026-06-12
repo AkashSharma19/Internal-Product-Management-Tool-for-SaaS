@@ -1044,7 +1044,7 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-secondary);
 }
 
-.form-input, .filter-select, .search-input {
+.form-input, .filter-select {
   padding: 0.45rem 0.75rem;
   background-color: var(--background);
   border: 1px solid var(--border);
@@ -1056,7 +1056,7 @@ h1, h2, h3, h4, h5, h6 {
   font-family: inherit;
 }
 
-.form-input:focus, .filter-select:focus, .search-input:focus, .csv-textarea:focus {
+.form-input:focus, .filter-select:focus, .csv-textarea:focus {
   background-color: var(--panel-bg);
   border-color: var(--text-primary);
   box-shadow: 0 0 0 2px var(--border-light), 0 4px 12px rgba(0, 0, 0, 0.03);

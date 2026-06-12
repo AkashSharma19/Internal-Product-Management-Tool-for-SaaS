@@ -123,6 +123,7 @@ export interface ContentItem {
   uiuxCompleted?: boolean;
   deadlineCompleted?: boolean;
   finalReleaseCompleted?: boolean;
+  raisedByTarunSir?: boolean;
 }
 
 export interface DailyIssue {
@@ -148,6 +149,7 @@ export interface DailyIssue {
   uiuxCompleted?: boolean;
   deadlineCompleted?: boolean;
   finalReleaseCompleted?: boolean;
+  raisedByTarunSir?: boolean;
 }
 
 export interface FeatureAdoption {

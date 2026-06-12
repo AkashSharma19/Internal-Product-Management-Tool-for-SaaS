@@ -600,11 +600,39 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               deadlineCompleted: updatedItem.deadlineCompleted,
               finalReleaseCompleted: updatedItem.finalReleaseCompleted,
               status: updatedItem.status,
+              raisedByTarunSir: updatedItem.raisedByTarunSir
             };
             persistChange('update', 'contentItems', p.id, updatedCI);
             return updatedCI;
           }
           return p;
+        }));
+        setDailyIssues(di => di.map(issue => {
+          const featureName = (updatedItem.feature || '').trim();
+          const issueModule = (issue.module || '').trim();
+          if ((featureName && issueModule && issueModule.toLowerCase() === featureName.toLowerCase()) || id === `prod-temp-${issue.id}`) {
+            const updatedIssue = {
+              ...issue,
+              module: updatedItem.feature,
+              product: updatedItem.product || issue.product,
+              priority: updatedItem.priority || issue.priority,
+              poc: updatedItem.poc || issue.poc,
+              clickupStatus: updatedItem.clickupStatus || issue.clickupStatus,
+              productDeadline: updatedItem.productDeadline || issue.productDeadline,
+              uiux: updatedItem.uiux || issue.uiux,
+              deadline: updatedItem.deadline || issue.deadline,
+              finalRelease: updatedItem.finalRelease || issue.finalRelease,
+              productDeadlineCompleted: updatedItem.productDeadlineCompleted,
+              uiuxCompleted: updatedItem.uiuxCompleted,
+              deadlineCompleted: updatedItem.deadlineCompleted,
+              finalReleaseCompleted: updatedItem.finalReleaseCompleted,
+              status: updatedItem.status as any,
+              raisedByTarunSir: updatedItem.raisedByTarunSir
+            };
+            persistChange('update', 'dailyIssues', issue.id, updatedIssue);
+            return updatedIssue;
+          }
+          return issue;
         }));
       }
       return next;
@@ -640,7 +668,32 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setStudentProjects(prev => {
       const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
       const updatedItem = next.find(item => item.id === id);
-      if (updatedItem) persistChange('update', 'projects', id, updatedItem);
+      if (updatedItem) {
+        persistChange('update', 'projects', id, updatedItem);
+        setProductItems(prod => prod.map(p => {
+          if ((p.feature && updatedItem.title && p.feature.toLowerCase() === updatedItem.title.toLowerCase()) || p.id === `prod-temp-${updatedItem.id}`) {
+            const updatedP = {
+              ...p,
+              feature: updatedItem.title,
+              description: updatedItem.description || p.description,
+              priority: (updatedItem.priority as any) || p.priority,
+              poc: updatedItem.poc || p.poc,
+              status: (updatedItem.status === 'Delivered' ? 'Completed' : updatedItem.status === 'Cancelled' ? 'On Hold' : 'In Progress') as any,
+              clickupStatus: updatedItem.clickupStatus || p.clickupStatus,
+              productDeadline: updatedItem.productDeadline || p.productDeadline,
+              uiux: updatedItem.uiux || p.uiux,
+              deadline: updatedItem.deadline || p.deadline,
+              finalRelease: updatedItem.finalRelease || p.finalRelease,
+              raisedByTarunSir: updatedItem.raisedByTarunSir !== undefined ? updatedItem.raisedByTarunSir : p.raisedByTarunSir,
+              tarunSirApproval: updatedItem.tarunSirApproval !== undefined ? updatedItem.tarunSirApproval : p.tarunSirApproval,
+              product: updatedItem.product || p.product
+            };
+            persistChange('update', 'products', p.id, updatedP);
+            return updatedP;
+          }
+          return p;
+        }));
+      }
       return next;
     });
   };
@@ -674,7 +727,32 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setStudentMeetings(prev => {
       const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
       const updatedItem = next.find(item => item.id === id);
-      if (updatedItem) persistChange('update', 'studentMeetings', id, updatedItem);
+      if (updatedItem) {
+        persistChange('update', 'studentMeetings', id, updatedItem);
+        setProductItems(prod => prod.map(p => {
+          if ((p.feature && updatedItem.cohort && p.feature.toLowerCase() === updatedItem.cohort.toLowerCase()) || p.id === `prod-temp-${updatedItem.id}`) {
+            const updatedP = {
+              ...p,
+              feature: updatedItem.cohort,
+              description: updatedItem.summary || p.description,
+              priority: (updatedItem.priority as any) || p.priority,
+              poc: updatedItem.poc || p.poc,
+              status: updatedItem.status || p.status,
+              clickupStatus: updatedItem.clickupStatus || p.clickupStatus,
+              productDeadline: updatedItem.productDeadline || p.productDeadline,
+              uiux: updatedItem.uiux || p.uiux,
+              deadline: updatedItem.deadline || p.deadline,
+              finalRelease: updatedItem.finalRelease || p.finalRelease,
+              raisedByTarunSir: updatedItem.raisedByTarunSir !== undefined ? updatedItem.raisedByTarunSir : p.raisedByTarunSir,
+              tarunSirApproval: updatedItem.tarunSirApproval !== undefined ? updatedItem.tarunSirApproval : p.tarunSirApproval,
+              product: updatedItem.product || p.product
+            };
+            persistChange('update', 'products', p.id, updatedP);
+            return updatedP;
+          }
+          return p;
+        }));
+      }
       return next;
     });
   };
@@ -727,7 +805,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : p.uiuxCompleted,
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
               finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted,
-              status: updatedItem.status as ProductItem['status']
+              status: updatedItem.status as ProductItem['status'],
+              raisedByTarunSir: !!updatedItem.raisedByTarunSir
             };
             persistChange('update', 'products', p.id, updatedP);
             return updatedP;
@@ -751,7 +830,34 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setDailyIssues(prev => {
       const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
       const updatedItem = next.find(item => item.id === id);
-      if (updatedItem) persistChange('update', 'dailyIssues', id, updatedItem);
+      if (updatedItem) {
+        persistChange('update', 'dailyIssues', id, updatedItem);
+        setProductItems(prod => prod.map(p => {
+          if (p.feature.toLowerCase() === updatedItem.module.toLowerCase() || p.id === `prod-temp-${updatedItem.id}`) {
+            const updatedP = {
+              ...p,
+              feature: updatedItem.module,
+              product: updatedItem.product || p.product,
+              priority: updatedItem.priority || p.priority,
+              poc: updatedItem.poc || p.poc,
+              clickupStatus: updatedItem.clickupStatus || p.clickupStatus,
+              productDeadline: updatedItem.productDeadline || p.productDeadline,
+              uiux: updatedItem.uiux || p.uiux,
+              deadline: updatedItem.deadline || p.deadline,
+              finalRelease: updatedItem.finalRelease || p.finalRelease,
+              productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : p.productDeadlineCompleted,
+              uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : p.uiuxCompleted,
+              deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
+              finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted,
+              status: updatedItem.status as ProductItem['status'],
+              raisedByTarunSir: !!updatedItem.raisedByTarunSir
+            };
+            persistChange('update', 'products', p.id, updatedP);
+            return updatedP;
+          }
+          return p;
+        }));
+      }
       return next;
     });
   };

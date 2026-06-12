@@ -130,7 +130,8 @@ const ContentItemSchema = new Schema({
   productDeadlineCompleted: { type: Boolean, default: false },
   uiuxCompleted: { type: Boolean, default: false },
   deadlineCompleted: { type: Boolean, default: false },
-  finalReleaseCompleted: { type: Boolean, default: false }
+  finalReleaseCompleted: { type: Boolean, default: false },
+  raisedByTarunSir: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // 8. DailyIssue
@@ -156,7 +157,8 @@ const DailyIssueSchema = new Schema({
   productDeadlineCompleted: { type: Boolean, default: false },
   uiuxCompleted: { type: Boolean, default: false },
   deadlineCompleted: { type: Boolean, default: false },
-  finalReleaseCompleted: { type: Boolean, default: false }
+  finalReleaseCompleted: { type: Boolean, default: false },
+  raisedByTarunSir: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // 9. FeatureAdoption
