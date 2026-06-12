@@ -411,20 +411,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     if (itemComments[item.id]) {
       return itemComments[item.id];
     }
-    return [
-      {
-        id: 'seed-1',
-        author: 'Nikhil Jain',
-        initials: 'NJ',
-        color: '#059669',
-        text: `Need to Re-calc TGPA and Regen Term 3 Term Reports for BMT 1`,
-        time: 'Yesterday at 11:46 am',
-        attachment: {
-          name: 'BMT 1 term 3 report',
-          url: item.taskLink || 'https://clickup.com'
-        }
-      }
-    ];
+    return [];
   };
 
   const handleFieldUpdate = (field: keyof ProductItem, newValue: any) => {
@@ -482,20 +469,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
     setItemComments(prev => ({
       ...prev,
-      [item.id]: [...(prev[item.id] || [
-        {
-          id: 'seed-1',
-          author: 'Nikhil Jain',
-          initials: 'NJ',
-          color: '#059669',
-          text: `Need to Re-calc TGPA and Regen Term 3 Term Reports for BMT 1`,
-          time: 'Yesterday at 11:46 am',
-          attachment: {
-            name: 'BMT 1 term 3 report',
-            url: item.taskLink || 'https://clickup.com'
-          }
-        }
-      ]), logItem]
+      [item.id]: [...(prev[item.id] || []), logItem]
     }));
   };
 
@@ -529,20 +503,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     };
     setItemComments(prev => ({
       ...prev,
-      [item.id]: [...(prev[item.id] || [
-        {
-          id: 'seed-1',
-          author: 'Nikhil Jain',
-          initials: 'NJ',
-          color: '#059669',
-          text: `Need to Re-calc TGPA and Regen Term 3 Term Reports for BMT 1`,
-          time: 'Yesterday at 11:46 am',
-          attachment: {
-            name: 'BMT 1 term 3 report',
-            url: item.taskLink || 'https://clickup.com'
-          }
-        }
-      ]), newComment]
+      [item.id]: [...(prev[item.id] || []), newComment]
     }));
     setCommentText('');
   };
@@ -1236,7 +1197,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
           <textarea
             className="premium-textarea"
             style={{ minHeight: '80px' }}
-            placeholder="Need to Re-calc TGPA and Regen Term 3 Term Reports for BMT 1..."
+            placeholder="Enter feature description..."
             onBlur={(e) => {
               if (e.target.value !== item.description) {
                 handleFieldUpdate('description', e.target.value);
