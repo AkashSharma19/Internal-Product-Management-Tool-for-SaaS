@@ -35,7 +35,8 @@ const DashboardContent: React.FC = () => {
     previewProductId,
     setPreviewProductId,
     productItems,
-    updateProductItem
+    updateProductItem,
+    syncStatus
   } = useDashboard();
   const [isCollapsed, setIsCollapsed] = React.useState(true);
 
@@ -92,6 +93,18 @@ const DashboardContent: React.FC = () => {
               <div className="logo-text">
                 <p style={{ margin: 0, fontSize: '0.925rem', fontWeight: 800, letterSpacing: '-0.01em', textTransform: 'uppercase' }}>Internal Portal</p>
                 <p style={{ margin: 0, fontSize: '0.625rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', marginTop: '1px' }}>Operations Control</p>
+                
+                {/* Database Sync Status Badge */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '4px', fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  <span style={{
+                    width: '6px', height: '6px', borderRadius: '50%',
+                    background: syncStatus === 'synced' ? '#10b981' : syncStatus === 'syncing' ? '#fbbf24' : '#ef4444',
+                    display: 'inline-block',
+                  }} />
+                  <span style={{ color: syncStatus === 'synced' ? 'var(--text-muted)' : syncStatus === 'syncing' ? '#fbbf24' : '#ef4444' }}>
+                    {syncStatus === 'synced' ? 'DB Connected' : syncStatus === 'syncing' ? 'Syncing...' : 'Sync Offline'}
+                  </span>
+                </div>
               </div>
             )}
           </div>

@@ -125,6 +125,9 @@ interface DashboardContextType {
   clickupApiKey: string;
   setClickupApiKey: (key: string) => void;
   syncClickupTask: (taskIdOrUrl: string) => Promise<string | null>;
+
+  isLoading: boolean;
+  syncStatus: 'syncing' | 'synced' | 'error';
 }
 
 
@@ -397,17 +400,97 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [clickupApiKey]);
 
 
+  // Helper to persist to API
+  const [syncStatus, setSyncStatus] = useState<'syncing' | 'synced' | 'error'>('synced');
+
+  const persistChange = async (action: 'create' | 'update' | 'delete' | 'batch-import', type: string, id: string | null, data: any) => {
+    setSyncStatus('syncing');
+    try {
+      const response = await fetch('/api/data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ action, type, id, data })
+      });
+      if (response.ok) {
+        setSyncStatus('synced');
+      } else {
+        console.error(`Persist failed for ${type} ${action}:`, await response.text());
+        setSyncStatus('error');
+      }
+    } catch (err) {
+      console.error(`Failed to connect to API for ${type} ${action}:`, err);
+      setSyncStatus('error');
+    }
+  };
+
+  // Mounting effect to fetch all data from MongoDB
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAllData = async () => {
+      setSyncStatus('syncing');
+      try {
+        const response = await fetch('/api/data');
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success && resData.data) {
+            const db = resData.data;
+            if (db.products && db.products.length > 0) setProductItems(db.products);
+            if (db.plans && db.plans.length > 0) setPlanItems(db.plans);
+            if (db.projects && db.projects.length > 0) setStudentProjects(db.projects);
+            if (db.amaSessions && db.amaSessions.length > 0) setAMASessions(db.amaSessions);
+            if (db.studentMeetings && db.studentMeetings.length > 0) setStudentMeetings(db.studentMeetings);
+            if (db.adminCalls && db.adminCalls.length > 0) setAdminCalls(db.adminCalls);
+            if (db.contentItems && db.contentItems.length > 0) setContentItems(db.contentItems);
+            if (db.dailyIssues && db.dailyIssues.length > 0) setDailyIssues(db.dailyIssues);
+            if (db.featureAdoptions && db.featureAdoptions.length > 0) setFeatureAdoptions(db.featureAdoptions);
+            
+            if (db.speakers && db.speakers.length > 0) setSpeakers(db.speakers);
+            if (db.productGroups && db.productGroups.length > 0) setProductGroups(db.productGroups);
+            if (db.statuses && db.statuses.length > 0) setStatuses(db.statuses);
+            if (db.programs && db.programs.length > 0) setPrograms(db.programs);
+            if (db.cohorts && db.cohorts.length > 0) setCohorts(db.cohorts);
+            
+            if (db.settings) {
+              const clickupSetting = db.settings.find((s: any) => s.key === 'clickupApiKey');
+              if (clickupSetting) {
+                setClickupApiKey(clickupSetting.value || '');
+              }
+            }
+            setSyncStatus('synced');
+          }
+        } else {
+          setSyncStatus('error');
+        }
+      } catch (err) {
+        console.error('Failed to load database data:', err);
+        setSyncStatus('error');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchAllData();
+  }, []);
+
+  const updateClickupApiKey = (key: string) => {
+    setClickupApiKey(key);
+    persistChange('update', 'settings', 'clickupApiKey', { id: 'clickupApiKey', key: 'clickupApiKey', value: key });
+  };
+
   // Helper Updaters
   const updateProductItem = (id: string, updated: Partial<ProductItem>) => {
     setProductItems(prev => {
       const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
       const updatedItem = next.find(item => item.id === id);
       if (updatedItem) {
+        persistChange('update', 'products', id, updatedItem);
         setStudentProjects(sp => sp.map(p => {
           const featureName = (updatedItem.feature || '').trim();
           const projectTitle = (p.title || '').trim();
           if ((featureName && projectTitle && projectTitle.toLowerCase() === featureName.toLowerCase()) || id === `prod-temp-${p.id}`) {
-            return {
+            const updatedP = {
               ...p,
               title: updatedItem.feature,
               description: updatedItem.description,
@@ -428,6 +511,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               module: updatedItem.module,
               type: updatedItem.type
             };
+            persistChange('update', 'projects', p.id, updatedP);
+            return updatedP;
           }
           return p;
         }));
@@ -435,7 +520,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           const featureName = (updatedItem.feature || '').trim();
           const meetingCohort = (m.cohort || '').trim();
           if ((featureName && meetingCohort && meetingCohort.toLowerCase() === featureName.toLowerCase()) || id === `prod-temp-${m.id}`) {
-            return {
+            const updatedM = {
               ...m,
               cohort: updatedItem.feature,
               summary: updatedItem.description,
@@ -455,6 +540,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               module: updatedItem.module,
               type: updatedItem.type
             };
+            persistChange('update', 'studentMeetings', m.id, updatedM);
+            return updatedM;
           }
           return m;
         }));
@@ -462,7 +549,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           const featureName = (updatedItem.feature || '').trim();
           const contentModule = (p.module || '').trim();
           if ((featureName && contentModule && contentModule.toLowerCase() === featureName.toLowerCase()) || id === `prod-temp-${p.id}`) {
-            return {
+            const updatedCI = {
               ...p,
               module: updatedItem.feature,
               product: updatedItem.product,
@@ -479,6 +566,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               finalReleaseCompleted: updatedItem.finalReleaseCompleted,
               status: updatedItem.status,
             };
+            persistChange('update', 'contentItems', p.id, updatedCI);
+            return updatedCI;
           }
           return p;
         }));
@@ -488,59 +577,96 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
   const addProductItem = (item: ProductItem) => {
     setProductItems(prev => [item, ...prev]);
+    persistChange('create', 'products', null, item);
   };
   const deleteProductItem = (id: string) => {
     setProductItems(prev => prev.filter(item => item.id !== id));
+    persistChange('delete', 'products', id, null);
   };
 
   const updatePlanItem = (id: string, updated: Partial<PlanItem>) => {
-    setPlanItems(prev => prev.map(item => item.id === id ? { ...item, ...updated } : item));
+    setPlanItems(prev => {
+      const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
+      const updatedItem = next.find(item => item.id === id);
+      if (updatedItem) persistChange('update', 'plans', id, updatedItem);
+      return next;
+    });
   };
   const addPlanItem = (item: PlanItem) => {
     setPlanItems(prev => [item, ...prev]);
+    persistChange('create', 'plans', null, item);
   };
   const deletePlanItem = (id: string) => {
     setPlanItems(prev => prev.filter(item => item.id !== id));
+    persistChange('delete', 'plans', id, null);
   };
 
   const updateStudentProject = (id: string, updated: Partial<StudentProject>) => {
-    setStudentProjects(prev => prev.map(item => item.id === id ? { ...item, ...updated } : item));
+    setStudentProjects(prev => {
+      const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
+      const updatedItem = next.find(item => item.id === id);
+      if (updatedItem) persistChange('update', 'projects', id, updatedItem);
+      return next;
+    });
   };
   const addStudentProject = (item: StudentProject) => {
     setStudentProjects(prev => [item, ...prev]);
+    persistChange('create', 'projects', null, item);
   };
   const deleteStudentProject = (id: string) => {
     setStudentProjects(prev => prev.filter(item => item.id !== id));
+    persistChange('delete', 'projects', id, null);
   };
 
   const updateAMASession = (id: string, updated: Partial<AMASession>) => {
-    setAMASessions(prev => prev.map(item => item.id === id ? { ...item, ...updated } : item));
+    setAMASessions(prev => {
+      const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
+      const updatedItem = next.find(item => item.id === id);
+      if (updatedItem) persistChange('update', 'amaSessions', id, updatedItem);
+      return next;
+    });
   };
   const addAMASession = (item: AMASession) => {
     setAMASessions(prev => [item, ...prev]);
+    persistChange('create', 'amaSessions', null, item);
   };
   const deleteAMASession = (id: string) => {
     setAMASessions(prev => prev.filter(item => item.id !== id));
+    persistChange('delete', 'amaSessions', id, null);
   };
 
   const updateStudentMeeting = (id: string, updated: Partial<StudentMeeting>) => {
-    setStudentMeetings(prev => prev.map(item => item.id === id ? { ...item, ...updated } : item));
+    setStudentMeetings(prev => {
+      const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
+      const updatedItem = next.find(item => item.id === id);
+      if (updatedItem) persistChange('update', 'studentMeetings', id, updatedItem);
+      return next;
+    });
   };
   const addStudentMeeting = (item: StudentMeeting) => {
     setStudentMeetings(prev => [item, ...prev]);
+    persistChange('create', 'studentMeetings', null, item);
   };
   const deleteStudentMeeting = (id: string) => {
     setStudentMeetings(prev => prev.filter(item => item.id !== id));
+    persistChange('delete', 'studentMeetings', id, null);
   };
 
   const updateAdminCall = (id: string, updated: Partial<AdminCall>) => {
-    setAdminCalls(prev => prev.map(item => item.id === id ? { ...item, ...updated } : item));
+    setAdminCalls(prev => {
+      const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
+      const updatedItem = next.find(item => item.id === id);
+      if (updatedItem) persistChange('update', 'adminCalls', id, updatedItem);
+      return next;
+    });
   };
   const addAdminCall = (item: AdminCall) => {
     setAdminCalls(prev => [item, ...prev]);
+    persistChange('create', 'adminCalls', null, item);
   };
   const deleteAdminCall = (id: string) => {
     setAdminCalls(prev => prev.filter(item => item.id !== id));
+    persistChange('delete', 'adminCalls', id, null);
   };
 
   const updateContentItem = (id: string, updated: Partial<ContentItem>) => {
@@ -548,9 +674,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
       const updatedItem = next.find(item => item.id === id);
       if (updatedItem) {
+        persistChange('update', 'contentItems', id, updatedItem);
         setProductItems(prod => prod.map(p => {
           if (p.feature.toLowerCase() === updatedItem.module.toLowerCase() || p.id === `prod-temp-${updatedItem.id}`) {
-            return {
+            const updatedP = {
               ...p,
               feature: updatedItem.module,
               product: updatedItem.product || p.product,
@@ -567,6 +694,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted,
               status: updatedItem.status as ProductItem['status']
             };
+            persistChange('update', 'products', p.id, updatedP);
+            return updatedP;
           }
           return p;
         }));
@@ -576,56 +705,132 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
   const addContentItem = (item: ContentItem) => {
     setContentItems(prev => [item, ...prev]);
+    persistChange('create', 'contentItems', null, item);
   };
   const deleteContentItem = (id: string) => {
     setContentItems(prev => prev.filter(item => item.id !== id));
+    persistChange('delete', 'contentItems', id, null);
   };
 
   const updateDailyIssue = (id: string, updated: Partial<DailyIssue>) => {
-    setDailyIssues(prev => prev.map(item => item.id === id ? { ...item, ...updated } : item));
+    setDailyIssues(prev => {
+      const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
+      const updatedItem = next.find(item => item.id === id);
+      if (updatedItem) persistChange('update', 'dailyIssues', id, updatedItem);
+      return next;
+    });
   };
   const addDailyIssue = (item: DailyIssue) => {
     setDailyIssues(prev => [item, ...prev]);
+    persistChange('create', 'dailyIssues', null, item);
   };
   const deleteDailyIssue = (id: string) => {
     setDailyIssues(prev => prev.filter(item => item.id !== id));
+    persistChange('delete', 'dailyIssues', id, null);
   };
 
   const updateFeatureAdoption = (id: string, updated: Partial<FeatureAdoption>) => {
-    setFeatureAdoptions(prev => prev.map(item => item.id === id ? { ...item, ...updated } : item));
+    setFeatureAdoptions(prev => {
+      const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
+      const updatedItem = next.find(item => item.id === id);
+      if (updatedItem) persistChange('update', 'featureAdoptions', id, updatedItem);
+      return next;
+    });
   };
   const addFeatureAdoption = (item: FeatureAdoption) => {
     setFeatureAdoptions(prev => [item, ...prev]);
+    persistChange('create', 'featureAdoptions', null, item);
   };
   const deleteFeatureAdoption = (id: string) => {
     setFeatureAdoptions(prev => prev.filter(item => item.id !== id));
+    persistChange('delete', 'featureAdoptions', id, null);
   };
 
   // Config CRUD helpers
-  const addSpeaker = (item: ConfigSpeaker) => setSpeakers(prev => [...prev, item]);
-  const updateSpeaker = (id: string, updated: Partial<ConfigSpeaker>) =>
-    setSpeakers(prev => prev.map(s => s.id === id ? { ...s, ...updated } : s));
-  const deleteSpeaker = (id: string) => setSpeakers(prev => prev.filter(s => s.id !== id));
+  const addSpeaker = (item: ConfigSpeaker) => {
+    setSpeakers(prev => [...prev, item]);
+    persistChange('create', 'speakers', null, item);
+  };
+  const updateSpeaker = (id: string, updated: Partial<ConfigSpeaker>) => {
+    setSpeakers(prev => {
+      const next = prev.map(s => s.id === id ? { ...s, ...updated } : s);
+      const item = next.find(s => s.id === id);
+      if (item) persistChange('update', 'speakers', id, item);
+      return next;
+    });
+  };
+  const deleteSpeaker = (id: string) => {
+    setSpeakers(prev => prev.filter(s => s.id !== id));
+    persistChange('delete', 'speakers', id, null);
+  };
 
-  const addProductGroup = (item: ConfigProductGroup) => setProductGroups(prev => [...prev, item]);
-  const updateProductGroup = (id: string, updated: Partial<ConfigProductGroup>) =>
-    setProductGroups(prev => prev.map(g => g.id === id ? { ...g, ...updated } : g));
-  const deleteProductGroup = (id: string) => setProductGroups(prev => prev.filter(g => g.id !== id));
+  const addProductGroup = (item: ConfigProductGroup) => {
+    setProductGroups(prev => [...prev, item]);
+    persistChange('create', 'productGroups', null, item);
+  };
+  const updateProductGroup = (id: string, updated: Partial<ConfigProductGroup>) => {
+    setProductGroups(prev => {
+      const next = prev.map(g => g.id === id ? { ...g, ...updated } : g);
+      const item = next.find(g => g.id === id);
+      if (item) persistChange('update', 'productGroups', id, item);
+      return next;
+    });
+  };
+  const deleteProductGroup = (id: string) => {
+    setProductGroups(prev => prev.filter(g => g.id !== id));
+    persistChange('delete', 'productGroups', id, null);
+  };
 
-  const addStatus = (item: ConfigStatus) => setStatuses(prev => [...prev, item]);
-  const updateStatus = (id: string, updated: Partial<ConfigStatus>) =>
-    setStatuses(prev => prev.map(s => s.id === id ? { ...s, ...updated } : s));
-  const deleteStatus = (id: string) => setStatuses(prev => prev.filter(s => s.id !== id));
+  const addStatus = (item: ConfigStatus) => {
+    setStatuses(prev => [...prev, item]);
+    persistChange('create', 'statuses', null, item);
+  };
+  const updateStatus = (id: string, updated: Partial<ConfigStatus>) => {
+    setStatuses(prev => {
+      const next = prev.map(s => s.id === id ? { ...s, ...updated } : s);
+      const item = next.find(s => s.id === id);
+      if (item) persistChange('update', 'statuses', id, item);
+      return next;
+    });
+  };
+  const deleteStatus = (id: string) => {
+    setStatuses(prev => prev.filter(s => s.id !== id));
+    persistChange('delete', 'statuses', id, null);
+  };
 
-  const addProgram = (item: ConfigProgram) => setPrograms(prev => [...prev, item]);
-  const updateProgram = (id: string, updated: Partial<ConfigProgram>) =>
-    setPrograms(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p));
-  const deleteProgram = (id: string) => setPrograms(prev => prev.filter(p => p.id !== id));
+  const addProgram = (item: ConfigProgram) => {
+    setPrograms(prev => [...prev, item]);
+    persistChange('create', 'programs', null, item);
+  };
+  const updateProgram = (id: string, updated: Partial<ConfigProgram>) => {
+    setPrograms(prev => {
+      const next = prev.map(p => p.id === id ? { ...p, ...updated } : p);
+      const item = next.find(p => p.id === id);
+      if (item) persistChange('update', 'programs', id, item);
+      return next;
+    });
+  };
+  const deleteProgram = (id: string) => {
+    setPrograms(prev => prev.filter(p => p.id !== id));
+    persistChange('delete', 'programs', id, null);
+  };
 
-  const addCohort = (item: ConfigCohort) => setCohorts(prev => [...prev, item]);
-  const updateCohort = (id: string, updated: Partial<ConfigCohort>) =>
-    setCohorts(prev => prev.map(c => c.id === id ? { ...c, ...updated } : c));
-  const deleteCohort = (id: string) => setCohorts(prev => prev.filter(c => c.id !== id));
+  const addCohort = (item: ConfigCohort) => {
+    setCohorts(prev => [...prev, item]);
+    persistChange('create', 'cohorts', null, item);
+  };
+  const updateCohort = (id: string, updated: Partial<ConfigCohort>) => {
+    setCohorts(prev => {
+      const next = prev.map(c => c.id === id ? { ...c, ...updated } : c);
+      const item = next.find(c => c.id === id);
+      if (item) persistChange('update', 'cohorts', id, item);
+      return next;
+    });
+  };
+  const deleteCohort = (id: string) => {
+    setCohorts(prev => prev.filter(c => c.id !== id));
+    persistChange('delete', 'cohorts', id, null);
+  };
 
   const extractClickupTaskId = (url: string): string | null => {
     if (!url) return null;
@@ -700,7 +905,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       statuses, addStatus, updateStatus, deleteStatus,
       programs, addProgram, updateProgram, deleteProgram,
       cohorts, addCohort, updateCohort, deleteCohort,
-      clickupApiKey, setClickupApiKey, syncClickupTask,
+      clickupApiKey, setClickupApiKey: updateClickupApiKey, syncClickupTask,
+      isLoading, syncStatus,
     }}>
       {children}
     </DashboardContext.Provider>
