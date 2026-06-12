@@ -1,4 +1,4 @@
-import { connectToDatabase } from './lib/db';
+import { connectToDatabase } from './lib/db.js';
 import {
   ProductItemModel,
   PlanItemModel,
@@ -15,7 +15,7 @@ import {
   ConfigProgramModel,
   ConfigCohortModel,
   GlobalSettingsModel
-} from './lib/models';
+} from './lib/models.js';
 
 const modelsMap: Record<string, any> = {
   products: ProductItemModel,
