@@ -67,21 +67,19 @@ const LoginView: React.FC = () => {
       alignItems: 'center',
       justifyContent: 'center',
       minHeight: '100vh',
-      background: 'radial-gradient(circle at 20% 20%, #1e1b4b, #0f172a 80%)',
+      background: 'linear-gradient(180deg, var(--background-alt) 0%, var(--background) 100%)',
       fontFamily: 'Outfit, sans-serif',
-      color: '#fff',
+      color: 'var(--text-primary)',
       padding: '1rem'
     }}>
       <div style={{
-        background: 'rgba(30, 41, 59, 0.45)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        background: 'var(--panel-bg)',
+        border: '1px solid var(--border-light)',
         borderRadius: '24px',
-        padding: '2.5rem 2.25rem',
+        padding: '2.75rem 2.5rem',
         width: '100%',
         maxWidth: '420px',
-        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
+        boxShadow: 'var(--shadow)',
         textAlign: 'center',
         display: 'flex',
         flexDirection: 'column',
@@ -93,26 +91,26 @@ const LoginView: React.FC = () => {
             width: '60px',
             height: '60px',
             borderRadius: '16px',
-            background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+            background: 'linear-gradient(135deg, var(--primary), var(--primary-hover))',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             margin: '0 auto 1.25rem',
-            boxShadow: '0 8px 16px rgba(99, 102, 241, 0.25)'
+            boxShadow: 'var(--shadow-glow)'
           }}>
             <Lock size={28} color="#fff" />
           </div>
-          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase' }}>OPERATIONS CONTROL</h2>
-          <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.7rem', color: 'rgba(255, 255, 255, 0.45)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Secure Identity Portal</p>
+          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', color: 'var(--text-primary)' }}>OPERATIONS CONTROL</h2>
+          <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Secure Identity Portal</p>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', textAlign: 'left' }}>
           {/* User Select */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'rgba(255, 255, 255, 0.6)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Select POC Name</label>
+            <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Select POC Name</label>
             <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255, 255, 255, 0.4)' }}>
+              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
                 <User size={16} />
               </span>
               <select
@@ -121,10 +119,10 @@ const LoginView: React.FC = () => {
                 style={{
                   width: '100%',
                   padding: '12px 12px 12px 38px',
-                  background: 'rgba(15, 23, 42, 0.6)',
-                  border: '1.5px solid rgba(255, 255, 255, 0.1)',
+                  background: '#fff',
+                  border: '1.5px solid var(--border-light)',
                   borderRadius: '12px',
-                  color: '#fff',
+                  color: 'var(--text-primary)',
                   fontSize: '0.85rem',
                   outline: 'none',
                   cursor: 'pointer',
@@ -132,20 +130,20 @@ const LoginView: React.FC = () => {
                   WebkitAppearance: 'none'
                 }}
               >
-                <option value="" style={{ background: '#0f172a' }}>-- Select Name --</option>
+                <option value="" style={{ background: '#fff', color: 'var(--text-muted)' }}>-- Select Name --</option>
                 {speakers.map(s => (
-                  <option key={s.id} value={s.id} style={{ background: '#0f172a' }}>{s.name}</option>
+                  <option key={s.id} value={s.id} style={{ background: '#fff', color: 'var(--text-primary)' }}>{s.name}</option>
                 ))}
               </select>
-              <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255, 255, 255, 0.4)', pointerEvents: 'none', fontSize: '0.65rem' }}>▼</span>
+              <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none', fontSize: '0.65rem' }}>▼</span>
             </div>
           </div>
 
           {/* Password Input */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'rgba(255, 255, 255, 0.6)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Portal Password</label>
+            <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Portal Password</label>
             <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255, 255, 255, 0.4)' }}>
+              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}>
                 <Lock size={16} />
               </span>
               <input
@@ -156,10 +154,10 @@ const LoginView: React.FC = () => {
                 style={{
                   width: '100%',
                   padding: '12px 42px 12px 38px',
-                  background: 'rgba(15, 23, 42, 0.6)',
-                  border: '1.5px solid rgba(255, 255, 255, 0.1)',
+                  background: '#fff',
+                  border: '1.5px solid var(--border-light)',
                   borderRadius: '12px',
-                  color: '#fff',
+                  color: 'var(--text-primary)',
                   fontSize: '0.85rem',
                   outline: 'none'
                 }}
@@ -175,7 +173,7 @@ const LoginView: React.FC = () => {
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
-                  color: 'rgba(255, 255, 255, 0.4)',
+                  color: 'var(--text-muted)',
                   padding: 0,
                   display: 'flex',
                   alignItems: 'center'
@@ -189,12 +187,12 @@ const LoginView: React.FC = () => {
           {/* Error Alert */}
           {error && (
             <div style={{
-              backgroundColor: 'rgba(239, 68, 68, 0.15)',
-              border: '1px solid rgba(239, 68, 68, 0.25)',
+              backgroundColor: 'var(--danger-bg)',
+              border: '1px solid rgba(239, 68, 68, 0.15)',
               borderRadius: '10px',
               padding: '8px 12px',
               fontSize: '0.75rem',
-              color: '#fca5a5',
+              color: 'var(--danger)',
               display: 'flex',
               alignItems: 'center',
               gap: '6px'
@@ -212,14 +210,14 @@ const LoginView: React.FC = () => {
               marginTop: '0.5rem',
               width: '100%',
               padding: '12px',
-              background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+              background: 'linear-gradient(135deg, var(--primary), var(--primary-hover))',
               border: 'none',
               borderRadius: '12px',
               color: '#fff',
               fontSize: '0.875rem',
               fontWeight: 700,
               cursor: isLoggingIn ? 'not-allowed' : 'pointer',
-              boxShadow: '0 8px 20px rgba(99, 102, 241, 0.25)',
+              boxShadow: 'var(--shadow-glow)',
               transition: 'opacity 0.2s',
               display: 'flex',
               justifyContent: 'center',
@@ -358,26 +356,6 @@ const DashboardContent: React.FC = () => {
                 </div>
               </div>
             )}
-            
-            {/* Initials badge if sidebar is collapsed */}
-            {isCollapsed && (
-              <div style={{
-                width: '24px',
-                height: '24px',
-                borderRadius: '50%',
-                background: getAssigneeColor(currentUser.name),
-                color: '#fff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '0.65rem',
-                fontWeight: 800,
-                marginTop: '0.5rem',
-                border: '1.5px solid var(--border)'
-              }} title={`Logged in as ${currentUser.name}`}>
-                {getInitials(currentUser.name)}
-              </div>
-            )}
           </div>
           <button 
             onClick={() => setIsCollapsed(!isCollapsed)} 
@@ -422,7 +400,25 @@ const DashboardContent: React.FC = () => {
         </nav>
 
         {/* Logout button at the footer of sidebar */}
-        <div style={{ marginTop: 'auto', padding: '1rem 0 0.5rem 0', borderTop: '1px solid var(--border-light)', width: '100%', display: 'flex', justifyContent: isCollapsed ? 'center' : 'flex-start' }}>
+        <div style={{ marginTop: 'auto', padding: '1rem 0 0.5rem 0', borderTop: '1px solid var(--border-light)', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
+          {isCollapsed && (
+            <div style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '50%',
+              background: getAssigneeColor(currentUser.name),
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              border: '1.5px solid var(--border-light)',
+              boxShadow: 'var(--shadow-sm)'
+            }} title={`Logged in as ${currentUser.name}`}>
+              {getInitials(currentUser.name)}
+            </div>
+          )}
           <button
             onClick={logoutUser}
             className="menu-item"
