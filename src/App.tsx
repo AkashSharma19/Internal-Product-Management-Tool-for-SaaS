@@ -13,7 +13,9 @@ import {
   ProductDetailView
 } from './components/Tables';
 import { ConfigSection } from './components/ConfigSection';
+import { DashboardOverview } from './components/DashboardOverview';
 import {
+  LayoutDashboard,
   Flame,
   Calendar,
   FolderGit,
@@ -275,6 +277,7 @@ const DashboardContent: React.FC = () => {
 
   // Sidebar navigation mappings
   const navItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
     { id: 'product', label: 'Priority Requests', icon: <Flame size={18} /> },
     { id: 'plan', label: 'Sprint Planning', icon: <Calendar size={18} /> },
     { id: 'projects', label: 'Student Projects', icon: <FolderGit size={18} /> },
@@ -290,6 +293,8 @@ const DashboardContent: React.FC = () => {
   // Render active component
   const renderActiveView = () => {
     switch (activeTab) {
+      case 'dashboard':
+        return <DashboardOverview />;
       case 'product':
         return <ProductTable />;
       case 'plan':
@@ -311,7 +316,7 @@ const DashboardContent: React.FC = () => {
       case 'config':
         return <ConfigSection />;
       default:
-        return <ProductTable />;
+        return <DashboardOverview />;
     }
   };
 

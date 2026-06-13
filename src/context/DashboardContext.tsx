@@ -166,11 +166,11 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [activeTab, rawSetActiveTab] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get('tab');
-    const validTabs = ['product', 'plan', 'projects', 'meetings', 'admin', 'content', 'product-wise', 'issues', 'adoption', 'config'];
+    const validTabs = ['dashboard', 'product', 'plan', 'projects', 'meetings', 'admin', 'content', 'product-wise', 'issues', 'adoption', 'config'];
     if (tabParam && validTabs.includes(tabParam)) {
       return tabParam;
     }
-    return localStorage.getItem('active-tab') || 'product';
+    return localStorage.getItem('active-tab') || 'dashboard';
   });
 
   const [previewProductId, setPreviewProductId] = useState<string | null>(() => {
@@ -208,7 +208,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const tabParam = params.get('tab');
       const taskParam = params.get('task');
 
-      const validTabs = ['product', 'plan', 'projects', 'meetings', 'admin', 'content', 'product-wise', 'issues', 'adoption', 'config'];
+      const validTabs = ['dashboard', 'product', 'plan', 'projects', 'meetings', 'admin', 'content', 'product-wise', 'issues', 'adoption', 'config'];
       if (tabParam && validTabs.includes(tabParam)) {
         rawSetActiveTab(tabParam);
       }
