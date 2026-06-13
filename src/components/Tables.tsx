@@ -683,9 +683,13 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
           {/* Module Selector */}
           {(() => {
-            const modulePresets = ['General', 'Academic Grades', 'Attendance Widget', 'MU.Ai Bot', 'Zoom Cohorts', 'Onboarding UI', 'Parent Portal', 'To-do widget'];
+            const matchedGroup = productGroups.find(g => g.name === item.product);
+            const modulePresets = (matchedGroup && matchedGroup.modules && matchedGroup.modules.length > 0)
+              ? matchedGroup.modules
+              : ['General', 'Academic Grades', 'Attendance Widget', 'MU.Ai Bot', 'Zoom Cohorts', 'Onboarding UI', 'Parent Portal', 'To-do widget'];
             const isCustomModule = !!item.module && !modulePresets.includes(item.module);
-            const selectModuleVal = isCustomModule ? 'Other' : (item.module || 'General');
+            const defaultValue = modulePresets[0] || 'General';
+            const selectModuleVal = isCustomModule ? 'Other' : (item.module || defaultValue);
             
             return (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -713,14 +717,9 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                     }
                   }}
                 >
-                  <option value="General">General</option>
-                  <option value="Academic Grades">Academic Grades</option>
-                  <option value="Attendance Widget">Attendance Widget</option>
-                  <option value="MU.Ai Bot">MU.Ai Bot</option>
-                  <option value="Zoom Cohorts">Zoom Cohorts</option>
-                  <option value="Onboarding UI">Onboarding UI</option>
-                  <option value="Parent Portal">Parent Portal</option>
-                  <option value="To-do widget">To-do widget</option>
+                  {modulePresets.map(mod => (
+                    <option key={mod} value={mod}>{mod}</option>
+                  ))}
                   <option value="Other">Other (Custom)...</option>
                 </select>
 

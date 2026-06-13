@@ -179,6 +179,7 @@ export interface ConfigProductGroup {
   id: string;
   name: string;
   color: string; // hex colour for tag badge, e.g. '#6366f1'
+  modules?: string[];
 }
 
 export interface ConfigStatus {

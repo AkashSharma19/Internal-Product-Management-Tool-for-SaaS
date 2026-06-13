@@ -373,8 +373,10 @@ const ProductGroupsSection: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('#6366f1');
+  const [editModules, setEditModules] = useState('');
   const [addName, setAddName] = useState('');
   const [addColor, setAddColor] = useState('#6366f1');
+  const [addModules, setAddModules] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [showSwatchFor, setShowSwatchFor] = useState<string | null>(null); // 'edit' | 'add'
 
@@ -382,19 +384,32 @@ const ProductGroupsSection: React.FC = () => {
     setEditingId(g.id);
     setEditName(g.name);
     setEditColor(g.color);
+    setEditModules(g.modules ? g.modules.join(', ') : '');
     setShowSwatchFor(null);
   };
   const saveEdit = () => {
     if (!editName.trim() || !editingId) return;
-    updateProductGroup(editingId, { name: editName.trim(), color: editColor });
+    const modulesArr = editModules.split(',')
+      .map(m => m.trim())
+      .filter(m => m.length > 0);
+    updateProductGroup(editingId, { name: editName.trim(), color: editColor, modules: modulesArr });
     setEditingId(null);
     setShowSwatchFor(null);
   };
   const handleAdd = () => {
     if (!addName.trim()) return;
-    addProductGroup({ id: `pg-${Date.now()}`, name: addName.trim(), color: addColor });
+    const modulesArr = addModules.split(',')
+      .map(m => m.trim())
+      .filter(m => m.length > 0);
+    addProductGroup({ 
+      id: `pg-${Date.now()}`, 
+      name: addName.trim(), 
+      color: addColor,
+      modules: modulesArr 
+    });
     setAddName('');
     setAddColor('#6366f1');
+    setAddModules('');
     setShowAdd(false);
     setShowSwatchFor(null);
   };
@@ -417,10 +432,37 @@ const ProductGroupsSection: React.FC = () => {
               style={{ transition: 'background 0.15s' }}
             >
               <td style={td}>
-                {editingId === g.id
-                  ? <input autoFocus style={inputStyle} value={editName} onChange={e => setEditName(e.target.value)}
+                {editingId === g.id ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <input autoFocus style={inputStyle} value={editName} onChange={e => setEditName(e.target.value)}
+                      placeholder="Product group name..."
+                      onKeyDown={e => { if (e.key === 'Escape') setEditingId(null); }} />
+                    <input style={inputStyle} value={editModules} onChange={e => setEditModules(e.target.value)}
+                      placeholder="Modules (comma-separated)..."
                       onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingId(null); }} />
-                  : <Badge color={g.color} label={g.name} />}
+                  </div>
+                ) : (
+                  <div>
+                    <Badge color={g.color} label={g.name} />
+                    {g.modules && g.modules.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px', paddingLeft: '4px' }}>
+                        {g.modules.map((m, idx) => (
+                          <span key={idx} style={{
+                            fontSize: '0.65rem',
+                            backgroundColor: 'var(--background-alt)',
+                            color: 'var(--text-secondary)',
+                            border: '1px solid var(--border)',
+                            padding: '1px 6px',
+                            borderRadius: '6px',
+                            fontWeight: 600
+                          }}>
+                            {m}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </td>
               <td style={td}>
                 {editingId === g.id ? (
@@ -476,9 +518,14 @@ const ProductGroupsSection: React.FC = () => {
           {showAdd && (
             <tr>
               <td style={td}>
-                <input autoFocus style={inputStyle} value={addName} onChange={e => setAddName(e.target.value)}
-                  placeholder="Group name…"
-                  onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setShowAdd(false); }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <input autoFocus style={inputStyle} value={addName} onChange={e => setAddName(e.target.value)}
+                    placeholder="Group name…"
+                    onKeyDown={e => { if (e.key === 'Escape') setShowAdd(false); }} />
+                  <input style={inputStyle} value={addModules} onChange={e => setAddModules(e.target.value)}
+                    placeholder="Modules (comma-separated)…"
+                    onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setShowAdd(false); }} />
+                </div>
               </td>
               <td style={td}>
                 <div style={{ position: 'relative' }}>
