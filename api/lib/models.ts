@@ -190,7 +190,8 @@ const ConfigSpeakerSchema = new Schema({
 const ConfigProductGroupSchema = new Schema({
   id: { type: String, required: true, unique: true },
   name: { type: String, required: true },
-  color: { type: String, default: "#6366f1" }
+  color: { type: String, default: "#6366f1" },
+  modules: { type: [String], default: [] }
 });
 
 // Status
