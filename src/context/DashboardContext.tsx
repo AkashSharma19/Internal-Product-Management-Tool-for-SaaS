@@ -163,7 +163,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   // Active Tab state
-  const [activeTab, setActiveTab] = useState<string>(() => {
+  const [activeTab, rawSetActiveTab] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get('tab');
     const validTabs = ['product', 'plan', 'projects', 'meetings', 'admin', 'content', 'product-wise', 'issues', 'adoption', 'config'];
@@ -177,6 +177,11 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const params = new URLSearchParams(window.location.search);
     return params.get('task');
   });
+
+  const setActiveTab = (tab: string) => {
+    rawSetActiveTab(tab);
+    setPreviewProductId(null);
+  };
 
   // Sync state changes to browser URL search parameters
   useEffect(() => {
@@ -205,7 +210,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       const validTabs = ['product', 'plan', 'projects', 'meetings', 'admin', 'content', 'product-wise', 'issues', 'adoption', 'config'];
       if (tabParam && validTabs.includes(tabParam)) {
-        setActiveTab(tabParam);
+        rawSetActiveTab(tabParam);
       }
       setPreviewProductId(taskParam);
     };
