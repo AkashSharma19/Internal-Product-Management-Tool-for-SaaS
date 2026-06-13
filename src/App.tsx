@@ -451,13 +451,17 @@ const DashboardContent: React.FC = () => {
         {/* Content Area */}
         <div key={activeTab} className="content-area animate-fade-in">
           {renderActiveView()}
-          {previewProductId && (
-            <ProductDetailView 
-              item={productItems.find(i => i.id === previewProductId)!} 
-              onBack={() => setPreviewProductId(null)} 
-              onUpdate={updateProductItem} 
-            />
-          )}
+          {previewProductId && (() => {
+            const foundItem = productItems.find(i => i.id === previewProductId);
+            if (!foundItem) return null;
+            return (
+              <ProductDetailView 
+                item={foundItem} 
+                onBack={() => setPreviewProductId(null)} 
+                onUpdate={updateProductItem} 
+              />
+            );
+          })()}
         </div>
       </main>
     </div>

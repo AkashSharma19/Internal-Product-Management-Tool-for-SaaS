@@ -14,11 +14,6 @@ import {
   Calendar,
   User,
   Flag,
-  Smile,
-  AtSign,
-  Paperclip,
-  Send,
-  CornerDownRight,
   CheckSquare,
   Star,
   Link,
@@ -364,6 +359,40 @@ const formatDateToUserPattern = (dateStr: string): string => {
   return dateStr;
 };
 
+const getDateSpanStyle = (dateStr: string | undefined, isCompleted: boolean | undefined) => {
+  if (!dateStr) return {};
+  if (isCompleted) {
+    return {
+      backgroundColor: 'rgba(16, 185, 129, 0.15)',
+      color: '#10b981',
+      fontWeight: 600,
+      padding: '2px 6px',
+      borderRadius: '4px',
+      display: 'inline-block'
+    };
+  }
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const parsed = parseDateToYYYYMMDD(dateStr);
+    if (parsed) {
+      const target = new Date(parsed);
+      target.setHours(0, 0, 0, 0);
+      if (target < today) {
+        return {
+          backgroundColor: 'var(--danger-bg)',
+          color: 'var(--danger)',
+          fontWeight: 600,
+          padding: '2px 6px',
+          borderRadius: '4px',
+          display: 'inline-block'
+        };
+      }
+    }
+  } catch (e) {}
+  return {};
+};
+
 const formatDateWithTimeToUserPattern = (dateStr: string): string => {
   if (!dateStr) return '';
   
@@ -460,23 +489,14 @@ const DateDiffBadge: React.FC<{ prevDate?: string; currentDate?: string }> = ({ 
 
 
 export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBack, onUpdate }) => {
-  const { speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, currentUser } = useDashboard();
+  const { speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask } = useDashboard();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const pocList = configSpeakers.map(s => s.name);
   const productList = productGroups.map(g => g.name);
   const productStatuses = configStatuses.filter(s => s.scope === 'product' || s.scope === 'all');
-  const [commentText, setCommentText] = useState('');
-  const [itemComments, setItemComments] = useState<Record<string, Array<{
-    id: string;
-    author: string;
-    initials: string;
-    color: string;
-    text: string;
-    time: string;
-    attachment?: { name: string; url: string };
-    isLog?: boolean;
-  }>>>({});
+  
+  
 
   // Timeline progress calculations
   const getProgressPercentage = () => {
@@ -557,12 +577,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     return colors[name] || '#6b7280';
   };
 
-  const getComments = () => {
-    if (itemComments[item.id]) {
-      return itemComments[item.id];
-    }
-    return [];
-  };
+  
 
   const handleFieldUpdate = (field: keyof ProductItem, newValue: any) => {
     const oldValue = item[field];
@@ -574,57 +589,6 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     } else {
       onUpdate(item.id, { [field]: newValue });
     }
-
-    // Fields display labels for logs
-    const fieldLabels: Record<string, string> = {
-      product: 'Product Group',
-      module: 'Module',
-      type: 'Type',
-      feature: 'Title',
-      status: 'Status',
-      productDeadline: 'Product Specs date',
-      uiux: 'UI/UX design date',
-      deadline: 'Dev deadline',
-      finalRelease: 'Final Release date',
-      taskLink: 'Task link',
-      poc: 'Assignee',
-      priority: 'Priority',
-      clickupStatus: 'ClickUp status',
-      blocker: 'Blocker',
-      tarunSirApproval: 'Tarun Sir verified status',
-      raisedByTarunSir: 'Raised by Tarun Sir status',
-      description: 'Description',
-      notes: 'Notes'
-    };
-
-    const label = fieldLabels[field] || String(field);
-    const formatValue = (val: any) => {
-      if (val === true) return 'Yes';
-      if (val === false) return 'No';
-      if (!val) return 'Empty';
-      return String(val);
-    };
-
-    const changeText = `changed ${label} from "${formatValue(oldValue)}" to "${formatValue(newValue)}"`;
-
-    const userAuthor = currentUser ? currentUser.name : 'Unknown User';
-    const userInitials = currentUser ? getInitials(currentUser.name) : 'UN';
-    const userColor = currentUser ? getAssigneeColor(currentUser.name) : '#6b7280';
-
-    const logItem = {
-      id: `log-${Date.now()}-${Math.random()}`,
-      author: userAuthor,
-      initials: userInitials,
-      color: userColor,
-      text: changeText,
-      time: 'Just now',
-      isLog: true
-    };
-
-    setItemComments(prev => ({
-      ...prev,
-      [item.id]: [...(prev[item.id] || []), logItem]
-    }));
   };
 
   const handleSyncClickup = async (taskLinkValue: string) => {
@@ -645,35 +609,11 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     }
   };
 
-  const handleAddComment = () => {
-    if (!commentText.trim()) return;
-    const userAuthor = currentUser ? currentUser.name : 'Unknown User';
-    const userInitials = currentUser ? getInitials(currentUser.name) : 'UN';
-    const userColor = currentUser ? getAssigneeColor(currentUser.name) : '#6b7280';
+  
 
-    const newComment = {
-      id: Date.now().toString(),
-      author: userAuthor,
-      initials: userInitials,
-      color: userColor,
-      text: commentText,
-      time: 'Just now'
-    };
-    setItemComments(prev => ({
-      ...prev,
-      [item.id]: [...(prev[item.id] || []), newComment]
-    }));
-    setCommentText('');
-  };
+  
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleAddComment();
-    }
-  };
-
-  const activeComments = getComments();
+  
 
   return (
     <div className="premium-workspace animate-fade-in" key={item.id}>
@@ -1385,106 +1325,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
       </div>
 
-      {/* Right Activity Pane (Comments & Logs) */}
-      <div className="premium-sidebar">
-        
-        {/* Activity Title */}
-        <div className="clickup-activity-header">
-          <h3>Activity</h3>
-        </div>
 
-        {/* Activity feed stream list */}
-        <div className="premium-timeline-stream">
-          <div className="premium-timeline-line" />
-          
-          {/* Render comments & logs (Static seed + dynamically added) */}
-          {activeComments.map(comment => {
-            if (comment.isLog) {
-              return (
-                <div className="premium-comment-wrapper animate-fade-in" key={comment.id}>
-                  <div className="premium-comment-avatar" style={{ backgroundColor: 'var(--border)', color: 'var(--text-secondary)' }}>
-                    ⚙️
-                  </div>
-                  <div style={{
-                    flex: 1,
-                    fontSize: '0.75rem',
-                    color: 'var(--text-secondary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    backgroundColor: 'var(--background-alt)',
-                    padding: '0.5rem 0.75rem',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border)'
-                  }}>
-                    <span>
-                      <strong style={{ color: 'var(--text-primary)' }}>{comment.author}</strong> {comment.text}
-                    </span>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{comment.time}</span>
-                  </div>
-                </div>
-              );
-            }
-            return (
-              <div className="premium-comment-wrapper animate-fade-in" key={comment.id}>
-                <div className="premium-comment-avatar" style={{ backgroundColor: comment.color }}>
-                  {comment.initials}
-                </div>
-                <div className="premium-comment-card">
-                  <div className="premium-comment-header">
-                    <span className="premium-comment-author">{comment.author}</span>
-                    <span className="premium-comment-time">{comment.time}</span>
-                  </div>
-                  <div className="premium-comment-text">
-                    {comment.text}
-                  </div>
-                  {comment.attachment && (
-                    <a className="premium-comment-attachment" href={comment.attachment.url} target="_blank" rel="noreferrer">
-                      <CornerDownRight size={11} /> {comment.attachment.name}
-                    </a>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-
-        </div>
-
-        {/* Comment Editor Box */}
-        <div className="premium-comment-editor">
-          <textarea
-            className="premium-editor-textarea"
-            placeholder="Write a comment..."
-            value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
-            onKeyDown={handleKeyPress}
-          />
-          <div className="premium-editor-actions">
-            <div className="premium-editor-tools">
-              <button className="premium-editor-tool-btn" title="Add Emoji"><Smile size={14} /></button>
-              <button className="premium-editor-tool-btn" title="Mention someone"><AtSign size={14} /></button>
-              <button className="premium-editor-tool-btn" title="Attach files"><Paperclip size={14} /></button>
-            </div>
-            <button
-              className="btn btn-primary"
-              style={{
-                padding: '4px 12px',
-                fontSize: '0.75rem',
-                borderRadius: '6px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                height: '24px'
-              }}
-              onClick={handleAddComment}
-              disabled={!commentText.trim()}
-            >
-              Send <Send size={10} />
-            </button>
-          </div>
-        </div>
-
-      </div>
     </div>
   );
 };
@@ -1854,14 +1695,7 @@ export const ProductTable: React.FC = () => {
                   </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                     {item.productDeadline ? (
-                      <span style={item.productDeadlineCompleted ? {
-                        backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                        color: '#10b981',
-                        fontWeight: 600,
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        display: 'inline-block'
-                      } : {}}>
+                      <span style={getDateSpanStyle(item.productDeadline, item.productDeadlineCompleted)}>
                         {formatDateToUserPattern(item.productDeadline)}
                       </span>
                     ) : '—'}
@@ -1869,14 +1703,7 @@ export const ProductTable: React.FC = () => {
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                     <DateDiffBadge prevDate={item.productDeadline} currentDate={item.uiux} />
                     {item.uiux ? (
-                      <span style={item.uiuxCompleted ? {
-                        backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                        color: '#10b981',
-                        fontWeight: 600,
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        display: 'inline-block'
-                      } : {}}>
+                      <span style={getDateSpanStyle(item.uiux, item.uiuxCompleted)}>
                         {formatDateToUserPattern(item.uiux)}
                       </span>
                     ) : '—'}
@@ -1884,14 +1711,7 @@ export const ProductTable: React.FC = () => {
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                     <DateDiffBadge prevDate={item.uiux} currentDate={item.deadline} />
                     {item.deadline ? (
-                      <span style={item.deadlineCompleted ? {
-                        backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                        color: '#10b981',
-                        fontWeight: 600,
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        display: 'inline-block'
-                      } : {}}>
+                      <span style={getDateSpanStyle(item.deadline, item.deadlineCompleted)}>
                         {formatDateToUserPattern(item.deadline)}
                       </span>
                     ) : '—'}
@@ -1899,14 +1719,7 @@ export const ProductTable: React.FC = () => {
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                     <DateDiffBadge prevDate={item.deadline} currentDate={item.finalRelease} />
                     {item.finalRelease ? (
-                      <span style={item.finalReleaseCompleted ? {
-                        backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                        color: '#10b981',
-                        fontWeight: 600,
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        display: 'inline-block'
-                      } : {}}>
+                      <span style={getDateSpanStyle(item.finalRelease, item.finalReleaseCompleted)}>
                         {formatDateToUserPattern(item.finalRelease)}
                       </span>
                     ) : '—'}
@@ -2656,16 +2469,27 @@ export const PlanTable: React.FC = () => {
                             }}>{a.source}</span>
 
                             {/* Date label badge */}
-                            <span style={{
-                              background: 'var(--background)', color: 'var(--text-secondary)',
-                              border: '1px solid var(--border)',
-                              borderRadius: '10px', padding: '1px 6px',
-                              fontSize: '0.65rem', fontWeight: 600,
-                              display: 'inline-flex', alignItems: 'center', gap: '3px'
-                            }}>
-                              <Clock size={9} />
-                              {a.dateLabel}: {formatDateToUserPattern(a.date)}
-                            </span>
+                            {(() => {
+                              const dynamicStyle = getDateSpanStyle(a.date, isCompleted);
+                              const hasHighlight = Object.keys(dynamicStyle).length > 0;
+                              return (
+                                <span style={{
+                                  background: hasHighlight ? dynamicStyle.backgroundColor : 'var(--background)',
+                                  color: hasHighlight ? dynamicStyle.color : 'var(--text-secondary)',
+                                  border: hasHighlight ? 'none' : '1px solid var(--border)',
+                                  borderRadius: '10px',
+                                  padding: '1px 6px',
+                                  fontSize: '0.65rem',
+                                  fontWeight: 600,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px'
+                                }}>
+                                  <Clock size={9} />
+                                  {a.dateLabel}: {formatDateToUserPattern(a.date)}
+                                </span>
+                              );
+                            })()}
 
                             {/* Priority */}
                             {a.priority && (
@@ -3011,18 +2835,36 @@ export const StudentProjectsTable: React.FC = () => {
                       </span>
                     ) : '—'}
                   </td>
-                  <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{p.productDeadline ? formatDateToUserPattern(p.productDeadline) : '—'}</td>
+                  <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    {p.productDeadline ? (
+                      <span style={getDateSpanStyle(p.productDeadline, p.status === 'Delivered')}>
+                        {formatDateToUserPattern(p.productDeadline)}
+                      </span>
+                    ) : '—'}
+                  </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                     <DateDiffBadge prevDate={p.productDeadline} currentDate={p.uiux} />
-                    {p.uiux ? formatDateToUserPattern(p.uiux) : '—'}
+                    {p.uiux ? (
+                      <span style={getDateSpanStyle(p.uiux, p.status === 'Delivered')}>
+                        {formatDateToUserPattern(p.uiux)}
+                      </span>
+                    ) : '—'}
                   </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                     <DateDiffBadge prevDate={p.uiux} currentDate={p.completeInfoDate} />
-                    {p.completeInfoDate ? formatDateToUserPattern(p.completeInfoDate) : '—'}
+                    {p.completeInfoDate ? (
+                      <span style={getDateSpanStyle(p.completeInfoDate, p.status === 'Delivered')}>
+                        {formatDateToUserPattern(p.completeInfoDate)}
+                      </span>
+                    ) : '—'}
                   </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                     <DateDiffBadge prevDate={p.completeInfoDate} currentDate={p.finalRelease} />
-                    {p.finalRelease ? formatDateToUserPattern(p.finalRelease) : '—'}
+                    {p.finalRelease ? (
+                      <span style={getDateSpanStyle(p.finalRelease, p.status === 'Delivered')}>
+                        {formatDateToUserPattern(p.finalRelease)}
+                      </span>
+                    ) : '—'}
                   </td>
 
                   <td>
@@ -4197,14 +4039,7 @@ export const StudentMeetingsTable: React.FC = () => {
                                           </td>
                                           <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                                             {feat.productDeadline ? (
-                                              <span style={feat.productDeadlineCompleted ? {
-                                                backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                                                color: '#10b981',
-                                                fontWeight: 600,
-                                                padding: '2px 6px',
-                                                borderRadius: '4px',
-                                                display: 'inline-block'
-                                              } : {}}>
+                                              <span style={getDateSpanStyle(feat.productDeadline, feat.productDeadlineCompleted)}>
                                                 {formatDateToUserPattern(feat.productDeadline)}
                                               </span>
                                             ) : '—'}
@@ -4212,14 +4047,7 @@ export const StudentMeetingsTable: React.FC = () => {
                                           <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                                             <DateDiffBadge prevDate={feat.productDeadline} currentDate={feat.uiux} />
                                             {feat.uiux ? (
-                                              <span style={feat.uiuxCompleted ? {
-                                                backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                                                color: '#10b981',
-                                                fontWeight: 600,
-                                                padding: '2px 6px',
-                                                borderRadius: '4px',
-                                                display: 'inline-block'
-                                              } : {}}>
+                                              <span style={getDateSpanStyle(feat.uiux, feat.uiuxCompleted)}>
                                                 {formatDateToUserPattern(feat.uiux)}
                                               </span>
                                             ) : '—'}
@@ -4227,14 +4055,7 @@ export const StudentMeetingsTable: React.FC = () => {
                                           <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                                             <DateDiffBadge prevDate={feat.uiux} currentDate={feat.deadline} />
                                             {feat.deadline ? (
-                                              <span style={feat.deadlineCompleted ? {
-                                                backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                                                color: '#10b981',
-                                                fontWeight: 600,
-                                                padding: '2px 6px',
-                                                borderRadius: '4px',
-                                                display: 'inline-block'
-                                              } : {}}>
+                                              <span style={getDateSpanStyle(feat.deadline, feat.deadlineCompleted)}>
                                                 {formatDateToUserPattern(feat.deadline)}
                                               </span>
                                             ) : '—'}
@@ -4242,14 +4063,7 @@ export const StudentMeetingsTable: React.FC = () => {
                                           <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                                             <DateDiffBadge prevDate={feat.deadline} currentDate={feat.finalRelease} />
                                             {feat.finalRelease ? (
-                                              <span style={feat.finalReleaseCompleted ? {
-                                                backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                                                color: '#10b981',
-                                                fontWeight: 600,
-                                                padding: '2px 6px',
-                                                borderRadius: '4px',
-                                                display: 'inline-block'
-                                              } : {}}>
+                                              <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
                                                 {formatDateToUserPattern(feat.finalRelease)}
                                               </span>
                                             ) : '—'}
@@ -4763,14 +4577,7 @@ export const StudentMeetingsTable: React.FC = () => {
                       </td>
                        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                         {feat.productDeadline ? (
-                          <span style={feat.productDeadlineCompleted ? {
-                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                            color: '#10b981',
-                            fontWeight: 600,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            display: 'inline-block'
-                          } : {}}>
+                          <span style={getDateSpanStyle(feat.productDeadline, feat.productDeadlineCompleted)}>
                             {formatDateToUserPattern(feat.productDeadline)}
                           </span>
                         ) : '—'}
@@ -4778,14 +4585,7 @@ export const StudentMeetingsTable: React.FC = () => {
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                         <DateDiffBadge prevDate={feat.productDeadline} currentDate={feat.uiux} />
                         {feat.uiux ? (
-                          <span style={feat.uiuxCompleted ? {
-                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                            color: '#10b981',
-                            fontWeight: 600,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            display: 'inline-block'
-                          } : {}}>
+                          <span style={getDateSpanStyle(feat.uiux, feat.uiuxCompleted)}>
                             {formatDateToUserPattern(feat.uiux)}
                           </span>
                         ) : '—'}
@@ -4793,14 +4593,7 @@ export const StudentMeetingsTable: React.FC = () => {
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                         <DateDiffBadge prevDate={feat.uiux} currentDate={feat.deadline} />
                         {feat.deadline ? (
-                          <span style={feat.deadlineCompleted ? {
-                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                            color: '#10b981',
-                            fontWeight: 600,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            display: 'inline-block'
-                          } : {}}>
+                          <span style={getDateSpanStyle(feat.deadline, feat.deadlineCompleted)}>
                             {formatDateToUserPattern(feat.deadline)}
                           </span>
                         ) : '—'}
@@ -4808,14 +4601,7 @@ export const StudentMeetingsTable: React.FC = () => {
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                         <DateDiffBadge prevDate={feat.deadline} currentDate={feat.finalRelease} />
                         {feat.finalRelease ? (
-                          <span style={feat.finalReleaseCompleted ? {
-                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                            color: '#10b981',
-                            fontWeight: 600,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            display: 'inline-block'
-                          } : {}}>
+                          <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
                             {formatDateToUserPattern(feat.finalRelease)}
                           </span>
                         ) : '—'}
@@ -5653,14 +5439,7 @@ export const AdminCallsTable: React.FC = () => {
                                             </td>
                                             <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                                               {feat.productDeadline ? (
-                                                <span style={feat.productDeadlineCompleted ? {
-                                                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                                                  color: '#10b981',
-                                                  fontWeight: 600,
-                                                  padding: '2px 6px',
-                                                  borderRadius: '4px',
-                                                  display: 'inline-block'
-                                                } : {}}>
+                                                <span style={getDateSpanStyle(feat.productDeadline, feat.productDeadlineCompleted)}>
                                                   {formatDateToUserPattern(feat.productDeadline)}
                                                 </span>
                                               ) : '—'}
@@ -5668,14 +5447,7 @@ export const AdminCallsTable: React.FC = () => {
                                             <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                                               <DateDiffBadge prevDate={feat.productDeadline} currentDate={feat.uiux} />
                                               {feat.uiux ? (
-                                                <span style={feat.uiuxCompleted ? {
-                                                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                                                  color: '#10b981',
-                                                  fontWeight: 600,
-                                                  padding: '2px 6px',
-                                                  borderRadius: '4px',
-                                                  display: 'inline-block'
-                                                } : {}}>
+                                                <span style={getDateSpanStyle(feat.uiux, feat.uiuxCompleted)}>
                                                   {formatDateToUserPattern(feat.uiux)}
                                                 </span>
                                               ) : '—'}
@@ -5683,14 +5455,7 @@ export const AdminCallsTable: React.FC = () => {
                                             <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                                               <DateDiffBadge prevDate={feat.uiux} currentDate={feat.deadline} />
                                               {feat.deadline ? (
-                                                <span style={feat.deadlineCompleted ? {
-                                                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                                                  color: '#10b981',
-                                                  fontWeight: 600,
-                                                  padding: '2px 6px',
-                                                  borderRadius: '4px',
-                                                  display: 'inline-block'
-                                                } : {}}>
+                                                <span style={getDateSpanStyle(feat.deadline, feat.deadlineCompleted)}>
                                                   {formatDateToUserPattern(feat.deadline)}
                                                 </span>
                                               ) : '—'}
@@ -5698,14 +5463,7 @@ export const AdminCallsTable: React.FC = () => {
                                             <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                                               <DateDiffBadge prevDate={feat.deadline} currentDate={feat.finalRelease} />
                                               {feat.finalRelease ? (
-                                                <span style={feat.finalReleaseCompleted ? {
-                                                  backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                                                  color: '#10b981',
-                                                  fontWeight: 600,
-                                                  padding: '2px 6px',
-                                                  borderRadius: '4px',
-                                                  display: 'inline-block'
-                                                } : {}}>
+                                                <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
                                                   {formatDateToUserPattern(feat.finalRelease)}
                                                 </span>
                                               ) : '—'}
@@ -6076,14 +5834,7 @@ export const AdminCallsTable: React.FC = () => {
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                         {feat.productDeadline ? (
-                          <span style={feat.productDeadlineCompleted ? {
-                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                            color: '#10b981',
-                            fontWeight: 600,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            display: 'inline-block'
-                          } : {}}>
+                          <span style={getDateSpanStyle(feat.productDeadline, feat.productDeadlineCompleted)}>
                             {formatDateToUserPattern(feat.productDeadline)}
                           </span>
                         ) : '—'}
@@ -6091,14 +5842,7 @@ export const AdminCallsTable: React.FC = () => {
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                         <DateDiffBadge prevDate={feat.productDeadline} currentDate={feat.uiux} />
                         {feat.uiux ? (
-                          <span style={feat.uiuxCompleted ? {
-                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                            color: '#10b981',
-                            fontWeight: 600,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            display: 'inline-block'
-                          } : {}}>
+                          <span style={getDateSpanStyle(feat.uiux, feat.uiuxCompleted)}>
                             {formatDateToUserPattern(feat.uiux)}
                           </span>
                         ) : '—'}
@@ -6106,14 +5850,7 @@ export const AdminCallsTable: React.FC = () => {
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                         <DateDiffBadge prevDate={feat.uiux} currentDate={feat.deadline} />
                         {feat.deadline ? (
-                          <span style={feat.deadlineCompleted ? {
-                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                            color: '#10b981',
-                            fontWeight: 600,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            display: 'inline-block'
-                          } : {}}>
+                          <span style={getDateSpanStyle(feat.deadline, feat.deadlineCompleted)}>
                             {formatDateToUserPattern(feat.deadline)}
                           </span>
                         ) : '—'}
@@ -6121,14 +5858,7 @@ export const AdminCallsTable: React.FC = () => {
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                         <DateDiffBadge prevDate={feat.deadline} currentDate={feat.finalRelease} />
                         {feat.finalRelease ? (
-                          <span style={feat.finalReleaseCompleted ? {
-                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                            color: '#10b981',
-                            fontWeight: 600,
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            display: 'inline-block'
-                          } : {}}>
+                          <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
                             {formatDateToUserPattern(feat.finalRelease)}
                           </span>
                         ) : '—'}
@@ -6834,14 +6564,7 @@ export const ContentTable: React.FC = () => {
                       />
                     ) : (
                       item.productDeadline ? (
-                        <span style={item.productDeadlineCompleted ? {
-                          backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                          color: '#10b981',
-                          fontWeight: 600,
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          display: 'inline-block'
-                        } : {}}>
+                        <span style={getDateSpanStyle(item.productDeadline, item.productDeadlineCompleted)}>
                           {formatDateToUserPattern(item.productDeadline)}
                         </span>
                       ) : '—'
@@ -6892,14 +6615,7 @@ export const ContentTable: React.FC = () => {
                       />
                     ) : (
                       item.uiux ? (
-                        <span style={item.uiuxCompleted ? {
-                          backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                          color: '#10b981',
-                          fontWeight: 600,
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          display: 'inline-block'
-                        } : {}}>
+                        <span style={getDateSpanStyle(item.uiux, item.uiuxCompleted)}>
                           {formatDateToUserPattern(item.uiux)}
                         </span>
                       ) : '—'
@@ -6950,14 +6666,7 @@ export const ContentTable: React.FC = () => {
                       />
                     ) : (
                       item.deadline ? (
-                        <span style={item.deadlineCompleted ? {
-                          backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                          color: '#10b981',
-                          fontWeight: 600,
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          display: 'inline-block'
-                        } : {}}>
+                        <span style={getDateSpanStyle(item.deadline, item.deadlineCompleted)}>
                           {formatDateToUserPattern(item.deadline)}
                         </span>
                       ) : '—'
@@ -7008,14 +6717,7 @@ export const ContentTable: React.FC = () => {
                       />
                     ) : (
                       item.finalRelease ? (
-                        <span style={item.finalReleaseCompleted ? {
-                          backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                          color: '#10b981',
-                          fontWeight: 600,
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          display: 'inline-block'
-                        } : {}}>
+                        <span style={getDateSpanStyle(item.finalRelease, item.finalReleaseCompleted)}>
                           {formatDateToUserPattern(item.finalRelease)}
                         </span>
                       ) : '—'
@@ -7572,14 +7274,7 @@ export const ProductWiseSheet: React.FC = () => {
                         </td>
                         <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                           {item.productDeadline ? (
-                            <span style={item.productDeadlineCompleted ? {
-                              backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                              color: '#10b981',
-                              fontWeight: 600,
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              display: 'inline-block'
-                            } : {}}>
+                            <span style={getDateSpanStyle(item.productDeadline, item.productDeadlineCompleted)}>
                               {formatDateToUserPattern(item.productDeadline)}
                             </span>
                           ) : '—'}
@@ -7587,14 +7282,7 @@ export const ProductWiseSheet: React.FC = () => {
                         <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                           <DateDiffBadge prevDate={item.productDeadline} currentDate={item.uiux} />
                           {item.uiux ? (
-                            <span style={item.uiuxCompleted ? {
-                              backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                              color: '#10b981',
-                              fontWeight: 600,
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              display: 'inline-block'
-                            } : {}}>
+                            <span style={getDateSpanStyle(item.uiux, item.uiuxCompleted)}>
                               {formatDateToUserPattern(item.uiux)}
                             </span>
                           ) : '—'}
@@ -7602,14 +7290,7 @@ export const ProductWiseSheet: React.FC = () => {
                         <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                           <DateDiffBadge prevDate={item.uiux} currentDate={item.deadline} />
                           {item.deadline ? (
-                            <span style={item.deadlineCompleted ? {
-                              backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                              color: '#10b981',
-                              fontWeight: 600,
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              display: 'inline-block'
-                            } : {}}>
+                            <span style={getDateSpanStyle(item.deadline, item.deadlineCompleted)}>
                               {formatDateToUserPattern(item.deadline)}
                             </span>
                           ) : '—'}
@@ -7617,14 +7298,7 @@ export const ProductWiseSheet: React.FC = () => {
                         <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                           <DateDiffBadge prevDate={item.deadline} currentDate={item.finalRelease} />
                           {item.finalRelease ? (
-                            <span style={item.finalReleaseCompleted ? {
-                              backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                              color: '#10b981',
-                              fontWeight: 600,
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              display: 'inline-block'
-                            } : {}}>
+                            <span style={getDateSpanStyle(item.finalRelease, item.finalReleaseCompleted)}>
                               {formatDateToUserPattern(item.finalRelease)}
                             </span>
                           ) : '—'}
@@ -7897,14 +7571,7 @@ export const IssuesTable: React.FC = () => {
         {previousField && <DateDiffBadge prevDate={String(item[previousField] || '')} currentDate={value} />}
         <span
           onClick={(e) => { e.stopPropagation(); startCellEdit(item, field); }}
-          style={value && completed ? {
-            backgroundColor: 'rgba(16, 185, 129, 0.15)',
-            color: '#10b981',
-            fontWeight: 600,
-            padding: '2px 6px',
-            borderRadius: '4px',
-            display: 'inline-block'
-          } : {}}
+          style={getDateSpanStyle(value, completed)}
         >
           {value ? formatDateToUserPattern(value) : '—'}
         </span>

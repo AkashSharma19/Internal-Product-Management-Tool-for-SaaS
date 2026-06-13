@@ -164,10 +164,55 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Active Tab state
   const [activeTab, setActiveTab] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    const validTabs = ['product', 'plan', 'projects', 'meetings', 'admin', 'content', 'product-wise', 'issues', 'adoption', 'config'];
+    if (tabParam && validTabs.includes(tabParam)) {
+      return tabParam;
+    }
     return localStorage.getItem('active-tab') || 'product';
   });
 
-  const [previewProductId, setPreviewProductId] = useState<string | null>(null);
+  const [previewProductId, setPreviewProductId] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('task');
+  });
+
+  // Sync state changes to browser URL search parameters
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const currentTab = url.searchParams.get('tab');
+    const currentTask = url.searchParams.get('task');
+
+    if (currentTab !== activeTab || currentTask !== previewProductId) {
+      url.searchParams.set('tab', activeTab);
+      if (previewProductId) {
+        url.searchParams.set('task', previewProductId);
+      } else {
+        url.searchParams.delete('task');
+      }
+      window.history.pushState({}, '', url.pathname + url.search + url.hash);
+      localStorage.setItem('active-tab', activeTab);
+    }
+  }, [activeTab, previewProductId]);
+
+  // Handle browser back/forward history navigation (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      const taskParam = params.get('task');
+
+      const validTabs = ['product', 'plan', 'projects', 'meetings', 'admin', 'content', 'product-wise', 'issues', 'adoption', 'config'];
+      if (tabParam && validTabs.includes(tabParam)) {
+        setActiveTab(tabParam);
+      }
+      setPreviewProductId(taskParam);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const openPreviewForFeature = (featureName: string, fallbackData?: Partial<ProductItem>) => {
     if (!featureName) return;
