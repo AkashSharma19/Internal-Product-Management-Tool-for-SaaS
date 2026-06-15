@@ -244,16 +244,14 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (match) {
       if (fallbackData) {
         // Synchronize the existing match with the latest fallback data
-        let productStatus: 'On Hold' | 'In Progress' | 'Ongoing' | 'Completed' | '' = '';
-        const statusLower = String(fallbackData.status || '').toLowerCase();
-        if (statusLower === 'done' || statusLower === 'closed' || statusLower === 'tested' || statusLower === 'completed' || statusLower === 'delivered') {
+        let productStatus = fallbackData.status || '';
+        const statusLower = productStatus.toLowerCase();
+        if (statusLower === 'delivered' || statusLower === 'completed') {
           productStatus = 'Completed';
-        } else if (statusLower === 'on hold' || statusLower === 'cancelled') {
+        } else if (statusLower === 'cancelled' || statusLower === 'on hold') {
           productStatus = 'On Hold';
-        } else if (statusLower === 'in progress' || statusLower === 'in-progress') {
+        } else if (statusLower === 'in-progress' || statusLower === 'in progress') {
           productStatus = 'In Progress';
-        } else if (statusLower === 'ongoing') {
-          productStatus = 'Ongoing';
         }
 
         setProductItems(prev => prev.map(item => {
@@ -265,7 +263,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               raisedByTarunSir: fallbackData.raisedByTarunSir !== undefined ? fallbackData.raisedByTarunSir : item.raisedByTarunSir,
               priority: (fallbackData.priority as any) !== undefined ? fallbackData.priority : item.priority,
               poc: fallbackData.poc !== undefined ? fallbackData.poc : item.poc,
-              status: productStatus || item.status,
+              status: (productStatus || item.status) as any,
               clickupStatus: fallbackData.clickupStatus !== undefined ? fallbackData.clickupStatus : item.clickupStatus,
               taskLink: fallbackData.taskLink !== undefined ? fallbackData.taskLink : item.taskLink,
               blocker: fallbackData.blocker !== undefined ? fallbackData.blocker : item.blocker,
@@ -285,16 +283,14 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setPreviewProductId(match.id);
     } else {
       // Map statuses from other task types to ProductItem statuses
-      let productStatus: 'On Hold' | 'In Progress' | 'Ongoing' | 'Completed' | '' = '';
-      const statusLower = String(fallbackData?.status || '').toLowerCase();
-      if (statusLower === 'done' || statusLower === 'closed' || statusLower === 'tested' || statusLower === 'completed' || statusLower === 'delivered') {
+      let productStatus = fallbackData?.status || '';
+      const statusLower = productStatus.toLowerCase();
+      if (statusLower === 'delivered' || statusLower === 'completed') {
         productStatus = 'Completed';
-      } else if (statusLower === 'on hold' || statusLower === 'cancelled') {
+      } else if (statusLower === 'cancelled' || statusLower === 'on hold') {
         productStatus = 'On Hold';
-      } else if (statusLower === 'in progress' || statusLower === 'in-progress') {
+      } else if (statusLower === 'in-progress' || statusLower === 'in progress') {
         productStatus = 'In Progress';
-      } else if (statusLower === 'ongoing') {
-        productStatus = 'Ongoing';
       }
 
       const tempId = fallbackData?.id ? `prod-temp-${fallbackData.id}` : `prod-temp-${Date.now()}`;
@@ -307,7 +303,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         raisedByTarunSir: fallbackData?.raisedByTarunSir || false,
         priority: (fallbackData?.priority as any) || '',
         poc: fallbackData?.poc || '',
-        status: productStatus,
+        status: productStatus as any,
         clickupStatus: fallbackData?.clickupStatus || '',
         taskLink: fallbackData?.taskLink || '',
         blocker: fallbackData?.blocker || '',
@@ -625,7 +621,12 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               ...p,
               title: updatedItem.feature,
               description: updatedItem.description,
-              status: (updatedItem.status === 'Completed' || (updatedItem.status as string) === 'Delivered' ? 'Delivered' : updatedItem.status === 'On Hold' || (updatedItem.status as string) === 'Cancelled' ? 'Cancelled' : 'In-Progress') as any,
+              status: (
+                updatedItem.status === 'Completed' ? 'Delivered' :
+                updatedItem.status === 'On Hold' ? 'Cancelled' :
+                updatedItem.status === 'In Progress' ? 'In-Progress' :
+                updatedItem.status || ''
+              ) as any,
               blocker: updatedItem.blocker,
               completeInfoDate: updatedItem.deadline,
               priority: updatedItem.priority || undefined,
@@ -774,7 +775,12 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               description: updatedItem.description || p.description,
               priority: (updatedItem.priority as any) || p.priority,
               poc: updatedItem.poc || p.poc,
-              status: (updatedItem.status === 'Delivered' || (updatedItem.status as string) === 'Completed' ? 'Completed' : updatedItem.status === 'Cancelled' || (updatedItem.status as string) === 'On Hold' ? 'On Hold' : 'In Progress') as any,
+              status: (
+                updatedItem.status === 'Delivered' || (updatedItem.status as string) === 'Completed' ? 'Completed' :
+                updatedItem.status === 'Cancelled' || (updatedItem.status as string) === 'On Hold' ? 'On Hold' :
+                updatedItem.status === 'In-Progress' || (updatedItem.status as string) === 'In Progress' ? 'In Progress' :
+                updatedItem.status || ''
+              ) as any,
               clickupStatus: updatedItem.clickupStatus || p.clickupStatus,
               productDeadline: updatedItem.productDeadline || p.productDeadline,
               uiux: updatedItem.uiux || p.uiux,
@@ -817,6 +823,18 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const deleteAMASession = (id: string) => {
     setAMASessions(prev => prev.filter(item => item.id !== id));
     persistChange('delete', 'amaSessions', id, null);
+
+    setProductItems(prev => {
+      const itemsToDelete = prev.filter(item => 
+        item.id.startsWith('prod-ama-') && 
+        item.notes && 
+        item.notes.includes(`AMA Session ID: ${id}`)
+      );
+      itemsToDelete.forEach(item => {
+        persistChange('delete', 'products', item.id, null);
+      });
+      return prev.filter(item => !itemsToDelete.some(d => d.id === item.id));
+    });
   };
 
   const updateStudentMeeting = (id: string, updated: Partial<StudentMeeting>) => {
@@ -876,6 +894,18 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const deleteAdminCall = (id: string) => {
     setAdminCalls(prev => prev.filter(item => item.id !== id));
     persistChange('delete', 'adminCalls', id, null);
+
+    setProductItems(prev => {
+      const itemsToDelete = prev.filter(item => 
+        item.id.startsWith('prod-call-') && 
+        item.notes && 
+        item.notes.includes(`Admin Call ID: ${id}`)
+      );
+      itemsToDelete.forEach(item => {
+        persistChange('delete', 'products', item.id, null);
+      });
+      return prev.filter(item => !itemsToDelete.some(d => d.id === item.id));
+    });
   };
 
   const updateContentItem = (id: string, updated: Partial<ContentItem>) => {

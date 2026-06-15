@@ -44,7 +44,7 @@ const StudentProjectSchema = new Schema({
   title: { type: String, required: true },
   description: { type: String, default: "" },
   thingsWeBuild: { type: String, default: "" },
-  status: { type: String, default: "In-Progress" },
+  status: { type: String, default: "" },
   assigned: { type: String, default: "" },
   blocker: { type: String, default: "" },
   completeInfoDate: { type: String, default: "" },

@@ -40,7 +40,7 @@ export interface StudentProject {
   title: string;
   description: string;
   thingsWeBuild: string;
-  status: 'Delivered' | 'Cancelled' | 'In-Progress';
+  status: string;
   assigned: string; // date or name
   blocker: string;
   completeInfoDate: string;

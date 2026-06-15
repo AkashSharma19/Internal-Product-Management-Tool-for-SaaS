@@ -2,10 +2,40 @@ import React, { useState } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import { TabContainer } from './TabContainer';
 import { Video, PhoneCall } from 'lucide-react';
-import type { ProductItem, AMASession, AdminCall } from '../types';
+import type { AMASession, AdminCall } from '../types';
+
+const isSameStatus = (statusA?: string, statusB?: string): boolean => {
+  if (!statusA || !statusB) return (statusA || '').trim() === (statusB || '').trim();
+  const cleanA = statusA.toLowerCase().trim();
+  const cleanB = statusB.toLowerCase().trim();
+  if (cleanA === cleanB) return true;
+
+  const completedGroup = ['completed', 'delivered', 'done', 'closed', 'tested', 'used'];
+  const onHoldGroup = ['cancelled', 'canceled', 'on hold', 'not used'];
+  const inProgressGroup = ['in-progress', 'in progress', 'development', 'testing'];
+  const ongoingGroup = ['ongoing'];
+
+  if (completedGroup.includes(cleanA) && completedGroup.includes(cleanB)) return true;
+  if (onHoldGroup.includes(cleanA) && onHoldGroup.includes(cleanB)) return true;
+  if (inProgressGroup.includes(cleanA) && inProgressGroup.includes(cleanB)) return true;
+  if (ongoingGroup.includes(cleanA) && ongoingGroup.includes(cleanB)) return true;
+
+  return false;
+};
 
 export const DashboardOverview: React.FC = () => {
-  const { productItems, speakers, statuses: configStatuses, amaSessions, adminCalls, productGroups } = useDashboard();
+  const { 
+    productItems, 
+    speakers, 
+    statuses: configStatuses, 
+    amaSessions, 
+    adminCalls, 
+    productGroups,
+    studentProjects,
+    contentItems,
+    dailyIssues,
+    studentMeetings
+  } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
 
   // Date filter state
@@ -108,16 +138,132 @@ export const DashboardOverview: React.FC = () => {
     return true;
   };
 
-  // 2. Filter items just like ProductTable does, plus apply Date Range filter
-  const validItems = productItems.filter(item => {
-    if (item.id.startsWith('prod-temp-') ||
-        item.id.startsWith('prod-ama-') ||
-        item.id.startsWith('prod-call-') ||
-        item.id.startsWith('prod-breakdown-')) {
-      return false;
-    }
-    return isWithinDateRange(item.deadline || item.productDeadline || '');
-  });
+  // 2. Map and consolidate all tasks across different lists to avoid double-counting
+  const toProductStatus = (status?: string): string => {
+    if (!status) return '';
+    const cleanStatus = status.toLowerCase();
+    if (['completed', 'delivered', 'done', 'closed', 'tested', 'used'].includes(cleanStatus)) return 'Completed';
+    if (['cancelled', 'canceled', 'on hold', 'not used'].includes(cleanStatus)) return 'On Hold';
+    if (['in-progress', 'in progress', 'development', 'testing'].includes(cleanStatus)) return 'In Progress';
+    if (cleanStatus === 'ongoing') return 'Ongoing';
+    return status;
+  };
+
+  const mainProductTasks = productItems
+    .filter(item => {
+      if (item.id.startsWith('prod-temp-')) return false;
+      
+      // Filter out orphaned AMA features
+      if (item.id.startsWith('prod-ama-')) {
+        if (item.notes && item.notes.includes('AMA Session ID:')) {
+          const match = item.notes.match(/AMA Session ID:\s*([^\s,;\]]+)/);
+          if (match && match[1]) {
+            const parentExists = amaSessions.some(ama => ama.id === match[1]);
+            if (!parentExists) return false;
+          } else {
+            return false;
+          }
+        } else {
+          return false;
+        }
+      }
+      
+      // Filter out orphaned Admin Call features
+      if (item.id.startsWith('prod-call-')) {
+        if (item.notes && item.notes.includes('Admin Call ID:')) {
+          const match = item.notes.match(/Admin Call ID:\s*([^\s,;\]]+)/);
+          if (match && match[1]) {
+            const parentExists = adminCalls.some(call => call.id === match[1]);
+            if (!parentExists) return false;
+          } else {
+            return false;
+          }
+        } else {
+          return false;
+        }
+      }
+      
+      return true;
+    })
+    .map(item => ({
+      id: item.id,
+      poc: item.poc || '',
+      product: item.product || '',
+      status: toProductStatus(item.status),
+      clickupStatus: item.clickupStatus || '',
+      taskLink: item.taskLink || '',
+      date: item.deadline || item.productDeadline || '',
+      feature: item.feature || '',
+      description: item.description || '',
+      notes: item.notes || '',
+      module: item.module || ''
+    }));
+
+  const projectTasks = studentProjects.map(item => ({
+    id: item.id,
+    poc: item.poc || '',
+    product: item.product || '',
+    status: toProductStatus(item.status),
+    clickupStatus: item.clickupStatus || '',
+    taskLink: item.taskLink || '',
+    date: item.deadline || item.productDeadline || item.completeInfoDate || '',
+    feature: item.title || '',
+    description: item.description || '',
+    notes: item.thingsWeBuild || '',
+    module: item.module || ''
+  }));
+
+  const contentTasks = contentItems.map(item => ({
+    id: item.id,
+    poc: item.poc || '',
+    product: item.product || '',
+    status: toProductStatus(item.status),
+    clickupStatus: item.clickupStatus || '',
+    taskLink: item.draftLink || '',
+    date: item.deadline || item.productDeadline || item.publishDate || '',
+    feature: item.module || '',
+    description: `Content topic: ${item.module}. Subject: ${item.subject || ''}. Type: ${item.type}.`,
+    notes: item.subject || '',
+    module: item.module || ''
+  }));
+
+  const issueTasks = dailyIssues.map(item => ({
+    id: item.id,
+    poc: item.poc || item.contact || '',
+    product: item.product || '',
+    status: toProductStatus(item.status),
+    clickupStatus: item.clickupStatus || '',
+    taskLink: item.taskLink || '',
+    date: item.deadline || item.productDeadline || '',
+    feature: item.module || `Issue #${item.id}`,
+    description: item.issues || '',
+    notes: item.notes || item.issues || '',
+    module: item.module || ''
+  }));
+
+  const meetingTasks = studentMeetings.map(item => ({
+    id: item.id,
+    poc: item.poc || '',
+    product: item.product || '',
+    status: toProductStatus(item.status),
+    clickupStatus: item.clickupStatus || '',
+    taskLink: item.taskLink || '',
+    date: item.deadline || item.productDeadline || item.date || '',
+    feature: item.cohort || '',
+    description: item.summary || '',
+    notes: item.notes || item.summary || '',
+    module: item.module || ''
+  }));
+
+  const allUnifiedTasks = [
+    ...mainProductTasks,
+    ...projectTasks,
+    ...contentTasks,
+    ...issueTasks,
+    ...meetingTasks
+  ];
+
+  const validItems = allUnifiedTasks.filter(item => isWithinDateRange(item.date));
 
   // Get active statuses for product scope
   const productStatuses = configStatuses.filter(s => s.scope === 'product' || s.scope === 'all');
@@ -168,15 +314,15 @@ export const DashboardOverview: React.FC = () => {
     const statusCounts: Record<string, number> = {};
     activeStatuses.forEach(status => {
       if (statusType === 'my') {
-        statusCounts[status.label] = pocItems.filter(item => item.status === status.label).length;
+        statusCounts[status.label] = pocItems.filter(item => isSameStatus(item.status, status.label)).length;
       } else {
-        statusCounts[status.label] = pocItems.filter(item => item.clickupStatus === status.label).length;
+        statusCounts[status.label] = pocItems.filter(item => isSameStatus(item.clickupStatus, status.label)).length;
       }
     });
 
     const noStatus = statusType === 'my'
-      ? pocItems.filter(item => !item.status || item.status.trim() === '').length
-      : pocItems.filter(item => !item.clickupStatus || item.clickupStatus.trim() === '').length;
+      ? pocItems.filter(item => !item.status || item.status.trim() === '' || !activeStatuses.some(status => isSameStatus(item.status, status.label))).length
+      : pocItems.filter(item => !item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(status => isSameStatus(item.clickupStatus, status.label))).length;
     const total = pocItems.length;
     const clickupCount = pocItems.filter(item => item.taskLink && item.taskLink.trim() !== '').length;
 
@@ -206,15 +352,15 @@ export const DashboardOverview: React.FC = () => {
   const overallStatusTotals: Record<string, number> = {};
   activeStatuses.forEach(status => {
     if (statusType === 'my') {
-      overallStatusTotals[status.label] = validItems.filter(item => item.status === status.label).length;
+      overallStatusTotals[status.label] = validItems.filter(item => isSameStatus(item.status, status.label)).length;
     } else {
-      overallStatusTotals[status.label] = validItems.filter(item => item.clickupStatus === status.label).length;
+      overallStatusTotals[status.label] = validItems.filter(item => isSameStatus(item.clickupStatus, status.label)).length;
     }
   });
 
   const overallNoStatus = statusType === 'my'
-    ? validItems.filter(item => !item.status || item.status.trim() === '').length
-    : validItems.filter(item => !item.clickupStatus || item.clickupStatus.trim() === '').length;
+    ? validItems.filter(item => !item.status || item.status.trim() === '' || !activeStatuses.some(status => isSameStatus(item.status, status.label))).length
+    : validItems.filter(item => !item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(status => isSameStatus(item.clickupStatus, status.label))).length;
   const clickupCoverage = overallTotal > 0 ? Math.round((overallClickup / overallTotal) * 100) : 0;
 
   // Helper styles matching user initials
@@ -252,15 +398,15 @@ export const DashboardOverview: React.FC = () => {
     const statusCounts: Record<string, number> = {};
     activeStatuses.forEach(status => {
       if (statusType === 'my') {
-        statusCounts[status.label] = prodItems.filter(item => item.status === status.label).length;
+        statusCounts[status.label] = prodItems.filter(item => isSameStatus(item.status, status.label)).length;
       } else {
-        statusCounts[status.label] = prodItems.filter(item => item.clickupStatus === status.label).length;
+        statusCounts[status.label] = prodItems.filter(item => isSameStatus(item.clickupStatus, status.label)).length;
       }
     });
 
     const noStatus = statusType === 'my'
-      ? prodItems.filter(item => !item.status || item.status.trim() === '').length
-      : prodItems.filter(item => !item.clickupStatus || item.clickupStatus.trim() === '').length;
+      ? prodItems.filter(item => !item.status || item.status.trim() === '' || !activeStatuses.some(status => isSameStatus(item.status, status.label))).length
+      : prodItems.filter(item => !item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(status => isSameStatus(item.clickupStatus, status.label))).length;
     const total = prodItems.length;
     const clickupCount = prodItems.filter(item => item.taskLink && item.taskLink.trim() !== '').length;
 
@@ -295,6 +441,12 @@ export const DashboardOverview: React.FC = () => {
     const cohortWords = clean(ama.cohort).split(/\s+/).filter(w => w.length > 2);
     const searchTerms = [...topicWords, ...cohortWords];
     const textMatches = validItems.filter(item => {
+      // Exclusive types:
+      // prod-call- belongs strictly to Admin Calls
+      if (item.id.startsWith('prod-call-')) return false;
+      // prod-ama- belongs strictly to its own AMA session ID
+      if (item.id.startsWith('prod-ama-')) return false;
+
       const productLower = (item.product || '').toLowerCase().trim();
       const moduleLower = (item.module || '').toLowerCase().trim();
       const notesLower = (item.notes || '').toLowerCase().trim();
@@ -337,6 +489,12 @@ export const DashboardOverview: React.FC = () => {
     const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ');
     const topicWords = clean(call.cohortTopic).split(/\s+/).filter(w => w.length > 3);
     const textMatches = validItems.filter(item => {
+      // Exclusive types:
+      // prod-ama- belongs strictly to AMA Sessions
+      if (item.id.startsWith('prod-ama-')) return false;
+      // prod-call- belongs strictly to its own Admin Call ID
+      if (item.id.startsWith('prod-call-')) return false;
+
       const notesLower = (item.notes || '').toLowerCase().trim();
       const moduleLower = (item.module || '').toLowerCase().trim();
       const featureLower = (item.feature || '').toLowerCase().trim();
@@ -361,7 +519,7 @@ export const DashboardOverview: React.FC = () => {
   };
 
   // Get all unique related features for filtered AMAs
-  const allAmaFeatures: ProductItem[] = [];
+  const allAmaFeatures: any[] = [];
   filteredAmaSessions.forEach(ama => {
     const feats = getAmaRelatedFeatures(ama);
     feats.forEach(f => {
@@ -372,7 +530,7 @@ export const DashboardOverview: React.FC = () => {
   });
 
   // Get all unique related features for filtered Admin Calls
-  const allAdminFeatures: ProductItem[] = [];
+  const allAdminFeatures: any[] = [];
   filteredAdminCalls.forEach(call => {
     const feats = getAdminCallRelatedFeatures(call);
     feats.forEach(f => {
@@ -997,8 +1155,8 @@ export const DashboardOverview: React.FC = () => {
                       
                       {activeStatuses.map(status => {
                         const count = statusType === 'my'
-                          ? row.features.filter(item => item.status === status.label).length
-                          : row.features.filter(item => item.clickupStatus === status.label).length;
+                          ? row.features.filter(item => isSameStatus(item.status, status.label)).length
+                          : row.features.filter(item => isSameStatus(item.clickupStatus, status.label)).length;
                         return (
                           <td key={status.id} style={{ textAlign: 'center', fontWeight: count > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
                             <span style={{ 
@@ -1013,21 +1171,21 @@ export const DashboardOverview: React.FC = () => {
 
                       <td style={{ textAlign: 'center', fontWeight: row.features.filter(item => {
                         const val = statusType === 'my' ? item.status : item.clickupStatus;
-                        return !val || val.trim() === '';
+                        return !val || val.trim() === '' || !activeStatuses.some(status => isSameStatus(val, status.label));
                       }).length > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
                         <span style={{ 
                           color: row.features.filter(item => {
                             const val = statusType === 'my' ? item.status : item.clickupStatus;
-                            return !val || val.trim() === '';
+                            return !val || val.trim() === '' || !activeStatuses.some(status => isSameStatus(val, status.label));
                           }).length > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
                           opacity: row.features.filter(item => {
                             const val = statusType === 'my' ? item.status : item.clickupStatus;
-                            return !val || val.trim() === '';
+                            return !val || val.trim() === '' || !activeStatuses.some(status => isSameStatus(val, status.label));
                           }).length > 0 ? 1 : 0.45 
                         }}>
                           {row.features.filter(item => {
                             const val = statusType === 'my' ? item.status : item.clickupStatus;
-                            return !val || val.trim() === '';
+                            return !val || val.trim() === '' || !activeStatuses.some(status => isSameStatus(val, status.label));
                           }).length}
                         </span>
                       </td>

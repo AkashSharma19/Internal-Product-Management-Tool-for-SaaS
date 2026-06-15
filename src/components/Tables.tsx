@@ -2605,7 +2605,7 @@ export const PlanTable: React.FC = () => {
 // ProjectDetailModal is deprecated in favor of unified ProductDetailView
 
 export const StudentProjectsTable: React.FC = () => {
-  const { studentProjects, updateStudentProject, addStudentProject, deleteStudentProject, openPreviewForFeature, statuses } = useDashboard();
+  const { studentProjects, updateStudentProject, addStudentProject, deleteStudentProject, openPreviewForFeature, statuses, productItems } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [inlineEditValue, setInlineEditValue] = useState('');
@@ -2616,6 +2616,12 @@ export const StudentProjectsTable: React.FC = () => {
   // Sorting state
   const [sortField, setSortField] = useState<keyof StudentProject | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
+
+  const isCompletedStatus = (status: string | undefined) => {
+    if (!status) return false;
+    const s = status.toLowerCase();
+    return s === 'delivered' || s === 'completed' || s === 'done' || s === 'closed';
+  };
 
   const studentStatuses = statuses.filter(s => s.scope === 'student' || s.scope === 'all').map(s => s.label);
   const statusOptions = studentStatuses.length > 0 ? studentStatuses : ['Delivered', 'Cancelled', 'In-Progress'];
@@ -2712,8 +2718,8 @@ export const StudentProjectsTable: React.FC = () => {
 
   const sorted = [...filtered];
   sorted.sort((a, b) => {
-    const aComp = a.status === 'Delivered' || (a.status as string) === 'Completed';
-    const bComp = b.status === 'Delivered' || (b.status as string) === 'Completed';
+    const aComp = isCompletedStatus(a.status);
+    const bComp = isCompletedStatus(b.status);
     if (aComp !== bComp) return aComp ? 1 : -1;
     if (sortField) {
       let valA = a[sortField];
@@ -2742,7 +2748,7 @@ export const StudentProjectsTable: React.FC = () => {
       title: '',
       description: '',
       thingsWeBuild: '',
-      status: 'In-Progress',
+      status: '',
       assigned: '',
       blocker: '',
       completeInfoDate: '',
@@ -2807,34 +2813,42 @@ export const StudentProjectsTable: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {sorted.map(p => (
-                <tr 
-                  key={p.id} 
-                  onClick={() => {
-                    if (editingProjectId !== p.id && p.title.trim()) {
-                      openPreviewForFeature(p.title, { 
-                        id: p.id,
-                        description: p.description, 
-                        status: (p.status === 'Delivered' || (p.status as string) === 'Completed') ? 'Completed' : (p.status === 'Cancelled' || (p.status as string) === 'On Hold') ? 'On Hold' : 'In Progress', 
-                        priority: p.priority || '',
-                        poc: p.poc || '',
-                        clickupStatus: p.clickupStatus || '',
-                        taskLink: p.taskLink || '',
-                        blocker: p.blocker || '',
-                        deadline: p.deadline || p.completeInfoDate || '',
-                        uiux: p.uiux || '',
-                        finalRelease: p.finalRelease || '',
-                        productDeadline: p.productDeadline || '',
-                        raisedByTarunSir: p.raisedByTarunSir || false,
-                        tarunSirApproval: p.tarunSirApproval || false,
-                        product: p.product || '',
-                        module: p.module || '',
-                        type: p.type || ''
-                      } as Partial<ProductItem>);
-                    }
-                  }} 
-                  style={{ cursor: 'pointer' }}
-                >
+              {sorted.map(p => {
+                const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+                const matchedProduct = productItems.find(item => {
+                  const cleanFeature = clean(item.feature);
+                  const cleanTitle = clean(p.title);
+                  return cleanFeature === cleanTitle || item.id === `prod-temp-${p.id}`;
+                });
+
+                return (
+                  <tr 
+                    key={p.id} 
+                    onClick={() => {
+                      if (editingProjectId !== p.id && p.title.trim()) {
+                        openPreviewForFeature(p.title, { 
+                          id: p.id,
+                          description: p.description, 
+                          status: p.status as any, 
+                          priority: p.priority || '',
+                          poc: p.poc || '',
+                          clickupStatus: p.clickupStatus || '',
+                          taskLink: p.taskLink || '',
+                          blocker: p.blocker || '',
+                          deadline: p.deadline || p.completeInfoDate || '',
+                          uiux: p.uiux || '',
+                          finalRelease: p.finalRelease || '',
+                          productDeadline: p.productDeadline || '',
+                          raisedByTarunSir: p.raisedByTarunSir || false,
+                          tarunSirApproval: p.tarunSirApproval || false,
+                          product: p.product || '',
+                          module: p.module || '',
+                          type: p.type || ''
+                        } as Partial<ProductItem>);
+                      }
+                    }} 
+                    style={{ cursor: 'pointer' }}
+                  >
                   <td className="sticky-col" style={{ fontWeight: 600, width: '280px', minWidth: '280px', maxWidth: '280px', whiteSpace: 'normal' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', width: '100%' }}>
                       {editingProjectId === p.id ? (
@@ -2918,7 +2932,7 @@ export const StudentProjectsTable: React.FC = () => {
                       }
                       return (
                         <span className={`badge ${
-                          (p.status === 'Delivered' || (p.status as string) === 'Completed') ? 'status-completed' :
+                          isCompletedStatus(p.status) ? 'status-completed' :
                           (p.status === 'Cancelled' || (p.status as string) === 'On Hold') ? 'status-hold' : 'status-progress'
                         }`}>
                           {p.status}
@@ -2931,7 +2945,7 @@ export const StudentProjectsTable: React.FC = () => {
                   </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                     {p.productDeadline ? (
-                      <span style={getDateSpanStyle(p.productDeadline, p.status === 'Delivered' || (p.status as string) === 'Completed')}>
+                      <span style={getDateSpanStyle(p.productDeadline, isCompletedStatus(p.status) || !!matchedProduct?.productDeadlineCompleted)}>
                         {formatDateToUserPattern(p.productDeadline)}
                       </span>
                     ) : '—'}
@@ -2939,7 +2953,7 @@ export const StudentProjectsTable: React.FC = () => {
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                     <DateDiffBadge prevDate={p.productDeadline} currentDate={p.uiux} />
                     {p.uiux ? (
-                      <span style={getDateSpanStyle(p.uiux, p.status === 'Delivered' || (p.status as string) === 'Completed')}>
+                      <span style={getDateSpanStyle(p.uiux, isCompletedStatus(p.status) || !!matchedProduct?.uiuxCompleted)}>
                         {formatDateToUserPattern(p.uiux)}
                       </span>
                     ) : '—'}
@@ -2947,7 +2961,7 @@ export const StudentProjectsTable: React.FC = () => {
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                     <DateDiffBadge prevDate={p.uiux} currentDate={p.deadline || p.completeInfoDate} />
                     {(p.deadline || p.completeInfoDate) ? (
-                      <span style={getDateSpanStyle(p.deadline || p.completeInfoDate, p.status === 'Delivered' || (p.status as string) === 'Completed')}>
+                      <span style={getDateSpanStyle(p.deadline || p.completeInfoDate, isCompletedStatus(p.status) || !!matchedProduct?.deadlineCompleted)}>
                         {formatDateToUserPattern(p.deadline || p.completeInfoDate)}
                       </span>
                     ) : '—'}
@@ -2955,7 +2969,7 @@ export const StudentProjectsTable: React.FC = () => {
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                     <DateDiffBadge prevDate={p.deadline || p.completeInfoDate} currentDate={p.finalRelease} />
                     {p.finalRelease ? (
-                      <span style={getDateSpanStyle(p.finalRelease, p.status === 'Delivered' || (p.status as string) === 'Completed')}>
+                      <span style={getDateSpanStyle(p.finalRelease, isCompletedStatus(p.status) || !!matchedProduct?.finalReleaseCompleted)}>
                         {formatDateToUserPattern(p.finalRelease)}
                       </span>
                     ) : '—'}
@@ -2975,7 +2989,8 @@ export const StudentProjectsTable: React.FC = () => {
                     </button>
                   </td>
                 </tr>
-              ))}
+              );
+            })}
             </tbody>
           </table>
         </div>
@@ -3350,6 +3365,12 @@ export const StudentMeetingsTable: React.FC = () => {
     if (item.id.startsWith('prod-temp-')) return false;
     // Admin Call features must never appear in the AMA Feedback tab
     if (item.id.startsWith('prod-call-')) return false;
+
+    // If it is a prod-ama- task, it must have an active parent AMA session
+    if (item.id.startsWith('prod-ama-')) {
+      const parent = getParentAma(item);
+      if (!parent) return false;
+    }
     
     const matchesSuperPriority = !filterSuperPriorityOnly || !!item.raisedByTarunSir;
     if (!matchesSuperPriority) return false;
@@ -3358,6 +3379,11 @@ export const StudentMeetingsTable: React.FC = () => {
 
     // Check if the item matches any AMA session
     const matchesAma = amaSessions.some(ama => {
+      // If it is a prod-ama- task, it must match the AMA Session ID exactly
+      if (item.id.startsWith('prod-ama-')) {
+        return item.notes && item.notes.includes(`AMA Session ID: ${ama.id}`);
+      }
+
       if (!ama.topic.trim() && !ama.cohort.trim()) return false;
       const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ');
       const topicWords = clean(ama.topic).split(/\s+/).filter(w => w.length > 3);
@@ -7212,52 +7238,54 @@ export const ProductWiseSheet: React.FC = () => {
       ) : (
         <>
           {/* Top Tabs & Search Toolbar */}
-          <div className="sheet-toolbar">
+          <div className="sheet-toolbar" style={{ borderBottom: products.length > 2 ? 'none' : '1px solid var(--border)' }}>
             <div className="toolbar-left" style={{ flex: 1, overflow: 'hidden', flexWrap: 'nowrap' }}>
               <h2 style={{ fontSize: '1.25rem', marginRight: '1.5rem', whiteSpace: 'nowrap' }}>Product Breakdown</h2>
               
-              {/* Product Tabs inline in toolbar-left */}
-              <div style={{ 
-                display: 'flex', 
-                gap: '1.25rem',
-                overflowX: 'auto',
-                whiteSpace: 'nowrap',
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
-                flex: 1,
-                alignSelf: 'stretch',
-                alignItems: 'center',
-                paddingTop: '2px'
-              }}>
-                {products.map((prod) => {
-                  const isActive = prod === activeProduct;
-                  return (
-                    <button
-                      key={prod}
-                      onClick={() => setActiveProductTab(prod)}
-                      style={{
-                        padding: '0.5rem 0.25rem',
-                        border: 'none',
-                        background: 'none',
-                        borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
-                        color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                        fontWeight: 600,
-                        fontSize: '0.875rem',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        outline: 'none',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        height: '100%',
-                        transform: 'translateY(1px)'
-                      }}
-                    >
-                      {prod}
-                    </button>
-                  );
-                })}
-              </div>
+              {/* Product Tabs inline in toolbar-left (only when <= 2 products) */}
+              {products.length <= 2 && (
+                <div style={{ 
+                  display: 'flex', 
+                  gap: '1.25rem',
+                  overflowX: 'auto',
+                  whiteSpace: 'nowrap',
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
+                  flex: 1,
+                  alignSelf: 'stretch',
+                  alignItems: 'center',
+                  paddingTop: '2px'
+                }}>
+                  {products.map((prod) => {
+                    const isActive = prod === activeProduct;
+                    return (
+                      <button
+                        key={prod}
+                        onClick={() => setActiveProductTab(prod)}
+                        style={{
+                          padding: '0.5rem 0.25rem',
+                          border: 'none',
+                          background: 'none',
+                          borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
+                          color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          fontWeight: 600,
+                          fontSize: '0.875rem',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          outline: 'none',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          height: '100%',
+                          transform: 'translateY(1px)'
+                        }}
+                      >
+                        {prod}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             
             <div className="toolbar-right" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexShrink: 0 }}>
@@ -7298,6 +7326,49 @@ export const ProductWiseSheet: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* Product Tabs on next line if > 2 products */}
+          {products.length > 2 && (
+            <div style={{
+              display: 'flex',
+              gap: '1.5rem',
+              overflowX: 'auto',
+              whiteSpace: 'nowrap',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              padding: '0 1.5rem 0.75rem 1.5rem',
+              borderBottom: '1px solid var(--border)',
+              backgroundColor: 'var(--panel-bg)',
+              alignItems: 'center'
+            }}>
+              {products.map((prod) => {
+                const isActive = prod === activeProduct;
+                return (
+                  <button
+                    key={prod}
+                    onClick={() => setActiveProductTab(prod)}
+                    style={{
+                      padding: '0.5rem 0.25rem',
+                      border: 'none',
+                      background: 'none',
+                      borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
+                      color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      fontWeight: 600,
+                      fontSize: '0.875rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      outline: 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    {prod}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Active Product Details Content - Full Canvas Table */}
           {activeProduct && (
