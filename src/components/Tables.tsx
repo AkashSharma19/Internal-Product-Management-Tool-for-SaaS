@@ -5394,33 +5394,11 @@ export const AdminCallsTable: React.FC = () => {
                               {/* Top Split: Discussion & Actions */}
                               <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                                 <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                  <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Discussion Minutes</label>
+                                  <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Attendees</label>
                                   <textarea
                                     value={call.discussion}
                                     onChange={(e) => updateAdminCall(call.id, { discussion: e.target.value })}
                                     placeholder="Enter discussion details..."
-                                    style={{
-                                      width: '100%',
-                                      height: '80px',
-                                      padding: '8px 10px',
-                                      backgroundColor: 'var(--background)',
-                                      border: '1px solid var(--border)',
-                                      borderRadius: '6px',
-                                      color: 'var(--text-primary)',
-                                      fontSize: '0.8rem',
-                                      fontFamily: 'inherit',
-                                      resize: 'vertical',
-                                      outline: 'none'
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                  />
-                                </div>
-                                <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                  <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Action Items / Assignments</label>
-                                  <textarea
-                                    value={call.actions}
-                                    onChange={(e) => updateAdminCall(call.id, { actions: e.target.value })}
-                                    placeholder="Enter action items..."
                                     style={{
                                       width: '100%',
                                       height: '80px',
