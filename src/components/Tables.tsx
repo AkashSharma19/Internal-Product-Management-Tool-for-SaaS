@@ -489,12 +489,18 @@ const DateDiffBadge: React.FC<{ prevDate?: string; currentDate?: string }> = ({ 
 
 
 export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBack, onUpdate }) => {
-  const { speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask } = useDashboard();
+  const { speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab } = useDashboard();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const pocList = configSpeakers.map(s => s.name);
   const productList = productGroups.map(g => g.name);
-  const productStatuses = configStatuses.filter(s => s.scope === 'product' || s.scope === 'all');
+
+  const statusScope = 
+    activeTab === 'projects' ? 'student' :
+    activeTab === 'content' ? 'content' :
+    (activeTab === 'meetings' || activeTab === 'admin') ? 'ama' : 'product';
+
+  const productStatuses = configStatuses.filter(s => s.scope === statusScope || s.scope === 'all');
   
   
 
@@ -1453,13 +1459,18 @@ export const ProductTable: React.FC = () => {
   });
 
   // Sort
-  if (sortField) {
-    filtered.sort((a, b) => {
+  filtered.sort((a, b) => {
+    const aComp = !!a.finalReleaseCompleted;
+    const bComp = !!b.finalReleaseCompleted;
+    if (aComp !== bComp) return aComp ? 1 : -1;
+    if (sortField) {
       const valA = String(a[sortField]).toLowerCase();
       const valB = String(b[sortField]).toLowerCase();
       return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-    });
-  }
+    }
+    return 0;
+  });
+
 
   const handleAddNew = () => {
     // Reset search query and sort to ensure the new row is visible at the top
@@ -1521,7 +1532,7 @@ export const ProductTable: React.FC = () => {
   return (
     <>
       <TabContainer
-        title="Product Priority Requests"
+        title="Priority Requests"
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onAddClick={handleAddNew}
@@ -1748,7 +1759,7 @@ export const ProductTable: React.FC = () => {
         isOpen={isImportOpen}
         onClose={() => setIsImportOpen(false)}
         onImport={handleImportCSV}
-        title="Product Priorities"
+        title="Priority Requests"
         headers={['Feature', 'Tarun Sir Approval (Yes/No)', 'Raised by Tarun Sir (Yes/No)', 'Priority (P0/P1/P2)', 'POC Name', 'Status (In Progress/On Hold)', 'Clickup Status', 'Task URL', 'Blockers', 'Deadline Date', 'Notes text', 'Product mapping', 'UIUX Date', 'Final Release Date', 'Product Deadline Date', 'Description']}
       />
     </>
@@ -2311,7 +2322,7 @@ export const PlanTable: React.FC = () => {
   return (
     <>
       <TabContainer
-        title="Next Month's Roadmap Planning"
+        title="Sprint Planning"
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onAddClick={handleAddNew}
@@ -2341,9 +2352,48 @@ export const PlanTable: React.FC = () => {
 
         <div className="kanban-board-container">
           {COLUMNS.map(col => {
+            const getAutoItemCompleted = (a: any) => {
+              const matchedProduct = findMatchingProductItem(a.title);
+              if (a.column === 'product') {
+                const isProductCompleted = matchedProduct
+                  ? (!!matchedProduct.productDeadlineCompleted || !!matchedProduct.tarunSirApproval || matchedProduct.status === 'Completed')
+                  : false;
+                return isProductCompleted || a.status === 'Completed' || a.status === 'Delivered';
+              } else if (a.column === 'design') {
+                const isUiuxCompleted = matchedProduct
+                  ? (!!matchedProduct.uiuxCompleted || matchedProduct.status === 'Completed')
+                  : false;
+                return isUiuxCompleted || a.status === 'Completed' || a.status === 'Delivered';
+              } else if (a.column === 'dev') {
+                const isDevCompleted = matchedProduct
+                  ? (!!matchedProduct.deadlineCompleted || matchedProduct.status === 'Completed' || matchedProduct.clickupStatus?.toLowerCase() === 'closed')
+                  : false;
+                return isDevCompleted || a.status === 'Completed' || a.status === 'Delivered';
+              }
+              return false;
+            };
+
             const manualColItems = filteredPlan.filter(item => col.statuses.includes(item.status));
             const autoColItems = filteredAuto.filter(a => a.column === col.id);
-            const totalCount = manualColItems.length + autoColItems.length;
+
+            const combinedItems = [
+              ...autoColItems.map(a => ({
+                type: 'auto' as const,
+                id: a.id,
+                isCompleted: getAutoItemCompleted(a),
+                data: a
+              })),
+              ...manualColItems.map(item => ({
+                type: 'manual' as const,
+                id: item.id,
+                isCompleted: !!item.completed,
+                data: item
+              }))
+            ];
+
+            combinedItems.sort((a, b) => (a.isCompleted ? 1 : 0) - (b.isCompleted ? 1 : 0));
+
+            const totalCount = combinedItems.length;
 
             return (
               <div
@@ -2362,179 +2412,164 @@ export const PlanTable: React.FC = () => {
                 </div>
 
                 <div className="kanban-column-body">
-                  {/* ── Auto-aggregated cards ── */}
-                  {autoColItems.map(a => {
-                    const clr = sourceColors[a.source] || { bg: 'var(--panel-bg)', color: 'var(--text-secondary)' };
-                    
-                    // Determine if the card is completed based on its column/milestone
-                    const matchedProduct = findMatchingProductItem(a.title);
-                    let isCompleted = false;
-                    if (a.column === 'product') {
-                      const isProductCompleted = matchedProduct
-                        ? (!!matchedProduct.productDeadlineCompleted || !!matchedProduct.tarunSirApproval || matchedProduct.status === 'Completed')
-                        : false;
-                      isCompleted = isProductCompleted || a.status === 'Completed' || a.status === 'Delivered';
-                    } else if (a.column === 'design') {
-                      const isUiuxCompleted = matchedProduct
-                        ? (!!matchedProduct.uiuxCompleted || matchedProduct.status === 'Completed')
-                        : false;
-                      isCompleted = isUiuxCompleted || a.status === 'Completed' || a.status === 'Delivered';
-                    } else if (a.column === 'dev') {
-                      const isDevCompleted = matchedProduct
-                        ? (!!matchedProduct.deadlineCompleted || matchedProduct.status === 'Completed' || matchedProduct.clickupStatus?.toLowerCase() === 'closed')
-                        : false;
-                      isCompleted = isDevCompleted || a.status === 'Completed' || a.status === 'Delivered';
-                    }
+                  {combinedItems.map(item => {
+                    if (item.type === 'auto') {
+                      const a = item.data;
+                      const clr = sourceColors[a.source] || { bg: 'var(--panel-bg)', color: 'var(--text-secondary)' };
+                      const isCompleted = item.isCompleted;
+                      const matchedProduct = findMatchingProductItem(a.title);
 
-                    return (
-                      <div
-                        key={a.id}
-                        className={`kanban-card ${isCompleted ? 'completed-card' : ''}`}
-                        style={{
-                          borderLeft: isCompleted ? undefined : `3px solid ${clr.color}`,
-                          cursor: 'pointer',
-                          opacity: 1
-                        }}
-                        onClick={() => openPreviewForFeature(a.title, {
-                          status: a.status as any,
-                          priority: a.priority as any,
-                          poc: a.poc,
-                        })}
-                      >
-                        <div className="kanban-card-title" style={{ fontSize: '0.8rem', lineHeight: 1.35 }}>
-                          {a.title}
-                        </div>
-                        <div className="kanban-card-footer" style={{ marginTop: '0.5rem' }}>
-                          <div className="kanban-card-tags" style={{ gap: '0.3rem', flexWrap: 'wrap' }}>
-                            {/* Source badge */}
-                            <span style={{
-                              background: clr.bg, color: clr.color,
-                              border: `1px solid ${clr.color}44`,
-                              borderRadius: '10px', padding: '1px 6px',
-                              fontSize: '0.65rem', fontWeight: 700
-                            }}>{a.source}</span>
-
-                            {/* Date label badge */}
-                            {(() => {
-                              const dynamicStyle = getDateSpanStyle(a.date, isCompleted);
-                              const hasHighlight = Object.keys(dynamicStyle).length > 0;
-                              return (
-                                <span style={{
-                                  background: hasHighlight ? dynamicStyle.backgroundColor : 'var(--background)',
-                                  color: hasHighlight ? dynamicStyle.color : 'var(--text-secondary)',
-                                  border: hasHighlight ? 'none' : '1px solid var(--border)',
-                                  borderRadius: '10px',
-                                  padding: '1px 6px',
-                                  fontSize: '0.65rem',
-                                  fontWeight: 600,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '3px'
-                                }}>
-                                  <Clock size={9} />
-                                  {a.dateLabel}: {formatDateToUserPattern(a.date)}
-                                </span>
-                              );
-                            })()}
-
-                            {/* Priority */}
-                            {a.priority && (
-                              <span className={`badge badge-${a.priority.toLowerCase()}`} style={{ fontSize: '0.6rem', padding: '1px 5px' }}>
-                                {a.priority}
-                              </span>
-                            )}
-
-                            {/* Super Priority */}
-                            {(a.rawItem?.raisedByTarunSir || matchedProduct?.raisedByTarunSir) && (
-                              <span className="badge-super-priority" style={{ fontSize: '0.6rem', padding: '1px 5px', gap: '2px', display: 'inline-flex', alignItems: 'center' }}>
-                                <Sparkles size={8} /> Super Priority
-                              </span>
-                            )}
+                      return (
+                        <div
+                          key={a.id}
+                          className={`kanban-card ${isCompleted ? 'completed-card' : ''}`}
+                          style={{
+                            borderLeft: isCompleted ? undefined : `3px solid ${clr.color}`,
+                            cursor: 'pointer',
+                            opacity: 1
+                          }}
+                          onClick={() => openPreviewForFeature(a.title, {
+                            status: a.status as any,
+                            priority: a.priority as any,
+                            poc: a.poc,
+                          })}
+                        >
+                          <div className="kanban-card-title" style={{ fontSize: '0.8rem', lineHeight: 1.35 }}>
+                            {a.title}
                           </div>
-                          {a.poc && (
-                            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-                              {a.poc}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                          <div className="kanban-card-footer" style={{ marginTop: '0.5rem' }}>
+                            <div className="kanban-card-tags" style={{ gap: '0.3rem', flexWrap: 'wrap' }}>
+                              {/* Source badge */}
+                              <span style={{
+                                background: clr.bg, color: clr.color,
+                                border: `1px solid ${clr.color}44`,
+                                borderRadius: '10px', padding: '1px 6px',
+                                fontSize: '0.65rem', fontWeight: 700
+                              }}>{a.source}</span>
 
-                  {/* ── Manual plan task cards ── */}
-                  {manualColItems.map(item => (
-                    <div
-                      key={item.id}
-                      className={`kanban-card ${item.completed ? 'completed-card' : ''}`}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, item.id)}
-                      onClick={() => openPreviewForFeature(item.task, { status: item.status as any, clickupStatus: item.status, taskLink: item.link })}
-                    >
-                      <div className="kanban-card-title">{item.task}</div>
+                              {/* Date label badge */}
+                              {(() => {
+                                const dynamicStyle = getDateSpanStyle(a.date, isCompleted);
+                                const hasHighlight = Object.keys(dynamicStyle).length > 0;
+                                return (
+                                  <span style={{
+                                    background: hasHighlight ? dynamicStyle.backgroundColor : 'var(--background)',
+                                    color: hasHighlight ? dynamicStyle.color : 'var(--text-secondary)',
+                                    border: hasHighlight ? 'none' : '1px solid var(--border)',
+                                    borderRadius: '10px',
+                                    padding: '1px 6px',
+                                    fontSize: '0.65rem',
+                                    fontWeight: 600,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px'
+                                  }}>
+                                    <Clock size={9} />
+                                    {a.dateLabel}: {formatDateToUserPattern(a.date)}
+                                  </span>
+                                );
+                              })()}
 
-                      <div className="kanban-card-footer">
-                        <div className="kanban-card-tags">
-                          <span className={`kanban-badge-category ${item.category.toLowerCase().replace('/', '')}`}>
-                            {item.category}
-                          </span>
-                          <span className="kanban-badge-month">
-                            <Clock size={10} />
-                            {item.month}
-                          </span>
-                          {(() => {
-                            const matchedProduct = findMatchingProductItem(item.task);
-                            if (matchedProduct?.raisedByTarunSir) {
-                              return (
+                              {/* Priority */}
+                              {a.priority && (
+                                <span className={`badge badge-${a.priority.toLowerCase()}`} style={{ fontSize: '0.6rem', padding: '1px 5px' }}>
+                                  {a.priority}
+                                </span>
+                              )}
+
+                              {/* Super Priority */}
+                              {(a.rawItem?.raisedByTarunSir || matchedProduct?.raisedByTarunSir) && (
                                 <span className="badge-super-priority" style={{ fontSize: '0.6rem', padding: '1px 5px', gap: '2px', display: 'inline-flex', alignItems: 'center' }}>
                                   <Sparkles size={8} /> Super Priority
                                 </span>
-                              );
-                            }
-                            return null;
-                          })()}
+                              )}
+                            </div>
+                            {a.poc && (
+                              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                                {a.poc}
+                              </span>
+                            )}
+                          </div>
                         </div>
+                      );
+                    } else {
+                      const manualItem = item.data;
+                      const isCompleted = item.isCompleted;
+                      return (
+                        <div
+                          key={manualItem.id}
+                          className={`kanban-card ${isCompleted ? 'completed-card' : ''}`}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, manualItem.id)}
+                          onClick={() => openPreviewForFeature(manualItem.task, { status: manualItem.status as any, clickupStatus: manualItem.status, taskLink: manualItem.link })}
+                        >
+                          <div className="kanban-card-title">{manualItem.task}</div>
 
-                        <div className="kanban-card-actions" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            onClick={() => updatePlanItem(item.id, { completed: !item.completed })}
-                            className={`kanban-complete-btn ${item.completed ? 'active' : ''}`}
-                            style={{
-                              background: 'none', border: 'none', cursor: 'pointer',
-                              color: item.completed ? 'var(--success)' : 'var(--text-muted)',
-                              display: 'inline-flex', alignItems: 'center', padding: '2px',
-                              transition: 'color 0.2s'
-                            }}
-                            title={item.completed ? 'Mark Active' : 'Mark Completed'}
-                          >
-                            <CheckCircle size={12} />
-                          </button>
-                          {item.link && (
-                            <a
-                              href={item.link}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="clickup-action-link"
-                              style={{ padding: '2px', borderRadius: '4px' }}
-                              title="Open Reference Link"
-                            >
-                              <ExternalLink size={12} />
-                            </a>
-                          )}
-                          <button
-                            onClick={() => {
-                              if (window.confirm('Are you sure you want to delete this sprint task?')) {
-                                deletePlanItem(item.id);
-                              }
-                            }}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center', padding: '2px' }}
-                            title="Delete Task"
-                          >
-                            <Trash2 size={12} />
-                          </button>
+                          <div className="kanban-card-footer">
+                            <div className="kanban-card-tags">
+                              <span className={`kanban-badge-category ${manualItem.category.toLowerCase().replace('/', '')}`}>
+                                {manualItem.category}
+                              </span>
+                              <span className="kanban-badge-month">
+                                <Clock size={10} />
+                                {manualItem.month}
+                              </span>
+                              {(() => {
+                                const matchedProduct = findMatchingProductItem(manualItem.task);
+                                if (matchedProduct?.raisedByTarunSir) {
+                                  return (
+                                    <span className="badge-super-priority" style={{ fontSize: '0.6rem', padding: '1px 5px', gap: '2px', display: 'inline-flex', alignItems: 'center' }}>
+                                      <Sparkles size={8} /> Super Priority
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              })()}
+                            </div>
+
+                            <div className="kanban-card-actions" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={() => updatePlanItem(manualItem.id, { completed: !manualItem.completed })}
+                                className={`kanban-complete-btn ${isCompleted ? 'active' : ''}`}
+                                style={{
+                                  background: 'none', border: 'none', cursor: 'pointer',
+                                  color: isCompleted ? 'var(--success)' : 'var(--text-muted)',
+                                  display: 'inline-flex', alignItems: 'center', padding: '2px',
+                                  transition: 'color 0.2s'
+                                }}
+                                title={isCompleted ? 'Mark Active' : 'Mark Completed'}
+                              >
+                                <CheckCircle size={12} />
+                              </button>
+                              {manualItem.link && (
+                                <a
+                                  href={manualItem.link}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="clickup-action-link"
+                                  style={{ padding: '2px', borderRadius: '4px' }}
+                                  title="Open Reference Link"
+                                >
+                                  <ExternalLink size={12} />
+                                </a>
+                              )}
+                              <button
+                                onClick={() => {
+                                  if (window.confirm('Are you sure you want to delete this sprint task?')) {
+                                    deletePlanItem(manualItem.id);
+                                  }
+                                }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center', padding: '2px' }}
+                                title="Delete Task"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    }
+                  })}
 
                   {totalCount === 0 && (
                     <div style={{
@@ -2594,6 +2629,75 @@ export const StudentProjectsTable: React.FC = () => {
     }
   };
 
+  const [editingCell, setEditingCell] = useState<{ id: string; field: keyof StudentProject } | null>(null);
+  const [inlineCellValue, setInlineCellValue] = useState('');
+  const clickupInputRef = useRef<HTMLInputElement>(null);
+
+  const startCellEdit = (p: StudentProject, field: keyof StudentProject) => {
+    setEditingProjectId(null);
+    setInlineCellValue(String(p[field] || ''));
+    setEditingCell({ id: p.id, field });
+  };
+
+  const saveCellEdit = () => {
+    if (!editingCell) return;
+    updateStudentProject(editingCell.id, { [editingCell.field]: inlineCellValue } as Partial<StudentProject>);
+    setEditingCell(null);
+  };
+
+
+
+  const renderClickupStatusCell = (p: StudentProject) => {
+    const isEditing = editingCell?.id === p.id && editingCell.field === 'clickupStatus';
+    if (isEditing) {
+      return (
+        <input
+          autoFocus
+          ref={clickupInputRef}
+          type="text"
+          value={inlineCellValue}
+          onChange={(e) => setInlineCellValue(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              saveCellEdit();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              setEditingCell(null);
+            }
+          }}
+          onBlur={saveCellEdit}
+          style={{
+            width: '100%',
+            padding: '4px 6px',
+            backgroundColor: 'var(--background)',
+            border: '1.5px solid var(--primary)',
+            borderRadius: '6px',
+            color: 'var(--text-primary)',
+            fontSize: '0.8rem',
+            outline: 'none'
+          }}
+        />
+      );
+    }
+
+    const display = p.clickupStatus ? (
+      <span style={getClickupBadgeStyle(p.clickupStatus)}>
+        {p.clickupStatus}
+      </span>
+    ) : '—';
+
+    return (
+      <div 
+        onClick={(e) => { e.stopPropagation(); startCellEdit(p, 'clickupStatus'); }}
+        style={{ width: '100%', minHeight: '20px' }}
+      >
+        {display}
+      </div>
+    );
+  };
+
   const filtered = studentProjects.filter(p => {
     const matchesSuperPriority = !filterSuperPriorityOnly || !!p.raisedByTarunSir;
     if (!matchesSuperPriority) return false;
@@ -2607,8 +2711,11 @@ export const StudentProjectsTable: React.FC = () => {
   });
 
   const sorted = [...filtered];
-  if (sortField) {
-    sorted.sort((a, b) => {
+  sorted.sort((a, b) => {
+    const aComp = a.status === 'Delivered' || (a.status as string) === 'Completed';
+    const bComp = b.status === 'Delivered' || (b.status as string) === 'Completed';
+    if (aComp !== bComp) return aComp ? 1 : -1;
+    if (sortField) {
       let valA = a[sortField];
       let valB = b[sortField];
       if (valA === undefined || valA === null) valA = '';
@@ -2617,8 +2724,9 @@ export const StudentProjectsTable: React.FC = () => {
       const strA = String(valA).toLowerCase();
       const strB = String(valB).toLowerCase();
       return sortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
-    });
-  }
+    }
+    return 0;
+  });
 
   useEffect(() => {
     if (editingProjectId && editInputRef.current) {
@@ -2655,7 +2763,7 @@ export const StudentProjectsTable: React.FC = () => {
   return (
     <>
       <TabContainer
-        title="Student Projects Portfolio"
+        title="Student Projects"
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onAddClick={handleAddNew}
@@ -2707,10 +2815,10 @@ export const StudentProjectsTable: React.FC = () => {
                       openPreviewForFeature(p.title, { 
                         id: p.id,
                         description: p.description, 
-                        status: p.status === 'Delivered' ? 'Completed' : p.status === 'Cancelled' ? 'On Hold' : 'In Progress', 
-                        priority: p.priority || 'P2',
-                        poc: p.poc || 'Akash',
-                        clickupStatus: p.clickupStatus || 'open',
+                        status: (p.status === 'Delivered' || (p.status as string) === 'Completed') ? 'Completed' : (p.status === 'Cancelled' || (p.status as string) === 'On Hold') ? 'On Hold' : 'In Progress', 
+                        priority: p.priority || '',
+                        poc: p.poc || '',
+                        clickupStatus: p.clickupStatus || '',
                         taskLink: p.taskLink || '',
                         blocker: p.blocker || '',
                         deadline: p.deadline || p.completeInfoDate || '',
@@ -2719,7 +2827,7 @@ export const StudentProjectsTable: React.FC = () => {
                         productDeadline: p.productDeadline || '',
                         raisedByTarunSir: p.raisedByTarunSir || false,
                         tarunSirApproval: p.tarunSirApproval || false,
-                        product: p.product || 'Student Portal',
+                        product: p.product || '',
                         module: p.module || '',
                         type: p.type || ''
                       } as Partial<ProductItem>);
@@ -2793,25 +2901,37 @@ export const StudentProjectsTable: React.FC = () => {
                     ) : '—'}
                   </td>
                   <td>
-                    {p.status ? (
-                      <span className={`badge ${
-                        p.status === 'Delivered' ? 'status-completed' :
-                        p.status === 'Cancelled' ? 'status-hold' : 'status-progress'
-                      }`}>
-                        {p.status}
-                      </span>
-                    ) : '—'}
+                    {p.status ? (() => {
+                      const matched = statuses.find(s => s.label === p.status);
+                      if (matched) {
+                        return (
+                          <span className="badge" style={{
+                            backgroundColor: `${matched.color}14`,
+                            color: matched.color,
+                            borderColor: `${matched.color}33`,
+                            borderStyle: 'solid',
+                            borderWidth: '1px'
+                          }}>
+                            {p.status}
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className={`badge ${
+                          (p.status === 'Delivered' || (p.status as string) === 'Completed') ? 'status-completed' :
+                          (p.status === 'Cancelled' || (p.status as string) === 'On Hold') ? 'status-hold' : 'status-progress'
+                        }`}>
+                          {p.status}
+                        </span>
+                      );
+                    })() : '—'}
                   </td>
                   <td>
-                    {p.clickupStatus ? (
-                      <span style={getClickupBadgeStyle(p.clickupStatus)}>
-                        {p.clickupStatus}
-                      </span>
-                    ) : '—'}
+                    {renderClickupStatusCell(p)}
                   </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                     {p.productDeadline ? (
-                      <span style={getDateSpanStyle(p.productDeadline, p.status === 'Delivered')}>
+                      <span style={getDateSpanStyle(p.productDeadline, p.status === 'Delivered' || (p.status as string) === 'Completed')}>
                         {formatDateToUserPattern(p.productDeadline)}
                       </span>
                     ) : '—'}
@@ -2819,23 +2939,23 @@ export const StudentProjectsTable: React.FC = () => {
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                     <DateDiffBadge prevDate={p.productDeadline} currentDate={p.uiux} />
                     {p.uiux ? (
-                      <span style={getDateSpanStyle(p.uiux, p.status === 'Delivered')}>
+                      <span style={getDateSpanStyle(p.uiux, p.status === 'Delivered' || (p.status as string) === 'Completed')}>
                         {formatDateToUserPattern(p.uiux)}
                       </span>
                     ) : '—'}
                   </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                    <DateDiffBadge prevDate={p.uiux} currentDate={p.completeInfoDate} />
-                    {p.completeInfoDate ? (
-                      <span style={getDateSpanStyle(p.completeInfoDate, p.status === 'Delivered')}>
-                        {formatDateToUserPattern(p.completeInfoDate)}
+                    <DateDiffBadge prevDate={p.uiux} currentDate={p.deadline || p.completeInfoDate} />
+                    {(p.deadline || p.completeInfoDate) ? (
+                      <span style={getDateSpanStyle(p.deadline || p.completeInfoDate, p.status === 'Delivered' || (p.status as string) === 'Completed')}>
+                        {formatDateToUserPattern(p.deadline || p.completeInfoDate)}
                       </span>
                     ) : '—'}
                   </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                    <DateDiffBadge prevDate={p.completeInfoDate} currentDate={p.finalRelease} />
+                    <DateDiffBadge prevDate={p.deadline || p.completeInfoDate} currentDate={p.finalRelease} />
                     {p.finalRelease ? (
-                      <span style={getDateSpanStyle(p.finalRelease, p.status === 'Delivered')}>
+                      <span style={getDateSpanStyle(p.finalRelease, p.status === 'Delivered' || (p.status as string) === 'Completed')}>
                         {formatDateToUserPattern(p.finalRelease)}
                       </span>
                     ) : '—'}
@@ -3280,8 +3400,11 @@ export const StudentMeetingsTable: React.FC = () => {
   });
 
   const sortedAMASessions = [...filteredAMASessions];
-  if (amaSortField) {
-    sortedAMASessions.sort((a, b) => {
+  sortedAMASessions.sort((a, b) => {
+    const aComp = a.status === 'Completed';
+    const bComp = b.status === 'Completed';
+    if (aComp !== bComp) return aComp ? 1 : -1;
+    if (amaSortField) {
       let valA = a[amaSortField];
       let valB = b[amaSortField];
       if (valA === undefined || valA === null) valA = '';
@@ -3289,8 +3412,9 @@ export const StudentMeetingsTable: React.FC = () => {
       const strA = String(valA).toLowerCase();
       const strB = String(valB).toLowerCase();
       return amaSortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
-    });
-  }
+    }
+    return 0;
+  });
 
   const filteredFeedbackFeatures = productItems.filter(item => {
     if (item.id.startsWith('prod-temp-')) return false;
@@ -3346,8 +3470,11 @@ export const StudentMeetingsTable: React.FC = () => {
   });
 
   const sortedFeedbackFeatures = [...filteredFeedbackFeatures];
-  if (feedbackSortField) {
-    sortedFeedbackFeatures.sort((a, b) => {
+  sortedFeedbackFeatures.sort((a, b) => {
+    const aComp = !!a.finalReleaseCompleted;
+    const bComp = !!b.finalReleaseCompleted;
+    if (aComp !== bComp) return aComp ? 1 : -1;
+    if (feedbackSortField) {
       let valA: any = '';
       let valB: any = '';
       
@@ -3375,8 +3502,9 @@ export const StudentMeetingsTable: React.FC = () => {
       const strA = String(valA).toLowerCase();
       const strB = String(valB).toLowerCase();
       return feedbackSortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
-    });
-  }
+    }
+    return 0;
+  });
 
   const handleAddNew = () => {
     setSearchQuery('');
@@ -3400,7 +3528,7 @@ export const StudentMeetingsTable: React.FC = () => {
   return (
     <>
       <TabContainer
-        title="Student Meetings & AMA"
+        title="AMA & Meetings"
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onAddClick={subTab === 'schedule' ? handleAddNew : undefined}
@@ -4837,8 +4965,11 @@ export const AdminCallsTable: React.FC = () => {
   });
 
   const sortedCalls = [...filtered];
-  if (callSortField) {
-    sortedCalls.sort((a, b) => {
+  sortedCalls.sort((a, b) => {
+    const aComp = a.status === 'Completed';
+    const bComp = b.status === 'Completed';
+    if (aComp !== bComp) return aComp ? 1 : -1;
+    if (callSortField) {
       let valA = a[callSortField];
       let valB = b[callSortField];
       if (valA === undefined || valA === null) valA = '';
@@ -4846,8 +4977,9 @@ export const AdminCallsTable: React.FC = () => {
       const strA = String(valA).toLowerCase();
       const strB = String(valB).toLowerCase();
       return callSortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
-    });
-  }
+    }
+    return 0;
+  });
 
   const handleAddNew = () => {
     const newCall: AdminCall = {
@@ -4959,8 +5091,11 @@ export const AdminCallsTable: React.FC = () => {
   });
 
   const sortedFeedbackFeatures = [...filteredFeedbackFeatures];
-  if (feedbackSortField) {
-    sortedFeedbackFeatures.sort((a, b) => {
+  sortedFeedbackFeatures.sort((a, b) => {
+    const aComp = !!a.finalReleaseCompleted;
+    const bComp = !!b.finalReleaseCompleted;
+    if (aComp !== bComp) return aComp ? 1 : -1;
+    if (feedbackSortField) {
       let valA: any = '';
       let valB: any = '';
       
@@ -4985,13 +5120,14 @@ export const AdminCallsTable: React.FC = () => {
       const strA = String(valA).toLowerCase();
       const strB = String(valB).toLowerCase();
       return feedbackSortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
-    });
-  }
+    }
+    return 0;
+  });
 
   return (
     <>
       <TabContainer
-        title="Admin Calls Schedule"
+        title="Admin Calls"
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onAddClick={subTab === 'schedule' ? handleAddNew : undefined}
@@ -6225,6 +6361,9 @@ export const ContentTable: React.FC = () => {
   };
 
   const sorted = [...filtered].sort((a, b) => {
+    const aComp = !!a.finalReleaseCompleted;
+    const bComp = !!b.finalReleaseCompleted;
+    if (aComp !== bComp) return aComp ? 1 : -1;
     const aVal = a[sortField] || '';
     const bVal = b[sortField] || '';
     
@@ -6237,7 +6376,7 @@ export const ContentTable: React.FC = () => {
   return (
     <>
       <TabContainer
-        title="Content Management Pipeline"
+        title="Content Pipeline"
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onAddClick={handleAddNew}
@@ -6878,7 +7017,7 @@ export const ContentTable: React.FC = () => {
         isOpen={isImportOpen}
         onClose={() => setIsImportOpen(false)}
         onImport={handleImportCSV}
-        title="Content Management Pipeline"
+        title="Content Pipeline"
         headers={['Module / Topic Name', 'Product Group', 'Priority', 'POC Owner', 'Status', 'Clickup Status', 'Specs Date (YYYY-MM-DD)', 'UI/UX Date (YYYY-MM-DD)', 'Dev Date (YYYY-MM-DD)', 'Release Date (YYYY-MM-DD)']}
       />
     </>
@@ -6892,7 +7031,6 @@ export const ProductWiseSheet: React.FC = () => {
     contentItems,
     studentMeetings,
     dailyIssues,
-    featureAdoptions,
     addProductItem,
     updateProductItem,
     deleteProductItem,
@@ -6993,6 +7131,7 @@ export const ProductWiseSheet: React.FC = () => {
         uiux: item.uiux || '',
         finalRelease: item.finalRelease || '',
         productDeadline: item.productDeadline || '',
+        finalReleaseCompleted: item.status === 'Delivered',
         sourceLabel: 'Student Projects',
         sourceId: item.id,
         openPreview: () => openPreviewForFeature(item.title, item as unknown as Partial<ProductItem>),
@@ -7062,6 +7201,7 @@ export const ProductWiseSheet: React.FC = () => {
         uiux: item.uiux || '',
         finalRelease: item.finalRelease || '',
         productDeadline: item.productDeadline || '',
+        finalReleaseCompleted: item.status === 'Completed',
         sourceLabel: 'Student Meetings',
         sourceId: item.id,
         openPreview: () => openPreviewForFeature(item.module || item.cohort, item as unknown as Partial<ProductItem>),
@@ -7101,39 +7241,6 @@ export const ProductWiseSheet: React.FC = () => {
           module: item.module,
           notes: item.cohort,
           clickupStatus: item.type
-        }),
-        canDelete: false
-      })),
-    ...featureAdoptions
-      .filter(item => item.product === activeProduct)
-      .map(item => ({
-        id: `breakdown-adoption-${item.id}`,
-        feature: item.feature,
-        description: `Adoption: ${item.adoptionRate}%${item.cohort ? ` across ${item.cohort}` : ''}`,
-        tarunSirApproval: false,
-        raisedByTarunSir: false,
-        priority: '' as ProductItem['priority'],
-        poc: '',
-        status: toProductStatus(item.status || (item.adoptionRate > 0 ? 'Used' : 'Not Used')),
-        clickupStatus: item.status || `${item.adoptionRate}% adoption`,
-        taskLink: '',
-        blocker: '',
-        deadline: '',
-        notes: item.program || item.targetAudience || '',
-        product: item.product || '',
-        module: item.feature || '',
-        type: 'Feature Adoption',
-        uiux: '',
-        finalRelease: '',
-        productDeadline: item.launchDate || '',
-        sourceLabel: 'Adoption Metrics',
-        sourceId: item.id,
-        openPreview: () => openPreviewForFeature(item.feature, {
-          description: `Adoption: ${item.adoptionRate}%${item.cohort ? ` across ${item.cohort}` : ''}`,
-          product: item.product,
-          productDeadline: item.launchDate,
-          status: item.status as any,
-          notes: item.program || item.targetAudience || ''
         }),
         canDelete: false
       }))
@@ -7200,8 +7307,11 @@ export const ProductWiseSheet: React.FC = () => {
   });
 
   const sortedFeatures = [...filteredFeatures];
-  if (sortField) {
-    sortedFeatures.sort((a, b) => {
+  sortedFeatures.sort((a, b) => {
+    const aComp = !!a.finalReleaseCompleted;
+    const bComp = !!b.finalReleaseCompleted;
+    if (aComp !== bComp) return aComp ? 1 : -1;
+    if (sortField) {
       let valA = a[sortField];
       let valB = b[sortField];
       if (valA === undefined || valA === null) valA = '';
@@ -7209,8 +7319,9 @@ export const ProductWiseSheet: React.FC = () => {
       const strA = String(valA).toLowerCase();
       const strB = String(valB).toLowerCase();
       return sortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
-    });
-  }
+    }
+    return 0;
+  });
 
   return (
     <div className="full-canvas-workspace">
@@ -7562,13 +7673,17 @@ export const IssuesTable: React.FC = () => {
     return matchesSearch && matchesPriority && matchesStatus && matchesSuperPriority;
   });
 
-  if (sortField) {
-    filtered.sort((a, b) => {
+  filtered.sort((a, b) => {
+    const aComp = !!a.finalReleaseCompleted;
+    const bComp = !!b.finalReleaseCompleted;
+    if (aComp !== bComp) return aComp ? 1 : -1;
+    if (sortField) {
       const valA = String(a[sortField] || '').toLowerCase();
       const valB = String(b[sortField] || '').toLowerCase();
       return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-    });
-  }
+    }
+    return 0;
+  });
 
   const handleAddNew = () => {
     const newId = String(Math.max(...dailyIssues.map(i => parseInt(i.id) || 0), 0) + 1);
@@ -7757,7 +7872,7 @@ export const IssuesTable: React.FC = () => {
 
   return (
     <TabContainer
-      title="Daily Classroom Issues & Improvements Log"
+      title="Daily Issues Log"
       searchQuery={searchQuery}
       setSearchQuery={setSearchQuery}
       onAddClick={handleAddNew}
@@ -8168,7 +8283,7 @@ export const AdoptionTable: React.FC = () => {
   return (
     <>
       <TabContainer
-        title="Feature Launch & Adoption Metrics Tracker"
+        title="Adoption Tracker"
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onAddClick={handleAddNewClick}

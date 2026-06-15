@@ -165,9 +165,11 @@ const SpeakersSection: React.FC = () => {
   const { speakers, addSpeaker, updateSpeaker, deleteSpeaker } = useDashboard();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
   const [editRole, setEditRole] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [addName, setAddName] = useState('');
+  const [addEmail, setAddEmail] = useState('');
   const [addRole, setAddRole] = useState('');
   const [addPassword, setAddPassword] = useState('1234');
   const [showAdd, setShowAdd] = useState(false);
@@ -183,6 +185,7 @@ const SpeakersSection: React.FC = () => {
   const startEdit = (s: ConfigSpeaker) => {
     setEditingId(s.id);
     setEditName(s.name);
+    setEditEmail(s.email ?? '');
     setEditRole(s.role ?? '');
     setEditPassword(s.password ?? '1234');
   };
@@ -191,6 +194,7 @@ const SpeakersSection: React.FC = () => {
     if (!editName.trim() || !editingId) return;
     updateSpeaker(editingId, { 
       name: editName.trim(), 
+      email: editEmail.trim(), 
       role: editRole.trim(), 
       password: editPassword.trim() 
     });
@@ -202,10 +206,12 @@ const SpeakersSection: React.FC = () => {
     addSpeaker({ 
       id: `spk-${Date.now()}`, 
       name: addName.trim(), 
+      email: addEmail.trim(), 
       role: addRole.trim(),
       password: addPassword.trim() || '1234'
     });
     setAddName('');
+    setAddEmail('');
     setAddRole('');
     setAddPassword('1234');
     setShowAdd(false);
@@ -217,6 +223,7 @@ const SpeakersSection: React.FC = () => {
         <thead>
           <tr>
             <th style={th}>Name</th>
+            <th style={th}>Email</th>
             <th style={th}>Role / Title</th>
             <th style={{ ...th, width: 150 }}>Password</th>
             <th style={{ ...th, width: 72 }}>Actions</th>
@@ -233,6 +240,13 @@ const SpeakersSection: React.FC = () => {
                   ? <input autoFocus style={inputStyle} value={editName} onChange={e => setEditName(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingId(null); }} />
                   : <span style={{ fontWeight: 500 }}>{s.name}</span>}
+              </td>
+              <td style={td}>
+                {editingId === s.id
+                  ? <input style={inputStyle} value={editEmail} onChange={e => setEditEmail(e.target.value)}
+                      placeholder="Email address…"
+                      onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingId(null); }} />
+                  : <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>{s.email || '—'}</span>}
               </td>
               <td style={td}>
                 {editingId === s.id
@@ -302,6 +316,11 @@ const SpeakersSection: React.FC = () => {
               <td style={td}>
                 <input autoFocus style={inputStyle} value={addName} onChange={e => setAddName(e.target.value)}
                   placeholder="Speaker name…"
+                  onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setShowAdd(false); }} />
+              </td>
+              <td style={td}>
+                <input style={inputStyle} value={addEmail} onChange={e => setAddEmail(e.target.value)}
+                  placeholder="Email address…"
                   onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setShowAdd(false); }} />
               </td>
               <td style={td}>

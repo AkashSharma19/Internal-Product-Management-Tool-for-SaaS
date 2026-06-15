@@ -275,19 +275,39 @@ const DashboardContent: React.FC = () => {
     return name.slice(0, 2).toUpperCase();
   };
 
-  // Sidebar navigation mappings
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
-    { id: 'product', label: 'Priority Requests', icon: <Flame size={18} /> },
-    { id: 'plan', label: 'Sprint Planning', icon: <Calendar size={18} /> },
-    { id: 'projects', label: 'Student Projects', icon: <FolderGit size={18} /> },
-    { id: 'meetings', label: 'AMA & Meetings', icon: <Video size={18} /> },
-    { id: 'admin', label: 'Admin Calls', icon: <PhoneCall size={18} /> },
-    { id: 'content', label: 'Content Pipeline', icon: <BookOpen size={18} /> },
-    { id: 'product-wise', label: 'Product Breakdown', icon: <PieChart size={18} /> },
-    { id: 'issues', label: 'Daily Issues Log', icon: <AlertTriangle size={18} /> },
-    { id: 'adoption', label: 'Adoption Tracker', icon: <LineChart size={18} /> },
-    { id: 'config', label: 'Configuration', icon: <Settings size={18} /> },
+  // Sidebar navigation groups
+  const menuGroups = [
+    {
+      title: "Overview",
+      items: [
+        { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
+        { id: 'plan', label: 'Sprint Planning', icon: <Calendar size={18} /> },
+      ]
+    },
+    {
+      title: "Product Workspace",
+      items: [
+        { id: 'product', label: 'Priority Requests', icon: <Flame size={18} /> },
+        { id: 'product-wise', label: 'Product Breakdown', icon: <PieChart size={18} /> },
+        { id: 'adoption', label: 'Adoption Tracker', icon: <LineChart size={18} /> },
+      ]
+    },
+    {
+      title: "Operations & Logs",
+      items: [
+        { id: 'projects', label: 'Student Projects', icon: <FolderGit size={18} /> },
+        { id: 'meetings', label: 'AMA & Meetings', icon: <Video size={18} /> },
+        { id: 'admin', label: 'Admin Calls', icon: <PhoneCall size={18} /> },
+        { id: 'content', label: 'Content Pipeline', icon: <BookOpen size={18} /> },
+        { id: 'issues', label: 'Daily Issues Log', icon: <AlertTriangle size={18} /> },
+      ]
+    },
+    {
+      title: "System Settings",
+      items: [
+        { id: 'config', label: 'Configuration', icon: <Settings size={18} /> },
+      ]
+    }
   ];
 
   // Render active component
@@ -323,45 +343,18 @@ const DashboardContent: React.FC = () => {
   return (
     <div className="app-container">
       {/* Sidebar Navigation */}
-      <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
-        <div className="logo-section" style={{ display: 'flex', width: '100%', flexDirection: isCollapsed ? 'column' : 'row', justifyContent: isCollapsed ? 'center' : 'space-between', alignItems: 'center', gap: isCollapsed ? '0.75rem' : '0.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', overflow: 'hidden' }}>
-            <div className="logo-icon">IP</div>
-            {!isCollapsed && (
-              <div className="logo-text">
-                <p style={{ margin: 0, fontSize: '0.925rem', fontWeight: 800, letterSpacing: '-0.01em', textTransform: 'uppercase' }}>Internal Portal</p>
-                <p style={{ margin: 0, fontSize: '0.625rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', marginTop: '1px' }}>Operations Control</p>
-                
-                {/* Database Sync Status Badge */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '4px', fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                  <span style={{
-                    width: '6px', height: '6px', borderRadius: '50%',
-                    background: syncStatus === 'synced' ? '#10b981' : syncStatus === 'syncing' ? '#fbbf24' : '#ef4444',
-                    display: 'inline-block',
-                  }} />
-                  <span style={{ color: syncStatus === 'synced' ? 'var(--text-muted)' : syncStatus === 'syncing' ? '#fbbf24' : '#ef4444' }}>
-                    {syncStatus === 'synced' ? 'DB Connected' : syncStatus === 'syncing' ? 'Syncing...' : 'Sync Offline'}
-                  </span>
-                </div>
-
-                {/* Profile Badge inside Logo block */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', padding: '4px 8px', background: 'var(--surface-elevated)', border: '1px solid var(--border)', borderRadius: '12px' }}>
-                  <span style={{
-                    width: '18px', height: '18px', borderRadius: '50%',
-                    background: getAssigneeColor(currentUser.name),
-                    color: '#fff',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '0.55rem', fontWeight: 800
-                  }}>
-                    {getInitials(currentUser.name)}
-                  </span>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-primary)', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80px' }}>
-                    {currentUser.name}
-                  </span>
-                </div>
+      <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {/* Logo Section */}
+        <div className="logo-section" style={{ display: 'flex', width: '100%', justifyContent: isCollapsed ? 'center' : 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', padding: '0.5rem 0.25rem' }}>
+          {!isCollapsed && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden' }}>
+              <div className="logo-icon" style={{ flexShrink: 0 }}>IP</div>
+              <div className="logo-text" style={{ display: 'flex', flexDirection: 'column' }}>
+                <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800, letterSpacing: '-0.01em', textTransform: 'uppercase' }}>Internal Portal</p>
+                <p style={{ margin: 0, fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', marginTop: '1px' }}>Operations Control</p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
           <button 
             onClick={() => setIsCollapsed(!isCollapsed)} 
             style={{ 
@@ -381,73 +374,198 @@ const DashboardContent: React.FC = () => {
           </button>
         </div>
 
-        <nav className="menu-section animate-slide-in">
-          {!isCollapsed && <span className="menu-title">Main Workspaces</span>}
-          {navItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`menu-item ${activeTab === item.id ? 'active' : ''}`}
-              style={{ 
-                width: '100%', 
-                border: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: isCollapsed ? 'center' : 'flex-start',
-                gap: isCollapsed ? '0' : '0.75rem'
-              }}
-              title={isCollapsed ? item.label : undefined}
-            >
-              {item.icon}
-              {!isCollapsed && <span className="menu-item-text">{item.label}</span>}
-            </button>
+        {/* Grouped Sidebar Navigation */}
+        <nav className="menu-section animate-slide-in" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1, overflowY: 'auto', scrollbarWidth: 'none' }}>
+          {menuGroups.map((group, groupIdx) => (
+            <div key={group.title} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              {groupIdx > 0 && (
+                <div style={{ borderTop: '1px solid var(--border-light)', margin: '0.35rem 0.5rem', marginBottom: '0.5rem' }} />
+              )}
+              {group.items.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`menu-item ${activeTab === item.id ? 'active' : ''}`}
+                  style={{ 
+                    width: '100%', 
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: isCollapsed ? 'center' : 'flex-start',
+                    gap: isCollapsed ? '0' : '0.65rem',
+                    height: '35px',
+                    padding: '0.4rem 0.65rem',
+                    borderRadius: '8px',
+                    fontSize: '0.775rem'
+                  }}
+                  title={item.label}
+                >
+                  {item.icon}
+                  {!isCollapsed && <span className="menu-item-text">{item.label}</span>}
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
 
-        {/* Logout button at the footer of sidebar */}
-        <div style={{ marginTop: 'auto', padding: '1rem 0 0.5rem 0', borderTop: '1px solid var(--border-light)', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
-          {isCollapsed && (
-            <div style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '50%',
-              background: getAssigneeColor(currentUser.name),
-              color: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '0.75rem',
-              fontWeight: 800,
-              border: '1.5px solid var(--border-light)',
-              boxShadow: 'var(--shadow-sm)'
-            }} title={`Logged in as ${currentUser.name}`}>
-              {getInitials(currentUser.name)}
+        {/* Sidebar Footer */}
+        <div style={{ 
+          marginTop: 'auto', 
+          padding: '0.75rem 0.25rem 0.25rem 0.25rem', 
+          borderTop: '1px solid var(--border-light)', 
+          width: '100%', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '0.75rem' 
+        }}>
+          {!isCollapsed ? (
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              gap: '0.5rem',
+              padding: '0.25rem'
+            }}>
+              {/* User info left */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden' }}>
+                <div style={{
+                  width: '30px',
+                  height: '30px',
+                  borderRadius: '50%',
+                  background: getAssigneeColor(currentUser.name),
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  border: '1.5px solid var(--border-light)',
+                  boxShadow: 'var(--shadow-sm)',
+                  flexShrink: 0
+                }}>
+                  {getInitials(currentUser.name)}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  <span style={{ 
+                    fontSize: '0.775rem', 
+                    fontWeight: 700, 
+                    color: 'var(--text-primary)', 
+                    textTransform: 'capitalize', 
+                    overflow: 'hidden', 
+                    textOverflow: 'ellipsis', 
+                    whiteSpace: 'nowrap' 
+                  }}>
+                    {currentUser.name}
+                  </span>
+                  
+                  {/* Database Sync Status Badge */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '1px', fontSize: '0.625rem', fontWeight: 600 }}>
+                    <span 
+                      className={syncStatus === 'syncing' ? 'animate-sync-pulse' : ''}
+                      style={{
+                        width: '5px',
+                        height: '5px',
+                        borderRadius: '50%',
+                        background: syncStatus === 'synced' ? '#10b981' : syncStatus === 'syncing' ? '#fbbf24' : '#ef4444',
+                        display: 'inline-block',
+                        color: syncStatus === 'syncing' ? '#fbbf24' : 'inherit'
+                      }} 
+                    />
+                    <span style={{ color: syncStatus === 'synced' ? 'var(--text-muted)' : syncStatus === 'syncing' ? '#fbbf24' : '#ef4444' }}>
+                      {syncStatus === 'synced' ? 'Online' : syncStatus === 'syncing' ? 'Syncing...' : 'Offline'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Logout icon button */}
+              <button
+                onClick={logoutUser}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '6px',
+                  borderRadius: '6px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.08)';
+                  e.currentTarget.style.color = 'var(--danger)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = 'var(--text-muted)';
+                }}
+                title="Log Out"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          ) : (
+            /* Collapsed view footer */
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
+              <div style={{ position: 'relative' }}>
+                <div style={{
+                  width: '30px',
+                  height: '30px',
+                  borderRadius: '50%',
+                  background: getAssigneeColor(currentUser.name),
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  border: '1.5px solid var(--border-light)',
+                  boxShadow: 'var(--shadow-sm)'
+                }} title={`Logged in as ${currentUser.name} (${syncStatus === 'synced' ? 'Online' : syncStatus === 'syncing' ? 'Syncing...' : 'Offline'})`}>
+                  {getInitials(currentUser.name)}
+                </div>
+                <span 
+                  className={syncStatus === 'syncing' ? 'animate-sync-pulse' : ''}
+                  style={{
+                    position: 'absolute',
+                    bottom: '0',
+                    right: '0',
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    backgroundColor: syncStatus === 'synced' ? '#10b981' : syncStatus === 'syncing' ? '#fbbf24' : '#ef4444',
+                    border: '1.5px solid var(--panel-bg)',
+                    boxShadow: 'var(--shadow-sm)',
+                    color: syncStatus === 'syncing' ? '#fbbf24' : 'inherit'
+                  }}
+                />
+              </div>
+              <button
+                onClick={logoutUser}
+                style={{ 
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--danger)',
+                  padding: '6px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  background: 'transparent',
+                  transition: 'all 0.2s',
+                  width: '30px',
+                  height: '30px'
+                }}
+                title="Log Out"
+                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.08)'; }}
+                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+              >
+                <LogOut size={16} />
+              </button>
             </div>
           )}
-          <button
-            onClick={logoutUser}
-            className="menu-item"
-            style={{ 
-              width: '100%', 
-              border: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: isCollapsed ? 'center' : 'flex-start',
-              gap: isCollapsed ? '0' : '0.75rem',
-              color: 'var(--danger)',
-              padding: '8px 12px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              background: 'transparent',
-              transition: 'background-color 0.2s'
-            }}
-            title={isCollapsed ? "Log Out" : undefined}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.08)'; }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-          >
-            <LogOut size={18} />
-            {!isCollapsed && <span className="menu-item-text" style={{ fontWeight: 600 }}>Log Out</span>}
-          </button>
         </div>
       </aside>
 

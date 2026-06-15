@@ -388,18 +388,20 @@ export const DashboardOverview: React.FC = () => {
       icon: <Video size={14} style={{ color: 'var(--primary)' }} />,
       features: allAmaFeatures,
       clickupCount: allAmaFeatures.filter(item => item.taskLink && item.taskLink.trim() !== '').length,
+      callCount: filteredAmaSessions.length,
     },
     {
       category: 'Admin Meetings',
       icon: <PhoneCall size={14} style={{ color: 'var(--info)' }} />,
       features: allAdminFeatures,
       clickupCount: allAdminFeatures.filter(item => item.taskLink && item.taskLink.trim() !== '').length,
+      callCount: filteredAdminCalls.length,
     }
   ];
 
   return (
     <TabContainer
-      title="POC Task Summary & ClickUp Coverage"
+      title="Dashboard"
       searchQuery={searchQuery}
       setSearchQuery={setSearchQuery}
       searchPlaceholder="Search POC..."
@@ -540,7 +542,6 @@ export const DashboardOverview: React.FC = () => {
         }}>
           <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-light)' }}>
             <h4 style={{ fontSize: '1rem', color: 'var(--text-primary)', margin: 0 }}>POC Status & ClickUp Breakdown</h4>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.15rem 0 0 0' }}>Matrix summary of task allocations, status transitions, and ClickUp linking coverage per person.</p>
           </div>
           
           <div className="table-responsive" style={{ padding: '0 0.5rem', overflowX: 'auto', overflowY: 'visible', flex: 'none' }}>
@@ -735,7 +736,6 @@ export const DashboardOverview: React.FC = () => {
         }}>
           <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-light)' }}>
             <h4 style={{ fontSize: '1rem', color: 'var(--text-primary)', margin: 0 }}>Product Group Status & ClickUp Breakdown</h4>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.15rem 0 0 0' }}>Matrix summary of task allocations, status transitions, and ClickUp linking coverage per Product Group.</p>
           </div>
           
           <div className="table-responsive" style={{ padding: '0 0.5rem', overflowX: 'auto', overflowY: 'visible', flex: 'none' }}>
@@ -931,7 +931,6 @@ export const DashboardOverview: React.FC = () => {
         }}>
           <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-light)' }}>
             <h4 style={{ fontSize: '1rem', color: 'var(--text-primary)', margin: 0 }}>Meetings & AMA Sessions Summary</h4>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.15rem 0 0 0' }}>Summary of related features and status distribution for AMA Sessions and Admin Meetings.</p>
           </div>
           
           <div className="table-responsive" style={{ padding: '0 0.5rem', overflowX: 'auto', overflowY: 'visible', flex: 'none' }}>
@@ -991,7 +990,7 @@ export const DashboardOverview: React.FC = () => {
                             {row.icon}
                           </span>
                           <span style={{ color: 'var(--text-primary)' }}>
-                            {row.category}
+                            {row.category} <span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '0.85em', marginLeft: '4px' }}>({row.callCount} calls)</span>
                           </span>
                         </div>
                       </td>

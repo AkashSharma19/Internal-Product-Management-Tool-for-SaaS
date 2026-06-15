@@ -242,6 +242,46 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
 
     if (match) {
+      if (fallbackData) {
+        // Synchronize the existing match with the latest fallback data
+        let productStatus: 'On Hold' | 'In Progress' | 'Ongoing' | 'Completed' | '' = '';
+        const statusLower = String(fallbackData.status || '').toLowerCase();
+        if (statusLower === 'done' || statusLower === 'closed' || statusLower === 'tested' || statusLower === 'completed' || statusLower === 'delivered') {
+          productStatus = 'Completed';
+        } else if (statusLower === 'on hold' || statusLower === 'cancelled') {
+          productStatus = 'On Hold';
+        } else if (statusLower === 'in progress' || statusLower === 'in-progress') {
+          productStatus = 'In Progress';
+        } else if (statusLower === 'ongoing') {
+          productStatus = 'Ongoing';
+        }
+
+        setProductItems(prev => prev.map(item => {
+          if (item.id === match.id) {
+            return {
+              ...item,
+              description: fallbackData.description !== undefined ? fallbackData.description : item.description,
+              tarunSirApproval: fallbackData.tarunSirApproval !== undefined ? fallbackData.tarunSirApproval : item.tarunSirApproval,
+              raisedByTarunSir: fallbackData.raisedByTarunSir !== undefined ? fallbackData.raisedByTarunSir : item.raisedByTarunSir,
+              priority: (fallbackData.priority as any) !== undefined ? fallbackData.priority : item.priority,
+              poc: fallbackData.poc !== undefined ? fallbackData.poc : item.poc,
+              status: productStatus || item.status,
+              clickupStatus: fallbackData.clickupStatus !== undefined ? fallbackData.clickupStatus : item.clickupStatus,
+              taskLink: fallbackData.taskLink !== undefined ? fallbackData.taskLink : item.taskLink,
+              blocker: fallbackData.blocker !== undefined ? fallbackData.blocker : item.blocker,
+              deadline: fallbackData.deadline !== undefined ? fallbackData.deadline : item.deadline,
+              notes: fallbackData.notes !== undefined ? fallbackData.notes : item.notes,
+              product: fallbackData.product !== undefined ? fallbackData.product : item.product,
+              module: fallbackData.module !== undefined ? fallbackData.module : item.module,
+              type: fallbackData.type !== undefined ? fallbackData.type : item.type,
+              uiux: fallbackData.uiux !== undefined ? fallbackData.uiux : item.uiux,
+              finalRelease: fallbackData.finalRelease !== undefined ? fallbackData.finalRelease : item.finalRelease,
+              productDeadline: fallbackData.productDeadline !== undefined ? fallbackData.productDeadline : item.productDeadline,
+            } as ProductItem;
+          }
+          return item;
+        }));
+      }
       setPreviewProductId(match.id);
     } else {
       // Map statuses from other task types to ProductItem statuses
@@ -268,7 +308,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         priority: (fallbackData?.priority as any) || '',
         poc: fallbackData?.poc || '',
         status: productStatus,
-        clickupStatus: fallbackData?.clickupStatus || fallbackData?.status || '',
+        clickupStatus: fallbackData?.clickupStatus || '',
         taskLink: fallbackData?.taskLink || '',
         blocker: fallbackData?.blocker || '',
         deadline: fallbackData?.deadline || '',
@@ -567,19 +607,25 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Helper Updaters
   const updateProductItem = (id: string, updated: Partial<ProductItem>) => {
     setProductItems(prev => {
+      const oldItem = prev.find(item => item.id === id);
       const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
       const updatedItem = next.find(item => item.id === id);
       if (updatedItem) {
         persistChange('update', 'products', id, updatedItem);
         setStudentProjects(sp => sp.map(p => {
+          const oldFeatureName = (oldItem?.feature || '').trim();
           const featureName = (updatedItem.feature || '').trim();
           const projectTitle = (p.title || '').trim();
-          if ((featureName && projectTitle && projectTitle.toLowerCase() === featureName.toLowerCase()) || id === `prod-temp-${p.id}`) {
+          if (
+            (featureName && projectTitle && projectTitle.toLowerCase() === featureName.toLowerCase()) || 
+            (oldFeatureName && projectTitle && projectTitle.toLowerCase() === oldFeatureName.toLowerCase()) || 
+            id === `prod-temp-${p.id}`
+          ) {
             const updatedP = {
               ...p,
               title: updatedItem.feature,
               description: updatedItem.description,
-              status: (updatedItem.status === 'Completed' ? 'Delivered' : updatedItem.status === 'On Hold' ? 'Cancelled' : 'In-Progress') as any,
+              status: (updatedItem.status === 'Completed' || (updatedItem.status as string) === 'Delivered' ? 'Delivered' : updatedItem.status === 'On Hold' || (updatedItem.status as string) === 'Cancelled' ? 'Cancelled' : 'In-Progress') as any,
               blocker: updatedItem.blocker,
               completeInfoDate: updatedItem.deadline,
               priority: updatedItem.priority || undefined,
@@ -728,7 +774,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               description: updatedItem.description || p.description,
               priority: (updatedItem.priority as any) || p.priority,
               poc: updatedItem.poc || p.poc,
-              status: (updatedItem.status === 'Delivered' ? 'Completed' : updatedItem.status === 'Cancelled' ? 'On Hold' : 'In Progress') as any,
+              status: (updatedItem.status === 'Delivered' || (updatedItem.status as string) === 'Completed' ? 'Completed' : updatedItem.status === 'Cancelled' || (updatedItem.status as string) === 'On Hold' ? 'On Hold' : 'In Progress') as any,
               clickupStatus: updatedItem.clickupStatus || p.clickupStatus,
               productDeadline: updatedItem.productDeadline || p.productDeadline,
               uiux: updatedItem.uiux || p.uiux,

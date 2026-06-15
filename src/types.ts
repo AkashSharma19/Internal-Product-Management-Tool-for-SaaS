@@ -171,6 +171,7 @@ export interface FeatureAdoption {
 export interface ConfigSpeaker {
   id: string;
   name: string;
+  email?: string;
   role?: string; // e.g. "Lead Research Engineer", "Alumni", "Industry Expert"
   password?: string;
 }
