@@ -3229,50 +3229,10 @@ export const StudentMeetingsTable: React.FC = () => {
       item.notes && 
       item.notes.includes(`AMA Session ID: ${ama.id}`)
     );
-    if (!ama.topic.trim() && !ama.cohort.trim()) {
-      return matchesId;
-    }
-    const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ');
-    const topicWords = clean(ama.topic).split(/\s+/).filter(w => w.length > 3);
-    const cohortWords = clean(ama.cohort).split(/\s+/).filter(w => w.length > 2);
-    const searchTerms = [...topicWords, ...cohortWords];
-    const textMatches = productItems.filter(item => {
-      if (item.id.startsWith('prod-temp-')) return false;
-      // Admin Call features must NEVER appear in AMA sessions via text matching
-      if (item.id.startsWith('prod-call-')) return false;
-      const productLower = (item.product || '').toLowerCase().trim();
-      const moduleLower = (item.module || '').toLowerCase().trim();
-      const notesLower = (item.notes || '').toLowerCase().trim();
-      const cohortLower = (ama.cohort || '').toLowerCase().trim();
-      
-      const directCohortMatch = cohortLower && (
-        (productLower && (productLower.includes(cohortLower) || cohortLower.includes(productLower))) ||
-        (moduleLower && (moduleLower.includes(cohortLower) || cohortLower.includes(moduleLower))) ||
-        (notesLower && notesLower.includes(cohortLower))
-      );
-      
-      const text = clean(
-        (item.feature || '') + ' ' + 
-        (item.description || '') + ' ' + 
-        (item.notes || '') + ' ' + 
-        (item.product || '') + ' ' +
-        (item.module || '')
-      );
-      const matchesKeyword = searchTerms.some(word => text.includes(word));
-      return directCohortMatch || matchesKeyword;
-    });
-
-    // Merge without duplicates
-    const combined = [...matchesId];
-    textMatches.forEach(item => {
-      if (!combined.some(c => c.id === item.id)) {
-        combined.push(item);
-      }
-    });
     if (filterSuperPriorityOnly) {
-      return combined.filter(feat => feat.raisedByTarunSir);
+      return matchesId.filter(feat => feat.raisedByTarunSir);
     }
-    return combined;
+    return matchesId;
   };
 
 
@@ -3282,40 +3242,10 @@ export const StudentMeetingsTable: React.FC = () => {
     if (item.notes && item.notes.includes('AMA Session ID:')) {
       const match = item.notes.match(/AMA Session ID:\s*([^\s,;\]]+)/);
       if (match && match[1]) {
-        const found = amaSessions.find(ama => ama.id === match[1]);
-        if (found) return found;
+        return amaSessions.find(ama => ama.id === match[1]);
       }
     }
-    // Admin Call features (prod-call-) should never be matched to an AMA session
-    if (item.id.startsWith('prod-call-')) return undefined;
-    return amaSessions.find(ama => {
-      if (!ama.topic.trim() && !ama.cohort.trim()) return false;
-      const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ');
-      const topicWords = clean(ama.topic).split(/\s+/).filter(w => w.length > 3);
-      const cohortWords = clean(ama.cohort).split(/\s+/).filter(w => w.length > 2);
-      const searchTerms = [...topicWords, ...cohortWords];
-
-      const productLower = (item.product || '').toLowerCase().trim();
-      const moduleLower = (item.module || '').toLowerCase().trim();
-      const notesLower = (item.notes || '').toLowerCase().trim();
-      const cohortLower = (ama.cohort || '').toLowerCase().trim();
-      
-      const directCohortMatch = cohortLower && (
-        (productLower && (productLower.includes(cohortLower) || cohortLower.includes(productLower))) ||
-        (moduleLower && (moduleLower.includes(cohortLower) || cohortLower.includes(moduleLower))) ||
-        (notesLower && notesLower.includes(cohortLower))
-      );
-      
-      const text = clean(
-        (item.feature || '') + ' ' + 
-        (item.description || '') + ' ' + 
-        (item.notes || '') + ' ' + 
-        (item.product || '') + ' ' +
-        (item.module || '')
-      );
-      const matchesKeyword = searchTerms.some(word => text.includes(word));
-      return directCohortMatch || matchesKeyword;
-    });
+    return undefined;
   };
 
   // Inline editing for Feedback Features
@@ -5003,69 +4933,19 @@ export const AdminCallsTable: React.FC = () => {
       item.notes && 
       item.notes.includes(`Admin Call ID: ${call.id}`)
     );
-    if (!call.cohortTopic.trim()) {
-      return matchesId;
-    }
-    const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ');
-    const topicWords = clean(call.cohortTopic).split(/\s+/).filter(w => w.length > 3);
-    const textMatches = productItems.filter(item => {
-      if (item.id.startsWith('prod-temp-')) return false;
-      // AMA features must NEVER appear in Admin Call sessions via text matching
-      if (item.id.startsWith('prod-ama-')) return false;
-      const notesLower = (item.notes || '').toLowerCase().trim();
-      const moduleLower = (item.module || '').toLowerCase().trim();
-      const featureLower = (item.feature || '').toLowerCase().trim();
-      const topicLower = (call.cohortTopic || '').toLowerCase().trim();
-      
-      if (notesLower.includes(topicLower) || moduleLower.includes(topicLower) || featureLower.includes(topicLower)) {
-        return true;
-      }
-      if (topicWords.some(word => notesLower.includes(word) || moduleLower.includes(word) || featureLower.includes(word))) {
-        return true;
-      }
-      return false;
-    });
-
-    // Merge without duplicates
-    const combined = [...matchesId];
-    textMatches.forEach(item => {
-      if (!combined.some(c => c.id === item.id)) {
-        combined.push(item);
-      }
-    });
-    if (filterSuperPriorityOnly) {
-      return combined.filter(feat => feat.raisedByTarunSir);
-    }
-    return combined;
+    return filterSuperPriorityOnly ? matchesId.filter(feat => feat.raisedByTarunSir) : matchesId;
   };
 
   const getParentCall = (item: ProductItem): AdminCall | undefined => {
     if (item.notes && item.notes.includes('Admin Call ID:')) {
       const match = item.notes.match(/Admin Call ID:\s*([^\s,;\]]+)/);
       if (match && match[1]) {
-        const found = adminCalls.find(call => call.id === match[1]);
-        if (found) return found;
+        return adminCalls.find(call => call.id === match[1]);
       }
     }
     // AMA features (prod-ama-) should never be matched to an Admin Call
     if (item.id.startsWith('prod-ama-')) return undefined;
-    return adminCalls.find(call => {
-      if (!call.cohortTopic.trim()) return false;
-      const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ');
-      const topicWords = clean(call.cohortTopic).split(/\s+/).filter(w => w.length > 3);
-      const notesLower = (item.notes || '').toLowerCase().trim();
-      const moduleLower = (item.module || '').toLowerCase().trim();
-      const featureLower = (item.feature || '').toLowerCase().trim();
-      const topicLower = (call.cohortTopic || '').toLowerCase().trim();
-      
-      if (notesLower.includes(topicLower) || moduleLower.includes(topicLower) || featureLower.includes(topicLower)) {
-        return true;
-      }
-      if (topicWords.some(word => notesLower.includes(word) || moduleLower.includes(word) || featureLower.includes(word))) {
-        return true;
-      }
-      return false;
-    });
+    return undefined;
   };
 
   const filteredFeedbackFeatures = productItems.filter(item => {
