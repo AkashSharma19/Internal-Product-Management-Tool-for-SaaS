@@ -186,7 +186,7 @@ export interface ConfigStatus {
   id: string;
   label: string;
   color: string; // hex colour for status badge
-  scope: 'product' | 'ama' | 'all'; // which dropdowns this applies to
+  scope: 'product' | 'ama' | 'student' | 'content' | 'all'; // which dropdowns this applies to
 }
 
 export interface ConfigProgram {

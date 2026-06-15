@@ -596,6 +596,8 @@ const ProductGroupsSection: React.FC = () => {
 const SCOPE_LABELS: Record<ConfigStatus['scope'], string> = {
   product: 'Priority Requests',
   ama: 'AMA / Schedule',
+  student: 'Student Projects',
+  content: 'Content Pipeline',
   all: 'All Sections',
 };
 
@@ -697,6 +699,8 @@ const StatusesSection: React.FC = () => {
                     <select style={selectStyle} value={editScope} onChange={e => setEditScope(e.target.value as ConfigStatus['scope'])}>
                       <option value="product">Priority Requests</option>
                       <option value="ama">AMA / Schedule</option>
+                      <option value="student">Student Projects</option>
+                      <option value="content">Content Pipeline</option>
                       <option value="all">All Sections</option>
                     </select>
                   )
@@ -751,6 +755,8 @@ const StatusesSection: React.FC = () => {
                 <select style={selectStyle} value={addScope} onChange={e => setAddScope(e.target.value as ConfigStatus['scope'])}>
                   <option value="product">Priority Requests</option>
                   <option value="ama">AMA / Schedule</option>
+                  <option value="student">Student Projects</option>
+                  <option value="content">Content Pipeline</option>
                   <option value="all">All Sections</option>
                 </select>
               </td>

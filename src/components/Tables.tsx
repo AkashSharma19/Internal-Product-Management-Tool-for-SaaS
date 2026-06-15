@@ -1364,9 +1364,9 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
   };
 
   const displayText = selectedValues.length === 0 
-    ? `All ${placeholder}es`
+    ? `All ${placeholder === 'POC' ? 'POCs' : `${placeholder}es`}`
     : selectedValues.length === options.length 
-      ? `All ${placeholder}es`
+      ? `All ${placeholder === 'POC' ? 'POCs' : `${placeholder}es`}`
       : selectedValues.join(', ');
 
   return (
@@ -1559,16 +1559,16 @@ export const ProductTable: React.FC = () => {
           <table className="grid-table">
             <thead>
               <tr>
-                <th className="sticky-header-col" onClick={() => handleSort('feature')} style={{ width: '280px', minWidth: '280px', maxWidth: '280px' }}>Feature {sortField === 'feature' ? (sortAsc ? '▲' : '▼') : ''}</th>
-                <th onClick={() => handleSort('product')}>Product Group</th>
-                <th onClick={() => handleSort('priority')}>Priority</th>
-                <th onClick={() => handleSort('poc')}>POC Owner</th>
-                <th onClick={() => handleSort('status')}>Status</th>
-                <th onClick={() => handleSort('clickupStatus')}>Clickup</th>
-                <th onClick={() => handleSort('productDeadline')}>Prod {sortField === 'productDeadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
-                <th onClick={() => handleSort('uiux')}>UIUX {sortField === 'uiux' ? (sortAsc ? '▲' : '▼') : ''}</th>
-                <th onClick={() => handleSort('deadline')}>Dev {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
-                <th onClick={() => handleSort('finalRelease')}>Final {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th className="sticky-header-col" onClick={() => handleSort('feature')} style={{ width: '280px', minWidth: '280px', maxWidth: '280px', cursor: 'pointer' }}>Feature {sortField === 'feature' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('product')} style={{ cursor: 'pointer' }}>Product Group {sortField === 'product' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('priority')} style={{ cursor: 'pointer' }}>Priority {sortField === 'priority' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('poc')} style={{ cursor: 'pointer' }}>POC Owner {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('status')} style={{ cursor: 'pointer' }}>Status {sortField === 'status' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('clickupStatus')} style={{ cursor: 'pointer' }}>Clickup {sortField === 'clickupStatus' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('productDeadline')} style={{ cursor: 'pointer' }}>Prod {sortField === 'productDeadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('uiux')} style={{ cursor: 'pointer' }}>UIUX {sortField === 'uiux' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('deadline')} style={{ cursor: 'pointer' }}>Dev {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('finalRelease')} style={{ cursor: 'pointer' }}>Final {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th style={{ width: '40px' }}></th>
               </tr>
             </thead>
@@ -1953,10 +1953,9 @@ export const PlanTable: React.FC = () => {
     return `${now.toLocaleString('default', { month: 'long' })} ${now.getFullYear()}`;
   });
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterCategory, setFilterCategory] = useState('All');
   const [editingItem, setEditingItem] = useState<PlanItem | null>(null);
   const [draggedOverColumn, setDraggedOverColumn] = useState<string | null>(null);
-  const [showAutoItems, setShowAutoItems] = useState(true);
+  const showAutoItems = true;
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
 
   // Helper to find a matching product item to read completion status
@@ -2246,11 +2245,10 @@ export const PlanTable: React.FC = () => {
   // ── Manual plan items ──────────────────────────────────────────────────────
   const filteredPlan = planItems.filter(item => {
     const matchesMonth = item.month === selectedMonth;
-    const matchesCategory = filterCategory === 'All' || item.category === filterCategory;
     const matchesSearch = item.task.toLowerCase().includes(searchQuery.toLowerCase());
     const matchedProduct = findMatchingProductItem(item.task);
     const matchesSuperPriority = !filterSuperPriorityOnly || !!matchedProduct?.raisedByTarunSir;
-    return matchesMonth && matchesCategory && matchesSearch && matchesSuperPriority;
+    return matchesMonth && matchesSearch && matchesSuperPriority;
   });
 
   // ── Filtered auto items by search ──────────────────────────────────────────
@@ -2264,7 +2262,7 @@ export const PlanTable: React.FC = () => {
     const newTask: PlanItem = {
       id: `plan-${Date.now()}`,
       month: selectedMonth,
-      category: filterCategory !== 'All' ? (filterCategory as any) : 'Development',
+      category: 'Development',
       task: 'New Sprint Task Description',
       link: '',
       status: 'open'
@@ -2310,9 +2308,6 @@ export const PlanTable: React.FC = () => {
     'Product Breakdown': { bg: 'hsla(271,80%,60%,0.12)', color: 'hsl(271,70%,50%)' },
   };
 
-  const totalAutoCount = filteredAuto.length;
-  const totalManualCount = filteredPlan.length;
-
   return (
     <>
       <TabContainer
@@ -2330,33 +2325,6 @@ export const PlanTable: React.FC = () => {
             >
               {allMonths.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
-            <select className="filter-select" value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
-              <option value="All">All Categories</option>
-              <option value="Development">Development</option>
-              <option value="UI/UX">UI/UX</option>
-              <option value="Product">Product</option>
-            </select>
-            <button
-              onClick={() => setShowAutoItems(p => !p)}
-              style={{
-                background: showAutoItems ? 'hsla(245,80%,60%,0.1)' : 'var(--panel-bg)',
-                border: `1px solid ${showAutoItems ? 'hsla(245,70%,50%,0.35)' : 'var(--border)'}`,
-                color: showAutoItems ? 'hsl(245,70%,50%)' : 'var(--text-secondary)',
-                borderRadius: '8px',
-                padding: '5px 12px',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                transition: 'all 0.2s'
-              }}
-              title="Toggle auto-aggregated items from all lists"
-            >
-              <Calendar size={13} />
-              {showAutoItems ? `Aggregated (${totalAutoCount})` : 'Show Aggregated'}
-            </button>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
               <input 
                 type="checkbox" 
@@ -2370,27 +2338,6 @@ export const PlanTable: React.FC = () => {
           </div>
         }
       >
-        {/* Legend */}
-        {showAutoItems && totalAutoCount > 0 && (
-          <div style={{
-            display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center',
-            marginBottom: '0.75rem', padding: '0.5rem 0.75rem',
-            background: 'var(--panel-bg)', borderRadius: '8px',
-            border: '1px solid var(--border)', fontSize: '0.72rem', color: 'var(--text-secondary)'
-          }}>
-            <span style={{ fontWeight: 700, color: 'var(--text-primary)', marginRight: '0.25rem' }}>Sources:</span>
-            {Object.entries(sourceColors).map(([src, clr]) => (
-              <span key={src} style={{
-                background: clr.bg, color: clr.color, border: `1px solid ${clr.color}44`,
-                borderRadius: '12px', padding: '2px 8px', fontWeight: 600
-              }}>{src}</span>
-            ))}
-            <span style={{ marginLeft: 'auto' }}>
-              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{totalAutoCount}</span> features with deadlines in <strong>{selectedMonth}</strong>
-              {totalManualCount > 0 && <> + <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{totalManualCount}</span> manual tasks</>}
-            </span>
-          </div>
-        )}
 
         <div className="kanban-board-container">
           {COLUMNS.map(col => {
@@ -2623,25 +2570,55 @@ export const PlanTable: React.FC = () => {
 // ProjectDetailModal is deprecated in favor of unified ProductDetailView
 
 export const StudentProjectsTable: React.FC = () => {
-  const { studentProjects, updateStudentProject, addStudentProject, deleteStudentProject, openPreviewForFeature } = useDashboard();
+  const { studentProjects, updateStudentProject, addStudentProject, deleteStudentProject, openPreviewForFeature, statuses } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [inlineEditValue, setInlineEditValue] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('All');
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  
+  // Sorting state
+  const [sortField, setSortField] = useState<keyof StudentProject | null>(null);
+  const [sortAsc, setSortAsc] = useState(true);
+
+  const studentStatuses = statuses.filter(s => s.scope === 'student' || s.scope === 'all').map(s => s.label);
+  const statusOptions = studentStatuses.length > 0 ? studentStatuses : ['Delivered', 'Cancelled', 'In-Progress'];
+
+  const handleSort = (field: keyof StudentProject) => {
+    if (sortField === field) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+  };
 
   const filtered = studentProjects.filter(p => {
     const matchesSuperPriority = !filterSuperPriorityOnly || !!p.raisedByTarunSir;
     if (!matchesSuperPriority) return false;
 
-    const matchesStatus = filterStatus === 'All' || p.status === filterStatus;
+    const matchesStatus = filterStatuses.length === 0 || filterStatuses.includes(p.status);
     if (!matchesStatus) return false;
     
     return p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (p.description || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (p.thingsWeBuild || '').toLowerCase().includes(searchQuery.toLowerCase());
   });
+
+  const sorted = [...filtered];
+  if (sortField) {
+    sorted.sort((a, b) => {
+      let valA = a[sortField];
+      let valB = b[sortField];
+      if (valA === undefined || valA === null) valA = '';
+      if (valB === undefined || valB === null) valB = '';
+      
+      const strA = String(valA).toLowerCase();
+      const strB = String(valB).toLowerCase();
+      return sortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
+    });
+  }
 
   useEffect(() => {
     if (editingProjectId && editInputRef.current) {
@@ -2675,8 +2652,6 @@ export const StudentProjectsTable: React.FC = () => {
     setEditingProjectId(newItem.id);
   };
 
-  const allStatuses = Array.from(new Set(studentProjects.map(p => p.status).filter(Boolean)));
-
   return (
     <>
       <TabContainer
@@ -2687,12 +2662,12 @@ export const StudentProjectsTable: React.FC = () => {
         addLabel="Add Project"
         filterComponent={
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <select className="filter-select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-              <option value="All">All Statuses</option>
-              {allStatuses.map(status => (
-                <option key={status} value={status}>{status}</option>
-              ))}
-            </select>
+            <MultiSelectDropdown
+              options={statusOptions}
+              selectedValues={filterStatuses}
+              onChange={setFilterStatuses}
+              placeholder="Status"
+            />
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
               <input 
                 type="checkbox" 
@@ -2710,21 +2685,21 @@ export const StudentProjectsTable: React.FC = () => {
           <table className="grid-table">
             <thead>
               <tr>
-                <th className="sticky-header-col" style={{ width: '280px', minWidth: '280px', maxWidth: '280px' }}>Project Title</th>
-                <th style={{ width: '150px' }}>Product Group</th>
-                <th style={{ width: '80px' }}>Priority</th>
-                <th style={{ width: '120px' }}>POC Owner</th>
-                <th style={{ width: '120px' }}>Status</th>
-                <th style={{ width: '100px' }}>Clickup</th>
-                <th style={{ width: '120px' }}>Specs Date</th>
-                <th style={{ width: '120px' }}>UI/UX Date</th>
-                <th style={{ width: '120px' }}>Dev Date</th>
-                <th style={{ width: '120px' }}>Release Date</th>
+                <th className="sticky-header-col" onClick={() => handleSort('title')} style={{ width: '280px', minWidth: '280px', maxWidth: '280px', cursor: 'pointer' }}>Project Title {sortField === 'title' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('product')} style={{ width: '150px', cursor: 'pointer' }}>Product Group {sortField === 'product' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('priority')} style={{ width: '80px', cursor: 'pointer' }}>Priority {sortField === 'priority' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('poc')} style={{ width: '120px', cursor: 'pointer' }}>POC Owner {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('status')} style={{ width: '120px', cursor: 'pointer' }}>Status {sortField === 'status' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('clickupStatus')} style={{ width: '100px', cursor: 'pointer' }}>Clickup {sortField === 'clickupStatus' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('productDeadline')} style={{ width: '120px', cursor: 'pointer' }}>Specs Date {sortField === 'productDeadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('uiux')} style={{ width: '120px', cursor: 'pointer' }}>UI/UX Date {sortField === 'uiux' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('deadline')} style={{ width: '120px', cursor: 'pointer' }}>Dev Date {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>Release Date {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th style={{ width: '40px' }}></th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map(p => (
+              {sorted.map(p => (
                 <tr 
                   key={p.id} 
                   onClick={() => {
@@ -3028,7 +3003,7 @@ export const StudentMeetingsTable: React.FC = () => {
   const { 
     amaSessions, addAMASession, updateAMASession, deleteAMASession,
     productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
-    speakers: configSpeakers
+    speakers: configSpeakers, statuses
   } = useDashboard();
 
   // Derive speakers list from configuration context (live — updates when Config tab changes)
@@ -3037,11 +3012,46 @@ export const StudentMeetingsTable: React.FC = () => {
   const [subTab, setSubTab] = useState<'schedule' | 'feedback'>('schedule');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('All');
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
 
   useEffect(() => {
-    setFilterStatus('All');
+    setFilterStatuses([]);
   }, [subTab]);
+
+  // Sorting states
+  const [amaSortField, setAmaSortField] = useState<keyof AMASession | null>(null);
+  const [amaSortAsc, setAmaSortAsc] = useState(true);
+
+  const [feedbackSortField, setFeedbackSortField] = useState<keyof ProductItem | 'amaDate' | 'amaProgram' | 'amaCohort' | 'amaSpeaker' | null>(null);
+  const [feedbackSortAsc, setFeedbackSortAsc] = useState(true);
+
+  const handleAmaSort = (field: keyof AMASession) => {
+    if (amaSortField === field) {
+      setAmaSortAsc(!amaSortAsc);
+    } else {
+      setAmaSortField(field);
+      setAmaSortAsc(true);
+    }
+  };
+
+  const handleFeedbackSort = (field: typeof feedbackSortField) => {
+    if (feedbackSortField === field) {
+      setFeedbackSortAsc(!feedbackSortAsc);
+    } else {
+      setFeedbackSortField(field);
+      setFeedbackSortAsc(true);
+    }
+  };
+
+  const statusOptions = (() => {
+    if (subTab === 'schedule') {
+      const meetingStatuses = statuses.filter(s => s.scope === 'ama' || s.scope === 'all').map(s => s.label);
+      return meetingStatuses.length > 0 ? meetingStatuses : ['Scheduled', 'Completed', 'Postponed'];
+    } else {
+      const prodStatuses = statuses.filter(s => s.scope === 'product' || s.scope === 'all').map(s => s.label);
+      return prodStatuses.length > 0 ? prodStatuses : ['On Hold', 'In Progress', 'Ongoing', 'Completed'];
+    }
+  })();
 
   // Dropdown other state
   const [showCustomProgramInput, setShowCustomProgramInput] = useState(false);
@@ -3259,7 +3269,7 @@ export const StudentMeetingsTable: React.FC = () => {
       
     if (!matchesSearch) return false;
     
-    if (filterStatus !== 'All' && ama.status !== filterStatus) return false;
+    if (filterStatuses.length > 0 && !filterStatuses.includes(ama.status)) return false;
     
     if (filterSuperPriorityOnly) {
       const related = getRelatedFeatures(ama);
@@ -3269,6 +3279,19 @@ export const StudentMeetingsTable: React.FC = () => {
     return true;
   });
 
+  const sortedAMASessions = [...filteredAMASessions];
+  if (amaSortField) {
+    sortedAMASessions.sort((a, b) => {
+      let valA = a[amaSortField];
+      let valB = b[amaSortField];
+      if (valA === undefined || valA === null) valA = '';
+      if (valB === undefined || valB === null) valB = '';
+      const strA = String(valA).toLowerCase();
+      const strB = String(valB).toLowerCase();
+      return amaSortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
+    });
+  }
+
   const filteredFeedbackFeatures = productItems.filter(item => {
     if (item.id.startsWith('prod-temp-')) return false;
     // Admin Call features must never appear in the AMA Feedback tab
@@ -3277,7 +3300,7 @@ export const StudentMeetingsTable: React.FC = () => {
     const matchesSuperPriority = !filterSuperPriorityOnly || !!item.raisedByTarunSir;
     if (!matchesSuperPriority) return false;
     
-    if (filterStatus !== 'All' && item.status !== filterStatus) return false;
+    if (filterStatuses.length > 0 && !filterStatuses.includes(item.status)) return false;
 
     // Check if the item matches any AMA session
     const matchesAma = amaSessions.some(ama => {
@@ -3322,6 +3345,39 @@ export const StudentMeetingsTable: React.FC = () => {
     return matchesSearch;
   });
 
+  const sortedFeedbackFeatures = [...filteredFeedbackFeatures];
+  if (feedbackSortField) {
+    sortedFeedbackFeatures.sort((a, b) => {
+      let valA: any = '';
+      let valB: any = '';
+      
+      if (feedbackSortField === 'amaDate' || feedbackSortField === 'amaProgram' || feedbackSortField === 'amaCohort' || feedbackSortField === 'amaSpeaker') {
+        const parentA = getParentAma(a);
+        const parentB = getParentAma(b);
+        if (feedbackSortField === 'amaDate') {
+          valA = parentA?.date || '';
+          valB = parentB?.date || '';
+        } else if (feedbackSortField === 'amaProgram') {
+          valA = parentA?.program || '';
+          valB = parentB?.program || '';
+        } else if (feedbackSortField === 'amaCohort') {
+          valA = parentA?.cohort || '';
+          valB = parentB?.cohort || '';
+        } else if (feedbackSortField === 'amaSpeaker') {
+          valA = parentA?.speaker || '';
+          valB = parentB?.speaker || '';
+        }
+      } else {
+        valA = a[feedbackSortField as keyof ProductItem] || '';
+        valB = b[feedbackSortField as keyof ProductItem] || '';
+      }
+      
+      const strA = String(valA).toLowerCase();
+      const strB = String(valB).toLowerCase();
+      return feedbackSortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
+    });
+  }
+
   const handleAddNew = () => {
     setSearchQuery('');
     if (subTab === 'schedule') {
@@ -3352,23 +3408,12 @@ export const StudentMeetingsTable: React.FC = () => {
         searchPlaceholder={subTab === 'schedule' ? 'Search AMA sessions...' : 'Search feedback features...'}
         filterComponent={
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <select className="filter-select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-              <option value="All">All Statuses</option>
-              {subTab === 'schedule' ? (
-                <>
-                  <option value="Scheduled">Scheduled</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Postponed">Postponed</option>
-                </>
-              ) : (
-                <>
-                  <option value="On Hold">On Hold</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Ongoing">Ongoing</option>
-                  <option value="Completed">Completed</option>
-                </>
-              )}
-            </select>
+            <MultiSelectDropdown
+              options={statusOptions}
+              selectedValues={filterStatuses}
+              onChange={setFilterStatuses}
+              placeholder="Status"
+            />
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', marginLeft: '0.5rem', whiteSpace: 'nowrap' }}>
               <input 
                 type="checkbox" 
@@ -3447,16 +3492,16 @@ export const StudentMeetingsTable: React.FC = () => {
             <table className="grid-table">
               <thead>
                 <tr>
-                  <th style={{ width: '130px' }}>Date</th>
-                  <th>Topic / Theme</th>
-                  <th style={{ width: '220px' }}>Speaker(s)</th>
-                  <th style={{ width: '150px' }}>Cohort</th>
-                  <th style={{ width: '130px' }}>Status</th>
+                  <th onClick={() => handleAmaSort('date')} style={{ width: '130px', cursor: 'pointer' }}>Date {amaSortField === 'date' ? (amaSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleAmaSort('topic')} style={{ cursor: 'pointer' }}>Topic / Theme {amaSortField === 'topic' ? (amaSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleAmaSort('speaker')} style={{ width: '220px', cursor: 'pointer' }}>Speaker(s) {amaSortField === 'speaker' ? (amaSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleAmaSort('cohort')} style={{ width: '150px', cursor: 'pointer' }}>Cohort {amaSortField === 'cohort' ? (amaSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleAmaSort('status')} style={{ width: '130px', cursor: 'pointer' }}>Status {amaSortField === 'status' ? (amaSortAsc ? '▲' : '▼') : ''}</th>
                   <th style={{ width: '40px' }}></th>
                 </tr>
               </thead>
               <tbody>
-                {filteredAMASessions.map(ama => {
+                {sortedAMASessions.map(ama => {
                   const related = getRelatedFeatures(ama);
                   const isExpanded = expandedAMAId === ama.id;
                   return (
@@ -4149,25 +4194,25 @@ export const StudentMeetingsTable: React.FC = () => {
             <table className="grid-table">
               <thead>
                 <tr>
-                  <th className="sticky-header-col" style={{ width: '250px', minWidth: '250px', maxWidth: '250px' }}>Feature</th>
-                  <th style={{ width: '180px' }}>Date-time</th>
-                  <th style={{ width: '100px' }}>Program</th>
-                  <th style={{ width: '120px' }}>Cohort</th>
-                  <th style={{ width: '160px' }}>Speaker</th>
-                  <th style={{ width: '150px' }}>Product Group</th>
-                  <th style={{ width: '80px' }}>Priority</th>
-                  <th style={{ width: '120px' }}>POC Owner</th>
-                  <th style={{ width: '120px' }}>Status</th>
-                  <th style={{ width: '100px' }}>Clickup</th>
-                  <th style={{ width: '120px' }}>Specs Date</th>
-                  <th style={{ width: '120px' }}>UI/UX Date</th>
-                  <th style={{ width: '120px' }}>Dev Date</th>
-                  <th style={{ width: '120px' }}>Release Date</th>
+                  <th className="sticky-header-col" onClick={() => handleFeedbackSort('feature')} style={{ width: '250px', minWidth: '250px', maxWidth: '250px', cursor: 'pointer' }}>Feature {feedbackSortField === 'feature' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('amaDate')} style={{ width: '180px', cursor: 'pointer' }}>Date-time {feedbackSortField === 'amaDate' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('amaProgram')} style={{ width: '100px', cursor: 'pointer' }}>Program {feedbackSortField === 'amaProgram' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('amaCohort')} style={{ width: '120px', cursor: 'pointer' }}>Cohort {feedbackSortField === 'amaCohort' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('amaSpeaker')} style={{ width: '160px', cursor: 'pointer' }}>Speaker {feedbackSortField === 'amaSpeaker' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('product')} style={{ width: '150px', cursor: 'pointer' }}>Product Group {feedbackSortField === 'product' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('priority')} style={{ width: '80px', cursor: 'pointer' }}>Priority {feedbackSortField === 'priority' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('poc')} style={{ width: '120px', cursor: 'pointer' }}>POC Owner {feedbackSortField === 'poc' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('status')} style={{ width: '120px', cursor: 'pointer' }}>Status {feedbackSortField === 'status' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('clickupStatus')} style={{ width: '100px', cursor: 'pointer' }}>Clickup {feedbackSortField === 'clickupStatus' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('productDeadline')} style={{ width: '120px', cursor: 'pointer' }}>Specs Date {feedbackSortField === 'productDeadline' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('uiux')} style={{ width: '120px', cursor: 'pointer' }}>UI/UX Date {feedbackSortField === 'uiux' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('deadline')} style={{ width: '120px', cursor: 'pointer' }}>Dev Date {feedbackSortField === 'deadline' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>Release Date {feedbackSortField === 'finalRelease' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th style={{ width: '40px' }}></th>
                 </tr>
               </thead>
               <tbody>
-                {filteredFeedbackFeatures.map(feat => {
+                {sortedFeedbackFeatures.map(feat => {
                   const parentAma = getParentAma(feat);
                   return (
                     <tr 
@@ -4650,18 +4695,53 @@ export const AdminCallsTable: React.FC = () => {
   const { 
     adminCalls, updateAdminCall, addAdminCall, deleteAdminCall, 
     productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
-    speakers: configSpeakers 
+    speakers: configSpeakers, statuses
   } = useDashboard();
   
   const speakersList = configSpeakers.map(s => s.name);
   const [searchQuery, setSearchQuery] = useState('');
   const [subTab, setSubTab] = useState<'schedule' | 'feedback'>('schedule');
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('All');
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
 
   useEffect(() => {
-    setFilterStatus('All');
+    setFilterStatuses([]);
   }, [subTab]);
+
+  // Sorting states
+  const [callSortField, setCallSortField] = useState<keyof AdminCall | null>(null);
+  const [callSortAsc, setCallSortAsc] = useState(true);
+
+  const [feedbackSortField, setFeedbackSortField] = useState<keyof ProductItem | 'callDate' | 'callPoc' | 'callTopic' | null>(null);
+  const [feedbackSortAsc, setFeedbackSortAsc] = useState(true);
+
+  const handleCallSort = (field: keyof AdminCall) => {
+    if (callSortField === field) {
+      setCallSortAsc(!callSortAsc);
+    } else {
+      setCallSortField(field);
+      setCallSortAsc(true);
+    }
+  };
+
+  const handleFeedbackSort = (field: typeof feedbackSortField) => {
+    if (feedbackSortField === field) {
+      setFeedbackSortAsc(!feedbackSortAsc);
+    } else {
+      setFeedbackSortField(field);
+      setFeedbackSortAsc(true);
+    }
+  };
+
+  const statusOptions = (() => {
+    if (subTab === 'schedule') {
+      const meetingStatuses = statuses.filter(s => s.scope === 'ama' || s.scope === 'all').map(s => s.label);
+      return meetingStatuses.length > 0 ? meetingStatuses : ['Scheduled', 'Pending Actions', 'Completed'];
+    } else {
+      const prodStatuses = statuses.filter(s => s.scope === 'product' || s.scope === 'all').map(s => s.label);
+      return prodStatuses.length > 0 ? prodStatuses : ['On Hold', 'In Progress', 'Ongoing', 'Completed'];
+    }
+  })();
 
   // Inline editing states for Admin Calls
   const [editingCallDateId, setEditingCallDateId] = useState<string | null>(null);
@@ -4746,7 +4826,7 @@ export const AdminCallsTable: React.FC = () => {
       
     if (!matchesSearch) return false;
     
-    if (filterStatus !== 'All' && c.status !== filterStatus) return false;
+    if (filterStatuses.length > 0 && !filterStatuses.includes(c.status)) return false;
     
     if (filterSuperPriorityOnly) {
       const related = getRelatedFeatures(c);
@@ -4755,6 +4835,19 @@ export const AdminCallsTable: React.FC = () => {
     
     return true;
   });
+
+  const sortedCalls = [...filtered];
+  if (callSortField) {
+    sortedCalls.sort((a, b) => {
+      let valA = a[callSortField];
+      let valB = b[callSortField];
+      if (valA === undefined || valA === null) valA = '';
+      if (valB === undefined || valB === null) valB = '';
+      const strA = String(valA).toLowerCase();
+      const strB = String(valB).toLowerCase();
+      return callSortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
+    });
+  }
 
   const handleAddNew = () => {
     const newCall: AdminCall = {
@@ -4853,7 +4946,7 @@ export const AdminCallsTable: React.FC = () => {
     const matchesSuperPriority = !filterSuperPriorityOnly || !!item.raisedByTarunSir;
     if (!matchesSuperPriority) return false;
     
-    if (filterStatus !== 'All' && item.status !== filterStatus) return false;
+    if (filterStatuses.length > 0 && !filterStatuses.includes(item.status)) return false;
 
     const matchesSearch = 
       item.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -4864,6 +4957,36 @@ export const AdminCallsTable: React.FC = () => {
       
     return matchesSearch;
   });
+
+  const sortedFeedbackFeatures = [...filteredFeedbackFeatures];
+  if (feedbackSortField) {
+    sortedFeedbackFeatures.sort((a, b) => {
+      let valA: any = '';
+      let valB: any = '';
+      
+      if (feedbackSortField === 'callDate' || feedbackSortField === 'callPoc' || feedbackSortField === 'callTopic') {
+        const parentA = getParentCall(a);
+        const parentB = getParentCall(b);
+        if (feedbackSortField === 'callDate') {
+          valA = parentA?.date || '';
+          valB = parentB?.date || '';
+        } else if (feedbackSortField === 'callPoc') {
+          valA = parentA?.adminPoc || '';
+          valB = parentB?.adminPoc || '';
+        } else if (feedbackSortField === 'callTopic') {
+          valA = parentA?.cohortTopic || '';
+          valB = parentB?.cohortTopic || '';
+        }
+      } else {
+        valA = a[feedbackSortField as keyof ProductItem] || '';
+        valB = b[feedbackSortField as keyof ProductItem] || '';
+      }
+      
+      const strA = String(valA).toLowerCase();
+      const strB = String(valB).toLowerCase();
+      return feedbackSortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
+    });
+  }
 
   return (
     <>
@@ -4876,23 +4999,12 @@ export const AdminCallsTable: React.FC = () => {
         searchPlaceholder={subTab === 'schedule' ? 'Search admin calls...' : 'Search feedback features...'}
         filterComponent={
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <select className="filter-select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-              <option value="All">All Statuses</option>
-              {subTab === 'schedule' ? (
-                <>
-                  <option value="Scheduled">Scheduled</option>
-                  <option value="Pending Actions">Pending Actions</option>
-                  <option value="Completed">Completed</option>
-                </>
-              ) : (
-                <>
-                  <option value="On Hold">On Hold</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Ongoing">Ongoing</option>
-                  <option value="Completed">Completed</option>
-                </>
-              )}
-            </select>
+            <MultiSelectDropdown
+              options={statusOptions}
+              selectedValues={filterStatuses}
+              onChange={setFilterStatuses}
+              placeholder="Status"
+            />
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', marginLeft: '0.5rem', whiteSpace: 'nowrap' }}>
               <input 
                 type="checkbox" 
@@ -4969,15 +5081,15 @@ export const AdminCallsTable: React.FC = () => {
             <table className="grid-table">
               <thead>
                 <tr>
-                  <th style={{ width: '150px' }}>Call Date</th>
-                  <th style={{ width: '200px' }}>Admin / POC</th>
-                  <th>Topic / Call Agenda</th>
-                  <th style={{ width: '150px' }}>Status</th>
+                  <th onClick={() => handleCallSort('date')} style={{ width: '150px', cursor: 'pointer' }}>Call Date {callSortField === 'date' ? (callSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleCallSort('adminPoc')} style={{ width: '200px', cursor: 'pointer' }}>Admin / POC {callSortField === 'adminPoc' ? (callSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleCallSort('cohortTopic')} style={{ cursor: 'pointer' }}>Topic / Call Agenda {callSortField === 'cohortTopic' ? (callSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleCallSort('status')} style={{ width: '150px', cursor: 'pointer' }}>Status {callSortField === 'status' ? (callSortAsc ? '▲' : '▼') : ''}</th>
                   <th style={{ width: '40px' }}></th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(call => {
+                {sortedCalls.map(call => {
                   const related = getRelatedFeatures(call);
                   const isExpanded = expandedCallId === call.id;
                   
@@ -5550,24 +5662,24 @@ export const AdminCallsTable: React.FC = () => {
             <table className="grid-table">
               <thead>
                 <tr>
-                  <th className="sticky-header-col" style={{ width: '250px', minWidth: '250px', maxWidth: '250px' }}>Feature</th>
-                  <th style={{ width: '150px' }}>Call Date</th>
-                  <th style={{ width: '180px' }}>Admin / POC</th>
-                  <th style={{ width: '220px' }}>Topic / Call Agenda</th>
-                  <th style={{ width: '150px' }}>Product Group</th>
-                  <th style={{ width: '80px' }}>Priority</th>
-                  <th style={{ width: '120px' }}>POC Owner</th>
-                  <th style={{ width: '120px' }}>Status</th>
-                  <th style={{ width: '100px' }}>Clickup</th>
-                  <th style={{ width: '120px' }}>Specs Date</th>
-                  <th style={{ width: '120px' }}>UI/UX Date</th>
-                  <th style={{ width: '120px' }}>Dev Date</th>
-                  <th style={{ width: '120px' }}>Release Date</th>
+                  <th className="sticky-header-col" onClick={() => handleFeedbackSort('feature')} style={{ width: '250px', minWidth: '250px', maxWidth: '250px', cursor: 'pointer' }}>Feature {feedbackSortField === 'feature' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('callDate')} style={{ width: '150px', cursor: 'pointer' }}>Call Date {feedbackSortField === 'callDate' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('callPoc')} style={{ width: '180px', cursor: 'pointer' }}>Admin / POC {feedbackSortField === 'callPoc' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('callTopic')} style={{ width: '220px', cursor: 'pointer' }}>Topic / Call Agenda {feedbackSortField === 'callTopic' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('product')} style={{ width: '150px', cursor: 'pointer' }}>Product Group {feedbackSortField === 'product' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('priority')} style={{ width: '80px', cursor: 'pointer' }}>Priority {feedbackSortField === 'priority' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('poc')} style={{ width: '120px', cursor: 'pointer' }}>POC Owner {feedbackSortField === 'poc' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('status')} style={{ width: '120px', cursor: 'pointer' }}>Status {feedbackSortField === 'status' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('clickupStatus')} style={{ width: '100px', cursor: 'pointer' }}>Clickup {feedbackSortField === 'clickupStatus' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('productDeadline')} style={{ width: '120px', cursor: 'pointer' }}>Specs Date {feedbackSortField === 'productDeadline' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('uiux')} style={{ width: '120px', cursor: 'pointer' }}>UI/UX Date {feedbackSortField === 'uiux' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('deadline')} style={{ width: '120px', cursor: 'pointer' }}>Dev Date {feedbackSortField === 'deadline' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>Release Date {feedbackSortField === 'finalRelease' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th style={{ width: '40px' }}></th>
                 </tr>
               </thead>
               <tbody>
-                {filteredFeedbackFeatures.map(feat => {
+                {sortedFeedbackFeatures.map(feat => {
                   const parentCall = getParentCall(feat);
                   return (
                     <tr 
@@ -5904,11 +6016,27 @@ export const ContentTable: React.FC = () => {
   } = useDashboard();
   
   const speakersList = configSpeakers.map(s => s.name);
-  const statusOptions = configStatuses.filter(s => s.scope === 'product' || s.scope === 'all');
+  const contentStatuses = configStatuses.filter(s => s.scope === 'content' || s.scope === 'all');
+  const statusOptions = contentStatuses.length > 0 
+    ? contentStatuses.map(s => s.label) 
+    : ['Idea', 'Writing', 'In Progress', 'Scheduled', 'Published'];
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filtering states
-  const [filterStatus, setFilterStatus] = useState<string>('All');
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+
+  const getStatusColor = (status: string) => {
+    const matched = contentStatuses.find(s => s.label === status);
+    if (matched) return matched.color;
+    switch (status) {
+      case 'Published': return '#10b981';
+      case 'Scheduled': return '#3b82f6';
+      case 'In Progress': return '#f59e0b';
+      case 'Writing': return '#8b5cf6';
+      case 'Idea': return '#6b7280';
+      default: return 'var(--surface-elevated)';
+    }
+  };
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
 
   // Sorting states
@@ -6082,8 +6210,8 @@ export const ContentTable: React.FC = () => {
   });
 
   // 3. Status filter
-  if (filterStatus !== 'All') {
-    filtered = filtered.filter(item => item.status === filterStatus);
+  if (filterStatuses.length > 0) {
+    filtered = filtered.filter(item => filterStatuses.includes(item.status));
   }
 
   // 4. Header sorting
@@ -6123,12 +6251,12 @@ export const ContentTable: React.FC = () => {
             >
               Import CSV
             </button>
-            <select className="filter-select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-              <option value="All">All Statuses</option>
-              {statusOptions.map(s => (
-                <option key={s.id} value={s.label}>{s.label}</option>
-              ))}
-            </select>
+            <MultiSelectDropdown
+              options={statusOptions}
+              selectedValues={filterStatuses}
+              onChange={setFilterStatuses}
+              placeholder="Status"
+            />
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', marginLeft: '0.5rem', whiteSpace: 'nowrap' }}>
               <input 
                 type="checkbox" 
@@ -6451,17 +6579,17 @@ export const ContentTable: React.FC = () => {
                         borderRadius: '4px',
                         appearance: 'none',
                         textAlign: 'center',
-                        backgroundColor: statusOptions.find(s => s.label === item.status)?.color || 'var(--surface-elevated)',
+                        backgroundColor: getStatusColor(item.status),
                         color: '#fff'
                       }}
                     >
                       <option value="" style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>— Select Status —</option>
-                      {statusOptions.map(s => (
-                        <option key={s.id} value={s.label} style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>
-                          {s.label}
+                      {statusOptions.map(opt => (
+                        <option key={opt} value={opt} style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>
+                          {opt}
                         </option>
                       ))}
-                      {item.status && !statusOptions.find(s => s.label === item.status) && (
+                      {item.status && !statusOptions.includes(item.status) && (
                         <option value={item.status} style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>
                           {item.status}
                         </option>
@@ -6771,16 +6899,36 @@ export const ProductWiseSheet: React.FC = () => {
     setPreviewProductId,
     openPreviewForFeature,
     productGroups,
-    statuses
+    statuses,
+    speakers
   } = useDashboard();
   const products = productGroups.map(g => g.name);
+  const pocList = speakers.map(s => s.name);
+
   const [activeProductTab, setActiveProductTab] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingFeatureId, setEditingFeatureId] = useState<string | null>(null);
   const [inlineEditValue, setInlineEditValue] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('All');
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const [filterPocs, setFilterPocs] = useState<string[]>([]);
+
+  const productStatuses = statuses.filter(s => s.scope === 'product' || s.scope === 'all').map(s => s.label);
+  const statusOptions = productStatuses.length > 0 ? productStatuses : ['On Hold', 'In Progress', 'Ongoing', 'Completed'];
+
+  // Sorting state
+  const [sortField, setSortField] = useState<keyof BreakdownFeature | null>(null);
+  const [sortAsc, setSortAsc] = useState(true);
+
+  const handleSort = (field: keyof BreakdownFeature) => {
+    if (sortField === field) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+  };
 
 
   useEffect(() => {
@@ -7028,7 +7176,18 @@ export const ProductWiseSheet: React.FC = () => {
     const matchesSuperPriority = !filterSuperPriorityOnly || !!item.raisedByTarunSir;
     if (!matchesSuperPriority) return false;
 
-    if (filterStatus !== 'All' && item.status !== filterStatus) return false;
+    if (filterStatuses.length > 0 && !filterStatuses.includes(item.status)) return false;
+
+    if (filterPocs.length > 0) {
+      const itemPoc = (item.poc || '').trim();
+      const hasMatchingPoc = filterPocs.some(p => {
+        if (p === 'No POC') {
+          return !itemPoc;
+        }
+        return itemPoc.toLowerCase() === p.toLowerCase();
+      });
+      if (!hasMatchingPoc) return false;
+    }
 
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
@@ -7039,6 +7198,19 @@ export const ProductWiseSheet: React.FC = () => {
       (item.sourceLabel || '').toLowerCase().includes(q)
     );
   });
+
+  const sortedFeatures = [...filteredFeatures];
+  if (sortField) {
+    sortedFeatures.sort((a, b) => {
+      let valA = a[sortField];
+      let valB = b[sortField];
+      if (valA === undefined || valA === null) valA = '';
+      if (valB === undefined || valB === null) valB = '';
+      const strA = String(valA).toLowerCase();
+      const strB = String(valB).toLowerCase();
+      return sortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
+    });
+  }
 
   return (
     <div className="full-canvas-workspace">
@@ -7098,13 +7270,18 @@ export const ProductWiseSheet: React.FC = () => {
             </div>
             
             <div className="toolbar-right" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexShrink: 0 }}>
-              <select className="filter-select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-                <option value="All">All Statuses</option>
-                <option value="On Hold">On Hold</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Ongoing">Ongoing</option>
-                <option value="Completed">Completed</option>
-              </select>
+              <MultiSelectDropdown
+                options={statusOptions}
+                selectedValues={filterStatuses}
+                onChange={setFilterStatuses}
+                placeholder="Status"
+              />
+              <MultiSelectDropdown
+                options={[...pocList, 'No POC']}
+                selectedValues={filterPocs}
+                onChange={setFilterPocs}
+                placeholder="POC"
+              />
               <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', marginRight: '0.5rem', whiteSpace: 'nowrap' }}>
                 <input 
                   type="checkbox" 
@@ -7138,21 +7315,21 @@ export const ProductWiseSheet: React.FC = () => {
                 <table className="grid-table">
                   <thead>
                     <tr>
-                      <th className="sticky-header-col" style={{ width: '280px', minWidth: '280px', maxWidth: '280px' }}>Feature</th>
-                      <th style={{ width: '80px' }}>Priority</th>
-                      <th style={{ width: '140px' }}>Source</th>
-                      <th style={{ width: '120px' }}>POC Owner</th>
-                      <th style={{ width: '120px' }}>Status</th>
-                      <th style={{ width: '100px' }}>Clickup</th>
-                      <th style={{ width: '120px' }}>Specs Date</th>
-                      <th style={{ width: '120px' }}>UI/UX Date</th>
-                      <th style={{ width: '120px' }}>Dev Date</th>
-                      <th style={{ width: '120px' }}>Release Date</th>
+                      <th className="sticky-header-col" onClick={() => handleSort('feature')} style={{ width: '280px', minWidth: '280px', maxWidth: '280px', cursor: 'pointer' }}>Feature {sortField === 'feature' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                      <th onClick={() => handleSort('priority')} style={{ width: '80px', cursor: 'pointer' }}>Priority {sortField === 'priority' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                      <th onClick={() => handleSort('sourceLabel')} style={{ width: '140px', cursor: 'pointer' }}>Source {sortField === 'sourceLabel' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                      <th onClick={() => handleSort('poc')} style={{ width: '120px', cursor: 'pointer' }}>POC Owner {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                      <th onClick={() => handleSort('status')} style={{ width: '120px', cursor: 'pointer' }}>Status {sortField === 'status' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                      <th onClick={() => handleSort('clickupStatus')} style={{ width: '100px', cursor: 'pointer' }}>Clickup {sortField === 'clickupStatus' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                      <th onClick={() => handleSort('productDeadline')} style={{ width: '120px', cursor: 'pointer' }}>Specs Date {sortField === 'productDeadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                      <th onClick={() => handleSort('uiux')} style={{ width: '120px', cursor: 'pointer' }}>UI/UX Date {sortField === 'uiux' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                      <th onClick={() => handleSort('deadline')} style={{ width: '120px', cursor: 'pointer' }}>Dev Date {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                      <th onClick={() => handleSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>Release Date {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}</th>
                       <th style={{ width: '40px' }}></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredFeatures.map(item => (
+                    {sortedFeatures.map(item => (
                       <tr key={item.id} onClick={() => {
                         if (editingFeatureId !== item.id) {
                           item.openPreview();
@@ -7618,16 +7795,16 @@ export const IssuesTable: React.FC = () => {
         <table className="grid-table">
           <thead>
             <tr>
-              <th className="sticky-header-col" onClick={() => handleSort('module')} style={{ width: '280px', minWidth: '280px', maxWidth: '280px' }}>Feature {sortField === 'module' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('product')}>Product Group</th>
-              <th onClick={() => handleSort('priority')}>Priority</th>
-              <th onClick={() => handleSort('poc')}>POC Owner</th>
-              <th onClick={() => handleSort('status')}>Status</th>
-              <th onClick={() => handleSort('clickupStatus')}>Clickup</th>
-              <th onClick={() => handleSort('productDeadline')}>Prod {sortField === 'productDeadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('uiux')}>UIUX {sortField === 'uiux' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('deadline')}>Dev {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('finalRelease')}>Final {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th className="sticky-header-col" onClick={() => handleSort('module')} style={{ width: '280px', minWidth: '280px', maxWidth: '280px', cursor: 'pointer' }}>Feature {sortField === 'module' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('product')} style={{ cursor: 'pointer' }}>Product Group {sortField === 'product' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('priority')} style={{ cursor: 'pointer' }}>Priority {sortField === 'priority' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('poc')} style={{ cursor: 'pointer' }}>POC Owner {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('status')} style={{ cursor: 'pointer' }}>Status {sortField === 'status' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('clickupStatus')} style={{ cursor: 'pointer' }}>Clickup {sortField === 'clickupStatus' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('productDeadline')} style={{ cursor: 'pointer' }}>Prod {sortField === 'productDeadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('uiux')} style={{ cursor: 'pointer' }}>UIUX {sortField === 'uiux' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('deadline')} style={{ cursor: 'pointer' }}>Dev {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('finalRelease')} style={{ cursor: 'pointer' }}>Final {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}</th>
               <th style={{ width: '40px' }}></th>
             </tr>
           </thead>
@@ -7813,6 +7990,19 @@ export const AdoptionTable: React.FC = () => {
     programs, cohorts, productGroups
   } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Sorting state
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortAsc, setSortAsc] = useState(true);
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+  };
   
   // Inline editing states
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
@@ -7868,6 +8058,41 @@ export const AdoptionTable: React.FC = () => {
       
     return matchesSearch;
   });
+
+  const sorted = [...filtered];
+  if (sortField) {
+    sorted.sort((a, b) => {
+      let valA: any = '';
+      let valB: any = '';
+      
+      if (sortField === 'feature') {
+        valA = a.feature;
+        valB = b.feature;
+      } else if (sortField === 'product') {
+        valA = a.product;
+        valB = b.product;
+      } else if (sortField === 'adoptionRate') {
+        const getRate = (item: FeatureAdoption) => {
+          const current = (item.cohort || '').split(',').map(s => s.trim()).filter(Boolean);
+          const checkedCount = displayCohorts.filter(c => current.includes(c.name)).length;
+          return displayCohorts.length > 0 ? (checkedCount / displayCohorts.length) : 0;
+        };
+        valA = getRate(a);
+        valB = getRate(b);
+      } else if (sortField.startsWith('cohort-')) {
+        const cohortName = sortField.replace('cohort-', '');
+        valA = (a.cohort || '').split(',').map(s => s.trim()).includes(cohortName) ? 1 : 0;
+        valB = (b.cohort || '').split(',').map(s => s.trim()).includes(cohortName) ? 1 : 0;
+      }
+      
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return sortAsc ? valA - valB : valB - valA;
+      }
+      const strA = String(valA).toLowerCase();
+      const strB = String(valB).toLowerCase();
+      return sortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
+    });
+  }
 
   const handleCohortToggle = (cohortName: string, isChecked: boolean, target: FeatureAdoption) => {
     const cohortsList = (target.cohort || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -7980,8 +8205,8 @@ export const AdoptionTable: React.FC = () => {
           <table className="grid-table">
             <thead>
               <tr style={{ backgroundColor: 'var(--surface-elevated)' }}>
-                <th rowSpan={2} style={{ verticalAlign: 'middle' }}>Feature Name</th>
-                <th rowSpan={2} style={{ verticalAlign: 'middle', width: 130 }}>Product</th>
+                <th rowSpan={2} onClick={() => handleSort('feature')} style={{ verticalAlign: 'middle', cursor: 'pointer' }}>Feature Name {sortField === 'feature' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th rowSpan={2} onClick={() => handleSort('product')} style={{ verticalAlign: 'middle', width: 130, cursor: 'pointer' }}>Product {sortField === 'product' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 {cohortsByProgram.map(g => (
                   <th 
                     key={g.program.id} 
@@ -7998,17 +8223,17 @@ export const AdoptionTable: React.FC = () => {
                     {g.program.name}
                   </th>
                 ))}
-                <th rowSpan={2} style={{ width: '150px', verticalAlign: 'middle' }}>Adoption Rate (%)</th>
+                <th rowSpan={2} onClick={() => handleSort('adoptionRate')} style={{ width: '150px', verticalAlign: 'middle', cursor: 'pointer' }}>Adoption Rate (%) {sortField === 'adoptionRate' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th rowSpan={2} style={{ width: '80px', verticalAlign: 'middle' }}></th>
               </tr>
               <tr>
                 {displayCohorts.map(c => (
-                  <th key={c.id} style={{ fontSize: '0.725rem', textAlign: 'center', padding: '6px 8px', fontWeight: 600 }}>{c.name}</th>
+                  <th key={c.id} onClick={() => handleSort(`cohort-${c.name}`)} style={{ fontSize: '0.725rem', textAlign: 'center', padding: '6px 8px', fontWeight: 600, cursor: 'pointer' }}>{c.name} {sortField === `cohort-${c.name}` ? (sortAsc ? '▲' : '▼') : ''}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {(isAddingFeature && editDraft ? [editDraft, ...filtered] : filtered).map(adopt => {
+              {(isAddingFeature && editDraft ? [editDraft, ...sorted] : sorted).map(adopt => {
                 const isEditing = editingRowId === adopt.id;
                 
                 return (
