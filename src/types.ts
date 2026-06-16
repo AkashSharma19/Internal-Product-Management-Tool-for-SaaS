@@ -33,6 +33,7 @@ export interface PlanItem {
   link: string;
   status: 'testing' | 'development' | 'closed' | 'tested' | 'open' | 'in design' | 'Done';
   completed?: boolean;
+  clickupStatus?: string;
 }
 
 export interface StudentProject {

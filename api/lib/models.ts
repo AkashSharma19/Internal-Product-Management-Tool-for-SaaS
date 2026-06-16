@@ -35,7 +35,8 @@ const PlanItemSchema = new Schema({
   task: { type: String, required: true },
   link: { type: String, default: "" },
   status: { type: String, default: "" },
-  completed: { type: Boolean, default: false }
+  completed: { type: Boolean, default: false },
+  clickupStatus: { type: String, default: "" }
 }, { timestamps: true });
 
 // 3. StudentProject

@@ -1193,6 +1193,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         ...studentProjects.map(item => ({ id: item.id, type: 'project', link: item.taskLink || '' })),
         ...studentMeetings.map(item => ({ id: item.id, type: 'meeting', link: item.taskLink || '' })),
         ...dailyIssues.map(item => ({ id: item.id, type: 'issue', link: item.taskLink || '' })),
+        ...planItems.map(item => ({ id: item.id, type: 'plan', link: item.link || '' })),
       ].filter(x => x.link && extractClickupTaskId(x.link));
 
       const uniqueTaskIds = Array.from(new Set(itemsToSync.map(x => extractClickupTaskId(x.link) as string)));
@@ -1231,11 +1232,42 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
       });
 
+      // Compute updated count accurately
+      productItems.forEach(item => {
+        const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
+        if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
+          updatedCount++;
+        }
+      });
+      studentProjects.forEach(item => {
+        const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
+        if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
+          updatedCount++;
+        }
+      });
+      studentMeetings.forEach(item => {
+        const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
+        if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
+          updatedCount++;
+        }
+      });
+      dailyIssues.forEach(item => {
+        const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
+        if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
+          updatedCount++;
+        }
+      });
+      planItems.forEach(item => {
+        const tId = item.link ? extractClickupTaskId(item.link) : null;
+        if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
+          updatedCount++;
+        }
+      });
+
       setProductItems(prev => {
         return prev.map(item => {
           const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
           if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
-            updatedCount++;
             const updatedItem = { ...item, clickupStatus: statusMap[tId] };
             persistChange('update', 'products', item.id, updatedItem);
             return updatedItem;
@@ -1274,6 +1306,18 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
             const updatedItem = { ...item, clickupStatus: statusMap[tId] };
             persistChange('update', 'dailyIssues', item.id, updatedItem);
+            return updatedItem;
+          }
+          return item;
+        });
+      });
+
+      setPlanItems(prev => {
+        return prev.map(item => {
+          const tId = item.link ? extractClickupTaskId(item.link) : null;
+          if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
+            const updatedItem = { ...item, clickupStatus: statusMap[tId] };
+            persistChange('update', 'plans', item.id, updatedItem);
             return updatedItem;
           }
           return item;

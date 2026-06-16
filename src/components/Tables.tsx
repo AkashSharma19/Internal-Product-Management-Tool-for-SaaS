@@ -1872,7 +1872,7 @@ const PlanDetailModal: React.FC<PlanDetailModalProps> = ({ item, onClose, onUpda
               <label htmlFor="task-completed-checkbox" className="form-label" style={{ margin: 0, cursor: 'pointer' }}>Mark as Completed</label>
             </div>
 
-            <div className="form-group form-group-full">
+            <div className="form-group">
               <label className="form-label">Sprint Link / References</label>
               <input 
                 type="text" 
@@ -1880,6 +1880,17 @@ const PlanDetailModal: React.FC<PlanDetailModalProps> = ({ item, onClose, onUpda
                 value={draft.link} 
                 onChange={(e) => setDraft({ ...draft, link: e.target.value })} 
                 placeholder="e.g. ClickUp URL or documentation"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">ClickUp Status</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                value={draft.clickupStatus || ''} 
+                onChange={(e) => setDraft({ ...draft, clickupStatus: e.target.value })} 
+                placeholder="Syncs from ClickUp or manual input"
               />
             </div>
           </div>
@@ -1925,6 +1936,17 @@ const PlanDetailModal: React.FC<PlanDetailModalProps> = ({ item, onClose, onUpda
                 )}
               </div>
             </div>
+
+            {item.clickupStatus && (
+              <div className="detail-group">
+                <span className="detail-label">ClickUp Status</span>
+                <div>
+                  <span style={getClickupBadgeStyle(item.clickupStatus)}>
+                    {item.clickupStatus}
+                  </span>
+                </div>
+              </div>
+            )}
 
             <div className="detail-group detail-group-full">
               <span className="detail-label">Sprint Reference Link</span>
@@ -2000,12 +2022,26 @@ export const PlanTable: React.FC = () => {
   };
 
   // ── Month options ──────────────────────────────────────────────────────────
+  const getMonthSortValue = (monthStr: string): number => {
+    const months: Record<string, number> = {
+      january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
+      july: 6, august: 7, september: 8, october: 9, november: 10, december: 11
+    };
+    const parts = monthStr.trim().split(/\s+/);
+    if (parts.length !== 2) return 0;
+    const m = months[parts[0].toLowerCase()];
+    const y = parseInt(parts[1], 10);
+    if (m === undefined || isNaN(y)) return 0;
+    return y * 12 + m;
+  };
+
   const manualMonths = Array.from(new Set(planItems.map(item => item.month)));
   const extraMonths = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'].flatMap(m =>
     ['2026', '2027'].map(y => `${m} ${y}`)
   );
   const allMonths = Array.from(new Set([...manualMonths, ...extraMonths]));
+  allMonths.sort((a, b) => getMonthSortValue(a) - getMonthSortValue(b));
 
   // ── Parse a date string → { year, month } (1-indexed) ─────────────────────
   const parseDateMonth = (dateStr: string | undefined): { year: number; month: number } | null => {
@@ -2453,6 +2489,26 @@ export const PlanTable: React.FC = () => {
                                 fontSize: '0.65rem', fontWeight: 700
                               }}>{a.source}</span>
 
+                              {/* ClickUp Status badge */}
+                              {(() => {
+                                const clickupStatus = a.rawItem?.clickupStatus || matchedProduct?.clickupStatus;
+                                if (clickupStatus) {
+                                  return (
+                                    <span style={{
+                                      ...getClickupBadgeStyle(clickupStatus),
+                                      fontSize: '0.65rem',
+                                      padding: '1.5px 6px',
+                                      borderRadius: '4px',
+                                      textTransform: 'uppercase',
+                                      fontWeight: 750
+                                    }}>
+                                      {clickupStatus}
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              })()}
+
                               {/* Date label badge */}
                               {(() => {
                                 const dynamicStyle = getDateSpanStyle(a.date, isCompleted);
@@ -2520,6 +2576,25 @@ export const PlanTable: React.FC = () => {
                                 <Clock size={10} />
                                 {manualItem.month}
                               </span>
+                              {(() => {
+                                const matchedProduct = findMatchingProductItem(manualItem.task);
+                                const clickupStatus = manualItem.clickupStatus || matchedProduct?.clickupStatus;
+                                if (clickupStatus) {
+                                  return (
+                                    <span style={{
+                                      ...getClickupBadgeStyle(clickupStatus),
+                                      fontSize: '0.65rem',
+                                      padding: '1.5px 6px',
+                                      borderRadius: '4px',
+                                      textTransform: 'uppercase',
+                                      fontWeight: 750
+                                    }}>
+                                      {clickupStatus}
+                                    </span>
+                                  );
+                                }
+                                return null;
+                              })()}
                               {(() => {
                                 const matchedProduct = findMatchingProductItem(manualItem.task);
                                 if (matchedProduct?.raisedByTarunSir) {
