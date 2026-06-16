@@ -275,6 +275,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               uiux: fallbackData.uiux !== undefined ? fallbackData.uiux : item.uiux,
               finalRelease: fallbackData.finalRelease !== undefined ? fallbackData.finalRelease : item.finalRelease,
               productDeadline: fallbackData.productDeadline !== undefined ? fallbackData.productDeadline : item.productDeadline,
+              productDeadlineCompleted: fallbackData.productDeadlineCompleted !== undefined ? fallbackData.productDeadlineCompleted : item.productDeadlineCompleted,
+              uiuxCompleted: fallbackData.uiuxCompleted !== undefined ? fallbackData.uiuxCompleted : item.uiuxCompleted,
+              deadlineCompleted: fallbackData.deadlineCompleted !== undefined ? fallbackData.deadlineCompleted : item.deadlineCompleted,
+              finalReleaseCompleted: fallbackData.finalReleaseCompleted !== undefined ? fallbackData.finalReleaseCompleted : item.finalReleaseCompleted,
             } as ProductItem;
           }
           return item;
@@ -314,7 +318,11 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         type: fallbackData?.type || '',
         uiux: fallbackData?.uiux || '',
         finalRelease: fallbackData?.finalRelease || '',
-        productDeadline: fallbackData?.productDeadline || ''
+        productDeadline: fallbackData?.productDeadline || '',
+        productDeadlineCompleted: fallbackData?.productDeadlineCompleted || false,
+        uiuxCompleted: fallbackData?.uiuxCompleted || false,
+        deadlineCompleted: fallbackData?.deadlineCompleted || false,
+        finalReleaseCompleted: fallbackData?.finalReleaseCompleted || false
       };
       
       setProductItems(prev => [...prev, newTempProduct]);
@@ -641,7 +649,11 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               tarunSirApproval: updatedItem.tarunSirApproval,
               product: updatedItem.product,
               module: updatedItem.module,
-              type: updatedItem.type
+              type: updatedItem.type,
+              productDeadlineCompleted: updatedItem.productDeadlineCompleted,
+              uiuxCompleted: updatedItem.uiuxCompleted,
+              deadlineCompleted: updatedItem.deadlineCompleted,
+              finalReleaseCompleted: updatedItem.finalReleaseCompleted
             };
             persistChange('update', 'projects', p.id, updatedP);
             return updatedP;
@@ -670,7 +682,11 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               tarunSirApproval: updatedItem.tarunSirApproval,
               product: updatedItem.product,
               module: updatedItem.module,
-              type: updatedItem.type
+              type: updatedItem.type,
+              productDeadlineCompleted: updatedItem.productDeadlineCompleted,
+              uiuxCompleted: updatedItem.uiuxCompleted,
+              deadlineCompleted: updatedItem.deadlineCompleted,
+              finalReleaseCompleted: updatedItem.finalReleaseCompleted
             };
             persistChange('update', 'studentMeetings', m.id, updatedM);
             return updatedM;
@@ -788,7 +804,11 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               finalRelease: updatedItem.finalRelease || p.finalRelease,
               raisedByTarunSir: updatedItem.raisedByTarunSir !== undefined ? updatedItem.raisedByTarunSir : p.raisedByTarunSir,
               tarunSirApproval: updatedItem.tarunSirApproval !== undefined ? updatedItem.tarunSirApproval : p.tarunSirApproval,
-              product: updatedItem.product || p.product
+              product: updatedItem.product || p.product,
+              productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : p.productDeadlineCompleted,
+              uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : p.uiuxCompleted,
+              deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
+              finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted
             };
             persistChange('update', 'products', p.id, updatedP);
             return updatedP;
@@ -859,7 +879,11 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               finalRelease: updatedItem.finalRelease || p.finalRelease,
               raisedByTarunSir: updatedItem.raisedByTarunSir !== undefined ? updatedItem.raisedByTarunSir : p.raisedByTarunSir,
               tarunSirApproval: updatedItem.tarunSirApproval !== undefined ? updatedItem.tarunSirApproval : p.tarunSirApproval,
-              product: updatedItem.product || p.product
+              product: updatedItem.product || p.product,
+              productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : p.productDeadlineCompleted,
+              uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : p.uiuxCompleted,
+              deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
+              finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted
             };
             persistChange('update', 'products', p.id, updatedP);
             return updatedP;

@@ -60,7 +60,11 @@ const StudentProjectSchema = new Schema({
   tarunSirApproval: { type: Boolean, default: false },
   product: { type: String, default: "" },
   module: { type: String, default: "" },
-  type: { type: String, default: "" }
+  type: { type: String, default: "" },
+  productDeadlineCompleted: { type: Boolean, default: false },
+  uiuxCompleted: { type: Boolean, default: false },
+  deadlineCompleted: { type: Boolean, default: false },
+  finalReleaseCompleted: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // 4. AMASession
@@ -96,7 +100,11 @@ const StudentMeetingSchema = new Schema({
   finalRelease: { type: String, default: "" },
   productDeadline: { type: String, default: "" },
   raisedByTarunSir: { type: Boolean, default: false },
-  tarunSirApproval: { type: Boolean, default: false }
+  tarunSirApproval: { type: Boolean, default: false },
+  productDeadlineCompleted: { type: Boolean, default: false },
+  uiuxCompleted: { type: Boolean, default: false },
+  deadlineCompleted: { type: Boolean, default: false },
+  finalReleaseCompleted: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // 6. AdminCall

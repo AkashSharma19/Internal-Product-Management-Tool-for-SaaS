@@ -57,6 +57,10 @@ export interface StudentProject {
   product?: string;
   module?: string;
   type?: string;
+  productDeadlineCompleted?: boolean;
+  uiuxCompleted?: boolean;
+  deadlineCompleted?: boolean;
+  finalReleaseCompleted?: boolean;
 }
 
 export interface AMASession {
@@ -91,6 +95,10 @@ export interface StudentMeeting {
   productDeadline?: string;
   raisedByTarunSir?: boolean;
   tarunSirApproval?: boolean;
+  productDeadlineCompleted?: boolean;
+  uiuxCompleted?: boolean;
+  deadlineCompleted?: boolean;
+  finalReleaseCompleted?: boolean;
 }
 
 export interface AdminCall {

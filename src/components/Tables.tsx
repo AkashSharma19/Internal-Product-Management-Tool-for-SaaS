@@ -359,6 +359,12 @@ const formatDateToUserPattern = (dateStr: string): string => {
   return dateStr;
 };
 
+const isCompletedStatus = (status: string | undefined) => {
+  if (!status) return false;
+  const s = status.toLowerCase();
+  return s === 'delivered' || s === 'completed' || s === 'done' || s === 'closed';
+};
+
 const getDateSpanStyle = (dateStr: string | undefined, isCompleted: boolean | undefined) => {
   if (!dateStr) return {};
   if (isCompleted) {
@@ -2616,12 +2622,6 @@ export const StudentProjectsTable: React.FC = () => {
   // Sorting state
   const [sortField, setSortField] = useState<keyof StudentProject | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
-
-  const isCompletedStatus = (status: string | undefined) => {
-    if (!status) return false;
-    const s = status.toLowerCase();
-    return s === 'delivered' || s === 'completed' || s === 'done' || s === 'closed';
-  };
 
   const studentStatuses = statuses.filter(s => s.scope === 'student' || s.scope === 'all').map(s => s.label);
   const statusOptions = studentStatuses.length > 0 ? studentStatuses : ['Delivered', 'Cancelled', 'In-Progress'];
@@ -6983,6 +6983,10 @@ export const ProductWiseSheet: React.FC = () => {
       .filter(item => !item.id.startsWith('prod-temp-') && item.product === activeProduct)
       .map(item => ({
         ...item,
+        productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatus(item.status),
+        uiuxCompleted: item.uiuxCompleted || isCompletedStatus(item.status),
+        deadlineCompleted: item.deadlineCompleted || isCompletedStatus(item.status),
+        finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatus(item.status),
         sourceLabel: 
           item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-') 
             ? 'Feedback' 
@@ -7015,7 +7019,10 @@ export const ProductWiseSheet: React.FC = () => {
         uiux: item.uiux || '',
         finalRelease: item.finalRelease || '',
         productDeadline: item.productDeadline || '',
-        finalReleaseCompleted: item.status === 'Delivered',
+        productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatus(item.status),
+        uiuxCompleted: item.uiuxCompleted || isCompletedStatus(item.status),
+        deadlineCompleted: item.deadlineCompleted || isCompletedStatus(item.status),
+        finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatus(item.status),
         sourceLabel: 'Student Projects',
         sourceId: item.id,
         openPreview: () => openPreviewForFeature(item.title, item as unknown as Partial<ProductItem>),
@@ -7043,10 +7050,10 @@ export const ProductWiseSheet: React.FC = () => {
         uiux: item.uiux || '',
         finalRelease: item.finalRelease || item.publishDate || '',
         productDeadline: item.productDeadline || '',
-        productDeadlineCompleted: item.productDeadlineCompleted,
-        uiuxCompleted: item.uiuxCompleted,
-        deadlineCompleted: item.deadlineCompleted,
-        finalReleaseCompleted: item.finalReleaseCompleted,
+        productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatus(item.status),
+        uiuxCompleted: item.uiuxCompleted || isCompletedStatus(item.status),
+        deadlineCompleted: item.deadlineCompleted || isCompletedStatus(item.status),
+        finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatus(item.status),
         sourceLabel: 'Content Pipeline',
         sourceId: item.id,
         openPreview: () => openPreviewForFeature(item.module, {
@@ -7059,7 +7066,11 @@ export const ProductWiseSheet: React.FC = () => {
           productDeadline: item.productDeadline || '',
           uiux: item.uiux || '',
           deadline: item.deadline || '',
-          finalRelease: item.finalRelease || item.publishDate || ''
+          finalRelease: item.finalRelease || item.publishDate || '',
+          productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatus(item.status),
+          uiuxCompleted: item.uiuxCompleted || isCompletedStatus(item.status),
+          deadlineCompleted: item.deadlineCompleted || isCompletedStatus(item.status),
+          finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatus(item.status),
         }),
         canDelete: false
       })),
@@ -7085,7 +7096,10 @@ export const ProductWiseSheet: React.FC = () => {
         uiux: item.uiux || '',
         finalRelease: item.finalRelease || '',
         productDeadline: item.productDeadline || '',
-        finalReleaseCompleted: item.status === 'Completed',
+        productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatus(item.status),
+        uiuxCompleted: item.uiuxCompleted || isCompletedStatus(item.status),
+        deadlineCompleted: item.deadlineCompleted || isCompletedStatus(item.status),
+        finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatus(item.status),
         sourceLabel: 'Student Meetings',
         sourceId: item.id,
         openPreview: () => openPreviewForFeature(item.module || item.cohort, item as unknown as Partial<ProductItem>),
@@ -7113,10 +7127,10 @@ export const ProductWiseSheet: React.FC = () => {
         uiux: item.uiux || '',
         finalRelease: item.finalRelease || '',
         productDeadline: item.productDeadline || '',
-        productDeadlineCompleted: item.productDeadlineCompleted,
-        uiuxCompleted: item.uiuxCompleted,
-        deadlineCompleted: item.deadlineCompleted,
-        finalReleaseCompleted: item.finalReleaseCompleted,
+        productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatus(item.status),
+        uiuxCompleted: item.uiuxCompleted || isCompletedStatus(item.status),
+        deadlineCompleted: item.deadlineCompleted || isCompletedStatus(item.status),
+        finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatus(item.status),
         sourceLabel: 'Daily Issues',
         sourceId: item.id,
         openPreview: () => openPreviewForFeature(item.module || `${item.cohort} - ${item.id}`, {
@@ -7124,7 +7138,11 @@ export const ProductWiseSheet: React.FC = () => {
           product: item.product,
           module: item.module,
           notes: item.cohort,
-          clickupStatus: item.type
+          clickupStatus: item.type,
+          productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatus(item.status),
+          uiuxCompleted: item.uiuxCompleted || isCompletedStatus(item.status),
+          deadlineCompleted: item.deadlineCompleted || isCompletedStatus(item.status),
+          finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatus(item.status),
         }),
         canDelete: false
       }))
