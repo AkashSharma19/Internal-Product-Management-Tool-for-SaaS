@@ -316,13 +316,13 @@ export const DashboardOverview: React.FC = () => {
       if (statusType === 'my') {
         statusCounts[status.label] = pocItems.filter(item => isSameStatus(item.status, status.label)).length;
       } else {
-        statusCounts[status.label] = pocItems.filter(item => isSameStatus(item.clickupStatus, status.label)).length;
+        statusCounts[status.label] = pocItems.filter(item => (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()).length;
       }
     });
 
     const noStatus = statusType === 'my'
       ? pocItems.filter(item => !item.status || item.status.trim() === '' || !activeStatuses.some(status => isSameStatus(item.status, status.label))).length
-      : pocItems.filter(item => !item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(status => isSameStatus(item.clickupStatus, status.label))).length;
+      : pocItems.filter(item => !item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(status => (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim())).length;
     const total = pocItems.length;
     const clickupCount = pocItems.filter(item => item.taskLink && item.taskLink.trim() !== '').length;
 
@@ -354,13 +354,13 @@ export const DashboardOverview: React.FC = () => {
     if (statusType === 'my') {
       overallStatusTotals[status.label] = validItems.filter(item => isSameStatus(item.status, status.label)).length;
     } else {
-      overallStatusTotals[status.label] = validItems.filter(item => isSameStatus(item.clickupStatus, status.label)).length;
+      overallStatusTotals[status.label] = validItems.filter(item => (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()).length;
     }
   });
 
   const overallNoStatus = statusType === 'my'
     ? validItems.filter(item => !item.status || item.status.trim() === '' || !activeStatuses.some(status => isSameStatus(item.status, status.label))).length
-    : validItems.filter(item => !item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(status => isSameStatus(item.clickupStatus, status.label))).length;
+    : validItems.filter(item => !item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(status => (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim())).length;
   const clickupCoverage = overallTotal > 0 ? Math.round((overallClickup / overallTotal) * 100) : 0;
 
   // Helper styles matching user initials
@@ -400,13 +400,13 @@ export const DashboardOverview: React.FC = () => {
       if (statusType === 'my') {
         statusCounts[status.label] = prodItems.filter(item => isSameStatus(item.status, status.label)).length;
       } else {
-        statusCounts[status.label] = prodItems.filter(item => isSameStatus(item.clickupStatus, status.label)).length;
+        statusCounts[status.label] = prodItems.filter(item => (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()).length;
       }
     });
 
     const noStatus = statusType === 'my'
       ? prodItems.filter(item => !item.status || item.status.trim() === '' || !activeStatuses.some(status => isSameStatus(item.status, status.label))).length
-      : prodItems.filter(item => !item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(status => isSameStatus(item.clickupStatus, status.label))).length;
+      : prodItems.filter(item => !item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(status => (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim())).length;
     const total = prodItems.length;
     const clickupCount = prodItems.filter(item => item.taskLink && item.taskLink.trim() !== '').length;
 
@@ -1156,7 +1156,7 @@ export const DashboardOverview: React.FC = () => {
                       {activeStatuses.map(status => {
                         const count = statusType === 'my'
                           ? row.features.filter(item => isSameStatus(item.status, status.label)).length
-                          : row.features.filter(item => isSameStatus(item.clickupStatus, status.label)).length;
+                          : row.features.filter(item => (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()).length;
                         return (
                           <td key={status.id} style={{ textAlign: 'center', fontWeight: count > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
                             <span style={{ 
@@ -1171,21 +1171,37 @@ export const DashboardOverview: React.FC = () => {
 
                       <td style={{ textAlign: 'center', fontWeight: row.features.filter(item => {
                         const val = statusType === 'my' ? item.status : item.clickupStatus;
-                        return !val || val.trim() === '' || !activeStatuses.some(status => isSameStatus(val, status.label));
+                        if (statusType === 'my') {
+                          return !val || val.trim() === '' || !activeStatuses.some(status => isSameStatus(val, status.label));
+                        } else {
+                          return !val || val.trim() === '' || !activeStatuses.some(status => val.toLowerCase().trim() === status.label.toLowerCase().trim());
+                        }
                       }).length > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
                         <span style={{ 
                           color: row.features.filter(item => {
                             const val = statusType === 'my' ? item.status : item.clickupStatus;
-                            return !val || val.trim() === '' || !activeStatuses.some(status => isSameStatus(val, status.label));
+                            if (statusType === 'my') {
+                              return !val || val.trim() === '' || !activeStatuses.some(status => isSameStatus(val, status.label));
+                            } else {
+                              return !val || val.trim() === '' || !activeStatuses.some(status => val.toLowerCase().trim() === status.label.toLowerCase().trim());
+                            }
                           }).length > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
                           opacity: row.features.filter(item => {
                             const val = statusType === 'my' ? item.status : item.clickupStatus;
-                            return !val || val.trim() === '' || !activeStatuses.some(status => isSameStatus(val, status.label));
+                            if (statusType === 'my') {
+                              return !val || val.trim() === '' || !activeStatuses.some(status => isSameStatus(val, status.label));
+                            } else {
+                              return !val || val.trim() === '' || !activeStatuses.some(status => val.toLowerCase().trim() === status.label.toLowerCase().trim());
+                            }
                           }).length > 0 ? 1 : 0.45 
                         }}>
                           {row.features.filter(item => {
                             const val = statusType === 'my' ? item.status : item.clickupStatus;
-                            return !val || val.trim() === '' || !activeStatuses.some(status => isSameStatus(val, status.label));
+                            if (statusType === 'my') {
+                              return !val || val.trim() === '' || !activeStatuses.some(status => isSameStatus(val, status.label));
+                            } else {
+                              return !val || val.trim() === '' || !activeStatuses.some(status => val.toLowerCase().trim() === status.label.toLowerCase().trim());
+                            }
                           }).length}
                         </span>
                       </td>

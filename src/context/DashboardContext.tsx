@@ -125,6 +125,7 @@ interface DashboardContextType {
   clickupApiKey: string;
   setClickupApiKey: (key: string) => void;
   syncClickupTask: (taskIdOrUrl: string) => Promise<string | null>;
+  refreshAllClickupStatuses: () => Promise<{ success: boolean; totalScanned: number; updatedCount: number; error?: string }>;
 
   // User Authentication
   currentUser: ConfigSpeaker | null;
@@ -1178,6 +1179,114 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return null;
   };
 
+  const refreshAllClickupStatuses = async (): Promise<{ success: boolean; totalScanned: number; updatedCount: number; error?: string }> => {
+    if (!clickupApiKey.trim()) {
+      return { success: false, totalScanned: 0, updatedCount: 0, error: 'ClickUp API key is not configured' };
+    }
+
+    let updatedCount = 0;
+    let totalScanned = 0;
+
+    try {
+      const itemsToSync = [
+        ...productItems.map(item => ({ id: item.id, type: 'product', link: item.taskLink || '' })),
+        ...studentProjects.map(item => ({ id: item.id, type: 'project', link: item.taskLink || '' })),
+        ...studentMeetings.map(item => ({ id: item.id, type: 'meeting', link: item.taskLink || '' })),
+        ...dailyIssues.map(item => ({ id: item.id, type: 'issue', link: item.taskLink || '' })),
+      ].filter(x => x.link && extractClickupTaskId(x.link));
+
+      const uniqueTaskIds = Array.from(new Set(itemsToSync.map(x => extractClickupTaskId(x.link) as string)));
+      totalScanned = uniqueTaskIds.length;
+
+      if (uniqueTaskIds.length === 0) {
+        return { success: true, totalScanned: 0, updatedCount: 0 };
+      }
+
+      const fetchPromises = uniqueTaskIds.map(async (taskId) => {
+        try {
+          const response = await fetch(`https://api.clickup.com/api/v2/task/${taskId}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': clickupApiKey.trim(),
+              'Content-Type': 'application/json'
+            }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data.status && data.status.status) {
+              return { taskId, status: data.status.status };
+            }
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch ClickUp status for task ${taskId}:`, e);
+        }
+        return null;
+      });
+
+      const results = await Promise.all(fetchPromises);
+      const statusMap: Record<string, string> = {};
+      results.forEach(res => {
+        if (res) {
+          statusMap[res.taskId] = res.status;
+        }
+      });
+
+      setProductItems(prev => {
+        return prev.map(item => {
+          const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
+          if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
+            updatedCount++;
+            const updatedItem = { ...item, clickupStatus: statusMap[tId] };
+            persistChange('update', 'products', item.id, updatedItem);
+            return updatedItem;
+          }
+          return item;
+        });
+      });
+
+      setStudentProjects(prev => {
+        return prev.map(item => {
+          const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
+          if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
+            const updatedItem = { ...item, clickupStatus: statusMap[tId] };
+            persistChange('update', 'projects', item.id, updatedItem);
+            return updatedItem;
+          }
+          return item;
+        });
+      });
+
+      setStudentMeetings(prev => {
+        return prev.map(item => {
+          const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
+          if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
+            const updatedItem = { ...item, clickupStatus: statusMap[tId] };
+            persistChange('update', 'studentMeetings', item.id, updatedItem);
+            return updatedItem;
+          }
+          return item;
+        });
+      });
+
+      setDailyIssues(prev => {
+        return prev.map(item => {
+          const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
+          if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
+            const updatedItem = { ...item, clickupStatus: statusMap[tId] };
+            persistChange('update', 'dailyIssues', item.id, updatedItem);
+            return updatedItem;
+          }
+          return item;
+        });
+      });
+
+      return { success: true, totalScanned, updatedCount };
+    } catch (error: any) {
+      console.error('Refresh all ClickUp statuses failed:', error);
+      return { success: false, totalScanned, updatedCount, error: error.message || 'Unknown error' };
+    }
+  };
+
   return (
     <DashboardContext.Provider value={{
       activeTab, setActiveTab,
@@ -1197,6 +1306,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       programs, addProgram, updateProgram, deleteProgram,
       cohorts, addCohort, updateCohort, deleteCohort,
       clickupApiKey, setClickupApiKey: updateClickupApiKey, syncClickupTask,
+      refreshAllClickupStatuses,
       currentUser, loginUser, logoutUser,
       isLoading, syncStatus,
     }}>

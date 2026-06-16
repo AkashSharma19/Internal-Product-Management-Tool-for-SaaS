@@ -32,7 +32,8 @@ import {
   EyeOff,
   Lock,
   User,
-  LogOut
+  LogOut,
+  RefreshCw
 } from 'lucide-react';
 
 const LoginView: React.FC = () => {
@@ -247,9 +248,28 @@ const DashboardContent: React.FC = () => {
     updateProductItem,
     syncStatus,
     currentUser,
-    logoutUser
+    logoutUser,
+    clickupApiKey,
+    refreshAllClickupStatuses
   } = useDashboard();
   const [isCollapsed, setIsCollapsed] = React.useState(true);
+  const [isRefreshingClickup, setIsRefreshingClickup] = useState(false);
+
+  const handleRefreshAllClickup = async () => {
+    setIsRefreshingClickup(true);
+    try {
+      const res = await refreshAllClickupStatuses();
+      if (res.success) {
+        alert(`Successfully synced ClickUp! Scanned ${res.totalScanned} unique task links and updated ${res.updatedCount} items with status changes.`);
+      } else {
+        alert(`Failed to sync ClickUp: ${res.error || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      alert(`Sync failed: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsRefreshingClickup(false);
+    }
+  };
 
   if (!currentUser) {
     return <LoginView />;
@@ -418,6 +438,45 @@ const DashboardContent: React.FC = () => {
           flexDirection: 'column', 
           gap: '0.75rem' 
         }}>
+          {clickupApiKey && (
+            <button
+              onClick={handleRefreshAllClickup}
+              disabled={isRefreshingClickup}
+              style={{
+                width: '100%',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: isCollapsed ? 'center' : 'flex-start',
+                gap: isCollapsed ? '0' : '0.65rem',
+                height: '35px',
+                padding: '0.4rem 0.65rem',
+                borderRadius: '8px',
+                fontSize: '0.775rem',
+                backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                color: 'var(--primary)',
+                cursor: 'pointer',
+                fontWeight: 600,
+                transition: 'all 0.2s',
+                opacity: isRefreshingClickup ? 0.7 : 1
+              }}
+              onMouseEnter={e => {
+                if (!isRefreshingClickup) {
+                  e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.15)';
+                }
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.08)';
+              }}
+              title="Sync all ClickUp statuses"
+            >
+              <RefreshCw size={16} className={isRefreshingClickup ? 'animate-spin' : ''} />
+              {!isCollapsed && (
+                <span>{isRefreshingClickup ? 'Syncing...' : 'Sync ClickUp'}</span>
+              )}
+            </button>
+          )}
+
           {!isCollapsed ? (
             <div style={{ 
               display: 'flex', 
