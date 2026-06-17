@@ -670,6 +670,9 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const [syncError, setSyncError] = useState<string | null>(null);
   const pocList = configSpeakers.map(s => s.name);
   const productList = productGroups.map(g => g.name);
+  
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const notesRef = useRef<HTMLTextAreaElement>(null);
 
   const statusScope = 
     activeTab === 'projects' ? 'student' :
@@ -677,8 +680,18 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     (activeTab === 'meetings' || activeTab === 'admin') ? 'ama' : 'product';
 
   const productStatuses = configStatuses.filter(s => s.scope === statusScope || s.scope === 'all');
-  
-  
+
+  // Auto-expand textareas based on content on mount or update
+  useEffect(() => {
+    if (descriptionRef.current) {
+      descriptionRef.current.style.height = 'auto';
+      descriptionRef.current.style.height = `${descriptionRef.current.scrollHeight}px`;
+    }
+    if (notesRef.current) {
+      notesRef.current.style.height = 'auto';
+      notesRef.current.style.height = `${notesRef.current.scrollHeight}px`;
+    }
+  }, [item.id, item.description, item.notes]);
 
   // Timeline progress calculations
   const getProgressPercentage = () => {
@@ -1442,9 +1455,15 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
           Description
         </p>
         <textarea
+          ref={descriptionRef}
           className="premium-textarea"
-          style={{ minHeight: '120px' }}
+          style={{ minHeight: '120px', overflowY: 'hidden', resize: 'none' }}
           placeholder="Enter feature description..."
+          onInput={(e) => {
+            const target = e.target as HTMLTextAreaElement;
+            target.style.height = 'auto';
+            target.style.height = `${target.scrollHeight}px`;
+          }}
           onBlur={(e) => {
             if (e.target.value !== item.description) {
               handleFieldUpdate('description', e.target.value);
@@ -1460,9 +1479,15 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
           Notes & Reference Links
         </p>
         <textarea
+          ref={notesRef}
           className="premium-textarea"
-          style={{ minHeight: '100px' }}
+          style={{ minHeight: '100px', overflowY: 'hidden', resize: 'none' }}
           placeholder="Paste reference notes, Figma links, or release checklist here..."
+          onInput={(e) => {
+            const target = e.target as HTMLTextAreaElement;
+            target.style.height = 'auto';
+            target.style.height = `${target.scrollHeight}px`;
+          }}
           onBlur={(e) => {
             if (e.target.value !== item.notes) {
               handleFieldUpdate('notes', e.target.value);

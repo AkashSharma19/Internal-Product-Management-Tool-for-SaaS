@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { DashboardProvider, useDashboard } from './context/DashboardContext';
+import type { ProductItem } from './types';
 import {
   ProductTable,
   PlanTable,
@@ -33,7 +34,9 @@ import {
   Lock,
   User,
   LogOut,
-  RefreshCw
+  RefreshCw,
+  Search,
+  CornerDownLeft
 } from 'lucide-react';
 
 const LoginView: React.FC = () => {
@@ -238,6 +241,332 @@ const LoginView: React.FC = () => {
   );
 };
 
+interface SearchResult {
+  id: string;
+  title: string;
+  subtitle: string;
+  category: string;
+  tab: string;
+  onSelect: () => void;
+  searchContent: string;
+}
+
+const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const {
+    productItems,
+    planItems,
+    studentProjects,
+    amaSessions,
+    studentMeetings,
+    adminCalls,
+    contentItems,
+    dailyIssues,
+    setActiveTab,
+    setPreviewProductId,
+    openPreviewForFeature
+  } = useDashboard();
+
+  const [query, setQuery] = useState('');
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Auto-focus input on mount
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, []);
+
+  // Close command palette on click outside
+  const handleOverlayClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  // Compile all searchable items across all worksheets
+  const searchItems = useMemo<SearchResult[]>(() => {
+    const list: SearchResult[] = [];
+
+    // 1. Priority Requests (productItems)
+    productItems.forEach(item => {
+      if (item.id.startsWith('prod-temp-')) return;
+      list.push({
+        id: `product-${item.id}`,
+        title: item.feature,
+        subtitle: `${item.product} • POC: ${item.poc || 'Unassigned'} • Status: ${item.status || 'Draft'}`,
+        category: 'Priority Requests',
+        tab: 'product',
+        onSelect: () => setPreviewProductId(item.id),
+        searchContent: `${item.feature} ${item.product} ${item.poc || ''} ${item.status || ''} ${item.description || ''} ${item.notes || ''} ${item.module || ''}`.toLowerCase()
+      });
+    });
+
+    // 2. Sprint Planning (planItems)
+    planItems.forEach(item => {
+      list.push({
+        id: `plan-${item.id}`,
+        title: item.task,
+        subtitle: `Month: ${item.month} • Category: ${item.category} • Status: ${item.status || 'Open'}`,
+        category: 'Sprint Planning',
+        tab: 'plan',
+        onSelect: () => openPreviewForFeature(item.task, { 
+          status: item.status as any, 
+          clickupStatus: item.clickupStatus || item.status, 
+          taskLink: item.link 
+        }),
+        searchContent: `${item.task} ${item.month} ${item.category} ${item.status || ''}`.toLowerCase()
+      });
+    });
+
+    // 3. Student Projects (studentProjects)
+    studentProjects.forEach(item => {
+      list.push({
+        id: `project-${item.id}`,
+        title: item.title,
+        subtitle: `${item.product || 'No Product'} • POC: ${item.poc || 'Unassigned'} • Status: ${item.status || 'Active'}`,
+        category: 'Student Projects',
+        tab: 'projects',
+        onSelect: () => openPreviewForFeature(item.title, item as unknown as Partial<ProductItem>),
+        searchContent: `${item.title} ${item.description || ''} ${item.thingsWeBuild || ''} ${item.poc || ''} ${item.product || ''} ${item.module || ''} ${item.status || ''}`.toLowerCase()
+      });
+    });
+
+    // 4. AMA Sessions (amaSessions)
+    amaSessions.forEach(item => {
+      list.push({
+        id: `ama-${item.id}`,
+        title: item.topic,
+        subtitle: `Date: ${item.date} • Speaker: ${item.speaker} • Cohort: ${item.cohort}`,
+        category: 'AMA Sessions',
+        tab: 'meetings',
+        onSelect: () => openPreviewForFeature(item.topic, { 
+          notes: item.cohort, 
+          taskLink: item.link, 
+          status: item.status as any 
+        }),
+        searchContent: `${item.topic} ${item.speaker} ${item.cohort} ${item.status || ''} ${item.program || ''}`.toLowerCase()
+      });
+    });
+
+    // 5. Student Meetings (studentMeetings)
+    studentMeetings.forEach(item => {
+      list.push({
+        id: `meeting-${item.id}`,
+        title: `Meeting: ${item.cohort}`,
+        subtitle: `Date: ${item.date} • Summary: ${item.summary ? item.summary.substring(0, 60) : ''}`,
+        category: 'Student Meetings',
+        tab: 'meetings',
+        onSelect: () => openPreviewForFeature(item.cohort, item as unknown as Partial<ProductItem>),
+        searchContent: `${item.cohort} ${item.summary || ''} ${item.notes || ''} ${item.poc || ''} ${item.product || ''} ${item.module || ''}`.toLowerCase()
+      });
+    });
+
+    // 6. Admin Calls (adminCalls)
+    adminCalls.forEach(item => {
+      list.push({
+        id: `admin-${item.id}`,
+        title: item.cohortTopic,
+        subtitle: `Date: ${item.date} • POC: ${item.adminPoc} • Actions: ${item.actions ? item.actions.substring(0, 60) : ''}`,
+        category: 'Admin Calls',
+        tab: 'admin',
+        onSelect: () => openPreviewForFeature(item.cohortTopic, { 
+          notes: item.discussion, 
+          description: item.actions, 
+          status: item.status as any 
+        }),
+        searchContent: `${item.cohortTopic} ${item.adminPoc} ${item.discussion || ''} ${item.actions || ''} ${item.status || ''}`.toLowerCase()
+      });
+    });
+
+    // 7. Content Pipeline (contentItems)
+    contentItems.forEach(item => {
+      list.push({
+        id: `content-${item.id}`,
+        title: item.module,
+        subtitle: `Subject: ${item.subject} • Type: ${item.type} • POC: ${item.poc || 'Unassigned'}`,
+        category: 'Content Pipeline',
+        tab: 'content',
+        onSelect: () => openPreviewForFeature(item.module, { 
+          type: item.type, 
+          poc: item.poc, 
+          status: item.status as any, 
+          notes: item.subject 
+        }),
+        searchContent: `${item.module} ${item.subject} ${item.type} ${item.poc || ''} ${item.status || ''}`.toLowerCase()
+      });
+    });
+
+    // 8. Daily Issues Log (dailyIssues)
+    dailyIssues.forEach(item => {
+      list.push({
+        id: `issue-${item.id}`,
+        title: item.module || `Issue #${item.id}`,
+        subtitle: `Product: ${item.product} • Issue: ${item.issues ? item.issues.substring(0, 60) : ''}`,
+        category: 'Daily Issues Log',
+        tab: 'issues',
+        onSelect: () => openPreviewForFeature(item.module || `Issue #${item.id}`, { 
+          description: item.issues, 
+          product: item.product, 
+          module: item.module, 
+          notes: item.cohort 
+        }),
+        searchContent: `${item.module || ''} ${item.cohort || ''} ${item.product || ''} ${item.type || ''} ${item.issues || ''} ${item.contact || ''} ${item.poc || ''}`.toLowerCase()
+      });
+    });
+
+    return list;
+  }, [productItems, planItems, studentProjects, amaSessions, studentMeetings, adminCalls, contentItems, dailyIssues, setPreviewProductId, openPreviewForFeature]);
+
+  // Filter search items based on query
+  const filteredItems = useMemo(() => {
+    const cleanQuery = query.toLowerCase().trim();
+    if (!cleanQuery) {
+      // Suggest up to 2 items from each category as defaults
+      const suggestions: SearchResult[] = [];
+      const categories = Array.from(new Set(searchItems.map(item => item.category)));
+      categories.forEach(cat => {
+        const catItems = searchItems.filter(item => item.category === cat).slice(0, 2);
+        suggestions.push(...catItems);
+      });
+      return suggestions.slice(0, 10);
+    }
+    return searchItems.filter(item => item.searchContent.includes(cleanQuery));
+  }, [query, searchItems]);
+
+  // Reset selected index when search query changes
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [query]);
+
+  // Handle keyboard navigation inside search results
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIndex(prev => (prev + 1) % Math.max(1, filteredItems.length));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIndex(prev => (prev - 1 + filteredItems.length) % Math.max(1, filteredItems.length));
+      } else if (e.key === 'Enter') {
+        if (filteredItems[selectedIndex]) {
+          handleSelect(filteredItems[selectedIndex]);
+        }
+      } else if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [filteredItems, selectedIndex]);
+
+  // Auto-scroll selected item into view
+  useEffect(() => {
+    if (!listRef.current) return;
+    const selectedElement = listRef.current.querySelector('.command-palette-result-row.selected');
+    if (selectedElement) {
+      selectedElement.scrollIntoView({ block: 'nearest' });
+    }
+  }, [selectedIndex]);
+
+  const handleSelect = (item: SearchResult) => {
+    setActiveTab(item.tab);
+    setTimeout(() => {
+      item.onSelect();
+    }, 50);
+    onClose();
+  };
+
+  // Group filtered results for UI display
+  const groupedResults = useMemo(() => {
+    const groups: Record<string, SearchResult[]> = {};
+    filteredItems.forEach(item => {
+      if (!groups[item.category]) {
+        groups[item.category] = [];
+      }
+      groups[item.category].push(item);
+    });
+    return groups;
+  }, [filteredItems]);
+
+  let flatIndex = 0;
+
+  return (
+    <div className="command-palette-overlay" onClick={handleOverlayClick}>
+      <div className="command-palette-modal">
+        <div className="command-palette-search-wrapper">
+          <Search size={18} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+          <input
+            ref={inputRef}
+            type="text"
+            className="command-palette-search-input"
+            placeholder="Search tasks, descriptions, or POCs..."
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+          />
+          <span className="command-palette-keyboard-pill">ESC</span>
+        </div>
+
+        <div className="command-palette-results" ref={listRef}>
+          {filteredItems.length === 0 ? (
+            <div className="command-palette-empty-state">
+              <p>No results found for "{query}"</p>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Try searching for another keyword or name
+              </span>
+            </div>
+          ) : (
+            Object.entries(groupedResults).map(([category, items]) => (
+              <div key={category}>
+                <div className="command-palette-category-title">{category}</div>
+                {items.map(item => {
+                  const currentIndex = flatIndex++;
+                  const isSelected = currentIndex === selectedIndex;
+                  return (
+                    <div
+                      key={item.id}
+                      className={`command-palette-result-row ${isSelected ? 'selected' : ''}`}
+                      onClick={() => handleSelect(item)}
+                      onMouseEnter={() => setSelectedIndex(currentIndex)}
+                    >
+                      <div className="command-palette-result-content">
+                        <span className="command-palette-result-title">{item.title}</span>
+                        <span className="command-palette-result-subtitle">{item.subtitle}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                        <span className="command-palette-result-category-badge">{category}</span>
+                        {isSelected && <CornerDownLeft size={12} color="var(--text-muted)" />}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="command-palette-footer">
+          <div className="command-palette-shortcuts">
+            <div className="command-palette-shortcut-item">
+              <kbd className="command-palette-keyboard-pill">↑↓</kbd> <span>to navigate</span>
+            </div>
+            <div className="command-palette-shortcut-item">
+              <kbd className="command-palette-keyboard-pill">↵</kbd> <span>to select</span>
+            </div>
+            <div className="command-palette-shortcut-item">
+              <kbd className="command-palette-keyboard-pill">ESC</kbd> <span>to close</span>
+            </div>
+          </div>
+          <div>
+            <span>Search matches title, description & POC</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const DashboardContent: React.FC = () => {
   const { 
     activeTab, 
@@ -254,6 +583,19 @@ const DashboardContent: React.FC = () => {
   } = useDashboard();
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [isRefreshingClickup, setIsRefreshingClickup] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  // Global keybind handler (Ctrl+K / Cmd+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleRefreshAllClickup = async () => {
     setIsRefreshingClickup(true);
@@ -646,6 +988,9 @@ const DashboardContent: React.FC = () => {
           })()}
         </div>
       </main>
+      {isCommandPaletteOpen && (
+        <CommandPalette onClose={() => setIsCommandPaletteOpen(false)} />
+      )}
     </div>
   );
 };
