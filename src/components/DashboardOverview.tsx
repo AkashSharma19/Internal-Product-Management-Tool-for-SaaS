@@ -817,6 +817,153 @@ export const DashboardOverview: React.FC = () => {
     >
       <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         
+        {/* Status Metrics Cells Row */}
+        <div style={{
+          display: 'flex',
+          padding: '0 1rem',
+          marginTop: '1.25rem',
+          marginBottom: '0.25rem',
+          flexShrink: 0
+        }}>
+          <div style={{
+            display: 'flex',
+            width: '100%',
+            backgroundColor: 'var(--background-alt)',
+            border: '1px solid var(--border-light)',
+            borderRadius: '6px',
+            overflow: 'hidden',
+            flexWrap: 'nowrap',
+            overflowX: 'auto',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none'
+          }}>
+            {/* Total Tasks Cell */}
+            <div 
+              style={{
+                flex: '1 1 0px',
+                minWidth: '140px',
+                padding: '0.65rem 1rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.15rem',
+                borderRight: '1px solid var(--border-light)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{
+                  width: '5px',
+                  height: '5px',
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--primary)'
+                }} />
+                <span style={{ 
+                  fontSize: '0.725rem', 
+                  fontWeight: 700, 
+                  color: 'var(--text-secondary)',
+                  whiteSpace: 'nowrap',
+                  textOverflow: 'ellipsis',
+                  overflow: 'hidden'
+                }}>
+                  Total Tasks
+                </span>
+              </div>
+              <div style={{ 
+                fontSize: '1.4rem', 
+                fontWeight: 800, 
+                color: 'var(--text-primary)',
+                lineHeight: '1.2'
+              }}>
+                {overallTotal}
+              </div>
+            </div>
+
+            {activeStatuses.map(status => {
+              const count = overallStatusTotals[status.label] || 0;
+              return (
+                <div 
+                  key={status.id}
+                  style={{
+                    flex: '1 1 0px',
+                    minWidth: '140px',
+                    padding: '0.65rem 1rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.15rem',
+                    borderRight: '1px solid var(--border-light)'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{
+                      width: '5px',
+                      height: '5px',
+                      borderRadius: '50%',
+                      backgroundColor: status.color
+                    }} />
+                    <span style={{ 
+                      fontSize: '0.725rem', 
+                      fontWeight: 700, 
+                      color: 'var(--text-secondary)',
+                      whiteSpace: 'nowrap',
+                      textOverflow: 'ellipsis',
+                      overflow: 'hidden'
+                    }}>
+                      {status.label}
+                    </span>
+                  </div>
+                  <div style={{ 
+                    fontSize: '1.4rem', 
+                    fontWeight: 800, 
+                    color: 'var(--text-primary)',
+                    lineHeight: '1.2'
+                  }}>
+                    {count}
+                  </div>
+                </div>
+              );
+            })}
+            
+            {/* No Status Cell */}
+            <div 
+              style={{
+                flex: '1 1 0px',
+                minWidth: '140px',
+                padding: '0.65rem 1rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.15rem'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{
+                  width: '5px',
+                  height: '5px',
+                  borderRadius: '50%',
+                  backgroundColor: '#6b7280'
+                }} />
+                <span style={{ 
+                  fontSize: '0.725rem', 
+                  fontWeight: 700, 
+                  color: 'var(--text-secondary)',
+                  whiteSpace: 'nowrap',
+                  textOverflow: 'ellipsis',
+                  overflow: 'hidden'
+                }}>
+                  {statusType === 'my' ? 'No Status' : 'No ClickUp Status'}
+                </span>
+              </div>
+              <div style={{ 
+                fontSize: '1.4rem', 
+                fontWeight: 800, 
+                color: 'var(--text-primary)',
+                lineHeight: '1.2'
+              }}>
+                {overallNoStatus}
+              </div>
+            </div>
+
+          </div>
+        </div>
+        
         {/* POC Breakdown Table */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '1.5rem 1rem 0.5rem 1rem' }}>

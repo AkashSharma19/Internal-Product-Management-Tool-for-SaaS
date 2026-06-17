@@ -2881,16 +2881,19 @@ h1, h2, h3, h4, h5, h6 {
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
-  padding: 0.85rem 0.75rem;
-  border-radius: 8px;
+  padding: 0.85rem 0.5rem;
   transition: all 0.2s ease;
-  margin-bottom: 0.25rem;
-  border: 1px solid transparent;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.dashboard-date-item:last-child {
+  border-bottom: none;
 }
 
 .dashboard-date-item:hover {
   background-color: var(--background-alt);
   transform: translateX(2px);
+  border-radius: 4px;
 }
 
 .dashboard-date-item-left {
