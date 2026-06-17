@@ -815,22 +815,17 @@ export const DashboardOverview: React.FC = () => {
         </div>
       }
     >
-      <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         
-        {/* POC Breakdown Table Card */}
-        <div style={{
-          background: 'var(--panel-bg)',
-          border: '1px solid var(--border-light)',
-          borderRadius: '12px',
-          boxShadow: 'var(--shadow-sm)',
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
-          <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-light)' }}>
-            <h4 style={{ fontSize: '1rem', color: 'var(--text-primary)', margin: 0 }}>POC Status & ClickUp Breakdown</h4>
+        {/* POC Breakdown Table */}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '1.5rem 1rem 0.5rem 1rem' }}>
+            <h3 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', margin: 0 }}>
+              POC Status & ClickUp Breakdown
+            </h3>
           </div>
           
-          <div className="table-responsive" style={{ padding: '0 0.5rem', overflowX: 'auto', overflowY: 'visible', flex: 'none' }}>
+          <div className="table-responsive" style={{ overflowX: 'auto', overflowY: 'visible', flex: 'none' }}>
             <table className="grid-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
@@ -1011,20 +1006,15 @@ export const DashboardOverview: React.FC = () => {
           </div>
         </div>
 
-        {/* Product Group Breakdown Table Card */}
-        <div style={{
-          background: 'var(--panel-bg)',
-          border: '1px solid var(--border-light)',
-          borderRadius: '12px',
-          boxShadow: 'var(--shadow-sm)',
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
-          <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-light)' }}>
-            <h4 style={{ fontSize: '1rem', color: 'var(--text-primary)', margin: 0 }}>Product Group Status & ClickUp Breakdown</h4>
+        {/* Product Group Breakdown Table */}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '1.5rem 1rem 0.5rem 1rem' }}>
+            <h3 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', margin: 0 }}>
+              Product Group Status & ClickUp Breakdown
+            </h3>
           </div>
           
-          <div className="table-responsive" style={{ padding: '0 0.5rem', overflowX: 'auto', overflowY: 'visible', flex: 'none' }}>
+          <div className="table-responsive" style={{ overflowX: 'auto', overflowY: 'visible', flex: 'none' }}>
             <table className="grid-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
@@ -1206,20 +1196,15 @@ export const DashboardOverview: React.FC = () => {
           </div>
         </div>
 
-        {/* Meetings & AMA Sessions Summary Card */}
-        <div style={{
-          background: 'var(--panel-bg)',
-          border: '1px solid var(--border-light)',
-          borderRadius: '12px',
-          boxShadow: 'var(--shadow-sm)',
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
-          <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-light)' }}>
-            <h4 style={{ fontSize: '1rem', color: 'var(--text-primary)', margin: 0 }}>Meetings & AMA Sessions Summary</h4>
+        {/* Meetings & AMA Sessions Summary Table */}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '1.5rem 1rem 0.5rem 1rem' }}>
+            <h3 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', margin: 0 }}>
+              Meetings & AMA Sessions Summary
+            </h3>
           </div>
           
-          <div className="table-responsive" style={{ padding: '0 0.5rem', overflowX: 'auto', overflowY: 'visible', flex: 'none' }}>
+          <div className="table-responsive" style={{ overflowX: 'auto', overflowY: 'visible', flex: 'none' }}>
             <table className="grid-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
