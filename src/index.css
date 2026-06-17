@@ -2819,3 +2819,207 @@ h1, h2, h3, h4, h5, h6 {
   background-color: var(--background-alt) !important;
 }
 
+/* OVERDUE & UPCOMING DATE CARDS */
+.dashboard-date-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+
+.dashboard-date-card {
+  background: var(--panel-bg);
+  border: 1px solid var(--border-light);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: box-shadow 0.3s ease;
+}
+
+.dashboard-date-card:hover {
+  box-shadow: var(--shadow);
+}
+
+.dashboard-date-card-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dashboard-date-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: 'Outfit', sans-serif;
+}
+
+.dashboard-date-count-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.dashboard-date-count-badge.overdue {
+  background-color: hsla(350, 75%, 45%, 0.12);
+  color: hsl(350, 75%, 45%);
+}
+
+.dashboard-date-count-badge.upcoming {
+  background-color: hsla(205, 85%, 55%, 0.12);
+  color: hsl(205, 85%, 55%);
+}
+
+.dashboard-date-list {
+  max-height: 420px;
+  overflow-y: auto;
+  padding: 0.75rem;
+}
+
+.dashboard-date-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  margin-bottom: 0.35rem;
+  border: 1px solid transparent;
+}
+
+.dashboard-date-item:hover {
+  background-color: var(--background-alt);
+  border-color: var(--border-light);
+  transform: translateX(2px);
+}
+
+.dashboard-date-item-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  overflow: hidden;
+  flex: 1;
+}
+
+.dashboard-date-item-title {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashboard-date-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.dashboard-date-item-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.dashboard-date-badge-source {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
+.dashboard-date-badge-source.priority-requests {
+  background-color: hsla(245, 80%, 60%, 0.12);
+  color: hsl(245, 70%, 50%);
+}
+
+.dashboard-date-badge-source.student-projects {
+  background-color: hsla(199, 80%, 50%, 0.12);
+  color: hsl(199, 80%, 38%);
+}
+
+.dashboard-date-badge-source.content-pipeline {
+  background-color: hsla(38, 90%, 50%, 0.12);
+  color: hsl(38, 85%, 38%);
+}
+
+.dashboard-date-badge-source.ama-meetings {
+  background-color: hsla(142, 70%, 45%, 0.12);
+  color: hsl(142, 65%, 32%);
+}
+
+.dashboard-date-badge-source.product-breakdown {
+  background-color: hsla(271, 80%, 60%, 0.12);
+  color: hsl(271, 70%, 50%);
+}
+
+.dashboard-date-badge-source.admin-calls {
+  background-color: hsla(330, 75%, 55%, 0.12);
+  color: hsl(330, 75%, 45%);
+}
+
+.dashboard-date-badge-source.daily-issues {
+  background-color: hsla(0, 72%, 50%, 0.12);
+  color: hsl(0, 72%, 45%);
+}
+
+.dashboard-date-badge-stage {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 8px;
+  background-color: var(--background);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.dashboard-date-relative {
+  font-size: 0.75rem;
+  font-weight: 750;
+  padding: 2px 8px;
+  border-radius: 6px;
+  text-align: right;
+}
+
+.dashboard-date-relative.overdue {
+  color: hsl(350, 75%, 45%);
+  background-color: hsla(350, 75%, 45%, 0.08);
+}
+
+.dashboard-date-relative.today {
+  color: hsl(38, 85%, 45%);
+  background-color: hsla(38, 85%, 45%, 0.08);
+}
+
+.dashboard-date-relative.upcoming {
+  color: hsl(142, 65%, 35%);
+  background-color: hsla(142, 65%, 35%, 0.08);
+}
+
+.dashboard-date-poc-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #fff;
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-sm);
+}
+
+
