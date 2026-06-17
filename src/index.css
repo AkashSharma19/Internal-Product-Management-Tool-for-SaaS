@@ -3013,4 +3013,172 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: var(--shadow-sm);
 }
 
+/* 3-COLUMN PROPERTIES DASHBOARD */
+.premium-properties-dashboard {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.properties-panel {
+  background-color: var(--background-alt);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.25s ease;
+}
+
+.properties-panel:hover {
+  box-shadow: var(--shadow);
+  border-color: var(--border-light);
+}
+
+.properties-panel-title {
+  font-size: 0.725rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 0 0 0.25rem 0;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.4rem;
+}
+
+.property-row-flat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  min-height: 32px;
+}
+
+.property-row-flat .premium-property-label {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.property-row-flat select,
+.property-row-flat input[type="text"],
+.property-row-flat input[type="date"] {
+  border: 1px solid transparent !important;
+  background-color: transparent !important;
+  outline: none !important;
+  font-size: 0.8rem !important;
+  color: var(--text-primary) !important;
+  padding: 4px 6px !important;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.property-row-flat select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  padding-right: 20px !important;
+  background-repeat: no-repeat !important;
+  background-position: right 4px center !important;
+  background-size: 14px !important;
+}
+
+:root[data-theme='dark'] .property-row-flat select {
+  background-image: url("data:image/svg+xml;utf8,<svg fill='%2394a3b8' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>") !important;
+}
+
+:root[data-theme='light'] .property-row-flat select {
+  background-image: url("data:image/svg+xml;utf8,<svg fill='%2364748b' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>") !important;
+}
+
+.property-row-flat select:hover,
+.property-row-flat input[type="text"]:hover,
+.property-row-flat input[type="date"]:hover,
+.property-row-flat select:focus,
+.property-row-flat input[type="text"]:focus,
+.property-row-flat input[type="date"]:focus {
+  background-color: var(--background) !important;
+  border-color: var(--border) !important;
+}
+
+@media (max-width: 1024px) {
+  .premium-properties-dashboard {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .premium-properties-dashboard {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* PREMIUM DROPDOWN PILLS */
+.premium-select-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background-color: var(--background) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 6px !important;
+  padding: 2px 6px !important;
+  transition: all 0.2s ease;
+  min-height: 26px;
+  box-sizing: border-box;
+}
+
+.premium-select-pill:hover {
+  border-color: var(--border-light) !important;
+  background-color: var(--panel-bg) !important;
+}
+
+.premium-select-pill select {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 16px 0 0 !important;
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  color: var(--text-primary) !important;
+  cursor: pointer;
+  outline: none !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-repeat: no-repeat !important;
+  background-position: right center !important;
+  background-size: 12px !important;
+  line-height: 1.2 !important;
+}
+
+:root[data-theme='dark'] .premium-select-pill select {
+  background-image: url("data:image/svg+xml;utf8,<svg fill='%2394a3b8' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>") !important;
+}
+
+:root[data-theme='light'] .premium-select-pill select {
+  background-image: url("data:image/svg+xml;utf8,<svg fill='%2364748b' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>") !important;
+}
+
+/* CUSTOM STATUS CHEVRON */
+.premium-status-select {
+  padding-right: 20px !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-repeat: no-repeat !important;
+  background-position: right 6px center !important;
+  background-size: 12px !important;
+  background-image: url("data:image/svg+xml;utf8,<svg fill='white' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>") !important;
+}
+
+/* CUSTOM STATUS DROPDOWN MENU ROW HOVER */
+.status-dropdown-option-row:hover {
+  background-color: var(--background-alt) !important;
+}
+
 

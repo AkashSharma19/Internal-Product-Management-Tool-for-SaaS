@@ -492,7 +492,177 @@ const DateDiffBadge: React.FC<{ prevDate?: string; currentDate?: string }> = ({ 
   );
 };
 
+interface StatusDropdownProps {
+  value: string;
+  onChange: (value: string) => void;
+  productStatuses: Array<{ id: string; label: string; color?: string }>;
+}
 
+const StatusDropdown: React.FC<StatusDropdownProps> = ({ value, onChange, productStatuses }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Helper styles matching status colors (case-insensitive)
+  const getStatusColor = (status: string) => {
+    if (!status) return '#6b7280';
+    const s = status.trim().toLowerCase();
+    
+    // Check if there is a color configured
+    const matched = productStatuses.find(p => p.label.toLowerCase() === s);
+    if (matched && matched.color) return matched.color;
+    
+    if (s === 'completed' || s === 'done' || s === 'delivered' || s === 'closed') return '#10b981';
+    if (s === 'in progress' || s === 'in-progress' || s === 'active') return '#3b82f6';
+    if (s === 'on hold' || s === 'on-hold' || s === 'hold') return '#f59e0b';
+    if (s === 'ongoing') return '#8b5cf6';
+    return '#6b7280';
+  };
+
+  const statusColor = getStatusColor(value);
+
+  return (
+    <div className="status-dropdown-container" ref={containerRef} style={{ position: 'relative', display: 'inline-block' }}>
+      {/* Trigger Button */}
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '4px 24px 4px 8px', // extra right padding for chevron
+          background: `${statusColor}14`,
+          border: `1px solid ${statusColor}33`,
+          borderRadius: '6px',
+          color: statusColor,
+          fontSize: '0.725rem',
+          fontWeight: 700,
+          textTransform: 'uppercase',
+          letterSpacing: '0.03em',
+          cursor: 'pointer',
+          transition: 'all 0.2s',
+          position: 'relative',
+          minHeight: '26px'
+        }}
+        className="status-dropdown-trigger"
+      >
+        <span>{value || '— Select Status —'}</span>
+        {/* Chevron Icon */}
+        <span style={{
+          position: 'absolute',
+          right: '6px',
+          top: '50%',
+          transform: `translateY(-50%) rotate(${isOpen ? 180 : 0}deg)`,
+          transition: 'transform 0.2s',
+          display: 'flex',
+          alignItems: 'center',
+          color: statusColor
+        }}>
+          <ChevronDown size={12} />
+        </span>
+      </button>
+
+      {/* Dropdown Options Menu */}
+      {isOpen && (
+        <div 
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            left: 0,
+            zIndex: 100,
+            backgroundColor: 'var(--panel-bg)',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            boxShadow: 'var(--shadow)',
+            padding: '4px',
+            minWidth: '160px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px',
+            animation: 'fadeIn 0.15s ease-out'
+          }}
+        >
+          <div
+            onClick={() => {
+              onChange('');
+              setIsOpen(false);
+            }}
+            style={{
+              padding: '6px 8px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '0.75rem',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              transition: 'background-color 0.15s'
+            }}
+            className="status-dropdown-option-row"
+          >
+            — None —
+          </div>
+          
+          {productStatuses.map(s => {
+            const isSelected = s.label === value;
+            const itemColor = getStatusColor(s.label);
+            return (
+              <div
+                key={s.id}
+                onClick={() => {
+                  onChange(s.label);
+                  setIsOpen(false);
+                }}
+                style={{
+                  padding: '6px 8px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  transition: 'background-color 0.15s',
+                  backgroundColor: isSelected ? 'var(--background-alt)' : 'transparent'
+                }}
+                className="status-dropdown-option-row"
+              >
+                {/* Colored Badge Option */}
+                <span className="badge" style={{
+                  backgroundColor: `${itemColor}14`,
+                  color: itemColor,
+                  borderColor: `${itemColor}33`,
+                  borderStyle: 'solid',
+                  borderWidth: '1px',
+                  fontSize: '0.725rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.03em',
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  display: 'inline-flex',
+                  alignItems: 'center'
+                }}>
+                  {s.label}
+                </span>
+                {isSelected && (
+                  <CheckSquare size={12} style={{ color: itemColor, marginLeft: '8px' }} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBack, onUpdate }) => {
   const { speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab } = useDashboard();
@@ -539,16 +709,6 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const isFinalCompleted = !!item.finalReleaseCompleted || item.status === 'Completed';
   const isFinalActive = isDevCompleted && !item.finalReleaseCompleted && item.status !== 'Completed';
 
-  // Helper styles matching ClickUp status colors
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Completed': return '#10b981';
-      case 'In Progress': return '#3b82f6';
-      case 'On Hold': return '#f59e0b';
-      case 'Ongoing': return '#8b5cf6';
-      default: return '#6b7280';
-    }
-  };
 
   const getClickupStatusColor = (status: string) => {
     if (!status) return 'var(--text-secondary)';
@@ -628,62 +788,30 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   
 
   return (
-    <div className="premium-workspace animate-fade-in" key={item.id}>
-      {/* Left Main Task Details Pane */}
-      <div className="premium-main-pane">
-        
-        {/* Top Navigation & Breadcrumbs */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem' }}>
-          <div className="premium-breadcrumb">
-            <button className="btn-back" style={{ width: '24px', height: '24px', borderRadius: '6px', marginRight: '0.25rem' }} onClick={onBack} title="Back to Table">
-              <ArrowLeft size={12} />
-            </button>
-            <span>Priority Requests</span>
-            <span>/</span>
-            <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{item.product || 'General Product'}</span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{
-              backgroundColor: 'var(--background-alt)',
-              border: '1px solid var(--border)',
-              borderRadius: '4px',
-              padding: '2px 8px',
-              fontSize: '0.675rem',
-              fontWeight: 700,
-              color: 'var(--text-muted)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}>
-              Task <span style={{ color: 'var(--text-primary)' }}>#{item.id}</span>
-            </span>
-          </div>
+    <div className="premium-workspace animate-fade-in" key={item.id} style={{ display: 'block', padding: '1.5rem', overflowY: 'auto' }}>
+      
+      {/* Top Navigation & Breadcrumbs */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem' }}>
+        <div className="premium-breadcrumb">
+          <button className="btn-back" style={{ width: '24px', height: '24px', borderRadius: '6px', marginRight: '0.25rem' }} onClick={onBack} title="Back to Table">
+            <ArrowLeft size={12} />
+          </button>
+          <span>Priority Requests</span>
+          <span>/</span>
+          <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{item.product || 'General Product'}</span>
         </div>
 
-        {/* Product Group, Module, and Type Selectors Row */}
-        <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           
-          {/* Product Group Selector */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Product Group:</span>
+          {/* Product Group, Module, and Type inline selectors next to task ID */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            {/* Product Group Select */}
             <select
-              className="filter-select"
-              style={{ 
-                padding: '0.2rem 0.5rem', 
-                fontSize: '0.75rem', 
-                fontWeight: 600,
-                height: '28px',
-                backgroundColor: 'var(--background)',
-                borderColor: 'var(--border)',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                color: 'var(--text-primary)'
-              }}
+              style={{ padding: '2px 6px', fontSize: '0.75rem', fontWeight: 600, height: '26px', border: '1px solid var(--border)', borderRadius: '6px', backgroundColor: 'var(--background-alt)', color: 'var(--text-primary)', cursor: 'pointer' }}
               value={item.product || ''}
               onChange={(e) => handleFieldUpdate('product', e.target.value)}
             >
-              <option value="">— Select Product —</option>
+              <option value="">— Product Group —</option>
               {productList.map(p => (
                 <option key={p} value={p}>{p}</option>
               ))}
@@ -691,651 +819,658 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                 <option value={item.product}>{item.product}</option>
               )}
             </select>
+
+            {/* Module Select */}
+            {(() => {
+              const matchedGroup = productGroups.find(g => g.name === item.product);
+              const modulePresets = (matchedGroup && matchedGroup.modules && matchedGroup.modules.length > 0)
+                ? matchedGroup.modules
+                : ['General', 'Academic Grades', 'Attendance Widget', 'MU.Ai Bot', 'Zoom Cohorts', 'Onboarding UI', 'Parent Portal', 'To-do widget'];
+              const isCustomModule = !!item.module && !modulePresets.includes(item.module);
+              const defaultValue = modulePresets[0] || 'General';
+              const selectModuleVal = isCustomModule ? 'Other' : (item.module || defaultValue);
+              
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <select
+                    style={{ padding: '2px 6px', fontSize: '0.75rem', fontWeight: 600, height: '26px', border: '1px solid var(--border)', borderRadius: '6px', backgroundColor: 'var(--background-alt)', color: 'var(--text-primary)', cursor: 'pointer' }}
+                    value={selectModuleVal}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === 'Other') {
+                        handleFieldUpdate('module', 'Custom Module');
+                      } else {
+                        handleFieldUpdate('module', val);
+                      }
+                    }}
+                  >
+                    {modulePresets.map(mod => (
+                      <option key={mod} value={mod}>{mod}</option>
+                    ))}
+                    <option value="Other">Other...</option>
+                  </select>
+                  {isCustomModule && (
+                    <input
+                      type="text"
+                      style={{ padding: '2px 6px', fontSize: '0.75rem', height: '26px', width: '100px', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-primary)', backgroundColor: 'var(--background)' }}
+                      value={item.module}
+                      onChange={(e) => handleFieldUpdate('module', e.target.value)}
+                      placeholder="Module name"
+                    />
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Type Select */}
+            {(() => {
+              const typePresets = ['Feature', 'Enhancement', 'Bug/Defect', 'UI/UX', 'Research'];
+              const isCustomType = !!item.type && !typePresets.includes(item.type);
+              const selectTypeVal = isCustomType ? 'Other' : (item.type || 'Feature');
+              
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <select
+                    style={{ padding: '2px 6px', fontSize: '0.75rem', fontWeight: 600, height: '26px', border: '1px solid var(--border)', borderRadius: '6px', backgroundColor: 'var(--background-alt)', color: 'var(--text-primary)', cursor: 'pointer' }}
+                    value={selectTypeVal}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === 'Other') {
+                        handleFieldUpdate('type', 'Custom Type');
+                      } else {
+                        handleFieldUpdate('type', val);
+                      }
+                    }}
+                  >
+                    <option value="Feature">Feature</option>
+                    <option value="Enhancement">Enhancement</option>
+                    <option value="Bug/Defect">Bug/Defect</option>
+                    <option value="UI/UX">UI/UX</option>
+                    <option value="Research">Research</option>
+                    <option value="Other">Other...</option>
+                  </select>
+                  {isCustomType && (
+                    <input
+                      type="text"
+                      style={{ padding: '2px 6px', fontSize: '0.75rem', height: '26px', width: '100px', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-primary)', backgroundColor: 'var(--background)' }}
+                      value={item.type}
+                      onChange={(e) => handleFieldUpdate('type', e.target.value)}
+                      placeholder="Type name"
+                    />
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
-          {/* Module Selector */}
-          {(() => {
-            const matchedGroup = productGroups.find(g => g.name === item.product);
-            const modulePresets = (matchedGroup && matchedGroup.modules && matchedGroup.modules.length > 0)
-              ? matchedGroup.modules
-              : ['General', 'Academic Grades', 'Attendance Widget', 'MU.Ai Bot', 'Zoom Cohorts', 'Onboarding UI', 'Parent Portal', 'To-do widget'];
-            const isCustomModule = !!item.module && !modulePresets.includes(item.module);
-            const defaultValue = modulePresets[0] || 'General';
-            const selectModuleVal = isCustomModule ? 'Other' : (item.module || defaultValue);
-            
-            return (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Module:</span>
-                <select
-                  className="filter-select"
-                  style={{ 
-                    padding: '0.2rem 0.5rem', 
-                    fontSize: '0.75rem', 
-                    fontWeight: 600,
-                    height: '28px',
-                    backgroundColor: 'var(--background)',
-                    borderColor: 'var(--border)',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    color: 'var(--text-primary)'
-                  }}
-                  value={selectModuleVal}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === 'Other') {
-                      handleFieldUpdate('module', 'Custom Module');
-                    } else {
-                      handleFieldUpdate('module', val);
-                    }
-                  }}
-                >
-                  {modulePresets.map(mod => (
-                    <option key={mod} value={mod}>{mod}</option>
-                  ))}
-                  <option value="Other">Other (Custom)...</option>
-                </select>
-
-                {isCustomModule && (
-                  <input
-                    type="text"
-                    className="filter-select"
-                    style={{
-                      padding: '0.2rem 0.5rem',
-                      fontSize: '0.75rem',
-                      height: '28px',
-                      width: '150px',
-                      borderRadius: '6px'
-                    }}
-                    value={item.module}
-                    onChange={(e) => handleFieldUpdate('module', e.target.value)}
-                    placeholder="Enter module name"
-                  />
-                )}
-              </div>
-            );
-          })()}
-
-          {/* Type Selector */}
-          {(() => {
-            const typePresets = ['Feature', 'Enhancement', 'Bug/Defect', 'UI/UX', 'Research'];
-            const isCustomType = !!item.type && !typePresets.includes(item.type);
-            const selectTypeVal = isCustomType ? 'Other' : (item.type || 'Feature');
-            
-            return (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type:</span>
-                <select
-                  className="filter-select"
-                  style={{ 
-                    padding: '0.2rem 0.5rem', 
-                    fontSize: '0.75rem', 
-                    fontWeight: 600,
-                    height: '28px',
-                    backgroundColor: 'var(--background)',
-                    borderColor: 'var(--border)',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    color: 'var(--text-primary)'
-                  }}
-                  value={selectTypeVal}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === 'Other') {
-                      handleFieldUpdate('type', 'Custom Type');
-                    } else {
-                      handleFieldUpdate('type', val);
-                    }
-                  }}
-                >
-                  <option value="Feature">Feature</option>
-                  <option value="Enhancement">Enhancement</option>
-                  <option value="Bug/Defect">Bug/Defect</option>
-                  <option value="UI/UX">UI/UX</option>
-                  <option value="Research">Research</option>
-                  <option value="Other">Other (Custom)...</option>
-                </select>
-
-                {isCustomType && (
-                  <input
-                    type="text"
-                    className="filter-select"
-                    style={{
-                      padding: '0.2rem 0.5rem',
-                      fontSize: '0.75rem',
-                      height: '28px',
-                      width: '150px',
-                      borderRadius: '6px'
-                    }}
-                    value={item.type}
-                    onChange={(e) => handleFieldUpdate('type', e.target.value)}
-                    placeholder="Enter type name"
-                  />
-                )}
-              </div>
-            );
-          })()}
-
+          <span style={{
+            backgroundColor: 'var(--background-alt)',
+            border: '1px solid var(--border)',
+            borderRadius: '4px',
+            padding: '2px 8px',
+            fontSize: '0.675rem',
+            fontWeight: 700,
+            color: 'var(--text-muted)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}>
+            Task <span style={{ color: 'var(--text-primary)' }}>#{item.id}</span>
+          </span>
         </div>
+      </div>
 
-        {/* Task Title (Editable) */}
-        <div style={{ marginTop: '0.5rem' }}>
-          <input
-            type="text"
-            className="premium-title-input"
-            onBlur={(e) => {
-              if (e.target.value.trim() && e.target.value !== item.feature) {
-                handleFieldUpdate('feature', e.target.value.trim());
-              }
-            }}
-            defaultValue={item.feature}
-            placeholder="Task name"
-          />
-        </div>
+      {/* Task Title (Editable) */}
+      <div style={{ marginTop: '0.75rem' }}>
+        <input
+          type="text"
+          className="premium-title-input"
+          style={{ paddingLeft: 0, fontSize: '1.75rem', borderBottom: '2px solid transparent' }}
+          onBlur={(e) => {
+            if (e.target.value.trim() && e.target.value !== item.feature) {
+              handleFieldUpdate('feature', e.target.value.trim());
+            }
+          }}
+          defaultValue={item.feature}
+          placeholder="Task name"
+        />
+      </div>
 
-        {/* Properties Grid (Notion/ClickUp Metadata fields) */}
-        <div className="premium-properties-grid">
+      {/* 3-COLUMN PROPERTIES GRID DASHBOARD */}
+      <div className="premium-properties-dashboard">
+        
+        {/* PANEL 1: Lifecycle & Integration */}
+        <div className="properties-panel">
+          <h4 className="properties-panel-title">Lifecycle & Integration</h4>
           
-          {/* LEFT COLUMN FIELDS */}
-          <div>
-            {/* Status Field */}
-            <div className="premium-property-row">
-              <span className="premium-property-label">
-                <CheckSquare size={13} /> status
-              </span>
-              <div className="premium-property-value">
+          {/* Status */}
+          <div className="property-row-flat">
+            <span className="premium-property-label">
+              <CheckSquare size={13} /> status
+            </span>
+            <div className="premium-property-value">
+              <StatusDropdown
+                value={item.status}
+                onChange={(val) => handleFieldUpdate('status', val)}
+                productStatuses={productStatuses}
+              />
+            </div>
+          </div>
+
+          {/* Priority */}
+          <div className="property-row-flat">
+            <span className="premium-property-label">
+              <Flag size={13} /> priority
+            </span>
+            <div className="premium-property-value">
+              <div className="premium-select-pill">
+                <Flag size={11} fill={getPriorityFlagColor(item.priority)} color={getPriorityFlagColor(item.priority)} style={{ marginRight: '2px' }} />
                 <select
-                  className="premium-status-select"
-                  style={{ backgroundColor: getStatusColor(item.status) }}
-                  value={item.status}
-                  onChange={(e) => handleFieldUpdate('status', e.target.value as any)}
+                  value={item.priority || ''}
+                  onChange={(e) => handleFieldUpdate('priority', e.target.value as any)}
                 >
-                  <option value="">— Select Status —</option>
-                  {productStatuses.map(s => (
-                    <option key={s.id} value={s.label}>{s.label}</option>
+                  <option value="">— Select Priority —</option>
+                  <option value="P0">P0 (Critical)</option>
+                  <option value="P1">P1 (High)</option>
+                  <option value="P2">P2 (Medium)</option>
+                  <option value="P3">P3 (Normal)</option>
+                  <option value="P4">P4 (Low)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* ClickUp Task Link */}
+          <div className="property-row-flat">
+            <span className="premium-property-label">
+              <Link size={13} /> ClickUp Task
+            </span>
+            <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <input
+                type="text"
+                style={{ 
+                  color: 'var(--accent)', 
+                  width: '160px', 
+                  textAlign: 'right', 
+                  fontWeight: 500,
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden'
+                }}
+                placeholder="Empty Link"
+                onBlur={(e) => {
+                  const val = e.target.value.trim();
+                  if (val !== item.taskLink) {
+                    handleFieldUpdate('taskLink', val);
+                    if (val) {
+                      handleSyncClickup(val);
+                    }
+                  }
+                }}
+                defaultValue={item.taskLink}
+              />
+              {item.taskLink && (
+                <a href={item.taskLink} target="_blank" rel="noreferrer" title="Open ClickUp Task" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  <ExternalLink size={11} style={{ color: 'var(--text-muted)' }} />
+                </a>
+              )}
+            </div>
+          </div>
+
+          {/* ClickUp Status */}
+          {item.taskLink && (
+            <div className="property-row-flat">
+              <span className="premium-property-label">
+                <RefreshCw size={13} /> ClickUp Status
+              </span>
+              <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <input
+                  type="text"
+                  className="premium-clickup-badge"
+                  style={{ 
+                    borderColor: getClickupStatusColor(item.clickupStatus), 
+                    color: getClickupStatusColor(item.clickupStatus),
+                    paddingRight: isSyncing ? '18px' : '6px',
+                    fontSize: '0.675rem',
+                    padding: '3px 8px',
+                    width: '100px',
+                    textAlign: 'center',
+                    fontWeight: 700,
+                    borderRadius: '6px',
+                    backgroundColor: 'var(--background)'
+                  }}
+                  placeholder="Status"
+                  onBlur={(e) => {
+                    const val = e.target.value.trim();
+                    if (val !== item.clickupStatus) {
+                      handleFieldUpdate('clickupStatus', val);
+                    }
+                  }}
+                  defaultValue={item.clickupStatus || ''}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSyncClickup(item.taskLink)}
+                  disabled={isSyncing || !clickupApiKey}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: (isSyncing || !clickupApiKey) ? 'not-allowed' : 'pointer',
+                    color: 'var(--text-muted)',
+                    padding: '1px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    opacity: !clickupApiKey ? 0.3 : 1
+                  }}
+                  title={!clickupApiKey ? "Configure API Key in Settings to sync" : "Sync status with ClickUp"}
+                >
+                  <RefreshCw size={11} style={{ animation: isSyncing ? 'spin 1s linear infinite' : 'none' }} />
+                </button>
+                {syncError && (
+                  <span style={{ color: 'var(--danger)', display: 'inline-flex', alignItems: 'center', cursor: 'help' }} title={syncError}>
+                    <AlertCircle size={11} />
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* PANEL 2: Milestone Checkpoints */}
+        <div className="properties-panel">
+          <h4 className="properties-panel-title">Milestone Checkpoints</h4>
+          
+          {/* Specs Date */}
+          <div className="property-row-flat">
+            <span className="premium-property-label">
+              <Calendar size={13} /> Specs Date
+            </span>
+            <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <input
+                type="date"
+                style={{ width: '110px', textAlign: 'right', cursor: 'pointer', fontWeight: 600 }}
+                value={item.productDeadline || ''}
+                onClick={(e) => (e.target as any).showPicker?.()}
+                onChange={(e) => handleFieldUpdate('productDeadline', e.target.value)}
+              />
+              <input
+                type="checkbox"
+                checked={!!item.productDeadlineCompleted}
+                onChange={(e) => handleFieldUpdate('productDeadlineCompleted', e.target.checked)}
+                style={{ width: '13px', height: '13px', cursor: 'pointer' }}
+                title="Mark Product Specs as Completed"
+              />
+            </div>
+          </div>
+
+          {/* UI/UX Date */}
+          <div className="property-row-flat">
+            <span className="premium-property-label">
+              <Palette size={13} /> UI/UX Date
+            </span>
+            <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <input
+                type="date"
+                style={{ width: '110px', textAlign: 'right', cursor: 'pointer', fontWeight: 600 }}
+                value={item.uiux || ''}
+                onClick={(e) => (e.target as any).showPicker?.()}
+                onChange={(e) => handleFieldUpdate('uiux', e.target.value)}
+              />
+              <input
+                type="checkbox"
+                checked={!!item.uiuxCompleted}
+                onChange={(e) => handleFieldUpdate('uiuxCompleted', e.target.checked)}
+                style={{ width: '13px', height: '13px', cursor: 'pointer' }}
+                title="Mark UI/UX Design as Completed"
+              />
+            </div>
+          </div>
+
+          {/* Dev Date */}
+          <div className="property-row-flat">
+            <span className="premium-property-label">
+              <Code size={13} /> Dev Date
+            </span>
+            <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <input
+                type="date"
+                style={{ width: '110px', textAlign: 'right', cursor: 'pointer', fontWeight: 600 }}
+                value={item.deadline || ''}
+                onClick={(e) => (e.target as any).showPicker?.()}
+                onChange={(e) => handleFieldUpdate('deadline', e.target.value)}
+              />
+              <input
+                type="checkbox"
+                checked={!!item.deadlineCompleted}
+                onChange={(e) => handleFieldUpdate('deadlineCompleted', e.target.checked)}
+                style={{ width: '13px', height: '13px', cursor: 'pointer' }}
+                title="Mark Dev Deadline as Completed"
+              />
+            </div>
+          </div>
+
+          {/* Release Date */}
+          <div className="property-row-flat">
+            <span className="premium-property-label">
+              <Sparkles size={13} /> Release Date
+            </span>
+            <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <input
+                type="date"
+                style={{ width: '110px', textAlign: 'right', cursor: 'pointer', fontWeight: 600 }}
+                value={item.finalRelease || ''}
+                onClick={(e) => (e.target as any).showPicker?.()}
+                onChange={(e) => handleFieldUpdate('finalRelease', e.target.value)}
+              />
+              <input
+                type="checkbox"
+                checked={!!item.finalReleaseCompleted}
+                onChange={(e) => handleFieldUpdate('finalReleaseCompleted', e.target.checked)}
+                style={{ width: '13px', height: '13px', cursor: 'pointer' }}
+                title="Mark Final Release as Completed"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* PANEL 3: Governance & Ownership */}
+        <div className="properties-panel">
+          <h4 className="properties-panel-title">Governance & Ownership</h4>
+          
+          {/* Assignees */}
+          <div className="property-row-flat">
+            <span className="premium-property-label">
+              <User size={13} /> assignees
+            </span>
+            <div className="premium-property-value">
+              <div className="premium-select-pill" style={{ paddingLeft: '4px' }}>
+                <div 
+                  className="clickup-avatar-circle" 
+                  style={{ 
+                    backgroundColor: getAssigneeColor(item.poc),
+                    width: '18px',
+                    height: '18px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.65rem',
+                    fontWeight: 700,
+                    color: 'white',
+                    flexShrink: 0
+                  }}
+                >
+                  {getInitials(item.poc)}
+                </div>
+                <select
+                  value={item.poc || ''}
+                  onChange={(e) => handleFieldUpdate('poc', e.target.value)}
+                >
+                  <option value="">— Select POC —</option>
+                  {pocList.map(p => (
+                    <option key={p} value={p}>{p}</option>
                   ))}
-                  {item.status && !productStatuses.find(s => s.label === item.status) && (
-                    <option value={item.status}>{item.status}</option>
+                  {item.poc && !pocList.includes(item.poc) && (
+                    <option value={item.poc}>{item.poc}</option>
                   )}
                 </select>
               </div>
             </div>
-
-            {/* Dates: Product Specs */}
-            <div className="premium-property-row">
-              <span className="premium-property-label">
-                <Calendar size={13} /> product specs
-              </span>
-              <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
-                <input
-                  type="date"
-                  style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)', border: 'none', background: 'transparent', outline: 'none', width: '120px', textAlign: 'right', cursor: 'pointer' }}
-                  value={item.productDeadline || ''}
-                  onClick={(e) => (e.target as any).showPicker?.()}
-                  onChange={(e) => handleFieldUpdate('productDeadline', e.target.value)}
-                />
-                <input
-                  type="checkbox"
-                  checked={!!item.productDeadlineCompleted}
-                  onChange={(e) => handleFieldUpdate('productDeadlineCompleted', e.target.checked)}
-                  style={{ width: '14px', height: '14px', cursor: 'pointer' }}
-                  title="Mark Product Specs as Completed"
-                />
-              </div>
-            </div>
-
-            {/* Dates: UIUX Deadline */}
-            <div className="premium-property-row">
-              <span className="premium-property-label">
-                <Palette size={13} /> UI/UX design
-              </span>
-              <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
-                <input
-                  type="date"
-                  style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)', border: 'none', background: 'transparent', outline: 'none', width: '120px', textAlign: 'right', cursor: 'pointer' }}
-                  value={item.uiux || ''}
-                  onClick={(e) => (e.target as any).showPicker?.()}
-                  onChange={(e) => handleFieldUpdate('uiux', e.target.value)}
-                />
-                <input
-                  type="checkbox"
-                  checked={!!item.uiuxCompleted}
-                  onChange={(e) => handleFieldUpdate('uiuxCompleted', e.target.checked)}
-                  style={{ width: '14px', height: '14px', cursor: 'pointer' }}
-                  title="Mark UI/UX Design as Completed"
-                />
-              </div>
-            </div>
-
-            {/* Dates: Dev Deadline */}
-            <div className="premium-property-row">
-              <span className="premium-property-label">
-                <Code size={13} /> dev deadline
-              </span>
-              <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
-                <input
-                  type="date"
-                  style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)', border: 'none', background: 'transparent', outline: 'none', width: '120px', textAlign: 'right', cursor: 'pointer' }}
-                  value={item.deadline || ''}
-                  onClick={(e) => (e.target as any).showPicker?.()}
-                  onChange={(e) => handleFieldUpdate('deadline', e.target.value)}
-                />
-                <input
-                  type="checkbox"
-                  checked={!!item.deadlineCompleted}
-                  onChange={(e) => handleFieldUpdate('deadlineCompleted', e.target.checked)}
-                  style={{ width: '14px', height: '14px', cursor: 'pointer' }}
-                  title="Mark Dev Deadline as Completed"
-                />
-              </div>
-            </div>
-
-            {/* Dates: Final Release */}
-            <div className="premium-property-row">
-              <span className="premium-property-label">
-                <Sparkles size={13} /> final release
-              </span>
-              <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
-                <input
-                  type="date"
-                  style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)', border: 'none', background: 'transparent', outline: 'none', width: '120px', textAlign: 'right', cursor: 'pointer' }}
-                  value={item.finalRelease || ''}
-                  onClick={(e) => (e.target as any).showPicker?.()}
-                  onChange={(e) => handleFieldUpdate('finalRelease', e.target.value)}
-                />
-                <input
-                  type="checkbox"
-                  checked={!!item.finalReleaseCompleted}
-                  onChange={(e) => handleFieldUpdate('finalReleaseCompleted', e.target.checked)}
-                  style={{ width: '14px', height: '14px', cursor: 'pointer' }}
-                  title="Mark Final Release as Completed"
-                />
-              </div>
-            </div>
-
-            {/* ClickUp Task Link and Status */}
-            <div className="premium-property-row">
-              <span className="premium-property-label">
-                <Link size={13} /> ClickUp Task
-              </span>
-              <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <input
-                  type="text"
-                  style={{ fontSize: '0.8rem', color: 'var(--accent)', border: 'none', background: 'transparent', outline: 'none', width: '120px', textAlign: 'right', fontWeight: 500 }}
-                  placeholder="Empty Link"
-                  onBlur={(e) => {
-                    const val = e.target.value.trim();
-                    if (val !== item.taskLink) {
-                      handleFieldUpdate('taskLink', val);
-                      if (val) {
-                        handleSyncClickup(val);
-                      }
-                    }
-                  }}
-                  defaultValue={item.taskLink}
-                />
-                {item.taskLink && (
-                  <>
-                    <a href={item.taskLink} target="_blank" rel="noreferrer" title="Open Link" style={{ display: 'inline-flex', alignItems: 'center' }}>
-                      <ExternalLink size={11} style={{ color: 'var(--text-muted)' }} />
-                    </a>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', position: 'relative' }}>
-                      <input
-                        type="text"
-                        className="premium-clickup-badge"
-                        style={{ 
-                          borderColor: getClickupStatusColor(item.clickupStatus), 
-                          color: getClickupStatusColor(item.clickupStatus),
-                          paddingRight: isSyncing ? '20px' : '8px'
-                        }}
-                        placeholder="Status"
-                        onBlur={(e) => {
-                          const val = e.target.value.trim();
-                          if (val !== item.clickupStatus) {
-                            handleFieldUpdate('clickupStatus', val);
-                          }
-                        }}
-                        defaultValue={item.clickupStatus || ''}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleSyncClickup(item.taskLink)}
-                        disabled={isSyncing || !clickupApiKey}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: (isSyncing || !clickupApiKey) ? 'not-allowed' : 'pointer',
-                          color: 'var(--text-muted)',
-                          padding: '2px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          opacity: !clickupApiKey ? 0.3 : 1
-                        }}
-                        title={!clickupApiKey ? "Configure API Key in Settings to sync" : "Sync status with ClickUp"}
-                      >
-                        <RefreshCw size={11} style={{ animation: isSyncing ? 'spin 1s linear infinite' : 'none' }} />
-                      </button>
-                      {syncError && (
-                        <span style={{ color: 'var(--danger)', display: 'inline-flex', alignItems: 'center', cursor: 'help' }} title={syncError}>
-                          <AlertCircle size={12} />
-                        </span>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
           </div>
 
-          {/* RIGHT COLUMN FIELDS */}
-          <div>
-            {/* POC Assignee Field */}
-            <div className="premium-property-row">
-              <span className="premium-property-label">
-                <User size={13} /> assignees
-              </span>
-              <div className="premium-property-value">
-                <div className="clickup-avatar-pill">
-                  <div className="clickup-avatar-circle" style={{ backgroundColor: getAssigneeColor(item.poc) }}>
-                    {getInitials(item.poc)}
-                  </div>
-                  <select
-                    style={{ border: 'none', background: 'transparent', outline: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', padding: 0 }}
-                    value={item.poc || ''}
-                    onChange={(e) => handleFieldUpdate('poc', e.target.value)}
-                  >
-                    <option value="">— Select POC —</option>
-                    {pocList.map(p => (
-                      <option key={p} value={p}>{p}</option>
-                    ))}
-                    {item.poc && !pocList.includes(item.poc) && (
-                      <option value={item.poc}>{item.poc}</option>
-                    )}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Priority Field */}
-            <div className="premium-property-row">
-              <span className="premium-property-label">
-                <Flag size={13} /> priority
-              </span>
-              <div className="premium-property-value">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Flag size={11} fill={getPriorityFlagColor(item.priority)} color={getPriorityFlagColor(item.priority)} />
-                  <select
-                    style={{ border: 'none', background: 'transparent', outline: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)', padding: 0 }}
-                    value={item.priority || ''}
-                    onChange={(e) => handleFieldUpdate('priority', e.target.value as any)}
-                  >
-                    <option value="">— Select Priority —</option>
-                    <option value="P0">P0 (Critical)</option>
-                    <option value="P1">P1 (High)</option>
-                    <option value="P2">P2 (Medium)</option>
-                    <option value="P3">P3 (Normal)</option>
-                    <option value="P4">P4 (Low)</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* ClickUp status row removed (merged with Task Link) */}
-
-            {/* Blockers */}
-            <div className="premium-property-row">
-              <span className="premium-property-label" style={{ color: item.blocker ? 'var(--danger)' : 'var(--text-muted)' }}>
-                <AlertCircle size={13} /> blockers
-              </span>
-              <div className="premium-property-value">
-                <input
-                  type="text"
-                  style={{ fontSize: '0.8rem', fontWeight: 600, color: item.blocker ? 'var(--danger)' : 'var(--text-primary)', border: 'none', background: 'transparent', outline: 'none', width: '120px', textAlign: 'right' }}
-                  placeholder="None"
-                  onBlur={(e) => {
-                    if (e.target.value !== item.blocker) {
-                      handleFieldUpdate('blocker', e.target.value);
-                    }
-                  }}
-                  defaultValue={item.blocker}
-                />
-              </div>
-            </div>
-
-            {/* Tarun Sir Verification */}
-            <div className="premium-property-row">
-              <span className="premium-property-label">
-                <CheckSquare size={13} /> Tarun Sir verified
-              </span>
-              <div className="premium-property-value">
-                <label className="premium-toggle-wrapper">
-                  <input 
-                    type="checkbox" 
-                    className="premium-toggle-checkbox" 
-                    checked={item.tarunSirApproval} 
-                    onChange={(e) => handleFieldUpdate('tarunSirApproval', e.target.checked)} 
-                  />
-                  <span className="premium-toggle-slider" />
-                </label>
-              </div>
-            </div>
-
-            {/* Raised by Tarun Sir */}
-            <div className="premium-property-row">
-              <span className="premium-property-label">
-                <Star size={13} /> raised by Tarun Sir
-              </span>
-              <div className="premium-property-value">
-                <label className="premium-toggle-wrapper">
-                  <input 
-                    type="checkbox" 
-                    className="premium-toggle-checkbox" 
-                    checked={item.raisedByTarunSir} 
-                    onChange={(e) => handleFieldUpdate('raisedByTarunSir', e.target.checked)} 
-                  />
-                  <span className="premium-toggle-slider" />
-                </label>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Milestones Horizontal Progress Bar */}
-        <div className="compact-timeline-container" style={{ margin: '0.5rem 0 1.25rem 0' }}>
-          <div className="compact-timeline-track">
-            <div 
-              className="compact-timeline-track-progress" 
-              style={{ width: `${getProgressPercentage()}%` }} 
-            />
-          </div>
-          <div className="compact-timeline-steps">
-            
-            {/* Step 1: Product Specs */}
-            <div className={`compact-timeline-step ${isProductCompleted ? 'completed' : 'active'}`}>
-              <div className="compact-timeline-node">
-                {isProductCompleted ? (
-                  <CheckSquare size={12} />
-                ) : (
-                  <span>1</span>
-                )}
-              </div>
-              <span className="compact-timeline-step-label">Specs</span>
-              
-              <span 
-                className="compact-timeline-step-date" 
-                style={{ cursor: 'pointer', userSelect: 'none' }}
-                onClick={() => {
-                  const inputEl = document.getElementById(`date-picker-specs-${item.id}`);
-                  if (inputEl) (inputEl as any).showPicker?.();
-                }}
-              >
-                {item.productDeadline ? formatDateToUserPattern(item.productDeadline) : 'Set Date'}
-              </span>
+          {/* Blockers */}
+          <div className="property-row-flat">
+            <span className="premium-property-label" style={{ color: item.blocker ? 'var(--danger)' : 'var(--text-muted)' }}>
+              <AlertCircle size={13} /> blockers
+            </span>
+            <div className="premium-property-value">
               <input
-                id={`date-picker-specs-${item.id}`}
-                type="date"
-                style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
-                value={parseDateToYYYYMMDD(item.productDeadline)}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handleFieldUpdate('productDeadline', e.target.value);
+                type="text"
+                style={{ color: item.blocker ? 'var(--danger)' : 'var(--text-primary)', width: '120px', textAlign: 'right', fontWeight: 600 }}
+                placeholder="None"
+                onBlur={(e) => {
+                  if (e.target.value !== item.blocker) {
+                    handleFieldUpdate('blocker', e.target.value);
                   }
                 }}
+                defaultValue={item.blocker}
               />
             </div>
-
-            {/* Step 2: UI/UX */}
-            <div className={`compact-timeline-step ${isUiuxCompleted ? 'completed' : isUiuxActive ? 'active' : 'pending'}`}>
-              <div className="compact-timeline-node">
-                {isUiuxCompleted ? (
-                  <CheckSquare size={12} />
-                ) : (
-                  <span>2</span>
-                )}
-              </div>
-              <span className="compact-timeline-step-label">UI/UX</span>
-              
-              <span 
-                className="compact-timeline-step-date" 
-                style={{ cursor: 'pointer', userSelect: 'none' }}
-                onClick={() => {
-                  const inputEl = document.getElementById(`date-picker-uiux-${item.id}`);
-                  if (inputEl) (inputEl as any).showPicker?.();
-                }}
-              >
-                {item.uiux ? formatDateToUserPattern(item.uiux) : 'Set Date'}
-              </span>
-              <input
-                id={`date-picker-uiux-${item.id}`}
-                type="date"
-                style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
-                value={parseDateToYYYYMMDD(item.uiux)}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handleFieldUpdate('uiux', e.target.value);
-                  }
-                }}
-              />
-            </div>
-
-            {/* Step 3: Development */}
-            <div className={`compact-timeline-step ${isDevCompleted ? 'completed' : isDevActive ? 'active' : 'pending'}`}>
-              <div className="compact-timeline-node">
-                {isDevCompleted ? (
-                  <CheckSquare size={12} />
-                ) : (
-                  <span>3</span>
-                )}
-              </div>
-              <span className="compact-timeline-step-label">Dev</span>
-              
-              <span 
-                className="compact-timeline-step-date" 
-                style={{ cursor: 'pointer', userSelect: 'none' }}
-                onClick={() => {
-                  const inputEl = document.getElementById(`date-picker-dev-${item.id}`);
-                  if (inputEl) (inputEl as any).showPicker?.();
-                }}
-              >
-                {item.deadline ? formatDateToUserPattern(item.deadline) : 'Set Date'}
-              </span>
-              <input
-                id={`date-picker-dev-${item.id}`}
-                type="date"
-                style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
-                value={parseDateToYYYYMMDD(item.deadline)}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handleFieldUpdate('deadline', e.target.value);
-                  }
-                }}
-              />
-            </div>
-
-            {/* Step 4: Final Release */}
-            <div className={`compact-timeline-step ${isFinalCompleted ? 'completed' : isFinalActive ? 'active' : 'pending'}`}>
-              <div className="compact-timeline-node">
-                {isFinalCompleted ? (
-                  <CheckSquare size={12} />
-                ) : (
-                  <span>4</span>
-                )}
-              </div>
-              <span className="compact-timeline-step-label">Release</span>
-              
-              <span 
-                className="compact-timeline-step-date" 
-                style={{ cursor: 'pointer', userSelect: 'none' }}
-                onClick={() => {
-                  const inputEl = document.getElementById(`date-picker-release-${item.id}`);
-                  if (inputEl) (inputEl as any).showPicker?.();
-                }}
-              >
-                {item.finalRelease ? formatDateToUserPattern(item.finalRelease) : 'Set Date'}
-              </span>
-              <input
-                id={`date-picker-release-${item.id}`}
-                type="date"
-                style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
-                value={parseDateToYYYYMMDD(item.finalRelease)}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handleFieldUpdate('finalRelease', e.target.value);
-                  }
-                }}
-              />
-            </div>
-
           </div>
-        </div>
 
-        {/* Blocker Alert Banner */}
-        {item.blocker && (
-          <div style={{ backgroundColor: 'var(--danger-bg)', border: '1px solid rgba(239, 68, 68, 0.15)', borderLeft: '4px solid var(--danger)', borderRadius: '6px', padding: '0.4rem 0.65rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <span style={{ fontSize: '1rem' }}>🛑</span>
-            <p style={{ margin: 0, fontSize: '0.725rem', color: 'var(--text-secondary)', fontWeight: 500, lineHeight: 1.3 }}>
-              <strong style={{ color: 'var(--danger)' }}>Blocker active:</strong> {item.blocker}
-            </p>
+          {/* Tarun Sir Verified */}
+          <div className="property-row-flat">
+            <span className="premium-property-label">
+              <CheckSquare size={13} /> Tarun Sir verified
+            </span>
+            <div className="premium-property-value">
+              <label className="premium-toggle-wrapper">
+                <input 
+                  type="checkbox" 
+                  className="premium-toggle-checkbox" 
+                  checked={item.tarunSirApproval} 
+                  onChange={(e) => handleFieldUpdate('tarunSirApproval', e.target.checked)} 
+                />
+                <span className="premium-toggle-slider" />
+              </label>
+            </div>
           </div>
-        )}
 
-        {/* Task Main Content / Description */}
-        <div style={{ marginTop: '0.5rem' }}>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', borderBottom: '1px solid var(--border)', paddingBottom: '0.25rem', margin: '0 0 0.5rem 0' }}>
-            Description
-          </p>
-          <textarea
-            className="premium-textarea"
-            style={{ minHeight: '80px' }}
-            placeholder="Enter feature description..."
-            onBlur={(e) => {
-              if (e.target.value !== item.description) {
-                handleFieldUpdate('description', e.target.value);
-              }
-            }}
-            defaultValue={item.description}
-          />
-        </div>
-
-        {/* Custom Fields Collapse (Notes section styled as ClickUp collapsible block) */}
-        <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', borderBottom: '1px solid var(--border)', paddingBottom: '0.25rem', margin: '0 0 0.5rem 0' }}>
-            Notes & Reference Links
-          </p>
-          <textarea
-            className="premium-textarea"
-            style={{ minHeight: '60px', marginTop: '0.5rem' }}
-            placeholder="Paste reference notes, Figma links, or release checklist here..."
-            onBlur={(e) => {
-              if (e.target.value !== item.notes) {
-                handleFieldUpdate('notes', e.target.value);
-              }
-            }}
-            defaultValue={item.notes}
-          />
+          {/* Raised by Tarun Sir */}
+          <div className="property-row-flat">
+            <span className="premium-property-label">
+              <Star size={13} /> raised by Tarun Sir
+            </span>
+            <div className="premium-property-value">
+              <label className="premium-toggle-wrapper">
+                <input 
+                  type="checkbox" 
+                  className="premium-toggle-checkbox" 
+                  checked={item.raisedByTarunSir} 
+                  onChange={(e) => handleFieldUpdate('raisedByTarunSir', e.target.checked)} 
+                />
+                <span className="premium-toggle-slider" />
+              </label>
+            </div>
+          </div>
         </div>
 
       </div>
 
+      {/* Stepper progress timeline tracker */}
+      <div className="compact-timeline-container" style={{ margin: '1.5rem 0' }}>
+        <div className="compact-timeline-track">
+          <div 
+            className="compact-timeline-track-progress" 
+            style={{ width: `${getProgressPercentage()}%` }} 
+          />
+        </div>
+        <div className="compact-timeline-steps">
+          
+          {/* Step 1: Specs */}
+          <div className={`compact-timeline-step ${isProductCompleted ? 'completed' : 'active'}`}>
+            <div className="compact-timeline-node">
+              {isProductCompleted ? (
+                <CheckSquare size={12} />
+              ) : (
+                <span>1</span>
+              )}
+            </div>
+            <span className="compact-timeline-step-label">Specs</span>
+            
+            <span 
+              className="compact-timeline-step-date" 
+              style={{ cursor: 'pointer', userSelect: 'none' }}
+              onClick={() => {
+                const inputEl = document.getElementById(`date-picker-specs-${item.id}`);
+                if (inputEl) (inputEl as any).showPicker?.();
+              }}
+            >
+              {item.productDeadline ? formatDateToUserPattern(item.productDeadline) : 'Set Date'}
+            </span>
+            <input
+              id={`date-picker-specs-${item.id}`}
+              type="date"
+              style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
+              value={parseDateToYYYYMMDD(item.productDeadline)}
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleFieldUpdate('productDeadline', e.target.value);
+                }
+              }}
+            />
+          </div>
+
+          {/* Step 2: UI/UX */}
+          <div className={`compact-timeline-step ${isUiuxCompleted ? 'completed' : isUiuxActive ? 'active' : 'pending'}`}>
+            <div className="compact-timeline-node">
+              {isUiuxCompleted ? (
+                <CheckSquare size={12} />
+              ) : (
+                <span>2</span>
+              )}
+            </div>
+            <span className="compact-timeline-step-label">UI/UX</span>
+            
+            <span 
+              className="compact-timeline-step-date" 
+              style={{ cursor: 'pointer', userSelect: 'none' }}
+              onClick={() => {
+                const inputEl = document.getElementById(`date-picker-uiux-${item.id}`);
+                if (inputEl) (inputEl as any).showPicker?.();
+              }}
+            >
+              {item.uiux ? formatDateToUserPattern(item.uiux) : 'Set Date'}
+            </span>
+            <input
+              id={`date-picker-uiux-${item.id}`}
+              type="date"
+              style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
+              value={parseDateToYYYYMMDD(item.uiux)}
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleFieldUpdate('uiux', e.target.value);
+                }
+              }}
+            />
+          </div>
+
+          {/* Step 3: Dev */}
+          <div className={`compact-timeline-step ${isDevCompleted ? 'completed' : isDevActive ? 'active' : 'pending'}`}>
+            <div className="compact-timeline-node">
+              {isDevCompleted ? (
+                <CheckSquare size={12} />
+              ) : (
+                <span>3</span>
+              )}
+            </div>
+            <span className="compact-timeline-step-label">Dev</span>
+            
+            <span 
+              className="compact-timeline-step-date" 
+              style={{ cursor: 'pointer', userSelect: 'none' }}
+              onClick={() => {
+                const inputEl = document.getElementById(`date-picker-dev-${item.id}`);
+                if (inputEl) (inputEl as any).showPicker?.();
+              }}
+            >
+              {item.deadline ? formatDateToUserPattern(item.deadline) : 'Set Date'}
+            </span>
+            <input
+              id={`date-picker-dev-${item.id}`}
+              type="date"
+              style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
+              value={parseDateToYYYYMMDD(item.deadline)}
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleFieldUpdate('deadline', e.target.value);
+                }
+              }}
+            />
+          </div>
+
+          {/* Step 4: Release */}
+          <div className={`compact-timeline-step ${isFinalCompleted ? 'completed' : isFinalActive ? 'active' : 'pending'}`}>
+            <div className="compact-timeline-node">
+              {isFinalCompleted ? (
+                <CheckSquare size={12} />
+              ) : (
+                <span>4</span>
+              )}
+            </div>
+            <span className="compact-timeline-step-label">Release</span>
+            
+            <span 
+              className="compact-timeline-step-date" 
+              style={{ cursor: 'pointer', userSelect: 'none' }}
+              onClick={() => {
+                const inputEl = document.getElementById(`date-picker-release-${item.id}`);
+                if (inputEl) (inputEl as any).showPicker?.();
+              }}
+            >
+              {item.finalRelease ? formatDateToUserPattern(item.finalRelease) : 'Set Date'}
+            </span>
+            <input
+              id={`date-picker-release-${item.id}`}
+              type="date"
+              style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
+              value={parseDateToYYYYMMDD(item.finalRelease)}
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleFieldUpdate('finalRelease', e.target.value);
+                }
+              }}
+            />
+          </div>
+
+        </div>
+      </div>
+
+      {/* Blocker Alert Banner */}
+      {item.blocker && (
+        <div style={{ backgroundColor: 'var(--danger-bg)', border: '1px solid rgba(239, 68, 68, 0.15)', borderLeft: '4px solid var(--danger)', borderRadius: '6px', padding: '0.4rem 0.65rem', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1.25rem' }}>
+          <span style={{ fontSize: '1rem' }}>🛑</span>
+          <p style={{ margin: 0, fontSize: '0.725rem', color: 'var(--text-secondary)', fontWeight: 500, lineHeight: 1.3 }}>
+            <strong style={{ color: 'var(--danger)' }}>Blocker active:</strong> {item.blocker}
+          </p>
+        </div>
+      )}
+
+      {/* Description card */}
+      <div style={{ marginTop: '0.5rem' }}>
+        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', borderBottom: '1px solid var(--border)', paddingBottom: '0.25rem', margin: '0 0 0.5rem 0' }}>
+          Description
+        </p>
+        <textarea
+          className="premium-textarea"
+          style={{ minHeight: '120px' }}
+          placeholder="Enter feature description..."
+          onBlur={(e) => {
+            if (e.target.value !== item.description) {
+              handleFieldUpdate('description', e.target.value);
+            }
+          }}
+          defaultValue={item.description}
+        />
+      </div>
+
+      {/* Notes & Reference Links card */}
+      <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '1rem', marginTop: '1.25rem' }}>
+        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', borderBottom: '1px solid var(--border)', paddingBottom: '0.25rem', margin: '0 0 0.5rem 0' }}>
+          Notes & Reference Links
+        </p>
+        <textarea
+          className="premium-textarea"
+          style={{ minHeight: '100px' }}
+          placeholder="Paste reference notes, Figma links, or release checklist here..."
+          onBlur={(e) => {
+            if (e.target.value !== item.notes) {
+              handleFieldUpdate('notes', e.target.value);
+            }
+          }}
+          defaultValue={item.notes}
+        />
+      </div>
 
     </div>
   );
@@ -1725,7 +1860,7 @@ export const ProductTable: React.FC = () => {
                     ) : '—'}
                   </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                    <DateDiffBadge prevDate={item.uiux} currentDate={item.deadline} />
+                    <DateDiffBadge prevDate={item.uiux || item.productDeadline} currentDate={item.deadline} />
                     {item.deadline ? (
                       <span style={getDateSpanStyle(item.deadline, item.deadlineCompleted)}>
                         {formatDateToUserPattern(item.deadline)}
@@ -1733,7 +1868,7 @@ export const ProductTable: React.FC = () => {
                     ) : '—'}
                   </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                    <DateDiffBadge prevDate={item.deadline} currentDate={item.finalRelease} />
+                    <DateDiffBadge prevDate={item.deadline || item.uiux || item.productDeadline} currentDate={item.finalRelease} />
                     {item.finalRelease ? (
                       <span style={getDateSpanStyle(item.finalRelease, item.finalReleaseCompleted)}>
                         {formatDateToUserPattern(item.finalRelease)}
@@ -3034,7 +3169,7 @@ export const StudentProjectsTable: React.FC = () => {
                     ) : '—'}
                   </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                    <DateDiffBadge prevDate={p.uiux} currentDate={p.deadline || p.completeInfoDate} />
+                    <DateDiffBadge prevDate={p.uiux || p.productDeadline} currentDate={p.deadline || p.completeInfoDate} />
                     {(p.deadline || p.completeInfoDate) ? (
                       <span style={getDateSpanStyle(p.deadline || p.completeInfoDate, isCompletedStatus(p.status) || !!matchedProduct?.deadlineCompleted)}>
                         {formatDateToUserPattern(p.deadline || p.completeInfoDate)}
@@ -3042,7 +3177,7 @@ export const StudentProjectsTable: React.FC = () => {
                     ) : '—'}
                   </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                    <DateDiffBadge prevDate={p.deadline || p.completeInfoDate} currentDate={p.finalRelease} />
+                    <DateDiffBadge prevDate={p.deadline || p.completeInfoDate || p.uiux || p.productDeadline} currentDate={p.finalRelease} />
                     {p.finalRelease ? (
                       <span style={getDateSpanStyle(p.finalRelease, isCompletedStatus(p.status) || !!matchedProduct?.finalReleaseCompleted)}>
                         {formatDateToUserPattern(p.finalRelease)}
@@ -4256,7 +4391,7 @@ export const StudentMeetingsTable: React.FC = () => {
                                             ) : '—'}
                                           </td>
                                           <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                                            <DateDiffBadge prevDate={feat.uiux} currentDate={feat.deadline} />
+                                            <DateDiffBadge prevDate={feat.uiux || feat.productDeadline} currentDate={feat.deadline} />
                                             {feat.deadline ? (
                                               <span style={getDateSpanStyle(feat.deadline, feat.deadlineCompleted)}>
                                                 {formatDateToUserPattern(feat.deadline)}
@@ -4264,7 +4399,7 @@ export const StudentMeetingsTable: React.FC = () => {
                                             ) : '—'}
                                           </td>
                                           <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                                            <DateDiffBadge prevDate={feat.deadline} currentDate={feat.finalRelease} />
+                                            <DateDiffBadge prevDate={feat.deadline || feat.uiux || feat.productDeadline} currentDate={feat.finalRelease} />
                                             {feat.finalRelease ? (
                                               <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
                                                 {formatDateToUserPattern(feat.finalRelease)}
@@ -4794,7 +4929,7 @@ export const StudentMeetingsTable: React.FC = () => {
                         ) : '—'}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        <DateDiffBadge prevDate={feat.uiux} currentDate={feat.deadline} />
+                        <DateDiffBadge prevDate={feat.uiux || feat.productDeadline} currentDate={feat.deadline} />
                         {feat.deadline ? (
                           <span style={getDateSpanStyle(feat.deadline, feat.deadlineCompleted)}>
                             {formatDateToUserPattern(feat.deadline)}
@@ -4802,7 +4937,7 @@ export const StudentMeetingsTable: React.FC = () => {
                         ) : '—'}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        <DateDiffBadge prevDate={feat.deadline} currentDate={feat.finalRelease} />
+                        <DateDiffBadge prevDate={feat.deadline || feat.uiux || feat.productDeadline} currentDate={feat.finalRelease} />
                         {feat.finalRelease ? (
                           <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
                             {formatDateToUserPattern(feat.finalRelease)}
@@ -6857,7 +6992,7 @@ export const ContentTable: React.FC = () => {
                     style={{ position: 'relative' }}
                     title="Double click to edit Dev Date"
                   >
-                    <DateDiffBadge prevDate={item.uiux} currentDate={item.deadline} />
+                    <DateDiffBadge prevDate={item.uiux || item.productDeadline} currentDate={item.deadline} />
                     {editingDevDateId === item.id ? (
                       <input
                         ref={editDevDateInputRef}
@@ -6908,7 +7043,7 @@ export const ContentTable: React.FC = () => {
                     style={{ position: 'relative' }}
                     title="Double click to edit Release Date"
                   >
-                    <DateDiffBadge prevDate={item.deadline} currentDate={item.finalRelease} />
+                    <DateDiffBadge prevDate={item.deadline || item.uiux || item.productDeadline} currentDate={item.finalRelease} />
                     {editingReleaseDateId === item.id ? (
                       <input
                         ref={editReleaseDateInputRef}
@@ -7597,7 +7732,7 @@ export const ProductWiseSheet: React.FC = () => {
                           ) : '—'}
                         </td>
                         <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                          <DateDiffBadge prevDate={item.uiux} currentDate={item.deadline} />
+                          <DateDiffBadge prevDate={item.uiux || item.productDeadline} currentDate={item.deadline} />
                           {item.deadline ? (
                             <span style={getDateSpanStyle(item.deadline, item.deadlineCompleted)}>
                               {formatDateToUserPattern(item.deadline)}
@@ -7605,7 +7740,7 @@ export const ProductWiseSheet: React.FC = () => {
                           ) : '—'}
                         </td>
                         <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                          <DateDiffBadge prevDate={item.deadline} currentDate={item.finalRelease} />
+                          <DateDiffBadge prevDate={item.deadline || item.uiux || item.productDeadline} currentDate={item.finalRelease} />
                           {item.finalRelease ? (
                             <span style={getDateSpanStyle(item.finalRelease, item.finalReleaseCompleted)}>
                               {formatDateToUserPattern(item.finalRelease)}
