@@ -15,10 +15,12 @@ import {
 } from './components/Tables';
 import { ConfigSection } from './components/ConfigSection';
 import { DashboardOverview } from './components/DashboardOverview';
+import { CalendarView } from './components/CalendarView';
 import {
   LayoutDashboard,
   Flame,
   Calendar,
+  CalendarDays,
   FolderGit,
   Video,
   PhoneCall,
@@ -643,6 +645,7 @@ const DashboardContent: React.FC = () => {
       title: "Overview",
       items: [
         { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
+        { id: 'calendar', label: 'Calendar View', icon: <CalendarDays size={18} /> },
         { id: 'plan', label: 'Sprint Planning', icon: <Calendar size={18} /> },
       ]
     },
@@ -677,6 +680,8 @@ const DashboardContent: React.FC = () => {
     switch (activeTab) {
       case 'dashboard':
         return <DashboardOverview />;
+      case 'calendar':
+        return <CalendarView />;
       case 'product':
         return <ProductTable />;
       case 'plan':

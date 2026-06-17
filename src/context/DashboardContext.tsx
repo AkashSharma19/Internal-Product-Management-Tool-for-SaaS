@@ -209,7 +209,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const tabParam = params.get('tab');
       const taskParam = params.get('task');
 
-      const validTabs = ['dashboard', 'product', 'plan', 'projects', 'meetings', 'admin', 'content', 'product-wise', 'issues', 'adoption', 'config'];
+      const validTabs = ['dashboard', 'calendar', 'product', 'plan', 'projects', 'meetings', 'admin', 'content', 'product-wise', 'issues', 'adoption', 'config'];
       if (tabParam && validTabs.includes(tabParam)) {
         rawSetActiveTab(tabParam);
       }
