@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { DashboardProvider, useDashboard } from './context/DashboardContext';
-import type { ProductItem } from './types';
+import type { ProductItem, DailyIssue } from './types';
 import {
   ProductTable,
   PlanTable,
@@ -408,12 +408,7 @@ const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         subtitle: `Product: ${item.product} • Issue: ${item.issues ? item.issues.substring(0, 60) : ''}`,
         category: 'Daily Issues Log',
         tab: 'issues',
-        onSelect: () => openPreviewForFeature(item.module || `Issue #${item.id}`, { 
-          description: item.issues, 
-          product: item.product, 
-          module: item.module, 
-          notes: item.cohort 
-        }),
+        onSelect: () => setPreviewProductId(item.id),
         searchContent: `${item.module || ''} ${item.cohort || ''} ${item.product || ''} ${item.type || ''} ${item.issues || ''} ${item.contact || ''} ${item.poc || ''}`.toLowerCase()
       });
     });
@@ -582,7 +577,9 @@ const DashboardContent: React.FC = () => {
     logoutUser,
     clickupApiKey,
     refreshAllClickupStatuses,
-    refreshAllData
+    refreshAllData,
+    dailyIssues,
+    updateDailyIssue
   } = useDashboard();
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [isRefreshingClickup, setIsRefreshingClickup] = useState(false);
@@ -1041,6 +1038,73 @@ const DashboardContent: React.FC = () => {
         <div key={activeTab} className="content-area animate-fade-in">
           {renderActiveView()}
           {previewProductId && (() => {
+            if (activeTab === 'issues') {
+              const foundIssue = dailyIssues.find(i => i.id === previewProductId);
+              if (!foundIssue) return null;
+              
+              const mappedItem: ProductItem = {
+                id: foundIssue.id,
+                feature: foundIssue.module || `Issue #${foundIssue.id}`,
+                description: foundIssue.issues || foundIssue.notes || '',
+                tarunSirApproval: foundIssue.raisedByTarunSir || false,
+                raisedByTarunSir: foundIssue.raisedByTarunSir || false,
+                priority: foundIssue.priority as any || '',
+                poc: foundIssue.poc || foundIssue.contact || '',
+                status: foundIssue.status as any || '',
+                clickupStatus: foundIssue.clickupStatus || foundIssue.type || '',
+                taskLink: foundIssue.taskLink || '',
+                blocker: foundIssue.blocker || '',
+                deadline: foundIssue.deadline || '',
+                notes: foundIssue.notes || foundIssue.issues || '',
+                product: foundIssue.product || '',
+                module: foundIssue.module || '',
+                type: foundIssue.type || '',
+                uiux: foundIssue.uiux || '',
+                finalRelease: foundIssue.finalRelease || '',
+                productDeadline: foundIssue.productDeadline || '',
+                productDeadlineCompleted: !!foundIssue.productDeadlineCompleted,
+                uiuxCompleted: !!foundIssue.uiuxCompleted,
+                deadlineCompleted: !!foundIssue.deadlineCompleted,
+                finalReleaseCompleted: !!foundIssue.finalReleaseCompleted,
+              };
+
+              const handleUpdateIssue = (id: string, updated: Partial<ProductItem>) => {
+                const updatedIssue: Partial<DailyIssue> = {};
+                if (updated.feature !== undefined) updatedIssue.module = updated.feature;
+                if (updated.description !== undefined) updatedIssue.issues = updated.description;
+                if (updated.raisedByTarunSir !== undefined) updatedIssue.raisedByTarunSir = updated.raisedByTarunSir;
+                if (updated.tarunSirApproval !== undefined) updatedIssue.raisedByTarunSir = updated.tarunSirApproval;
+                if (updated.priority !== undefined) updatedIssue.priority = updated.priority;
+                if (updated.poc !== undefined) updatedIssue.poc = updated.poc;
+                if (updated.status !== undefined) updatedIssue.status = updated.status;
+                if (updated.clickupStatus !== undefined) updatedIssue.clickupStatus = updated.clickupStatus;
+                if (updated.taskLink !== undefined) updatedIssue.taskLink = updated.taskLink;
+                if (updated.blocker !== undefined) updatedIssue.blocker = updated.blocker;
+                if (updated.deadline !== undefined) updatedIssue.deadline = updated.deadline;
+                if (updated.notes !== undefined) updatedIssue.notes = updated.notes;
+                if (updated.product !== undefined) updatedIssue.product = updated.product;
+                if (updated.module !== undefined) updatedIssue.module = updated.module;
+                if (updated.type !== undefined) updatedIssue.type = updated.type as DailyIssue['type'];
+                if (updated.uiux !== undefined) updatedIssue.uiux = updated.uiux;
+                if (updated.finalRelease !== undefined) updatedIssue.finalRelease = updated.finalRelease;
+                if (updated.productDeadline !== undefined) updatedIssue.productDeadline = updated.productDeadline;
+                if (updated.productDeadlineCompleted !== undefined) updatedIssue.productDeadlineCompleted = updated.productDeadlineCompleted;
+                if (updated.uiuxCompleted !== undefined) updatedIssue.uiuxCompleted = updated.uiuxCompleted;
+                if (updated.deadlineCompleted !== undefined) updatedIssue.deadlineCompleted = updated.deadlineCompleted;
+                if (updated.finalReleaseCompleted !== undefined) updatedIssue.finalReleaseCompleted = updated.finalReleaseCompleted;
+                
+                updateDailyIssue(id, updatedIssue);
+              };
+
+              return (
+                <ProductDetailView 
+                  item={mappedItem} 
+                  onBack={() => setPreviewProductId(null)} 
+                  onUpdate={handleUpdateIssue} 
+                />
+              );
+            }
+
             const foundItem = productItems.find(i => i.id === previewProductId);
             if (!foundItem) return null;
             return (

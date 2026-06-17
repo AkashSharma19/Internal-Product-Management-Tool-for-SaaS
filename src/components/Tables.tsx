@@ -809,7 +809,15 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
           <button className="btn-back" style={{ width: '24px', height: '24px', borderRadius: '6px', marginRight: '0.25rem' }} onClick={onBack} title="Back to Table">
             <ArrowLeft size={12} />
           </button>
-          <span>Priority Requests</span>
+          <span>
+            {activeTab === 'issues' ? 'Daily Issues Log' : 
+             activeTab === 'projects' ? 'Student Projects' : 
+             activeTab === 'meetings' ? 'AMA & Meetings' : 
+             activeTab === 'admin' ? 'Admin Calls' : 
+             activeTab === 'content' ? 'Content Pipeline' : 
+             activeTab === 'plan' ? 'Sprint Planning' : 
+             'Priority Requests'}
+          </span>
           <span>/</span>
           <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{item.product || 'General Product'}</span>
         </div>
@@ -7810,7 +7818,7 @@ export const ProductWiseSheet: React.FC = () => {
 // DailyIssueDetailModal is deprecated in favor of unified ProductDetailView
 
 export const IssuesTable: React.FC = () => {
-  const { dailyIssues, updateDailyIssue, addDailyIssue, deleteDailyIssue, openPreviewForFeature, productGroups, statuses } = useDashboard();
+  const { dailyIssues, addDailyIssue, deleteDailyIssue, statuses, setPreviewProductId } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState('All');
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
@@ -7819,18 +7827,6 @@ export const IssuesTable: React.FC = () => {
   const statusOptions = productStatuses.length > 0 ? productStatuses : ['On Hold', 'In Progress', 'Ongoing', 'Completed'];
   const [sortField, setSortField] = useState<keyof DailyIssue | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
-  const [editingFeatureId, setEditingFeatureId] = useState<string | null>(null);
-  const [inlineEditValue, setInlineEditValue] = useState('');
-  const [editingCell, setEditingCell] = useState<{ id: string; field: keyof DailyIssue } | null>(null);
-  const [inlineCellValue, setInlineCellValue] = useState('');
-  const editInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (editingFeatureId && editInputRef.current) {
-      editInputRef.current.focus();
-      editInputRef.current.select();
-    }
-  }, [editingFeatureId]);
 
   const handleSort = (field: keyof DailyIssue) => {
     if (sortField === field) {
@@ -7873,7 +7869,7 @@ export const IssuesTable: React.FC = () => {
       id: newId,
       cohort: '',
       product: '',
-      module: '',
+      module: 'New Feature Request',
       type: 'Bug/Defect',
       issues: '',
       contact: '',
@@ -7892,160 +7888,31 @@ export const IssuesTable: React.FC = () => {
     addDailyIssue(newItem);
     setSearchQuery('');
     setSortField(null);
-    setInlineEditValue('');
-    setEditingFeatureId(newItem.id);
-  };
-
-  const startFeatureEdit = (item: DailyIssue) => {
-    setEditingCell(null);
-    setInlineEditValue(item.module || '');
-    setEditingFeatureId(item.id);
-  };
-
-  const startCellEdit = (item: DailyIssue, field: keyof DailyIssue) => {
-    setEditingFeatureId(null);
-    setInlineCellValue(String(item[field] || ''));
-    setEditingCell({ id: item.id, field });
-  };
-
-  const saveCellEdit = () => {
-    if (!editingCell) return;
-    updateDailyIssue(editingCell.id, { [editingCell.field]: inlineCellValue } as Partial<DailyIssue>);
-    setEditingCell(null);
+    setTimeout(() => {
+      setPreviewProductId(newItem.id);
+    }, 50);
   };
 
   const renderTextCell = (item: DailyIssue, field: keyof DailyIssue, fallback = '—') => {
-    const isEditing = editingCell?.id === item.id && editingCell.field === field;
-    if (isEditing) {
-      return (
-        <input
-          autoFocus
-          type="text"
-          value={inlineCellValue}
-          onChange={(e) => setInlineCellValue(e.target.value)}
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              saveCellEdit();
-            } else if (e.key === 'Escape') {
-              e.preventDefault();
-              setEditingCell(null);
-            }
-          }}
-          onBlur={saveCellEdit}
-          style={{
-            width: '100%',
-            padding: '4px 6px',
-            backgroundColor: 'var(--background)',
-            border: '1.5px solid var(--primary)',
-            borderRadius: '6px',
-            color: 'var(--text-primary)',
-            fontSize: '0.8rem',
-            outline: 'none'
-          }}
-        />
-      );
-    }
     const val = String(item[field] || fallback);
     if (field === 'poc' && item[field]) {
       return (
-        <span 
-          onClick={(e) => { e.stopPropagation(); startCellEdit(item, field); }}
-          style={getPOCBadgeStyle(String(item[field]))}
-        >
+        <span style={getPOCBadgeStyle(String(item[field]))}>
           {val}
         </span>
       );
     }
-    return (
-      <span onClick={(e) => { e.stopPropagation(); startCellEdit(item, field); }}>
-        {val}
-      </span>
-    );
-  };
-
-  const renderSelectCell = (item: DailyIssue, field: keyof DailyIssue, options: string[], display: React.ReactNode) => {
-    const isEditing = editingCell?.id === item.id && editingCell.field === field;
-    if (isEditing) {
-      return (
-        <select
-          autoFocus
-          value={inlineCellValue}
-          onChange={(e) => {
-            updateDailyIssue(item.id, { [field]: e.target.value } as Partial<DailyIssue>);
-            setEditingCell(null);
-          }}
-          onClick={(e) => e.stopPropagation()}
-          onBlur={() => setEditingCell(null)}
-          style={{
-            width: '100%',
-            padding: '4px 6px',
-            backgroundColor: 'var(--background)',
-            border: '1.5px solid var(--primary)',
-            borderRadius: '6px',
-            color: 'var(--text-primary)',
-            fontSize: '0.8rem',
-            outline: 'none'
-          }}
-        >
-          <option value="">—</option>
-          {options.map(option => (
-            <option key={option} value={option}>{option}</option>
-          ))}
-        </select>
-      );
-    }
-    return (
-      <span onClick={(e) => { e.stopPropagation(); startCellEdit(item, field); }}>
-        {display}
-      </span>
-    );
+    return <span>{val}</span>;
   };
 
   const renderDateCell = (item: DailyIssue, field: keyof DailyIssue, previousField?: keyof DailyIssue) => {
-    const isEditing = editingCell?.id === item.id && editingCell.field === field;
-    if (isEditing) {
-      return (
-        <input
-          autoFocus
-          type="date"
-          value={inlineCellValue}
-          onChange={(e) => setInlineCellValue(e.target.value)}
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              saveCellEdit();
-            } else if (e.key === 'Escape') {
-              e.preventDefault();
-              setEditingCell(null);
-            }
-          }}
-          onBlur={saveCellEdit}
-          style={{
-            padding: '4px 6px',
-            backgroundColor: 'var(--background)',
-            border: '1.5px solid var(--primary)',
-            borderRadius: '6px',
-            color: 'var(--text-primary)',
-            fontSize: '0.8rem',
-            outline: 'none'
-          }}
-        />
-      );
-    }
-
     const value = String(item[field] || '');
     const completedField = `${String(field)}Completed` as keyof DailyIssue;
     const completed = Boolean(item[completedField]);
     return (
       <>
         {previousField && <DateDiffBadge prevDate={String(item[previousField] || '')} currentDate={value} />}
-        <span
-          onClick={(e) => { e.stopPropagation(); startCellEdit(item, field); }}
-          style={getDateSpanStyle(value, completed)}
-        >
+        <span style={getDateSpanStyle(value, completed)}>
           {value ? formatDateToUserPattern(value) : '—'}
         </span>
       </>
@@ -8109,108 +7976,37 @@ export const IssuesTable: React.FC = () => {
             {filtered.map(item => (
               <tr 
                 key={item.id} 
-                onClick={() => {
-                  if (editingFeatureId !== item.id) {
-                    openPreviewForFeature(item.module || `Issue #${item.id}`, {
-                      id: item.id,
-                      description: item.issues || item.notes || '',
-                      priority: item.priority || '',
-                      poc: item.poc || item.contact || '',
-                      status: item.status || '',
-                      clickupStatus: item.clickupStatus || item.type || '',
-                      taskLink: item.taskLink || '',
-                      blocker: item.blocker || '',
-                      deadline: item.deadline || '',
-                      notes: item.notes || item.issues || '',
-                      product: item.product || '',
-                      module: item.module || '',
-                      type: item.type || '',
-                      uiux: item.uiux || '',
-                      finalRelease: item.finalRelease || '',
-                      productDeadline: item.productDeadline || '',
-                      raisedByTarunSir: item.raisedByTarunSir || false
-                    });
-                  }
-                }} 
+                onClick={() => setPreviewProductId(item.id)} 
                 style={{ cursor: 'pointer' }}
               >
                 <td
                   className="sticky-col"
-                  onDoubleClick={(e) => {
-                    e.stopPropagation();
-                    startFeatureEdit(item);
-                  }}
-                  title="Double click to edit Feature"
                   style={{ fontWeight: 600, width: '280px', minWidth: '280px', maxWidth: '280px', whiteSpace: 'normal' }}
                 >
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', width: '100%' }}>
-                    {editingFeatureId === item.id ? (
-                      <input
-                        ref={editInputRef}
-                        type="text"
-                        value={inlineEditValue}
-                        onChange={(e) => setInlineEditValue(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            const finalVal = inlineEditValue.trim() || 'New Feature Request';
-                            updateDailyIssue(item.id, { module: finalVal });
-                            setEditingFeatureId(null);
-                          } else if (e.key === 'Escape') {
-                            e.preventDefault();
-                            setEditingFeatureId(null);
-                          }
-                        }}
-                        onBlur={() => {
-                          const finalVal = inlineEditValue.trim() || 'New Feature Request';
-                          updateDailyIssue(item.id, { module: finalVal });
-                          setEditingFeatureId(null);
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '6px 8px',
-                          backgroundColor: 'var(--background)',
-                          border: '1.5px solid var(--primary)',
-                          borderRadius: '6px',
-                          color: 'var(--text-primary)',
-                          fontSize: '0.8rem',
-                          fontWeight: 600,
-                          outline: 'none',
-                          boxShadow: '0 0 0 2px var(--primary-glow)'
-                        }}
-                      />
-                    ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startFeatureEdit(item);
-                          }}
-                          style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}
-                        >
-                          {item.module || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
+                        {item.module || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
+                      </span>
+                      {item.raisedByTarunSir && (
+                        <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                          <Sparkles size={10} /> Super Priority
                         </span>
-                        {item.raisedByTarunSir && (
-                          <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                            <Sparkles size={10} /> Super Priority
-                          </span>
-                        )}
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </td>
                 <td>
-                  {renderSelectCell(item, 'product', productGroups.map(g => g.name), item.product || '—')}
+                  {item.product || '—'}
                 </td>
                 <td>
-                  {renderSelectCell(item, 'priority', ['P0', 'P1', 'P2', 'P3', 'P4'], item.priority ? (
+                  {item.priority ? (
                     <span className={`badge badge-${item.priority.toLowerCase()}`}>{item.priority}</span>
-                  ) : '—')}
+                  ) : '—'}
                 </td>
                 <td style={{ fontWeight: 500 }}>{renderTextCell(item, 'poc', item.contact || '—')}</td>
                 <td>
-                  {renderSelectCell(item, 'status', statusOptions, item.status ? (() => {
+                  {item.status ? (() => {
                     const matched = statuses.find(s => s.label === item.status);
                     if (matched) {
                       return (
@@ -8234,17 +8030,14 @@ export const IssuesTable: React.FC = () => {
                         {item.status}
                       </span>
                     );
-                  })() : '—')}
+                  })() : '—'}
                 </td>
                 <td>
-                  {editingCell?.id === item.id && editingCell.field === 'clickupStatus' ? renderTextCell(item, 'clickupStatus') : (item.clickupStatus || item.type) ? (
-                    <span
-                      onClick={(e) => { e.stopPropagation(); startCellEdit(item, 'clickupStatus'); }}
-                      style={getClickupBadgeStyle(item.clickupStatus || item.type)}
-                    >
-                      {item.clickupStatus || item.type}
+                  {item.clickupStatus ? (
+                    <span style={getClickupBadgeStyle(item.clickupStatus)}>
+                      {item.clickupStatus}
                     </span>
-                  ) : renderTextCell(item, 'clickupStatus')}
+                  ) : '—'}
                 </td>
                 <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                   {renderDateCell(item, 'productDeadline')}

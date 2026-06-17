@@ -324,12 +324,7 @@ export const CalendarView: React.FC = () => {
           notes: evt.rawItem.subject 
         });
       } else if (evt.source === 'Daily Issues Log') {
-        openPreviewForFeature(evt.title, { 
-          description: evt.rawItem.issues, 
-          product: evt.rawItem.product, 
-          module: evt.rawItem.module, 
-          notes: evt.rawItem.cohort 
-        });
+        setPreviewProductId(evt.rawItem.id);
       }
     }, 50);
   };
