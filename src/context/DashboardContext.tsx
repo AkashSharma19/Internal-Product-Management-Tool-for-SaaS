@@ -126,6 +126,7 @@ interface DashboardContextType {
   setClickupApiKey: (key: string) => void;
   syncClickupTask: (taskIdOrUrl: string) => Promise<string | null>;
   refreshAllClickupStatuses: () => Promise<{ success: boolean; totalScanned: number; updatedCount: number; error?: string }>;
+  refreshAllData: () => Promise<{ success: boolean; updatedSheets: number; error?: string }>;
 
   // User Authentication
   currentUser: ConfigSpeaker | null;
@@ -549,59 +550,61 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Mounting effect to fetch all data from MongoDB
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchAllData = async () => {
-      setSyncStatus('syncing');
-      try {
-        const response = await fetch('/api/data');
-        if (response.ok) {
-          const resData = await response.json();
-          if (resData.success && resData.data) {
-            const db = resData.data;
-            if (db.products && db.products.length > 0) setProductItems(db.products);
-            if (db.plans && db.plans.length > 0) setPlanItems(db.plans);
-            if (db.projects && db.projects.length > 0) setStudentProjects(db.projects);
-            if (db.amaSessions && db.amaSessions.length > 0) setAMASessions(db.amaSessions);
-            if (db.studentMeetings && db.studentMeetings.length > 0) setStudentMeetings(db.studentMeetings);
-            if (db.adminCalls && db.adminCalls.length > 0) setAdminCalls(db.adminCalls);
-            if (db.contentItems && db.contentItems.length > 0) setContentItems(db.contentItems);
-            if (db.dailyIssues && db.dailyIssues.length > 0) setDailyIssues(db.dailyIssues);
-            if (db.featureAdoptions && db.featureAdoptions.length > 0) setFeatureAdoptions(db.featureAdoptions);
-            
-            if (db.speakers && db.speakers.length > 0) {
-              setSpeakers(db.speakers);
-              const savedUserId = localStorage.getItem('logged-in-user-id');
-              if (savedUserId) {
-                const matchedUser = db.speakers.find((s: any) => s.id === savedUserId);
-                if (matchedUser) {
-                  setCurrentUser(matchedUser);
-                }
-              }
-            }
-            if (db.productGroups && db.productGroups.length > 0) setProductGroups(db.productGroups);
-            if (db.statuses && db.statuses.length > 0) setStatuses(db.statuses);
-            if (db.programs && db.programs.length > 0) setPrograms(db.programs);
-            if (db.cohorts && db.cohorts.length > 0) setCohorts(db.cohorts);
-            
-            if (db.settings) {
-              const clickupSetting = db.settings.find((s: any) => s.key === 'clickupApiKey');
-              if (clickupSetting) {
-                setClickupApiKey(clickupSetting.value || '');
-              }
-            }
-            setSyncStatus('synced');
-          }
-        } else {
-          setSyncStatus('error');
-        }
-      } catch (err) {
-        console.error('Failed to load database data:', err);
+  // Reusable data fetch — used on mount AND by the "Refresh Data" button
+  const refreshAllData = async (): Promise<{ success: boolean; updatedSheets: number; error?: string }> => {
+    setSyncStatus('syncing');
+    let updatedSheets = 0;
+    try {
+      const response = await fetch('/api/data');
+      if (!response.ok) {
         setSyncStatus('error');
-      } finally {
-        setIsLoading(false);
+        return { success: false, updatedSheets: 0, error: 'Server returned an error' };
       }
-    };
-    fetchAllData();
+      const resData = await response.json();
+      if (resData.success && resData.data) {
+        const db = resData.data;
+        if (db.products && db.products.length > 0)           { setProductItems(db.products);       updatedSheets++; }
+        if (db.plans && db.plans.length > 0)                 { setPlanItems(db.plans);             updatedSheets++; }
+        if (db.projects && db.projects.length > 0)           { setStudentProjects(db.projects);    updatedSheets++; }
+        if (db.amaSessions && db.amaSessions.length > 0)     { setAMASessions(db.amaSessions);     updatedSheets++; }
+        if (db.studentMeetings && db.studentMeetings.length > 0) { setStudentMeetings(db.studentMeetings); updatedSheets++; }
+        if (db.adminCalls && db.adminCalls.length > 0)       { setAdminCalls(db.adminCalls);       updatedSheets++; }
+        if (db.contentItems && db.contentItems.length > 0)   { setContentItems(db.contentItems);   updatedSheets++; }
+        if (db.dailyIssues && db.dailyIssues.length > 0)     { setDailyIssues(db.dailyIssues);     updatedSheets++; }
+        if (db.featureAdoptions && db.featureAdoptions.length > 0) { setFeatureAdoptions(db.featureAdoptions); updatedSheets++; }
+
+        if (db.speakers && db.speakers.length > 0) {
+          setSpeakers(db.speakers);
+          const savedUserId = localStorage.getItem('logged-in-user-id');
+          if (savedUserId) {
+            const matchedUser = db.speakers.find((s: any) => s.id === savedUserId);
+            if (matchedUser) setCurrentUser(matchedUser);
+          }
+          updatedSheets++;
+        }
+        if (db.productGroups && db.productGroups.length > 0) { setProductGroups(db.productGroups); updatedSheets++; }
+        if (db.statuses && db.statuses.length > 0)           { setStatuses(db.statuses);           updatedSheets++; }
+        if (db.programs && db.programs.length > 0)           { setPrograms(db.programs);           updatedSheets++; }
+        if (db.cohorts && db.cohorts.length > 0)             { setCohorts(db.cohorts);             updatedSheets++; }
+
+        if (db.settings) {
+          const clickupSetting = db.settings.find((s: any) => s.key === 'clickupApiKey');
+          if (clickupSetting) setClickupApiKey(clickupSetting.value || '');
+        }
+        setSyncStatus('synced');
+        return { success: true, updatedSheets };
+      }
+      setSyncStatus('error');
+      return { success: false, updatedSheets: 0, error: 'No data returned from server' };
+    } catch (err: any) {
+      console.error('Failed to load database data:', err);
+      setSyncStatus('error');
+      return { success: false, updatedSheets: 0, error: err.message || 'Network error' };
+    }
+  };
+
+  useEffect(() => {
+    refreshAllData().finally(() => setIsLoading(false));
   }, []);
 
   const updateClickupApiKey = (key: string) => {
@@ -1351,6 +1354,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       cohorts, addCohort, updateCohort, deleteCohort,
       clickupApiKey, setClickupApiKey: updateClickupApiKey, syncClickupTask,
       refreshAllClickupStatuses,
+      refreshAllData,
       currentUser, loginUser, logoutUser,
       isLoading, syncStatus,
     }}>

@@ -581,10 +581,12 @@ const DashboardContent: React.FC = () => {
     currentUser,
     logoutUser,
     clickupApiKey,
-    refreshAllClickupStatuses
+    refreshAllClickupStatuses,
+    refreshAllData
   } = useDashboard();
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [isRefreshingClickup, setIsRefreshingClickup] = useState(false);
+  const [isRefreshingData, setIsRefreshingData] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   // Global keybind handler (Ctrl+K / Cmd+K)
@@ -604,14 +606,30 @@ const DashboardContent: React.FC = () => {
     try {
       const res = await refreshAllClickupStatuses();
       if (res.success) {
-        alert(`Successfully synced ClickUp! Scanned ${res.totalScanned} unique task links and updated ${res.updatedCount} items with status changes.`);
+        alert(`ClickUp sync complete! Scanned ${res.totalScanned} task links, updated ${res.updatedCount} items.`);
       } else {
-        alert(`Failed to sync ClickUp: ${res.error || 'Unknown error'}`);
+        alert(`ClickUp sync failed: ${res.error || 'Unknown error'}`);
       }
     } catch (err: any) {
       alert(`Sync failed: ${err.message || 'Unknown error'}`);
     } finally {
       setIsRefreshingClickup(false);
+    }
+  };
+
+  const handleRefreshAllData = async () => {
+    setIsRefreshingData(true);
+    try {
+      const res = await refreshAllData();
+      if (res.success) {
+        alert(`Data refreshed! Pulled latest data from ${res.updatedSheets} sheets. All views are now up to date.`);
+      } else {
+        alert(`Data refresh failed: ${res.error || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      alert(`Refresh failed: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsRefreshingData(false);
     }
   };
 
@@ -785,44 +803,86 @@ const DashboardContent: React.FC = () => {
           flexDirection: 'column', 
           gap: '0.75rem' 
         }}>
-          {clickupApiKey && (
+          {/* Sync buttons — two actions: ClickUp status + full data refresh */}
+          <div style={{
+            display: 'flex',
+            flexDirection: isCollapsed ? 'column' : 'column',
+            gap: '0.4rem'
+          }}>
+            {/* 1. Refresh all data from server */}
             <button
-              onClick={handleRefreshAllClickup}
-              disabled={isRefreshingClickup}
+              onClick={handleRefreshAllData}
+              disabled={isRefreshingData || isRefreshingClickup}
               style={{
                 width: '100%',
-                border: 'none',
+                border: '1px solid var(--border)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: isCollapsed ? 'center' : 'flex-start',
                 gap: isCollapsed ? '0' : '0.65rem',
-                height: '35px',
+                height: '34px',
                 padding: '0.4rem 0.65rem',
                 borderRadius: '8px',
-                fontSize: '0.775rem',
-                backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                color: 'var(--primary)',
-                cursor: 'pointer',
-                fontWeight: 600,
+                fontSize: '0.75rem',
+                backgroundColor: isRefreshingData ? 'rgba(16,185,129,0.12)' : 'rgba(16,185,129,0.07)',
+                color: '#059669',
+                cursor: isRefreshingData ? 'not-allowed' : 'pointer',
+                fontWeight: 700,
                 transition: 'all 0.2s',
-                opacity: isRefreshingClickup ? 0.7 : 1
+                opacity: isRefreshingData ? 0.8 : 1
               }}
               onMouseEnter={e => {
-                if (!isRefreshingClickup) {
-                  e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.15)';
-                }
+                if (!isRefreshingData) e.currentTarget.style.backgroundColor = 'rgba(16,185,129,0.15)';
               }}
               onMouseLeave={e => {
-                e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.08)';
+                e.currentTarget.style.backgroundColor = isRefreshingData ? 'rgba(16,185,129,0.12)' : 'rgba(16,185,129,0.07)';
               }}
-              title="Sync all ClickUp statuses"
+              title="Pull latest data from database for all users"
             >
-              <RefreshCw size={16} className={isRefreshingClickup ? 'animate-spin' : ''} />
+              <RefreshCw size={15} className={isRefreshingData ? 'animate-spin' : ''} />
               {!isCollapsed && (
-                <span>{isRefreshingClickup ? 'Syncing...' : 'Sync ClickUp'}</span>
+                <span>{isRefreshingData ? 'Refreshing...' : 'Refresh Data'}</span>
               )}
             </button>
-          )}
+
+            {/* 2. Sync ClickUp statuses */}
+            {clickupApiKey && (
+              <button
+                onClick={handleRefreshAllClickup}
+                disabled={isRefreshingClickup || isRefreshingData}
+                style={{
+                  width: '100%',
+                  border: '1px solid var(--border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: isCollapsed ? 'center' : 'flex-start',
+                  gap: isCollapsed ? '0' : '0.65rem',
+                  height: '34px',
+                  padding: '0.4rem 0.65rem',
+                  borderRadius: '8px',
+                  fontSize: '0.75rem',
+                  backgroundColor: isRefreshingClickup ? 'rgba(59,130,246,0.12)' : 'rgba(59,130,246,0.07)',
+                  color: 'var(--primary)',
+                  cursor: isRefreshingClickup ? 'not-allowed' : 'pointer',
+                  fontWeight: 700,
+                  transition: 'all 0.2s',
+                  opacity: isRefreshingClickup ? 0.8 : 1
+                }}
+                onMouseEnter={e => {
+                  if (!isRefreshingClickup) e.currentTarget.style.backgroundColor = 'rgba(59,130,246,0.15)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.backgroundColor = isRefreshingClickup ? 'rgba(59,130,246,0.12)' : 'rgba(59,130,246,0.07)';
+                }}
+                title="Sync ClickUp task statuses"
+              >
+                <RefreshCw size={15} className={isRefreshingClickup ? 'animate-spin' : ''} />
+                {!isCollapsed && (
+                  <span>{isRefreshingClickup ? 'Syncing ClickUp...' : 'Sync ClickUp'}</span>
+                )}
+              </button>
+            )}
+          </div>
 
           {!isCollapsed ? (
             <div style={{ 
