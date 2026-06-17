@@ -334,52 +334,48 @@ export const CalendarView: React.FC = () => {
     }, 50);
   };
 
-  const getSourceClass = (source: string) => {
-    const map: Record<string, string> = {
-      'Priority Requests': 'bg-priority-requests',
-      'Student Projects': 'bg-student-projects',
-      'Content Pipeline': 'bg-content-pipeline',
-      'AMA Sessions': 'bg-ama-meetings',
-      'Student Meetings': 'bg-ama-meetings',
-      'Admin Calls': 'bg-admin-calls',
-      'Daily Issues Log': 'bg-daily-issues',
-    };
-    return map[source] || 'bg-priority-requests';
+  // Stage-based color palette — makes each milestone type visually distinct
+  const STAGE_COLORS: Record<string, { bg: string; label: string; css: string }> = {
+    'Specs':         { bg: '#6366f1', label: 'Specs',    css: 'bg-stage-specs' },
+    'UI/UX':        { bg: '#ec4899', label: 'UI/UX',    css: 'bg-stage-uiux' },
+    'Dev':          { bg: '#3b82f6', label: 'Dev',      css: 'bg-stage-dev' },
+    'Final Release':{ bg: '#8b5cf6', label: 'Release',  css: 'bg-stage-release' },
+    'Publish Date': { bg: '#8b5cf6', label: 'Publish',  css: 'bg-stage-release' },
+    'AMA Date':     { bg: '#f97316', label: 'AMA',      css: 'bg-stage-meeting' },
+    'Call Date':    { bg: '#f97316', label: 'Call',     css: 'bg-stage-meeting' },
+    'Deadline':     { bg: '#f59e0b', label: 'Deadline', css: 'bg-stage-deadline' },
+  };
+
+  const getStageColor = (stage: string): string => {
+    return STAGE_COLORS[stage]?.bg || '#6b7280';
+  };
+
+  const getStageClass = (stage: string): string => {
+    return STAGE_COLORS[stage]?.css || 'bg-stage-specs';
+  };
+
+  const getStageLabel = (stage: string): string => {
+    return STAGE_COLORS[stage]?.label || stage;
   };
 
   const getEventClass = (evt: CalendarEvent) => {
-    if (evt.isCompleted) {
-      return 'bg-completed';
-    }
+    if (evt.isCompleted) return 'bg-completed';
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const evtDate = new Date(evt.dateStr);
     evtDate.setHours(0, 0, 0, 0);
-    if (evtDate < today) {
-      return 'bg-overdue';
-    }
-    return getSourceClass(evt.source);
+    if (evtDate < today) return 'bg-overdue';
+    return getStageClass(evt.stage);
   };
 
   const getEventColor = (evt: CalendarEvent) => {
-    if (evt.isCompleted) return '#10b981'; // green
-    
+    if (evt.isCompleted) return '#10b981';
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const evtDate = new Date(evt.dateStr);
     evtDate.setHours(0, 0, 0, 0);
-    if (evtDate < today) return '#ef4444'; // red
-
-    const colors: Record<string, string> = {
-      'Priority Requests': '#ef4444',
-      'Student Projects': '#10b981',
-      'Content Pipeline': '#a855f7',
-      'AMA Sessions': '#ec4899',
-      'Student Meetings': '#ec4899',
-      'Admin Calls': '#3b82f6',
-      'Daily Issues Log': '#f59e0b',
-    };
-    return colors[evt.source] || '#ef4444';
+    if (evtDate < today) return '#ef4444';
+    return getStageColor(evt.stage);
   };
 
 
@@ -404,10 +400,44 @@ export const CalendarView: React.FC = () => {
         {/* Left Grid Panel */}
         <div className="calendar-grid-panel">
           <div className="calendar-header">
-            <h3 className="calendar-title">
-              <Calendar size={18} color="var(--primary)" />
-              {currentMonth.toLocaleDateString('default', { month: 'long', year: 'numeric' })}
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <h3 className="calendar-title">
+                <Calendar size={18} color="var(--primary)" />
+                {currentMonth.toLocaleDateString('default', { month: 'long', year: 'numeric' })}
+              </h3>
+              {/* Stage legend */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                {Object.entries(STAGE_COLORS).filter(([k]) =>
+                  ['Specs', 'UI/UX', 'Dev', 'Final Release', 'AMA Date', 'Call Date', 'Deadline'].includes(k)
+                ).map(([stage, cfg]) => (
+                  <span key={stage} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '4px',
+                    fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-secondary)',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    <span style={{
+                      width: '8px', height: '8px', borderRadius: '2px',
+                      background: cfg.bg, flexShrink: 0
+                    }} />
+                    {cfg.label}
+                  </span>
+                ))}
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '4px',
+                  fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-secondary)'
+                }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#10b981', flexShrink: 0 }} />
+                  Done
+                </span>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '4px',
+                  fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-secondary)'
+                }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#ef4444', flexShrink: 0 }} />
+                  Overdue
+                </span>
+              </div>
+            </div>
             <div className="calendar-nav-buttons">
               <button className="calendar-nav-btn" onClick={handlePrevMonth}>
                 <ChevronLeft size={16} />
@@ -458,22 +488,30 @@ export const CalendarView: React.FC = () => {
                             </div>
 
                             <div className="calendar-day-events-container">
-                              {dayEvents.slice(0, 2).map(evt => (
+                              {dayEvents.slice(0, 3).map(evt => (
                                 <div
                                   key={evt.id}
                                   className={`calendar-mini-event-badge ${getEventClass(evt)}`}
-                                  style={{
-                                    opacity: evt.isCompleted ? 0.55 : 1
-                                  }}
-                                  title={`${evt.stage}: ${evt.title} ${evt.isCompleted ? '(Completed)' : ''}`}
+                                  style={{ opacity: evt.isCompleted ? 0.6 : 1 }}
+                                  title={`[${getStageLabel(evt.stage)}] ${evt.title}${evt.isCompleted ? ' ✓' : ''}`}
                                 >
-                                  {evt.stage === 'Specs' ? '📋 ' : evt.stage === 'UI/UX' ? '🎨 ' : evt.stage === 'Dev' ? '💻 ' : '🚀 '}
+                                  <span style={{
+                                    display: 'inline-block',
+                                    fontSize: '0.5rem',
+                                    fontWeight: 800,
+                                    letterSpacing: '0.02em',
+                                    opacity: 0.85,
+                                    marginRight: '3px',
+                                    textTransform: 'uppercase'
+                                  }}>
+                                    {getStageLabel(evt.stage)}
+                                  </span>
                                   {evt.title}
                                 </div>
                               ))}
-                              {dayEvents.length > 2 && (
+                              {dayEvents.length > 3 && (
                                 <div className="calendar-more-indicator">
-                                  +{dayEvents.length - 2} more
+                                  +{dayEvents.length - 3} more
                                 </div>
                               )}
                             </div>
@@ -511,7 +549,7 @@ export const CalendarView: React.FC = () => {
                 <thead>
                   <tr style={{ background: 'var(--background-alt)' }}>
                     <th style={{ fontSize: '0.65rem', padding: '8px 12px', fontWeight: 700 }}>Task</th>
-                    <th style={{ fontSize: '0.65rem', padding: '8px 12px', fontWeight: 700, textAlign: 'right' }}>POC</th>
+                    <th style={{ fontSize: '0.65rem', padding: '8px 12px', fontWeight: 700, textAlign: 'right', whiteSpace: 'nowrap' }}>POC</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -527,23 +565,36 @@ export const CalendarView: React.FC = () => {
                         padding: '8px 12px',
                         verticalAlign: 'top'
                       }}>
-                        <div style={{ fontWeight: 700, fontSize: '0.775rem', color: 'var(--text-primary)', marginBottom: '3px', lineHeight: 1.25 }}>
-                          {evt.title}
+                        {/* Stage pill — coloured by milestone type */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '3px' }}>
+                          <span style={{
+                            fontSize: '0.525rem',
+                            fontWeight: 800,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.04em',
+                            padding: '1px 5px',
+                            borderRadius: '3px',
+                            background: getEventColor(evt),
+                            color: '#fff',
+                            flexShrink: 0
+                          }}>
+                            {getStageLabel(evt.stage)}
+                          </span>
+                          <span style={{ fontWeight: 700, fontSize: '0.775rem', color: 'var(--text-primary)', lineHeight: 1.25 }}>
+                            {evt.title}
+                          </span>
                         </div>
-                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
-                          <span className={`badge badge-${evt.status ? evt.status.toLowerCase().replace(/\s+/g, '-') : 'default'}`} style={{ fontSize: '0.575rem', padding: '1px 4px' }}>
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', paddingLeft: '2px' }}>
+                          <span className={`badge badge-${evt.status ? evt.status.toLowerCase().replace(/\s+/g, '-') : 'default'}`} style={{ fontSize: '0.55rem', padding: '1px 4px' }}>
                             {evt.status || 'Active'}
                           </span>
-                          <span style={{ fontSize: '0.575rem', padding: '1.5px 4px', background: 'var(--background-alt)', borderRadius: '3px', border: '1px solid var(--border)', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                            {evt.stage}
-                          </span>
                           {evt.priority && (
-                            <span className={`badge badge-${evt.priority.toLowerCase()}`} style={{ fontSize: '0.575rem', padding: '1px 4px' }}>
+                            <span className={`badge badge-${evt.priority.toLowerCase()}`} style={{ fontSize: '0.55rem', padding: '1px 4px' }}>
                               {evt.priority}
                             </span>
                           )}
-                          <span style={{ fontSize: '0.575rem', color: 'var(--text-muted)' }}>
-                            • {evt.source}
+                          <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>
+                            {evt.source}
                           </span>
                         </div>
                       </td>

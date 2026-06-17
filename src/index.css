@@ -3619,16 +3619,23 @@ h1, h2, h3, h4, h5, h6 {
   margin-bottom: 0.25rem;
 }
 
-/* Event color schemes */
+/* Stage-based event color schemes — used on calendar badges */
+.bg-stage-specs    { background-color: #6366f1; }
+.bg-stage-uiux     { background-color: #ec4899; }
+.bg-stage-dev      { background-color: #3b82f6; }
+.bg-stage-release  { background-color: #8b5cf6; }
+.bg-stage-meeting  { background-color: #f97316; }
+.bg-stage-deadline { background-color: #f59e0b; }
+/* Legacy source-based (kept for backwards compat if referenced elsewhere) */
 .bg-priority-requests { background-color: #ef4444; }
-.bg-student-projects { background-color: #10b981; }
-.bg-content-pipeline { background-color: #a855f7; }
-.bg-ama-meetings { background-color: #ec4899; }
+.bg-student-projects  { background-color: #10b981; }
+.bg-content-pipeline  { background-color: #a855f7; }
+.bg-ama-meetings      { background-color: #ec4899; }
 .bg-product-breakdown { background-color: #6366f1; }
-.bg-admin-calls { background-color: #3b82f6; }
-.bg-daily-issues { background-color: #f59e0b; }
+.bg-admin-calls       { background-color: #3b82f6; }
+.bg-daily-issues      { background-color: #f59e0b; }
 .bg-completed { background-color: #10b981 !important; }
-.bg-overdue { background-color: #ef4444 !important; }
+.bg-overdue   { background-color: #ef4444 !important; }
 
 @media (max-width: 1024px) {
   .calendar-dashboard-layout {
