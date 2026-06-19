@@ -9,6 +9,14 @@ import {
 } from 'lucide-react';
 import type { ProductItem } from '../types';
 
+// Safe local-timezone date string: avoids UTC shift from .toISOString()
+const toLocalDateStr = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 // Helper to normalize any date string to YYYY-MM-DD
 const parseDateToYYYYMMDD = (dateStr: string | undefined): string => {
   if (!dateStr) return '';
@@ -50,7 +58,8 @@ const parseDateToYYYYMMDD = (dateStr: string | undefined): string => {
   try {
     const d = new Date(cleaned);
     if (!isNaN(d.getTime())) {
-      return d.toISOString().split('T')[0];
+      // Use local date parts to avoid UTC timezone shift
+      return toLocalDateStr(d);
     }
   } catch (e) {}
 
@@ -95,8 +104,7 @@ export const CalendarView: React.FC = () => {
 
   const [currentMonth, setCurrentMonth] = useState<Date>(() => new Date());
   const [selectedDateStr, setSelectedDateStr] = useState<string>(() => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
+    return toLocalDateStr(new Date());
   });
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -229,12 +237,12 @@ export const CalendarView: React.FC = () => {
     const prevMonthDays = prevMonthEnd.getDate();
 
     const gridCells: { date: Date; dateStr: string; isCurrentMonth: boolean; isToday: boolean }[] = [];
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = toLocalDateStr(new Date());
 
     // Previous month offset days
     for (let i = startDayOfWeek - 1; i >= 0; i--) {
       const d = new Date(year, month - 1, prevMonthDays - i);
-      const str = d.toISOString().split('T')[0];
+      const str = toLocalDateStr(d);
       gridCells.push({
         date: d,
         dateStr: str,
@@ -246,7 +254,7 @@ export const CalendarView: React.FC = () => {
     // Active month days
     for (let i = 1; i <= totalDays; i++) {
       const d = new Date(year, month, i);
-      const str = d.toISOString().split('T')[0];
+      const str = toLocalDateStr(d);
       gridCells.push({
         date: d,
         dateStr: str,
@@ -259,7 +267,7 @@ export const CalendarView: React.FC = () => {
     const remainingCells = 42 - gridCells.length;
     for (let i = 1; i <= remainingCells; i++) {
       const d = new Date(year, month + 1, i);
-      const str = d.toISOString().split('T')[0];
+      const str = toLocalDateStr(d);
       gridCells.push({
         date: d,
         dateStr: str,
@@ -291,7 +299,7 @@ export const CalendarView: React.FC = () => {
 
   const handleToday = () => {
     setCurrentMonth(new Date());
-    setSelectedDateStr(new Date().toISOString().split('T')[0]);
+    setSelectedDateStr(toLocalDateStr(new Date()));
   };
 
   // Event item selector (opens task drawer)

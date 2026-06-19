@@ -7168,6 +7168,8 @@ export const ProductWiseSheet: React.FC = () => {
     speakers
   } = useDashboard();
   const products = productGroups.map(g => g.name);
+  const NO_GROUP_TAB = 'No Product Group Assigned';
+  const allTabs = [...products, NO_GROUP_TAB];
   const pocList = speakers.map(s => s.name);
 
   const [activeProductTab, setActiveProductTab] = useState<string>('');
@@ -7203,7 +7205,10 @@ export const ProductWiseSheet: React.FC = () => {
     }
   }, [editingFeatureId]);
   
-  const activeProduct = activeProductTab && products.includes(activeProductTab) ? activeProductTab : products[0] || '';
+  const isNoGroupTab = activeProductTab === NO_GROUP_TAB;
+  const activeProduct = activeProductTab === NO_GROUP_TAB
+    ? NO_GROUP_TAB
+    : (activeProductTab && products.includes(activeProductTab) ? activeProductTab : products[0] || '');
 
   type BreakdownFeature = ProductItem & {
     sourceLabel: string;
@@ -7223,7 +7228,9 @@ export const ProductWiseSheet: React.FC = () => {
 
   const features: BreakdownFeature[] = [
     ...productItems
-      .filter(item => !item.id.startsWith('prod-temp-') && item.product === activeProduct)
+      .filter(item => !item.id.startsWith('prod-temp-') && (
+        isNoGroupTab ? (!item.product || item.product.trim() === '') : item.product === activeProduct
+      ))
       .map(item => ({
         ...item,
         productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatus(item.status),
@@ -7241,7 +7248,7 @@ export const ProductWiseSheet: React.FC = () => {
         canDelete: true
       })),
     ...studentProjects
-      .filter(item => item.product === activeProduct)
+      .filter(item => isNoGroupTab ? (!item.product || item.product.trim() === '') : item.product === activeProduct)
       .map(item => ({
         id: `breakdown-project-${item.id}`,
         feature: item.title,
@@ -7272,7 +7279,7 @@ export const ProductWiseSheet: React.FC = () => {
         canDelete: false
       })),
     ...contentItems
-      .filter(item => item.product === activeProduct)
+      .filter(item => isNoGroupTab ? (!item.product || item.product.trim() === '') : item.product === activeProduct)
       .map(item => ({
         id: `breakdown-content-${item.id}`,
         feature: item.module,
@@ -7318,7 +7325,7 @@ export const ProductWiseSheet: React.FC = () => {
         canDelete: false
       })),
     ...studentMeetings
-      .filter(item => item.product === activeProduct)
+      .filter(item => isNoGroupTab ? (!item.product || item.product.trim() === '') : item.product === activeProduct)
       .map(item => ({
         id: `breakdown-meeting-${item.id}`,
         feature: item.cohort,
@@ -7349,7 +7356,7 @@ export const ProductWiseSheet: React.FC = () => {
         canDelete: false
       })),
     ...dailyIssues
-      .filter(item => item.product === activeProduct)
+      .filter(item => isNoGroupTab ? (!item.product || item.product.trim() === '') : item.product === activeProduct)
       .map(item => ({
         id: `breakdown-issue-${item.id}`,
         feature: item.module || `Issue #${item.id}`,
@@ -7392,8 +7399,8 @@ export const ProductWiseSheet: React.FC = () => {
   ];
 
   const handleAddNewFeature = () => {
-    if (!activeProduct) {
-      alert("Please select a product category tab first.");
+    if (!activeProduct || isNoGroupTab) {
+      alert(isNoGroupTab ? "Cannot add a feature without a product group. Please switch to a product tab." : "Please select a product category tab first.");
       return;
     }
     
@@ -7477,12 +7484,12 @@ export const ProductWiseSheet: React.FC = () => {
       ) : (
         <>
           {/* Top Tabs & Search Toolbar */}
-          <div className="sheet-toolbar" style={{ borderBottom: products.length > 2 ? 'none' : '1px solid var(--border)' }}>
+          <div className="sheet-toolbar" style={{ borderBottom: allTabs.length > 2 ? 'none' : '1px solid var(--border)' }}>
             <div className="toolbar-left" style={{ flex: 1, overflow: 'hidden', flexWrap: 'nowrap' }}>
               <h2 style={{ fontSize: '1.25rem', marginRight: '1.5rem', whiteSpace: 'nowrap' }}>Product Breakdown</h2>
               
               {/* Product Tabs inline in toolbar-left (only when <= 2 products) */}
-              {products.length <= 2 && (
+              {allTabs.length <= 2 && (
                 <div style={{ 
                   display: 'flex', 
                   gap: '1.25rem',
@@ -7495,8 +7502,9 @@ export const ProductWiseSheet: React.FC = () => {
                   alignItems: 'center',
                   paddingTop: '2px'
                 }}>
-                  {products.map((prod) => {
+                  {allTabs.map((prod) => {
                     const isActive = prod === activeProduct;
+                    const isSpecial = prod === NO_GROUP_TAB;
                     return (
                       <button
                         key={prod}
@@ -7505,8 +7513,8 @@ export const ProductWiseSheet: React.FC = () => {
                           padding: '0.5rem 0.25rem',
                           border: 'none',
                           background: 'none',
-                          borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
-                          color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                          borderBottom: isActive ? `2px solid ${isSpecial ? 'var(--warning)' : 'var(--primary)'}` : '2px solid transparent',
+                          color: isActive ? (isSpecial ? 'var(--warning)' : 'var(--text-primary)') : 'var(--text-secondary)',
                           fontWeight: 600,
                           fontSize: '0.875rem',
                           cursor: 'pointer',
@@ -7560,14 +7568,20 @@ export const ProductWiseSheet: React.FC = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <button className="btn btn-primary btn-sm" onClick={handleAddNewFeature} style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={handleAddNewFeature}
+                disabled={isNoGroupTab}
+                title={isNoGroupTab ? 'Switch to a product tab to add features' : undefined}
+                style={{ whiteSpace: 'nowrap', flexShrink: 0, opacity: isNoGroupTab ? 0.45 : 1, cursor: isNoGroupTab ? 'not-allowed' : 'pointer' }}
+              >
                 <Plus size={14} /> Add Feature
               </button>
             </div>
           </div>
 
           {/* Product Tabs on next line if > 2 products */}
-          {products.length > 2 && (
+          {allTabs.length > 2 && (
             <div style={{
               display: 'flex',
               gap: '1.5rem',
@@ -7580,8 +7594,9 @@ export const ProductWiseSheet: React.FC = () => {
               backgroundColor: 'var(--panel-bg)',
               alignItems: 'center'
             }}>
-              {products.map((prod) => {
+              {allTabs.map((prod) => {
                 const isActive = prod === activeProduct;
+                const isSpecial = prod === NO_GROUP_TAB;
                 return (
                   <button
                     key={prod}
@@ -7590,8 +7605,8 @@ export const ProductWiseSheet: React.FC = () => {
                       padding: '0.5rem 0.25rem',
                       border: 'none',
                       background: 'none',
-                      borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
-                      color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      borderBottom: isActive ? `2px solid ${isSpecial ? 'var(--warning)' : 'var(--primary)'}` : '2px solid transparent',
+                      color: isActive ? (isSpecial ? 'var(--warning)' : 'var(--text-primary)') : 'var(--text-secondary)',
                       fontWeight: 600,
                       fontSize: '0.875rem',
                       cursor: 'pointer',
@@ -7801,7 +7816,9 @@ export const ProductWiseSheet: React.FC = () => {
                 </table>
               ) : (
                 <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-                  No priority features mapped to this product.
+                  {isNoGroupTab
+                    ? 'All tasks have a product group assigned. Great job!'
+                    : 'No priority features mapped to this product.'}
                 </div>
               )}
             </div>
