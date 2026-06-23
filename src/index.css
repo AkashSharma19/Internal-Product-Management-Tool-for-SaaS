@@ -3715,4 +3715,19 @@ body.read-only-mode .btn:has(svg.lucide-plus) {
   display: none !important;
 }
 
+/* Empty product warning highlight */
+.premium-select-pill.warning-highlight {
+  border-color: #f97316 !important;
+  background-color: hsla(24, 95%, 50%, 0.08) !important;
+  box-shadow: 0 0 0 2px hsla(24, 95%, 50%, 0.15);
+  animation: pulse-border-warning 2s infinite ease-in-out;
+}
 
+@keyframes pulse-border-warning {
+  0%, 100% {
+    box-shadow: 0 0 0 1px hsla(24, 95%, 50%, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 0 3px hsla(24, 95%, 50%, 0.3);
+  }
+}

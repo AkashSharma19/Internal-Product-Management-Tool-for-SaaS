@@ -24,7 +24,10 @@ import {
   ChevronDown,
   RefreshCw,
   Search,
-  Plus
+  Plus,
+  Layers,
+  Tag,
+  Grid
 } from 'lucide-react';
 import type { 
   ProductItem, 
@@ -820,111 +823,12 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
              'Priority Requests'}
           </span>
           <span>/</span>
-          <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{item.product || 'General Product'}</span>
+          <span style={{ color: !item.product ? '#f97316' : 'var(--text-primary)', fontWeight: 600 }}>
+            {item.product || '— Select Product Group —'}
+          </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', pointerEvents: canUserEdit ? 'auto' : 'none', opacity: canUserEdit ? 1 : 0.8 }}>
-          
-          {/* Product Group, Module, and Type inline selectors next to task ID */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-            {/* Product Group Select */}
-            <select
-              style={{ padding: '2px 6px', fontSize: '0.75rem', fontWeight: 600, height: '26px', border: '1px solid var(--border)', borderRadius: '6px', backgroundColor: 'var(--background-alt)', color: 'var(--text-primary)', cursor: 'pointer' }}
-              value={item.product || ''}
-              onChange={(e) => handleFieldUpdate('product', e.target.value)}
-            >
-              <option value="">— Product Group —</option>
-              {productList.map(p => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-              {item.product && !productList.includes(item.product) && (
-                <option value={item.product}>{item.product}</option>
-              )}
-            </select>
-
-            {/* Module Select */}
-            {(() => {
-              const matchedGroup = productGroups.find(g => g.name === item.product);
-              const modulePresets = (matchedGroup && matchedGroup.modules && matchedGroup.modules.length > 0)
-                ? matchedGroup.modules
-                : ['General', 'Academic Grades', 'Attendance Widget', 'MU.Ai Bot', 'Zoom Cohorts', 'Onboarding UI', 'Parent Portal', 'To-do widget'];
-              const isCustomModule = !!item.module && !modulePresets.includes(item.module);
-              const defaultValue = modulePresets[0] || 'General';
-              const selectModuleVal = isCustomModule ? 'Other' : (item.module || defaultValue);
-              
-              return (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <select
-                    style={{ padding: '2px 6px', fontSize: '0.75rem', fontWeight: 600, height: '26px', border: '1px solid var(--border)', borderRadius: '6px', backgroundColor: 'var(--background-alt)', color: 'var(--text-primary)', cursor: 'pointer' }}
-                    value={selectModuleVal}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === 'Other') {
-                        handleFieldUpdate('module', 'Custom Module');
-                      } else {
-                        handleFieldUpdate('module', val);
-                      }
-                    }}
-                  >
-                    {modulePresets.map(mod => (
-                      <option key={mod} value={mod}>{mod}</option>
-                    ))}
-                    <option value="Other">Other...</option>
-                  </select>
-                  {isCustomModule && (
-                    <input
-                      type="text"
-                      style={{ padding: '2px 6px', fontSize: '0.75rem', height: '26px', width: '100px', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-primary)', backgroundColor: 'var(--background)' }}
-                      value={item.module}
-                      onChange={(e) => handleFieldUpdate('module', e.target.value)}
-                      placeholder="Module name"
-                    />
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Type Select */}
-            {(() => {
-              const typePresets = ['Feature', 'Enhancement', 'Bug/Defect', 'UI/UX', 'Research'];
-              const isCustomType = !!item.type && !typePresets.includes(item.type);
-              const selectTypeVal = isCustomType ? 'Other' : (item.type || 'Feature');
-              
-              return (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <select
-                    style={{ padding: '2px 6px', fontSize: '0.75rem', fontWeight: 600, height: '26px', border: '1px solid var(--border)', borderRadius: '6px', backgroundColor: 'var(--background-alt)', color: 'var(--text-primary)', cursor: 'pointer' }}
-                    value={selectTypeVal}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === 'Other') {
-                        handleFieldUpdate('type', 'Custom Type');
-                      } else {
-                        handleFieldUpdate('type', val);
-                      }
-                    }}
-                  >
-                    <option value="Feature">Feature</option>
-                    <option value="Enhancement">Enhancement</option>
-                    <option value="Bug/Defect">Bug/Defect</option>
-                    <option value="UI/UX">UI/UX</option>
-                    <option value="Research">Research</option>
-                    <option value="Other">Other...</option>
-                  </select>
-                  {isCustomType && (
-                    <input
-                      type="text"
-                      style={{ padding: '2px 6px', fontSize: '0.75rem', height: '26px', width: '100px', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-primary)', backgroundColor: 'var(--background)' }}
-                      value={item.type}
-                      onChange={(e) => handleFieldUpdate('type', e.target.value)}
-                      placeholder="Type name"
-                    />
-                  )}
-                </div>
-              );
-            })()}
-          </div>
-
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span style={{
             backgroundColor: 'var(--background-alt)',
             border: '1px solid var(--border)',
@@ -965,6 +869,130 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
         {/* PANEL 1: Lifecycle & Integration */}
         <div className="properties-panel">
           <h4 className="properties-panel-title">Lifecycle & Integration</h4>
+
+          {/* Product Group */}
+          <div className="property-row-flat">
+            <span className="premium-property-label" style={{ color: !item.product ? '#f97316' : undefined, fontWeight: !item.product ? '700' : undefined }}>
+              <Layers size={13} style={{ color: !item.product ? '#f97316' : undefined }} /> Product Group
+            </span>
+            <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div className={`premium-select-pill ${!item.product ? 'warning-highlight' : ''}`}>
+                <select
+                  value={item.product || ''}
+                  onChange={(e) => handleFieldUpdate('product', e.target.value)}
+                >
+                  <option value="">— Select Product Group —</option>
+                  {productList.map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                  {item.product && !productList.includes(item.product) && (
+                    <option value={item.product}>{item.product}</option>
+                  )}
+                </select>
+              </div>
+              {!item.product && (
+                <span className="animate-pulse" style={{ color: '#f97316', fontSize: '0.65rem', fontWeight: 'bold' }}>Required</span>
+              )}
+            </div>
+          </div>
+
+          {/* Module */}
+          <div className="property-row-flat">
+            <span className="premium-property-label">
+              <Grid size={13} /> Module
+            </span>
+            <div className="premium-property-value">
+              {(() => {
+                const matchedGroup = productGroups.find(g => g.name === item.product);
+                const modulePresets = (matchedGroup && matchedGroup.modules && matchedGroup.modules.length > 0)
+                  ? matchedGroup.modules
+                  : ['General', 'Academic Grades', 'Attendance Widget', 'MU.Ai Bot', 'Zoom Cohorts', 'Onboarding UI', 'Parent Portal', 'To-do widget'];
+                const isCustomModule = !!item.module && !modulePresets.includes(item.module);
+                const defaultValue = modulePresets[0] || 'General';
+                const selectModuleVal = isCustomModule ? 'Other' : (item.module || defaultValue);
+                
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <div className="premium-select-pill">
+                      <select
+                        value={selectModuleVal}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === 'Other') {
+                            handleFieldUpdate('module', 'Custom Module');
+                          } else {
+                            handleFieldUpdate('module', val);
+                          }
+                        }}
+                      >
+                        {modulePresets.map(mod => (
+                          <option key={mod} value={mod}>{mod}</option>
+                        ))}
+                        <option value="Other">Other...</option>
+                      </select>
+                    </div>
+                    {isCustomModule && (
+                      <input
+                        type="text"
+                        style={{ padding: '2px 6px', fontSize: '0.75rem', height: '26px', width: '100px', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-primary)', backgroundColor: 'var(--background)' }}
+                        value={item.module}
+                        onChange={(e) => handleFieldUpdate('module', e.target.value)}
+                        placeholder="Module name"
+                      />
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Type */}
+          <div className="property-row-flat">
+            <span className="premium-property-label">
+              <Tag size={13} /> Type
+            </span>
+            <div className="premium-property-value">
+              {(() => {
+                const typePresets = ['Feature', 'Enhancement', 'Bug/Defect', 'UI/UX', 'Research'];
+                const isCustomType = !!item.type && !typePresets.includes(item.type);
+                const selectTypeVal = isCustomType ? 'Other' : (item.type || 'Feature');
+                
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <div className="premium-select-pill">
+                      <select
+                        value={selectTypeVal}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === 'Other') {
+                            handleFieldUpdate('type', 'Custom Type');
+                          } else {
+                            handleFieldUpdate('type', val);
+                          }
+                        }}
+                      >
+                        <option value="Feature">Feature</option>
+                        <option value="Enhancement">Enhancement</option>
+                        <option value="Bug/Defect">Bug/Defect</option>
+                        <option value="UI/UX">UI/UX</option>
+                        <option value="Research">Research</option>
+                        <option value="Other">Other...</option>
+                      </select>
+                    </div>
+                    {isCustomType && (
+                      <input
+                        type="text"
+                        style={{ padding: '2px 6px', fontSize: '0.75rem', height: '26px', width: '100px', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-primary)', backgroundColor: 'var(--background)' }}
+                        value={item.type}
+                        onChange={(e) => handleFieldUpdate('type', e.target.value)}
+                        placeholder="Type name"
+                      />
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
           
           {/* Status */}
           <div className="property-row-flat">
