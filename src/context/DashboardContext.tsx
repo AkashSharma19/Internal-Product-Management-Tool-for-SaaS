@@ -541,6 +541,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Helper to persist to API
   const [syncStatus, setSyncStatus] = useState<'syncing' | 'synced' | 'error'>('synced');
+  const wsRef = React.useRef<WebSocket | null>(null);
 
   const persistChange = async (action: 'create' | 'update' | 'delete' | 'batch-import', type: string, id: string | null, data: any) => {
     setSyncStatus('syncing');
@@ -554,6 +555,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       });
       if (response.ok) {
         setSyncStatus('synced');
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: 'sync-update', entity: type }));
+        }
       } else {
         console.error(`Persist failed for ${type} ${action}:`, await response.text());
         setSyncStatus('error');
@@ -622,6 +626,112 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   useEffect(() => {
     refreshAllData().finally(() => setIsLoading(false));
+  }, []);
+
+  const refreshAllDataQuietly = async () => {
+    try {
+      const response = await fetch('/api/data');
+      if (!response.ok) return;
+      const resData = await response.json();
+      if (resData.success && resData.data) {
+        const db = resData.data;
+        if (db.products) setProductItems(db.products);
+        if (db.plans) setPlanItems(db.plans);
+        if (db.projects) setStudentProjects(db.projects);
+        if (db.amaSessions) setAMASessions(db.amaSessions);
+        if (db.studentMeetings) setStudentMeetings(db.studentMeetings);
+        if (db.adminCalls) setAdminCalls(db.adminCalls);
+        if (db.contentItems) setContentItems(db.contentItems);
+        if (db.dailyIssues) setDailyIssues(db.dailyIssues);
+        if (db.featureAdoptions) setFeatureAdoptions(db.featureAdoptions);
+        if (db.speakers) {
+          setSpeakers(db.speakers);
+          const savedUserId = localStorage.getItem('logged-in-user-id');
+          if (savedUserId) {
+            const matchedUser = db.speakers.find((s: any) => s.id === savedUserId);
+            if (matchedUser) setCurrentUser(matchedUser);
+          }
+        }
+        if (db.productGroups) setProductGroups(db.productGroups);
+        if (db.statuses) setStatuses(db.statuses);
+        if (db.programs) setPrograms(db.programs);
+        if (db.cohorts) setCohorts(db.cohorts);
+      }
+    } catch (err) {
+      console.warn('Quiet sync failed:', err);
+    }
+  };
+
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let pollInterval: any = null;
+
+    const connectWebSocket = () => {
+      try {
+        const wsUrl = `ws://${window.location.hostname}:8080`;
+        ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          console.log('Connected to real-time WebSocket sync server:', wsUrl);
+          if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+          }
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'sync-update') {
+              console.log('Real-time sync update received for:', msg.entity);
+              refreshAllDataQuietly();
+            }
+          } catch (e) {
+            console.error('Failed to parse WS message:', e);
+          }
+        };
+
+        ws.onerror = () => {
+          setupPollingFallback();
+        };
+
+        ws.onclose = () => {
+          setupPollingFallback();
+          setTimeout(() => {
+            if (ws?.readyState === WebSocket.CLOSED) {
+              connectWebSocket();
+            }
+          }, 5000);
+        };
+      } catch (err) {
+        setupPollingFallback();
+      }
+    };
+
+    const setupPollingFallback = () => {
+      if (pollInterval) return;
+      console.log('WebSocket not available, falling back to background polling sync...');
+      pollInterval = setInterval(async () => {
+        if (document.hidden) return;
+        const activeEl = document.activeElement;
+        const isEditing = activeEl && (
+          activeEl.tagName === 'INPUT' || 
+          activeEl.tagName === 'TEXTAREA' || 
+          activeEl.getAttribute('contenteditable') === 'true'
+        );
+        if (isEditing) return;
+
+        refreshAllDataQuietly();
+      }, 10000);
+    };
+
+    connectWebSocket();
+
+    return () => {
+      if (ws) ws.close();
+      if (pollInterval) clearInterval(pollInterval);
+    };
   }, []);
 
   const updateClickupApiKey = (key: string) => {
