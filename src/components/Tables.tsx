@@ -6354,8 +6354,6 @@ export const ContentTable: React.FC = () => {
   const [sortField, setSortField] = useState<keyof ContentItem>('module');
   const [sortAsc, setSortAsc] = useState(true);
 
-  // CSV import state
-  const [isImportOpen, setIsImportOpen] = useState(false);
 
   // Inline editing states for Content Table
   const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
@@ -6481,33 +6479,6 @@ export const ContentTable: React.FC = () => {
     setEditingModuleId(newItem.id);
   };
 
-  const handleImportCSV = (data: string[][]) => {
-    data.forEach(row => {
-      if (row.length < 2) return;
-      const newItem: ContentItem = {
-        id: `cont-${Math.random()}`,
-        module: row[0] || 'Imported Topic',
-        product: row[1] || 'Coach LMS Web',
-        priority: (row[2] as any) || 'P2',
-        poc: row[3] || speakersList[0] || 'Nikhil',
-        status: row[4] || '',
-        clickupStatus: row[5] || 'open',
-        productDeadline: row[6] || '',
-        uiux: row[7] || '',
-        deadline: row[8] || '',
-        finalRelease: row[9] || '',
-        type: 'Video',
-        draftLink: '',
-        publishDate: row[9] || '',
-        subject: row[1] || 'Subject',
-        productDeadlineCompleted: false,
-        uiuxCompleted: false,
-        deadlineCompleted: false,
-        finalReleaseCompleted: false
-      };
-      addContentItem(newItem);
-    });
-  };
 
   // 1. Search & Super Priority filter
   let filtered = contentItems.filter(item => {
@@ -6558,13 +6529,6 @@ export const ContentTable: React.FC = () => {
         addLabel="Add Content Item"
         filterComponent={
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button 
-              className="btn btn-secondary" 
-              onClick={() => setIsImportOpen(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', fontSize: '0.8rem', height: '36px' }}
-            >
-              Import CSV
-            </button>
             <MultiSelectDropdown
               options={statusOptions}
               selectedValues={filterStatuses}
@@ -7188,13 +7152,6 @@ export const ContentTable: React.FC = () => {
         </div>
       </TabContainer>
 
-      <CSVImportModal
-        isOpen={isImportOpen}
-        onClose={() => setIsImportOpen(false)}
-        onImport={handleImportCSV}
-        title="Content Pipeline"
-        headers={['Module / Topic Name', 'Product Group', 'Priority', 'POC Owner', 'Status', 'Clickup Status', 'Specs Date (YYYY-MM-DD)', 'UI/UX Date (YYYY-MM-DD)', 'Dev Date (YYYY-MM-DD)', 'Release Date (YYYY-MM-DD)']}
-      />
     </>
   );
 };
