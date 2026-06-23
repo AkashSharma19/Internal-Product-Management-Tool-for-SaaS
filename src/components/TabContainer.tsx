@@ -1,5 +1,6 @@
 import React from 'react';
 import { Search, Plus, Download, Upload } from 'lucide-react';
+import { useDashboard } from '../context/DashboardContext';
 
 interface TabContainerProps {
   title: string;
@@ -26,6 +27,8 @@ export const TabContainer: React.FC<TabContainerProps> = ({
   filterComponent,
   children
 }) => {
+  const { canUserEdit } = useDashboard();
+
   return (
     <div className="full-canvas-workspace">
       <div className="sheet-toolbar">
@@ -47,7 +50,7 @@ export const TabContainer: React.FC<TabContainerProps> = ({
         </div>
 
         <div className="toolbar-right">
-          {onImportCSVClick && (
+          {onImportCSVClick && canUserEdit && (
             <button className="btn btn-secondary btn-sm" onClick={onImportCSVClick} title="Import CSV data">
               <Upload size={14} /> Import CSV
             </button>
@@ -59,7 +62,7 @@ export const TabContainer: React.FC<TabContainerProps> = ({
             </button>
           )}
 
-          {onAddClick && (
+          {onAddClick && canUserEdit && (
             <button className="btn btn-primary btn-sm" onClick={onAddClick}>
               <Plus size={14} /> {addLabel}
             </button>
@@ -67,7 +70,14 @@ export const TabContainer: React.FC<TabContainerProps> = ({
         </div>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+      <div 
+        style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}
+        onDoubleClickCapture={(e) => {
+          if (!canUserEdit) {
+            e.stopPropagation();
+          }
+        }}
+      >
         {children}
       </div>
     </div>

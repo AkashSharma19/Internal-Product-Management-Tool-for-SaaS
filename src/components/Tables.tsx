@@ -665,7 +665,7 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({ value, onChange, produc
 };
 
 export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBack, onUpdate }) => {
-  const { speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab } = useDashboard();
+  const { speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit } = useDashboard();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const pocList = configSpeakers.map(s => s.name);
@@ -765,6 +765,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   
 
   const handleFieldUpdate = (field: keyof ProductItem, newValue: any) => {
+    if (!canUserEdit) return;
     const oldValue = item[field];
     if (oldValue === newValue) return;
 
@@ -777,7 +778,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   };
 
   const handleSyncClickup = async (taskLinkValue: string) => {
-    if (!taskLinkValue) return;
+    if (!canUserEdit || !taskLinkValue) return;
     setIsSyncing(true);
     setSyncError(null);
     try {
@@ -822,7 +823,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
           <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{item.product || 'General Product'}</span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', pointerEvents: canUserEdit ? 'auto' : 'none', opacity: canUserEdit ? 1 : 0.8 }}>
           
           {/* Product Group, Module, and Type inline selectors next to task ID */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -941,6 +942,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
         </div>
       </div>
 
+      <div style={{ pointerEvents: canUserEdit ? 'auto' : 'none', opacity: canUserEdit ? 1 : 0.95 }}>
       {/* Task Title (Editable) */}
       <div style={{ marginTop: '0.75rem' }}>
         <input
@@ -1031,7 +1033,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                 defaultValue={item.taskLink}
               />
               {item.taskLink && (
-                <a href={item.taskLink} target="_blank" rel="noreferrer" title="Open ClickUp Task" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                <a href={item.taskLink} target="_blank" rel="noreferrer" title="Open ClickUp Task" style={{ display: 'inline-flex', alignItems: 'center', pointerEvents: 'auto' }}>
                   <ExternalLink size={11} style={{ color: 'var(--text-muted)' }} />
                 </a>
               )}
@@ -1505,6 +1507,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
         />
       </div>
 
+      </div>
     </div>
   );
 };
@@ -1582,7 +1585,7 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
 };
 
 export const ProductTable: React.FC = () => {
-  const { productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId, statuses } = useDashboard();
+  const { productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId, statuses, canUserEdit } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState('All');
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
@@ -1812,6 +1815,7 @@ export const ProductTable: React.FC = () => {
                       ) : (
                         <span 
                           onDoubleClick={(e) => {
+                            if (!canUserEdit) return;
                             e.stopPropagation();
                             setEditingFeatureId(item.id);
                             setInlineEditValue(item.feature);
@@ -1910,17 +1914,19 @@ export const ProductTable: React.FC = () => {
                   </td>
 
                   <td>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (window.confirm("Are you sure you want to delete this feature?")) {
-                          deleteProductItem(item.id);
-                        }
-                      }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {canUserEdit && (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm("Are you sure you want to delete this feature?")) {
+                            deleteProductItem(item.id);
+                          }
+                        }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1950,6 +1956,7 @@ interface PlanDetailModalProps {
 }
 
 const PlanDetailModal: React.FC<PlanDetailModalProps> = ({ item, onClose, onUpdate }) => {
+  const { canUserEdit } = useDashboard();
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<PlanItem>({ ...item });
 
@@ -2140,7 +2147,7 @@ const PlanDetailModal: React.FC<PlanDetailModalProps> = ({ item, onClose, onUpda
           ) : (
             <>
               <button className="btn btn-secondary" onClick={onClose}>Close</button>
-              <button className="btn btn-primary" onClick={() => setIsEditing(true)}>Edit Details</button>
+              {canUserEdit && <button className="btn btn-primary" onClick={() => setIsEditing(true)}>Edit Details</button>}
             </>
           )}
         </div>
@@ -2153,7 +2160,7 @@ export const PlanTable: React.FC = () => {
   const {
     planItems, updatePlanItem, addPlanItem, deletePlanItem,
     productItems, studentProjects, contentItems, studentMeetings,
-    openPreviewForFeature
+    openPreviewForFeature, canUserEdit
   } = useDashboard();
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const now = new Date();
@@ -2494,14 +2501,20 @@ export const PlanTable: React.FC = () => {
 
   // HTML5 Drag-and-drop operations (manual items only)
   const handleDragStart = (e: React.DragEvent, id: string) => {
+    if (!canUserEdit) {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.setData('text/plain', id);
   };
   const handleDragOver = (e: React.DragEvent, colId: string) => {
+    if (!canUserEdit) return;
     e.preventDefault();
     setDraggedOverColumn(colId);
   };
   const handleDragLeave = () => setDraggedOverColumn(null);
   const handleDrop = (e: React.DragEvent, targetColId: string) => {
+    if (!canUserEdit) return;
     e.preventDefault();
     setDraggedOverColumn(null);
     const itemId = e.dataTransfer.getData('text/plain');
@@ -2729,7 +2742,7 @@ export const PlanTable: React.FC = () => {
                         <div
                           key={manualItem.id}
                           className={`kanban-card ${isCompleted ? 'completed-card' : ''}`}
-                          draggable
+                          draggable={canUserEdit}
                           onDragStart={(e) => handleDragStart(e, manualItem.id)}
                           onClick={() => openPreviewForFeature(manualItem.task, { status: manualItem.status as any, clickupStatus: manualItem.status, taskLink: manualItem.link })}
                         >
@@ -2777,19 +2790,21 @@ export const PlanTable: React.FC = () => {
                             </div>
 
                             <div className="kanban-card-actions" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                onClick={() => updatePlanItem(manualItem.id, { completed: !manualItem.completed })}
-                                className={`kanban-complete-btn ${isCompleted ? 'active' : ''}`}
-                                style={{
-                                  background: 'none', border: 'none', cursor: 'pointer',
-                                  color: isCompleted ? 'var(--success)' : 'var(--text-muted)',
-                                  display: 'inline-flex', alignItems: 'center', padding: '2px',
-                                  transition: 'color 0.2s'
-                                }}
-                                title={isCompleted ? 'Mark Active' : 'Mark Completed'}
-                              >
-                                <CheckCircle size={12} />
-                              </button>
+                              {canUserEdit && (
+                                <button
+                                  onClick={() => updatePlanItem(manualItem.id, { completed: !manualItem.completed })}
+                                  className={`kanban-complete-btn ${isCompleted ? 'active' : ''}`}
+                                  style={{
+                                    background: 'none', border: 'none', cursor: 'pointer',
+                                    color: isCompleted ? 'var(--success)' : 'var(--text-muted)',
+                                    display: 'inline-flex', alignItems: 'center', padding: '2px',
+                                    transition: 'color 0.2s'
+                                  }}
+                                  title={isCompleted ? 'Mark Active' : 'Mark Completed'}
+                                >
+                                  <CheckCircle size={12} />
+                                </button>
+                              )}
                               {manualItem.link && (
                                 <a
                                   href={manualItem.link}
@@ -2802,17 +2817,19 @@ export const PlanTable: React.FC = () => {
                                   <ExternalLink size={12} />
                                 </a>
                               )}
-                              <button
-                                onClick={() => {
-                                  if (window.confirm('Are you sure you want to delete this sprint task?')) {
-                                    deletePlanItem(manualItem.id);
-                                  }
-                                }}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center', padding: '2px' }}
-                                title="Delete Task"
-                              >
-                                <Trash2 size={12} />
-                              </button>
+                              {canUserEdit && (
+                                <button
+                                  onClick={() => {
+                                    if (window.confirm('Are you sure you want to delete this sprint task?')) {
+                                      deletePlanItem(manualItem.id);
+                                    }
+                                  }}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center', padding: '2px' }}
+                                  title="Delete Task"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -2854,7 +2871,7 @@ export const PlanTable: React.FC = () => {
 // ProjectDetailModal is deprecated in favor of unified ProductDetailView
 
 export const StudentProjectsTable: React.FC = () => {
-  const { studentProjects, updateStudentProject, addStudentProject, deleteStudentProject, openPreviewForFeature, statuses, productItems } = useDashboard();
+  const { studentProjects, updateStudentProject, addStudentProject, deleteStudentProject, openPreviewForFeature, statuses, productItems, canUserEdit } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [inlineEditValue, setInlineEditValue] = useState('');
@@ -3219,17 +3236,19 @@ export const StudentProjectsTable: React.FC = () => {
                   </td>
 
                   <td>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (window.confirm("Are you sure you want to delete this project?")) {
-                          deleteStudentProject(p.id);
-                        }
-                      }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {canUserEdit && (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm("Are you sure you want to delete this project?")) {
+                            deleteStudentProject(p.id);
+                          }
+                        }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               );
@@ -3253,6 +3272,7 @@ export interface StudentMeetingDetailModalProps {
 }
 
 export const StudentMeetingDetailModal: React.FC<StudentMeetingDetailModalProps> = ({ item, onClose, onUpdate }) => {
+  const { canUserEdit } = useDashboard();
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<StudentMeeting>({ ...item });
 
@@ -3342,7 +3362,7 @@ export const StudentMeetingDetailModal: React.FC<StudentMeetingDetailModalProps>
           ) : (
             <>
               <button className="btn btn-secondary" onClick={onClose}>Close</button>
-              <button className="btn btn-primary" onClick={() => setIsEditing(true)}>Edit Details</button>
+              {canUserEdit && <button className="btn btn-primary" onClick={() => setIsEditing(true)}>Edit Details</button>}
             </>
           )}
         </div>

@@ -3694,7 +3694,25 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* GLOBAL READ-ONLY MODE CONTROLS */
+body.read-only-mode button:has(svg.lucide-trash-2),
+body.read-only-mode button:has(svg.lucide-trash),
+body.read-only-mode button:has(svg.lucide-pencil),
+body.read-only-mode button:has(svg.lucide-edit-2),
+body.read-only-mode button:has(svg.lucide-edit),
+body.read-only-mode a:has(svg.lucide-trash-2),
+body.read-only-mode a:has(svg.lucide-trash),
+body.read-only-mode a:has(svg.lucide-pencil),
+body.read-only-mode a:has(svg.lucide-edit-2),
+body.read-only-mode a:has(svg.lucide-edit),
+body.read-only-mode [title="Delete"],
+body.read-only-mode [title="Edit"] {
+  display: none !important;
+}
 
-
+body.read-only-mode button:has(svg.lucide-plus),
+body.read-only-mode .btn:has(svg.lucide-plus) {
+  display: none !important;
+}
 
 

@@ -183,6 +183,7 @@ export interface ConfigSpeaker {
   email?: string;
   role?: string; // e.g. "Lead Research Engineer", "Alumni", "Industry Expert"
   password?: string;
+  canEdit?: boolean;
 }
 
 export interface ConfigProductGroup {

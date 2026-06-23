@@ -162,16 +162,18 @@ const td: React.CSSProperties = {
 // SPEAKERS SECTION
 // ═══════════════════════════════════════════════════════════════════════════════
 const SpeakersSection: React.FC = () => {
-  const { speakers, addSpeaker, updateSpeaker, deleteSpeaker } = useDashboard();
+  const { speakers, addSpeaker, updateSpeaker, deleteSpeaker, canUserEdit } = useDashboard();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editRole, setEditRole] = useState('');
   const [editPassword, setEditPassword] = useState('');
+  const [editCanEdit, setEditCanEdit] = useState(true);
   const [addName, setAddName] = useState('');
   const [addEmail, setAddEmail] = useState('');
   const [addRole, setAddRole] = useState('');
   const [addPassword, setAddPassword] = useState('1234');
+  const [addCanEdit, setAddCanEdit] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
 
   // Visibility toggles for passwords
@@ -188,6 +190,7 @@ const SpeakersSection: React.FC = () => {
     setEditEmail(s.email ?? '');
     setEditRole(s.role ?? '');
     setEditPassword(s.password ?? '1234');
+    setEditCanEdit(s.canEdit !== false);
   };
 
   const saveEdit = () => {
@@ -196,7 +199,8 @@ const SpeakersSection: React.FC = () => {
       name: editName.trim(), 
       email: editEmail.trim(), 
       role: editRole.trim(), 
-      password: editPassword.trim() 
+      password: editPassword.trim(),
+      canEdit: editCanEdit
     });
     setEditingId(null);
   };
@@ -208,12 +212,14 @@ const SpeakersSection: React.FC = () => {
       name: addName.trim(), 
       email: addEmail.trim(), 
       role: addRole.trim(),
-      password: addPassword.trim() || '1234'
+      password: addPassword.trim() || '1234',
+      canEdit: addCanEdit
     });
     setAddName('');
     setAddEmail('');
     setAddRole('');
     setAddPassword('1234');
+    setAddCanEdit(true);
     setShowAdd(false);
   };
 
@@ -226,6 +232,7 @@ const SpeakersSection: React.FC = () => {
             <th style={th}>Email</th>
             <th style={th}>Role / Title</th>
             <th style={{ ...th, width: 150 }}>Password</th>
+            <th style={{ ...th, width: 90, textAlign: 'center' }}>Can Edit</th>
             <th style={{ ...th, width: 72 }}>Actions</th>
           </tr>
         </thead>
@@ -258,7 +265,7 @@ const SpeakersSection: React.FC = () => {
               <td style={td}>
                 {editingId === s.id ? (
                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                    <input 
+                     <input 
                       type={showPasswordMap[s.id] ? 'text' : 'password'}
                       style={{ ...inputStyle, paddingRight: '30px' }} 
                       value={editPassword} 
@@ -292,6 +299,27 @@ const SpeakersSection: React.FC = () => {
                   </div>
                 )}
               </td>
+              <td style={td}>
+                {editingId === s.id ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <input 
+                      type="checkbox" 
+                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                      checked={editCanEdit} 
+                      onChange={e => setEditCanEdit(e.target.checked)} 
+                    />
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <input 
+                      type="checkbox" 
+                      style={{ width: '16px', height: '16px', cursor: 'default' }}
+                      checked={s.canEdit !== false} 
+                      disabled 
+                    />
+                  </div>
+                )}
+              </td>
               <td style={{ ...td, borderBottom: 'none' }}>
                 <div style={{ display: 'flex', gap: 2 }}>
                   {editingId === s.id ? (
@@ -301,8 +329,8 @@ const SpeakersSection: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <IconBtn onClick={() => startEdit(s)} title="Edit"><Pencil size={14} /></IconBtn>
-                      <IconBtn onClick={() => deleteSpeaker(s.id)} danger title="Delete"><Trash2 size={14} /></IconBtn>
+                      {canUserEdit && <IconBtn onClick={() => startEdit(s)} title="Edit"><Pencil size={14} /></IconBtn>}
+                      {canUserEdit && <IconBtn onClick={() => deleteSpeaker(s.id)} danger title="Delete"><Trash2 size={14} /></IconBtn>}
                     </>
                   )}
                 </div>
@@ -347,6 +375,16 @@ const SpeakersSection: React.FC = () => {
                   </button>
                 </div>
               </td>
+              <td style={td}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <input 
+                    type="checkbox" 
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                    checked={addCanEdit} 
+                    onChange={e => setAddCanEdit(e.target.checked)} 
+                  />
+                </div>
+              </td>
               <td style={{ ...td, borderBottom: 'none' }}>
                 <div style={{ display: 'flex', gap: 2 }}>
                   <IconBtn onClick={handleAdd} success title="Add"><Check size={14} /></IconBtn>
@@ -358,7 +396,7 @@ const SpeakersSection: React.FC = () => {
         </tbody>
       </table>
 
-      {!showAdd && (
+      {!showAdd && canUserEdit && (
         <button
           onClick={() => setShowAdd(true)}
           style={{
@@ -388,7 +426,7 @@ const SpeakersSection: React.FC = () => {
 // PRODUCT GROUPS SECTION
 // ═══════════════════════════════════════════════════════════════════════════════
 const ProductGroupsSection: React.FC = () => {
-  const { productGroups, addProductGroup, updateProductGroup, deleteProductGroup } = useDashboard();
+  const { productGroups, addProductGroup, updateProductGroup, deleteProductGroup, canUserEdit } = useDashboard();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('#6366f1');
@@ -525,8 +563,8 @@ const ProductGroupsSection: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <IconBtn onClick={() => startEdit(g)} title="Edit"><Pencil size={14} /></IconBtn>
-                      <IconBtn onClick={() => deleteProductGroup(g.id)} danger title="Delete"><Trash2 size={14} /></IconBtn>
+                      {canUserEdit && <IconBtn onClick={() => startEdit(g)} title="Edit"><Pencil size={14} /></IconBtn>}
+                      {canUserEdit && <IconBtn onClick={() => deleteProductGroup(g.id)} danger title="Delete"><Trash2 size={14} /></IconBtn>}
                     </>
                   )}
                 </div>
@@ -583,7 +621,7 @@ const ProductGroupsSection: React.FC = () => {
         </tbody>
       </table>
 
-      {!showAdd && (
+      {!showAdd && canUserEdit && (
         <button
           onClick={() => setShowAdd(true)}
           style={{
@@ -621,7 +659,7 @@ const SCOPE_LABELS: Record<ConfigStatus['scope'], string> = {
 };
 
 const StatusesSection: React.FC = () => {
-  const { statuses, addStatus, updateStatus, deleteStatus } = useDashboard();
+  const { statuses, addStatus, updateStatus, deleteStatus, canUserEdit } = useDashboard();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState('');
   const [editColor, setEditColor] = useState('#6366f1');
@@ -734,8 +772,8 @@ const StatusesSection: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <IconBtn onClick={() => startEdit(s)} title="Edit"><Pencil size={14} /></IconBtn>
-                      <IconBtn onClick={() => deleteStatus(s.id)} danger title="Delete"><Trash2 size={14} /></IconBtn>
+                      {canUserEdit && <IconBtn onClick={() => startEdit(s)} title="Edit"><Pencil size={14} /></IconBtn>}
+                      {canUserEdit && <IconBtn onClick={() => deleteStatus(s.id)} danger title="Delete"><Trash2 size={14} /></IconBtn>}
                     </>
                   )}
                 </div>
@@ -790,7 +828,7 @@ const StatusesSection: React.FC = () => {
         </tbody>
       </table>
 
-      {!showAdd && (
+      {!showAdd && canUserEdit && (
         <button
           onClick={() => setShowAdd(true)}
           style={{
@@ -819,7 +857,7 @@ const StatusesSection: React.FC = () => {
 const ProgramsSection: React.FC = () => {
   const { 
     programs, addProgram, updateProgram, deleteProgram,
-    cohorts, addCohort, updateCohort, deleteCohort 
+    cohorts, addCohort, updateCohort, deleteCohort, canUserEdit 
   } = useDashboard();
 
   // Program edit states
@@ -931,12 +969,13 @@ const ProgramsSection: React.FC = () => {
                         {/* Active / Inactive toggle */}
                         <label
                           title={c.active !== false ? 'Active — click to deactivate' : 'Inactive — click to activate'}
-                          style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', userSelect: 'none', flexShrink: 0 }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: canUserEdit ? 'pointer' : 'default', userSelect: 'none', flexShrink: 0 }}
                         >
                           <input
                             type="checkbox"
                             checked={c.active !== false}
-                            onChange={() => updateCohort(c.id, { active: c.active === false })}
+                            onChange={() => canUserEdit && updateCohort(c.id, { active: c.active === false })}
+                            disabled={!canUserEdit}
                             style={{ display: 'none' }}
                           />
                           {/* Custom toggle pill */}
@@ -1002,8 +1041,8 @@ const ProgramsSection: React.FC = () => {
                             </>
                           ) : (
                             <>
-                              <IconBtn onClick={() => startCohortEdit(c)} title="Rename"><Pencil size={11} /></IconBtn>
-                              <IconBtn onClick={() => deleteCohort(c.id)} danger title="Delete"><Trash2 size={11} /></IconBtn>
+                              {canUserEdit && <IconBtn onClick={() => startCohortEdit(c)} title="Rename"><Pencil size={11} /></IconBtn>}
+                              {canUserEdit && <IconBtn onClick={() => deleteCohort(c.id)} danger title="Delete"><Trash2 size={11} /></IconBtn>}
                             </>
                           )}
                         </div>
@@ -1011,43 +1050,45 @@ const ProgramsSection: React.FC = () => {
                     ))}
 
                     {/* Add cohort row */}
-                    {addingCohortForProgramId === p.id ? (
-                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '0.15rem' }}>
-                        <input
-                          autoFocus
-                          placeholder="Cohort name…"
-                          style={{ ...inputStyle, padding: '4px 8px', fontSize: '0.8rem', flex: 1 }}
-                          value={newCohortName}
-                          onChange={e => setNewCohortName(e.target.value)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') handleAddCohort(p.id);
-                            if (e.key === 'Escape') setAddingCohortForProgramId(null);
+                    {canUserEdit && (
+                      addingCohortForProgramId === p.id ? (
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '0.15rem' }}>
+                          <input
+                            autoFocus
+                            placeholder="Cohort name…"
+                            style={{ ...inputStyle, padding: '4px 8px', fontSize: '0.8rem', flex: 1 }}
+                            value={newCohortName}
+                            onChange={e => setNewCohortName(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') handleAddCohort(p.id);
+                              if (e.key === 'Escape') setAddingCohortForProgramId(null);
+                            }}
+                          />
+                          <IconBtn onClick={() => handleAddCohort(p.id)} success title="Add"><Check size={12} /></IconBtn>
+                          <IconBtn onClick={() => setAddingCohortForProgramId(null)} title="Cancel"><X size={12} /></IconBtn>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { setAddingCohortForProgramId(p.id); setNewCohortName(''); }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '4px',
+                            padding: '4px 10px',
+                            background: 'transparent',
+                            border: '1.5px dashed var(--border)',
+                            color: 'var(--text-muted)',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            transition: 'all 0.15s',
+                            marginTop: '0.15rem',
                           }}
-                        />
-                        <IconBtn onClick={() => handleAddCohort(p.id)} success title="Add"><Check size={12} /></IconBtn>
-                        <IconBtn onClick={() => setAddingCohortForProgramId(null)} title="Cancel"><X size={12} /></IconBtn>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => { setAddingCohortForProgramId(p.id); setNewCohortName(''); }}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '4px',
-                          padding: '4px 10px',
-                          background: 'transparent',
-                          border: '1.5px dashed var(--border)',
-                          color: 'var(--text-muted)',
-                          borderRadius: '8px',
-                          cursor: 'pointer',
-                          fontSize: '0.75rem',
-                          fontWeight: 600,
-                          transition: 'all 0.15s',
-                          marginTop: '0.15rem',
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-                      >
-                        <Plus size={11} /> Add Cohort
-                      </button>
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                        >
+                          <Plus size={11} /> Add Cohort
+                        </button>
+                      )
                     )}
                   </div>
                 </td>
@@ -1062,8 +1103,8 @@ const ProgramsSection: React.FC = () => {
                       </>
                     ) : (
                       <>
-                        <IconBtn onClick={() => startProgramEdit(p)} title="Edit"><Pencil size={13} /></IconBtn>
-                        <IconBtn
+                        {canUserEdit && <IconBtn onClick={() => startProgramEdit(p)} title="Edit"><Pencil size={13} /></IconBtn>}
+                        {canUserEdit && <IconBtn
                           onClick={() => {
                             if (window.confirm(`Delete program "${p.name}"? All its cohorts will also be removed.`)) {
                               programCohorts.forEach(c => deleteCohort(c.id));
@@ -1071,7 +1112,7 @@ const ProgramsSection: React.FC = () => {
                             }
                           }}
                           danger title="Delete"
-                        ><Trash2 size={13} /></IconBtn>
+                        ><Trash2 size={13} /></IconBtn>}
                       </>
                     )}
                   </div>
@@ -1107,7 +1148,7 @@ const ProgramsSection: React.FC = () => {
         </tbody>
       </table>
 
-      {!showAddProgram && (
+      {!showAddProgram && canUserEdit && (
         <button
           onClick={() => { setShowAddProgram(true); setNewProgramName(''); }}
           style={{
@@ -1137,7 +1178,7 @@ const ProgramsSection: React.FC = () => {
 // CLICKUP INTEGRATION SECTION
 // ═══════════════════════════════════════════════════════════════════════════════
 const ClickupSettingsSection: React.FC = () => {
-  const { clickupApiKey, setClickupApiKey, syncClickupTask } = useDashboard();
+  const { clickupApiKey, setClickupApiKey, syncClickupTask, canUserEdit } = useDashboard();
   const [apiKeyInput, setApiKeyInput] = useState(clickupApiKey);
   const [showKey, setShowKey] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -1157,13 +1198,14 @@ const ClickupSettingsSection: React.FC = () => {
   } | null>(null);
 
   const handleSave = () => {
+    if (!canUserEdit) return;
     setClickupApiKey(apiKeyInput.trim());
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
   };
 
   const handleTest = async () => {
-    if (!testLink.trim()) return;
+    if (!testLink.trim() || !canUserEdit) return;
     setIsTesting(true);
     setTestResult(null);
     try {
@@ -1212,20 +1254,23 @@ const ClickupSettingsSection: React.FC = () => {
               value={apiKeyInput}
               onChange={e => setApiKeyInput(e.target.value)}
               placeholder="pk_..."
+              disabled={!canUserEdit}
               style={{
                 ...inputStyle,
                 paddingRight: '40px',
+                opacity: canUserEdit ? 1 : 0.6,
               }}
             />
             <button
               type="button"
               onClick={() => setShowKey(!showKey)}
+              disabled={!canUserEdit}
               style={{
                 position: 'absolute',
                 right: '10px',
                 background: 'none',
                 border: 'none',
-                cursor: 'pointer',
+                cursor: canUserEdit ? 'pointer' : 'default',
                 color: 'var(--text-muted)',
                 display: 'flex',
                 alignItems: 'center',
@@ -1244,6 +1289,7 @@ const ClickupSettingsSection: React.FC = () => {
         <div>
           <button
             onClick={handleSave}
+            disabled={!canUserEdit}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -1253,13 +1299,14 @@ const ClickupSettingsSection: React.FC = () => {
               color: '#fff',
               border: 'none',
               borderRadius: '8px',
-              cursor: 'pointer',
+              cursor: canUserEdit ? 'pointer' : 'default',
               fontSize: '0.8rem',
               fontWeight: 600,
               transition: 'background-color 0.15s, opacity 0.15s',
+              opacity: canUserEdit ? 1 : 0.5,
             }}
-            onMouseEnter={e => { if (!isSaved) e.currentTarget.style.opacity = '0.85'; }}
-            onMouseLeave={e => { if (!isSaved) e.currentTarget.style.opacity = '1'; }}
+            onMouseEnter={e => { if (!isSaved && canUserEdit) e.currentTarget.style.opacity = '0.85'; }}
+            onMouseLeave={e => { if (!isSaved && canUserEdit) e.currentTarget.style.opacity = '1'; }}
           >
             {isSaved ? <Check size={14} /> : null}
             {isSaved ? 'Saved Settings!' : 'Save Credentials'}
@@ -1280,12 +1327,16 @@ const ClickupSettingsSection: React.FC = () => {
               value={testLink}
               onChange={e => setTestLink(e.target.value)}
               placeholder="e.g., https://app.clickup.com/t/86ay8h4v9 or 86ay8h4v9"
-              style={inputStyle}
+              disabled={!canUserEdit}
+              style={{
+                ...inputStyle,
+                opacity: canUserEdit ? 1 : 0.6,
+              }}
               onKeyDown={e => { if (e.key === 'Enter') handleTest(); }}
             />
             <button
               onClick={handleTest}
-              disabled={isTesting || !testLink.trim() || !apiKeyInput.trim()}
+              disabled={!canUserEdit || isTesting || !testLink.trim() || !apiKeyInput.trim()}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -1295,11 +1346,11 @@ const ClickupSettingsSection: React.FC = () => {
                 color: 'var(--text-primary)',
                 border: '1.5px solid var(--border)',
                 borderRadius: '8px',
-                cursor: 'pointer',
+                cursor: (canUserEdit && !isTesting && testLink.trim() && apiKeyInput.trim()) ? 'pointer' : 'default',
                 fontSize: '0.8rem',
                 fontWeight: 600,
                 transition: 'all 0.15s',
-                opacity: (isTesting || !testLink.trim() || !apiKeyInput.trim()) ? 0.5 : 1,
+                opacity: (!canUserEdit || isTesting || !testLink.trim() || !apiKeyInput.trim()) ? 0.5 : 1,
               }}
             >
               {isTesting ? <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> : 'Verify'}

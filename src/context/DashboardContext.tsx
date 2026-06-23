@@ -134,6 +134,7 @@ interface DashboardContextType {
 
   // User Authentication
   currentUser: ConfigSpeaker | null;
+  canUserEdit: boolean;
   loginUser: (speakerId: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logoutUser: () => void;
 
@@ -452,6 +453,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   const [currentUser, setCurrentUser] = useState<ConfigSpeaker | null>(null);
+  const canUserEdit = currentUser ? (currentUser.canEdit !== false) : true;
 
   const loginUser = async (speakerId: string, password: string): Promise<{ success: boolean; error?: string }> => {
     const speaker = speakers.find(s => s.id === speakerId);
@@ -1170,14 +1172,20 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Config CRUD helpers
   const addSpeaker = (item: ConfigSpeaker) => {
-    setSpeakers(prev => [...prev, item]);
-    persistChange('create', 'speakers', null, item);
+    const newItem = { ...item, canEdit: item.canEdit !== false };
+    setSpeakers(prev => [...prev, newItem]);
+    persistChange('create', 'speakers', null, newItem);
   };
   const updateSpeaker = (id: string, updated: Partial<ConfigSpeaker>) => {
     setSpeakers(prev => {
       const next = prev.map(s => s.id === id ? { ...s, ...updated } : s);
       const item = next.find(s => s.id === id);
-      if (item) persistChange('update', 'speakers', id, item);
+      if (item) {
+        persistChange('update', 'speakers', id, item);
+        if (currentUser && currentUser.id === id) {
+          setCurrentUser(item);
+        }
+      }
       return next;
     });
   };
@@ -1484,7 +1492,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       clickupApiKey, setClickupApiKey: updateClickupApiKey, syncClickupTask,
       refreshAllClickupStatuses,
       refreshAllData,
-      currentUser, loginUser, logoutUser,
+      currentUser, canUserEdit, loginUser, logoutUser,
       isLoading, syncStatus,
     }}>
       {children}

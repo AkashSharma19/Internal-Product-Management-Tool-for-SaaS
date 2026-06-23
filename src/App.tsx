@@ -583,12 +583,26 @@ const DashboardContent: React.FC = () => {
     refreshAllData,
     dailyIssues,
     updateDailyIssue,
-    previousTab
+    previousTab,
+    canUserEdit
   } = useDashboard();
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [isRefreshingClickup, setIsRefreshingClickup] = useState(false);
   const [isRefreshingData, setIsRefreshingData] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  // Manage body class for global read-only selectors
+  useEffect(() => {
+    if (currentUser) {
+      if (!canUserEdit) {
+        document.body.classList.add('read-only-mode');
+      } else {
+        document.body.classList.remove('read-only-mode');
+      }
+    } else {
+      document.body.classList.remove('read-only-mode');
+    }
+  }, [currentUser, canUserEdit]);
 
   // Global keybind handler (Ctrl+K / Cmd+K)
   useEffect(() => {

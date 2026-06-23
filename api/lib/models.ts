@@ -193,7 +193,8 @@ const ConfigSpeakerSchema = new Schema({
   name: { type: String, required: true },
   email: { type: String, default: "" },
   role: { type: String, default: "" },
-  password: { type: String, default: "1234" }
+  password: { type: String, default: "1234" },
+  canEdit: { type: Boolean, default: true }
 });
 
 // Product Group
