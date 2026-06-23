@@ -2894,6 +2894,7 @@ h1, h2, h3, h4, h5, h6 {
   background-color: var(--background-alt);
   transform: translateX(2px);
   border-radius: 4px;
+  cursor: pointer;
 }
 
 .dashboard-date-item-left {

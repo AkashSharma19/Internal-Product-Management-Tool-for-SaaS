@@ -94,6 +94,10 @@ interface DashboardContextType {
   previewProductId: string | null;
   setPreviewProductId: (id: string | null) => void;
   openPreviewForFeature: (featureName: string, fallbackData?: Partial<ProductItem>) => void;
+  previousTab: string | null;
+  setPreviousTab: (tab: string | null) => void;
+  tabScrollPositions: Record<string, number>;
+  setTabScrollPosition: (tab: string, pos: number) => void;
 
   // Configuration
   speakers: ConfigSpeaker[];
@@ -179,6 +183,19 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const params = new URLSearchParams(window.location.search);
     return params.get('task');
   });
+
+  const [previousTab, setPreviousTab] = useState<string | null>(null);
+  const [tabScrollPositions, setTabScrollPositions] = useState<Record<string, number>>({});
+
+  const setTabScrollPosition = (tab: string, pos: number) => {
+    setTabScrollPositions(prev => ({ ...prev, [tab]: pos }));
+  };
+
+  useEffect(() => {
+    if (!previewProductId) {
+      setPreviousTab(null);
+    }
+  }, [previewProductId]);
 
   const setActiveTab = (tab: string) => {
     rawSetActiveTab(tab);
@@ -1347,6 +1364,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       dailyIssues, setDailyIssues, updateDailyIssue, addDailyIssue, deleteDailyIssue,
       featureAdoptions, setFeatureAdoptions, updateFeatureAdoption, addFeatureAdoption, deleteFeatureAdoption,
       previewProductId, setPreviewProductId, openPreviewForFeature,
+      previousTab, setPreviousTab,
+      tabScrollPositions, setTabScrollPosition,
       speakers, addSpeaker, updateSpeaker, deleteSpeaker,
       productGroups, addProductGroup, updateProductGroup, deleteProductGroup,
       statuses, addStatus, updateStatus, deleteStatus,

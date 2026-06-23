@@ -265,7 +265,9 @@ const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     dailyIssues,
     setActiveTab,
     setPreviewProductId,
-    openPreviewForFeature
+    openPreviewForFeature,
+    activeTab,
+    setPreviousTab
   } = useDashboard();
 
   const [query, setQuery] = useState('');
@@ -468,6 +470,7 @@ const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   }, [selectedIndex]);
 
   const handleSelect = (item: SearchResult) => {
+    setPreviousTab(activeTab);
     setActiveTab(item.tab);
     setTimeout(() => {
       item.onSelect();
@@ -579,7 +582,8 @@ const DashboardContent: React.FC = () => {
     refreshAllClickupStatuses,
     refreshAllData,
     dailyIssues,
-    updateDailyIssue
+    updateDailyIssue,
+    previousTab
   } = useDashboard();
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [isRefreshingClickup, setIsRefreshingClickup] = useState(false);
@@ -1096,10 +1100,17 @@ const DashboardContent: React.FC = () => {
                 updateDailyIssue(id, updatedIssue);
               };
 
+              const handleBack = () => {
+                setPreviewProductId(null);
+                if (previousTab) {
+                  setActiveTab(previousTab);
+                }
+              };
+
               return (
                 <ProductDetailView 
                   item={mappedItem} 
-                  onBack={() => setPreviewProductId(null)} 
+                  onBack={handleBack} 
                   onUpdate={handleUpdateIssue} 
                 />
               );
@@ -1107,10 +1118,18 @@ const DashboardContent: React.FC = () => {
 
             const foundItem = productItems.find(i => i.id === previewProductId);
             if (!foundItem) return null;
+            
+            const handleBack = () => {
+              setPreviewProductId(null);
+              if (previousTab) {
+                setActiveTab(previousTab);
+              }
+            };
+
             return (
               <ProductDetailView 
                 item={foundItem} 
-                onBack={() => setPreviewProductId(null)} 
+                onBack={handleBack} 
                 onUpdate={updateProductItem} 
               />
             );

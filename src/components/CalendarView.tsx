@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { useDashboard } from '../context/DashboardContext';
-import { TabContainer } from './TabContainer';
 import { 
   ChevronLeft, 
   ChevronRight, 
   Clock, 
-  Calendar
+  Calendar,
+  Search
 } from 'lucide-react';
 import type { ProductItem } from '../types';
 
@@ -99,7 +99,9 @@ export const CalendarView: React.FC = () => {
     dailyIssues,
     setActiveTab,
     setPreviewProductId,
-    openPreviewForFeature
+    openPreviewForFeature,
+    activeTab,
+    setPreviousTab
   } = useDashboard();
 
   const [currentMonth, setCurrentMonth] = useState<Date>(() => new Date());
@@ -304,6 +306,7 @@ export const CalendarView: React.FC = () => {
 
   // Event item selector (opens task drawer)
   const handleEventClick = (evt: CalendarEvent) => {
+    setPreviousTab(activeTab);
     setActiveTab(evt.tab);
     setTimeout(() => {
       if (evt.source === 'Priority Requests') {
@@ -393,52 +396,27 @@ export const CalendarView: React.FC = () => {
   }, [selectedDateStr]);
 
   return (
-    <TabContainer
-      title="Calendar View"
-      searchQuery={searchQuery}
-      setSearchQuery={setSearchQuery}
-      searchPlaceholder="Filter by title, POC, status..."
-    >
-      <div className="calendar-dashboard-layout animate-slide-in">
+    <div className="full-canvas-workspace">
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+        <div className="calendar-dashboard-layout animate-slide-in">
         {/* Left Grid Panel */}
         <div className="calendar-grid-panel">
-          <div className="calendar-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <h3 className="calendar-title">
+          <div className="calendar-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <h3 className="calendar-title" style={{ margin: 0 }}>
                 <Calendar size={18} color="var(--primary)" />
                 {currentMonth.toLocaleDateString('default', { month: 'long', year: 'numeric' })}
               </h3>
-              {/* Stage legend */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                {Object.entries(STAGE_COLORS).filter(([k]) =>
-                  ['Specs', 'UI/UX', 'Dev', 'Final Release', 'AMA Date', 'Call Date', 'Deadline'].includes(k)
-                ).map(([stage, cfg]) => (
-                  <span key={stage} style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '4px',
-                    fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-secondary)',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    <span style={{
-                      width: '8px', height: '8px', borderRadius: '2px',
-                      background: cfg.bg, flexShrink: 0
-                    }} />
-                    {cfg.label}
-                  </span>
-                ))}
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '4px',
-                  fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-secondary)'
-                }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#10b981', flexShrink: 0 }} />
-                  Done
-                </span>
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '4px',
-                  fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-secondary)'
-                }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#ef4444', flexShrink: 0 }} />
-                  Overdue
-                </span>
+              <div className="search-input-wrapper" style={{ width: '220px', height: '32px' }}>
+                <Search size={14} />
+                <input 
+                  type="text" 
+                  className="search-input" 
+                  placeholder="Search events, POC..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{ height: '100%', fontSize: '0.75rem' }}
+                />
               </div>
             </div>
             <div className="calendar-nav-buttons">
@@ -619,7 +597,8 @@ export const CalendarView: React.FC = () => {
             )}
           </div>
         </div>
+        </div>
       </div>
-    </TabContainer>
+    </div>
   );
 };

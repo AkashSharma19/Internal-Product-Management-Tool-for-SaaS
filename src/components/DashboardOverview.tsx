@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import { TabContainer } from './TabContainer';
 import { Video, PhoneCall, AlertTriangle, Calendar, ExternalLink, CheckCircle } from 'lucide-react';
-import type { AMASession, AdminCall } from '../types';
+import type { AMASession, AdminCall, ProductItem } from '../types';
 
 const isSameStatus = (statusA?: string, statusB?: string): boolean => {
   if (!statusA || !statusB) return (statusA || '').trim() === (statusB || '').trim();
@@ -34,9 +34,34 @@ export const DashboardOverview: React.FC = () => {
     studentProjects,
     contentItems,
     dailyIssues,
-    studentMeetings
+    studentMeetings,
+    setActiveTab,
+    setPreviewProductId,
+    openPreviewForFeature,
+    activeTab,
+    setPreviousTab,
+    tabScrollPositions,
+    setTabScrollPosition
   } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const savedScroll = tabScrollPositions['dashboard'] || 0;
+    if (savedScroll > 0) {
+      const timer = setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = savedScroll;
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    setTabScrollPosition('dashboard', e.currentTarget.scrollTop);
+  };
 
   // Date filter state
   const [dateRangeType, setDateRangeType] = useState('all');
@@ -140,6 +165,7 @@ export const DashboardOverview: React.FC = () => {
 
   interface DashboardDateItem {
     id: string;
+    rawId: string;
     source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA & Meetings' | 'Admin Calls' | 'Daily Issues Log' | 'Product Breakdown';
     title: string;
     stage: 'Specs' | 'UI/UX' | 'Dev' | 'Final Release' | 'AMA Date' | 'Call Date' | 'Target Date';
@@ -149,6 +175,7 @@ export const DashboardOverview: React.FC = () => {
     priority?: string;
     taskLink?: string;
     status: string;
+    rawItem?: any;
   }
 
   const getRelativeDateString = (date: Date): { text: string; type: 'overdue' | 'today' | 'upcoming' } => {
@@ -196,7 +223,8 @@ export const DashboardOverview: React.FC = () => {
       poc: string,
       priority?: string,
       taskLink?: string,
-      status: string = ''
+      status: string = '',
+      rawItem?: any
     ) => {
       if (!dateStr || dateStr.trim() === '') return;
       const parsed = parseDate(dateStr);
@@ -219,6 +247,7 @@ export const DashboardOverview: React.FC = () => {
       
       list.push({
         id: `${id}-${stage}`,
+        rawId: id,
         source,
         title,
         stage,
@@ -227,7 +256,8 @@ export const DashboardOverview: React.FC = () => {
         poc,
         priority,
         taskLink,
-        status
+        status,
+        rawItem
       });
     };
 
@@ -244,10 +274,10 @@ export const DashboardOverview: React.FC = () => {
           
       const isOverallCompleted = isSameStatus(item.status, 'Completed');
       
-      addDate(item.id, itemSource as any, item.feature, 'Specs', item.productDeadline, !!item.productDeadlineCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item.status);
-      addDate(item.id, itemSource as any, item.feature, 'UI/UX', item.uiux, !!item.uiuxCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item.status);
-      addDate(item.id, itemSource as any, item.feature, 'Dev', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item.status);
-      addDate(item.id, itemSource as any, item.feature, 'Final Release', item.finalRelease, !!item.finalReleaseCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item.status);
+      addDate(item.id, itemSource as any, item.feature, 'Specs', item.productDeadline, !!item.productDeadlineCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item.status, item);
+      addDate(item.id, itemSource as any, item.feature, 'UI/UX', item.uiux, !!item.uiuxCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item.status, item);
+      addDate(item.id, itemSource as any, item.feature, 'Dev', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item.status, item);
+      addDate(item.id, itemSource as any, item.feature, 'Final Release', item.finalRelease, !!item.finalReleaseCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item.status, item);
     });
 
     // 2. StudentProjects
@@ -260,10 +290,10 @@ export const DashboardOverview: React.FC = () => {
       });
       const isOverallCompleted = isSameStatus(p.status, 'Completed');
 
-      addDate(p.id, 'Student Projects', p.title, 'Specs', p.productDeadline, !!p.productDeadlineCompleted || !!matchedProduct?.productDeadlineCompleted || isOverallCompleted, p.poc || '', p.priority, p.taskLink, p.status);
-      addDate(p.id, 'Student Projects', p.title, 'UI/UX', p.uiux, !!p.uiuxCompleted || !!matchedProduct?.uiuxCompleted || isOverallCompleted, p.poc || '', p.priority, p.taskLink, p.status);
-      addDate(p.id, 'Student Projects', p.title, 'Dev', p.deadline, !!p.deadlineCompleted || !!matchedProduct?.deadlineCompleted || isOverallCompleted, p.poc || '', p.priority, p.taskLink, p.status);
-      addDate(p.id, 'Student Projects', p.title, 'Final Release', p.finalRelease, !!p.finalReleaseCompleted || !!matchedProduct?.finalReleaseCompleted || isOverallCompleted, p.poc || '', p.priority, p.taskLink, p.status);
+      addDate(p.id, 'Student Projects', p.title, 'Specs', p.productDeadline, !!p.productDeadlineCompleted || !!matchedProduct?.productDeadlineCompleted || isOverallCompleted, p.poc || '', p.priority, p.taskLink, p.status, p);
+      addDate(p.id, 'Student Projects', p.title, 'UI/UX', p.uiux, !!p.uiuxCompleted || !!matchedProduct?.uiuxCompleted || isOverallCompleted, p.poc || '', p.priority, p.taskLink, p.status, p);
+      addDate(p.id, 'Student Projects', p.title, 'Dev', p.deadline, !!p.deadlineCompleted || !!matchedProduct?.deadlineCompleted || isOverallCompleted, p.poc || '', p.priority, p.taskLink, p.status, p);
+      addDate(p.id, 'Student Projects', p.title, 'Final Release', p.finalRelease, !!p.finalReleaseCompleted || !!matchedProduct?.finalReleaseCompleted || isOverallCompleted, p.poc || '', p.priority, p.taskLink, p.status, p);
     });
 
     // 3. StudentMeetings (AMA & Meetings)
@@ -276,10 +306,10 @@ export const DashboardOverview: React.FC = () => {
       });
       const isOverallCompleted = isSameStatus(m.status, 'Completed');
 
-      addDate(m.id, 'AMA & Meetings', m.cohort, 'Specs', m.productDeadline, !!m.productDeadlineCompleted || !!matchedProduct?.productDeadlineCompleted || isOverallCompleted, m.poc || '', m.priority, m.taskLink, m.status);
-      addDate(m.id, 'AMA & Meetings', m.cohort, 'UI/UX', m.uiux, !!m.uiuxCompleted || !!matchedProduct?.uiuxCompleted || isOverallCompleted, m.poc || '', m.priority, m.taskLink, m.status);
-      addDate(m.id, 'AMA & Meetings', m.cohort, 'Dev', m.deadline, !!m.deadlineCompleted || !!matchedProduct?.deadlineCompleted || isOverallCompleted, m.poc || '', m.priority, m.taskLink, m.status);
-      addDate(m.id, 'AMA & Meetings', m.cohort, 'Final Release', m.finalRelease, !!m.finalReleaseCompleted || !!matchedProduct?.finalReleaseCompleted || isOverallCompleted, m.poc || '', m.priority, m.taskLink, m.status);
+      addDate(m.id, 'AMA & Meetings', m.cohort, 'Specs', m.productDeadline, !!m.productDeadlineCompleted || !!matchedProduct?.productDeadlineCompleted || isOverallCompleted, m.poc || '', m.priority, m.taskLink, m.status, m);
+      addDate(m.id, 'AMA & Meetings', m.cohort, 'UI/UX', m.uiux, !!m.uiuxCompleted || !!matchedProduct?.uiuxCompleted || isOverallCompleted, m.poc || '', m.priority, m.taskLink, m.status, m);
+      addDate(m.id, 'AMA & Meetings', m.cohort, 'Dev', m.deadline, !!m.deadlineCompleted || !!matchedProduct?.deadlineCompleted || isOverallCompleted, m.poc || '', m.priority, m.taskLink, m.status, m);
+      addDate(m.id, 'AMA & Meetings', m.cohort, 'Final Release', m.finalRelease, !!m.finalReleaseCompleted || !!matchedProduct?.finalReleaseCompleted || isOverallCompleted, m.poc || '', m.priority, m.taskLink, m.status, m);
     });
 
     // 4. ContentItems (Content Pipeline)
@@ -292,10 +322,10 @@ export const DashboardOverview: React.FC = () => {
       });
       const isOverallCompleted = isSameStatus(c.status, 'Completed') || isSameStatus(c.status, 'Published');
 
-      addDate(c.id, 'Content Pipeline', c.module, 'Specs', c.productDeadline, !!c.productDeadlineCompleted || !!matchedProduct?.productDeadlineCompleted || isOverallCompleted, c.poc || '', c.priority, undefined, c.status);
-      addDate(c.id, 'Content Pipeline', c.module, 'UI/UX', c.uiux, !!c.uiuxCompleted || !!matchedProduct?.uiuxCompleted || isOverallCompleted, c.poc || '', c.priority, undefined, c.status);
-      addDate(c.id, 'Content Pipeline', c.module, 'Dev', c.deadline, !!c.deadlineCompleted || !!matchedProduct?.deadlineCompleted || isOverallCompleted, c.poc || '', c.priority, undefined, c.status);
-      addDate(c.id, 'Content Pipeline', c.module, 'Final Release', c.finalRelease, !!c.finalReleaseCompleted || !!matchedProduct?.finalReleaseCompleted || isOverallCompleted, c.poc || '', c.priority, undefined, c.status);
+      addDate(c.id, 'Content Pipeline', c.module, 'Specs', c.productDeadline, !!c.productDeadlineCompleted || !!matchedProduct?.productDeadlineCompleted || isOverallCompleted, c.poc || '', c.priority, undefined, c.status, c);
+      addDate(c.id, 'Content Pipeline', c.module, 'UI/UX', c.uiux, !!c.uiuxCompleted || !!matchedProduct?.uiuxCompleted || isOverallCompleted, c.poc || '', c.priority, undefined, c.status, c);
+      addDate(c.id, 'Content Pipeline', c.module, 'Dev', c.deadline, !!c.deadlineCompleted || !!matchedProduct?.deadlineCompleted || isOverallCompleted, c.poc || '', c.priority, undefined, c.status, c);
+      addDate(c.id, 'Content Pipeline', c.module, 'Final Release', c.finalRelease, !!c.finalReleaseCompleted || !!matchedProduct?.finalReleaseCompleted || isOverallCompleted, c.poc || '', c.priority, undefined, c.status, c);
     });
 
     // 5. DailyIssues (Daily Issues Log)
@@ -308,27 +338,80 @@ export const DashboardOverview: React.FC = () => {
       });
       const isOverallCompleted = isSameStatus(i.status, 'Completed');
 
-      addDate(i.id, 'Daily Issues Log', i.cohort, 'Specs', i.productDeadline, !!i.productDeadlineCompleted || !!matchedProduct?.productDeadlineCompleted || isOverallCompleted, i.poc || '', i.priority, i.taskLink, i.status);
-      addDate(i.id, 'Daily Issues Log', i.cohort, 'UI/UX', i.uiux, !!i.uiuxCompleted || !!matchedProduct?.uiuxCompleted || isOverallCompleted, i.poc || '', i.priority, i.taskLink, i.status);
-      addDate(i.id, 'Daily Issues Log', i.cohort, 'Dev', i.deadline, !!i.deadlineCompleted || !!matchedProduct?.deadlineCompleted || isOverallCompleted, i.poc || '', i.priority, i.taskLink, i.status);
-      addDate(i.id, 'Daily Issues Log', i.cohort, 'Final Release', i.finalRelease, !!i.finalReleaseCompleted || !!matchedProduct?.finalReleaseCompleted || isOverallCompleted, i.poc || '', i.priority, i.taskLink, i.status);
+      addDate(i.id, 'Daily Issues Log', i.cohort, 'Specs', i.productDeadline, !!i.productDeadlineCompleted || !!matchedProduct?.productDeadlineCompleted || isOverallCompleted, i.poc || '', i.priority, i.taskLink, i.status, i);
+      addDate(i.id, 'Daily Issues Log', i.cohort, 'UI/UX', i.uiux, !!i.uiuxCompleted || !!matchedProduct?.uiuxCompleted || isOverallCompleted, i.poc || '', i.priority, i.taskLink, i.status, i);
+      addDate(i.id, 'Daily Issues Log', i.cohort, 'Dev', i.deadline, !!i.deadlineCompleted || !!matchedProduct?.deadlineCompleted || isOverallCompleted, i.poc || '', i.priority, i.taskLink, i.status, i);
+      addDate(i.id, 'Daily Issues Log', i.cohort, 'Final Release', i.finalRelease, !!i.finalReleaseCompleted || !!matchedProduct?.finalReleaseCompleted || isOverallCompleted, i.poc || '', i.priority, i.taskLink, i.status, i);
     });
 
     // 6. AMASessions (AMA & Meetings)
     amaSessions.forEach(ama => {
       if (ama.status === 'Scheduled') {
-        addDate(ama.id, 'AMA & Meetings', `${ama.cohort} - ${ama.topic}`, 'AMA Date', ama.date, false, ama.speaker, undefined, ama.link, ama.status);
+        addDate(ama.id, 'AMA & Meetings', `${ama.cohort} - ${ama.topic}`, 'AMA Date', ama.date, false, ama.speaker, undefined, ama.link, ama.status, ama);
       }
     });
 
     // 7. AdminCalls (Admin Calls)
     adminCalls.forEach(call => {
       if (call.status === 'Scheduled' || call.status === 'Pending Actions') {
-        addDate(call.id, 'Admin Calls', call.cohortTopic, 'Call Date', call.date, false, call.adminPoc, undefined, undefined, call.status);
+        addDate(call.id, 'Admin Calls', call.cohortTopic, 'Call Date', call.date, false, call.adminPoc, undefined, undefined, call.status, call);
       }
     });
 
     return list;
+  };
+
+  const handleMilestoneClick = (item: DashboardDateItem) => {
+    let tab = 'dashboard';
+    if (item.source === 'Priority Requests' || item.source === 'Product Breakdown') {
+      tab = 'product';
+    } else if (item.source === 'Student Projects') {
+      tab = 'projects';
+    } else if (item.source === 'AMA & Meetings') {
+      tab = 'meetings';
+    } else if (item.source === 'Admin Calls') {
+      tab = 'admin';
+    } else if (item.source === 'Content Pipeline') {
+      tab = 'content';
+    } else if (item.source === 'Daily Issues Log') {
+      tab = 'issues';
+    }
+
+    setPreviousTab(activeTab);
+    setActiveTab(tab);
+    
+    setTimeout(() => {
+      if (item.source === 'Priority Requests' || item.source === 'Product Breakdown') {
+        setPreviewProductId(item.rawId);
+      } else if (item.source === 'Student Projects') {
+        openPreviewForFeature(item.title, item.rawItem as Partial<ProductItem>);
+      } else if (item.source === 'AMA & Meetings') {
+        if (item.stage === 'AMA Date') {
+          openPreviewForFeature(item.rawItem.topic || item.title, { 
+            notes: item.rawItem.cohort, 
+            taskLink: item.rawItem.link, 
+            status: item.rawItem.status as any 
+          });
+        } else {
+          openPreviewForFeature(item.title, item.rawItem as Partial<ProductItem>);
+        }
+      } else if (item.source === 'Admin Calls') {
+        openPreviewForFeature(item.title, { 
+          notes: item.rawItem.discussion, 
+          description: item.rawItem.actions, 
+          status: item.rawItem.status as any 
+        });
+      } else if (item.source === 'Content Pipeline') {
+        openPreviewForFeature(item.title, { 
+          type: item.rawItem.type, 
+          poc: item.rawItem.poc, 
+          status: item.rawItem.status as any, 
+          notes: item.rawItem.subject 
+        });
+      } else if (item.source === 'Daily Issues Log') {
+        setPreviewProductId(item.rawId);
+      }
+    }, 50);
   };
 
   // 2. Map and consolidate all tasks across different lists to avoid double-counting
@@ -815,7 +898,11 @@ export const DashboardOverview: React.FC = () => {
         </div>
       }
     >
-      <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div 
+        ref={scrollRef} 
+        onScroll={handleScroll} 
+        style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}
+      >
         
         {/* Status Metrics Cells Row */}
         <div style={{
@@ -1548,7 +1635,7 @@ export const DashboardOverview: React.FC = () => {
                 overdueItems.map(item => {
                   const relative = getRelativeDateString(item.dateObj);
                   return (
-                    <div key={item.id} className="dashboard-date-item">
+                    <div key={item.id} className="dashboard-date-item" onClick={() => handleMilestoneClick(item)}>
                       <div className="dashboard-date-item-left">
                         <div className="dashboard-date-item-title" title={item.title}>
                           {item.title}
@@ -1595,6 +1682,7 @@ export const DashboardOverview: React.FC = () => {
                             rel="noreferrer" 
                             style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)' }}
                             title="Open ClickUp Task"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <ExternalLink size={12} />
                           </a>
@@ -1638,7 +1726,7 @@ export const DashboardOverview: React.FC = () => {
                 upcomingItems.map(item => {
                   const relative = getRelativeDateString(item.dateObj);
                   return (
-                    <div key={item.id} className="dashboard-date-item">
+                    <div key={item.id} className="dashboard-date-item" onClick={() => handleMilestoneClick(item)}>
                       <div className="dashboard-date-item-left">
                         <div className="dashboard-date-item-title" title={item.title}>
                           {item.title}
@@ -1685,6 +1773,7 @@ export const DashboardOverview: React.FC = () => {
                             rel="noreferrer" 
                             style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)' }}
                             title="Open ClickUp Task"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <ExternalLink size={12} />
                           </a>
