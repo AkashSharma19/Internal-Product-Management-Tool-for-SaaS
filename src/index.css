@@ -3660,6 +3660,41 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Dashboard Interactive Metrics Details */
+.dashboard-clickable-number {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+.dashboard-clickable-number:hover {
+  background-color: var(--background-alt) !important;
+  opacity: 0.9;
+}
+.dashboard-clickable-number:hover td,
+.dashboard-clickable-number:hover span {
+  color: var(--primary) !important;
+  text-decoration: underline;
+}
+
+/* Dashboard Popup Task Card */
+.dashboard-popup-task-card {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dashboard-popup-task-card:hover {
+  border-color: var(--primary) !important;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow) !important;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+
 
 
 

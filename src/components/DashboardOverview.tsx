@@ -44,6 +44,7 @@ export const DashboardOverview: React.FC = () => {
     setTabScrollPosition
   } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
+  const [popupData, setPopupData] = useState<{ title: string; tasks: any[] } | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -414,6 +415,22 @@ export const DashboardOverview: React.FC = () => {
     }, 50);
   };
 
+  const handlePopupTaskClick = (task: any) => {
+    const dateItem: DashboardDateItem = {
+      id: task.id,
+      rawId: task.id,
+      source: task.source,
+      title: task.feature || task.title,
+      stage: task.stage || 'Dev',
+      dateStr: task.date || '',
+      dateObj: new Date(),
+      poc: task.poc || '',
+      status: task.status || '',
+      rawItem: task.rawItem
+    };
+    handleMilestoneClick(dateItem);
+  };
+
   // 2. Map and consolidate all tasks across different lists to avoid double-counting
   const toProductStatus = (status?: string): string => {
     if (!status) return '';
@@ -461,19 +478,30 @@ export const DashboardOverview: React.FC = () => {
       
       return true;
     })
-    .map(item => ({
-      id: item.id,
-      poc: item.poc || '',
-      product: item.product || '',
-      status: toProductStatus(item.status),
-      clickupStatus: item.clickupStatus || '',
-      taskLink: item.taskLink || '',
-      date: item.deadline || item.productDeadline || '',
-      feature: item.feature || '',
-      description: item.description || '',
-      notes: item.notes || '',
-      module: item.module || ''
-    }));
+    .map(item => {
+      const isRelatedFeature = item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-');
+      const isBreakdown = item.id.startsWith('prod-breakdown-');
+      const itemSource = isRelatedFeature 
+        ? 'AMA & Meetings' 
+        : isBreakdown 
+          ? 'Product Breakdown' 
+          : 'Priority Requests';
+      return {
+        id: item.id,
+        poc: item.poc || '',
+        product: item.product || '',
+        status: toProductStatus(item.status),
+        clickupStatus: item.clickupStatus || '',
+        taskLink: item.taskLink || '',
+        date: item.deadline || item.productDeadline || '',
+        feature: item.feature || '',
+        description: item.description || '',
+        notes: item.notes || '',
+        module: item.module || '',
+        source: itemSource as any,
+        rawItem: item
+      };
+    });
 
   const projectTasks = studentProjects.map(item => ({
     id: item.id,
@@ -486,7 +514,9 @@ export const DashboardOverview: React.FC = () => {
     feature: item.title || '',
     description: item.description || '',
     notes: item.thingsWeBuild || '',
-    module: item.module || ''
+    module: item.module || '',
+    source: 'Student Projects' as const,
+    rawItem: item
   }));
 
   const contentTasks = contentItems.map(item => ({
@@ -500,7 +530,9 @@ export const DashboardOverview: React.FC = () => {
     feature: item.module || '',
     description: `Content topic: ${item.module}. Subject: ${item.subject || ''}. Type: ${item.type}.`,
     notes: item.subject || '',
-    module: item.module || ''
+    module: item.module || '',
+    source: 'Content Pipeline' as const,
+    rawItem: item
   }));
 
   const issueTasks = dailyIssues.map(item => ({
@@ -514,7 +546,9 @@ export const DashboardOverview: React.FC = () => {
     feature: item.module || `Issue #${item.id}`,
     description: item.issues || '',
     notes: item.notes || item.issues || '',
-    module: item.module || ''
+    module: item.module || '',
+    source: 'Daily Issues Log' as const,
+    rawItem: item
   }));
 
   const meetingTasks = studentMeetings.map(item => ({
@@ -528,7 +562,9 @@ export const DashboardOverview: React.FC = () => {
     feature: item.cohort || '',
     description: item.summary || '',
     notes: item.notes || item.summary || '',
-    module: item.module || ''
+    module: item.module || '',
+    source: 'AMA & Meetings' as const,
+    rawItem: item
   }));
 
   const allUnifiedTasks = [
@@ -926,6 +962,8 @@ export const DashboardOverview: React.FC = () => {
           }}>
             {/* Total Tasks Cell */}
             <div 
+              className="dashboard-clickable-number"
+              onClick={() => setPopupData({ title: 'Total Tasks', tasks: validItems })}
               style={{
                 flex: '1 1 0px',
                 minWidth: '140px',
@@ -933,7 +971,8 @@ export const DashboardOverview: React.FC = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '0.15rem',
-                borderRight: '1px solid var(--border-light)'
+                borderRight: '1px solid var(--border-light)',
+                cursor: 'pointer'
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -969,6 +1008,15 @@ export const DashboardOverview: React.FC = () => {
               return (
                 <div 
                   key={status.id}
+                  className="dashboard-clickable-number"
+                  onClick={() => setPopupData({
+                    title: `${status.label} Tasks`,
+                    tasks: validItems.filter(item => 
+                      statusType === 'my' 
+                        ? isSameStatus(item.status, status.label) 
+                        : (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()
+                    )
+                  })}
                   style={{
                     flex: '1 1 0px',
                     minWidth: '140px',
@@ -976,7 +1024,8 @@ export const DashboardOverview: React.FC = () => {
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '0.15rem',
-                    borderRight: '1px solid var(--border-light)'
+                    borderRight: '1px solid var(--border-light)',
+                    cursor: 'pointer'
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1011,13 +1060,23 @@ export const DashboardOverview: React.FC = () => {
             
             {/* No Status Cell */}
             <div 
+              className="dashboard-clickable-number"
+              onClick={() => setPopupData({
+                title: statusType === 'my' ? 'No Status Tasks' : 'No ClickUp Status Tasks',
+                tasks: validItems.filter(item => 
+                  statusType === 'my'
+                    ? (!item.status || item.status.trim() === '' || !activeStatuses.some(s => isSameStatus(item.status, s.label)))
+                    : (!item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(s => (item.clickupStatus || '').toLowerCase().trim() === s.label.toLowerCase().trim()))
+                )
+              })}
               style={{
                 flex: '1 1 0px',
                 minWidth: '140px',
                 padding: '0.65rem 1rem',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '0.15rem'
+                gap: '0.15rem',
+                cursor: 'pointer'
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1126,8 +1185,23 @@ export const DashboardOverview: React.FC = () => {
                       
                       {activeStatuses.map(status => {
                         const count = row.statusCounts[status.label] || 0;
+                        const rowTasks = row.poc === 'No POC Assigned'
+                          ? validItems.filter(item => !item.poc || item.poc.trim() === '')
+                          : validItems.filter(item => item.poc === row.poc);
                         return (
-                          <td key={status.id} style={{ textAlign: 'center', fontWeight: count > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
+                          <td 
+                            key={status.id} 
+                            className="dashboard-clickable-number"
+                            onClick={() => setPopupData({
+                              title: `${status.label} Tasks for ${row.poc}`,
+                              tasks: rowTasks.filter(item => 
+                                statusType === 'my' 
+                                  ? isSameStatus(item.status, status.label) 
+                                  : (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()
+                              )
+                            })}
+                            style={{ textAlign: 'center', fontWeight: count > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
+                          >
                             <span style={{ 
                               color: count > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
                               opacity: count > 0 ? 1 : 0.45 
@@ -1138,7 +1212,23 @@ export const DashboardOverview: React.FC = () => {
                         );
                       })}
 
-                      <td style={{ textAlign: 'center', fontWeight: row.noStatus > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
+                      <td 
+                        className="dashboard-clickable-number"
+                        onClick={() => {
+                          const rowTasks = row.poc === 'No POC Assigned'
+                            ? validItems.filter(item => !item.poc || item.poc.trim() === '')
+                            : validItems.filter(item => item.poc === row.poc);
+                          setPopupData({
+                            title: statusType === 'my' ? `No Status Tasks for ${row.poc}` : `No ClickUp Status Tasks for ${row.poc}`,
+                            tasks: rowTasks.filter(item => 
+                              statusType === 'my'
+                                ? (!item.status || item.status.trim() === '' || !activeStatuses.some(s => isSameStatus(item.status, s.label)))
+                                : (!item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(s => (item.clickupStatus || '').toLowerCase().trim() === s.label.toLowerCase().trim()))
+                            )
+                          });
+                        }}
+                        style={{ textAlign: 'center', fontWeight: row.noStatus > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
+                      >
                         <span style={{ 
                           color: row.noStatus > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
                           opacity: row.noStatus > 0 ? 1 : 0.45 
@@ -1147,11 +1237,35 @@ export const DashboardOverview: React.FC = () => {
                         </span>
                       </td>
 
-                      <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-primary)', padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
+                      <td 
+                        className="dashboard-clickable-number"
+                        onClick={() => {
+                          const rowTasks = row.poc === 'No POC Assigned'
+                            ? validItems.filter(item => !item.poc || item.poc.trim() === '')
+                            : validItems.filter(item => item.poc === row.poc);
+                          setPopupData({
+                            title: `All Tasks for ${row.poc}`,
+                            tasks: rowTasks
+                          });
+                        }}
+                        style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-primary)', padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
+                      >
                         {row.total}
                       </td>
 
-                      <td style={{ textAlign: 'center', fontWeight: 600, padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
+                      <td 
+                        className="dashboard-clickable-number"
+                        onClick={() => {
+                          const rowTasks = row.poc === 'No POC Assigned'
+                            ? validItems.filter(item => !item.poc || item.poc.trim() === '')
+                            : validItems.filter(item => item.poc === row.poc);
+                          setPopupData({
+                            title: `ClickUp Tasks for ${row.poc}`,
+                            tasks: rowTasks.filter(item => item.taskLink && item.taskLink.trim() !== '')
+                          });
+                        }}
+                        style={{ textAlign: 'center', fontWeight: 600, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
+                      >
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           <span style={{ color: row.clickupCount > 0 ? 'var(--info)' : 'var(--text-muted)' }}>
                             {row.clickupCount}
@@ -1197,15 +1311,54 @@ export const DashboardOverview: React.FC = () => {
                 <tr style={{ fontWeight: 700 }}>
                   <td style={{ padding: '12px 10px' }}>Overall Totals</td>
                   {activeStatuses.map(status => (
-                    <td key={status.id} style={{ textAlign: 'center', color: 'var(--text-primary)', padding: '12px 10px' }}>
+                    <td 
+                      key={status.id} 
+                      className="dashboard-clickable-number"
+                      onClick={() => setPopupData({
+                        title: `All ${status.label} Tasks`,
+                        tasks: validItems.filter(item => 
+                          statusType === 'my' 
+                            ? isSameStatus(item.status, status.label) 
+                            : (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()
+                        )
+                      })}
+                      style={{ textAlign: 'center', color: 'var(--text-primary)', padding: '12px 10px', cursor: 'pointer' }}
+                    >
                       {overallStatusTotals[status.label] || 0}
                     </td>
                   ))}
-                  <td style={{ textAlign: 'center', color: 'var(--text-primary)', padding: '12px 10px' }}>
+                  <td 
+                    className="dashboard-clickable-number"
+                    onClick={() => setPopupData({
+                      title: statusType === 'my' ? 'All No Status Tasks' : 'All No ClickUp Status Tasks',
+                      tasks: validItems.filter(item => 
+                        statusType === 'my'
+                          ? (!item.status || item.status.trim() === '' || !activeStatuses.some(s => isSameStatus(item.status, s.label)))
+                          : (!item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(s => (item.clickupStatus || '').toLowerCase().trim() === s.label.toLowerCase().trim()))
+                      )
+                    })}
+                    style={{ textAlign: 'center', color: 'var(--text-primary)', padding: '12px 10px', cursor: 'pointer' }}
+                  >
                     {overallNoStatus}
                   </td>
-                  <td style={{ textAlign: 'center', color: 'var(--text-primary)', fontSize: '0.95rem', padding: '12px 10px' }}>{overallTotal}</td>
-                  <td style={{ textAlign: 'center', color: 'var(--info)', fontSize: '0.95rem', padding: '12px 10px' }}>
+                  <td 
+                    className="dashboard-clickable-number"
+                    onClick={() => setPopupData({
+                      title: 'All Tasks',
+                      tasks: validItems
+                    })}
+                    style={{ textAlign: 'center', color: 'var(--text-primary)', fontSize: '0.95rem', padding: '12px 10px', cursor: 'pointer' }}
+                  >
+                    {overallTotal}
+                  </td>
+                  <td 
+                    className="dashboard-clickable-number"
+                    onClick={() => setPopupData({
+                      title: 'All ClickUp Linked Tasks',
+                      tasks: validItems.filter(item => item.taskLink && item.taskLink.trim() !== '')
+                    })}
+                    style={{ textAlign: 'center', color: 'var(--info)', fontSize: '0.95rem', padding: '12px 10px', cursor: 'pointer' }}
+                  >
                     {overallClickup} <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)' }}>/ {overallTotal}</span>
                   </td>
                   <td style={{ padding: '12px 10px' }}>
@@ -1317,7 +1470,24 @@ export const DashboardOverview: React.FC = () => {
                       {activeStatuses.map(status => {
                         const count = row.statusCounts[status.label] || 0;
                         return (
-                          <td key={status.id} style={{ textAlign: 'center', fontWeight: count > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
+                          <td 
+                            key={status.id} 
+                            className="dashboard-clickable-number"
+                            onClick={() => {
+                              const prodItems = row.productGroup === 'No Product Group Assigned'
+                                ? validItems.filter(item => !item.product || item.product.trim() === '')
+                                : validItems.filter(item => item.product === row.productGroup);
+                              setPopupData({
+                                title: `${status.label} Tasks for ${row.productGroup}`,
+                                tasks: prodItems.filter(item => 
+                                  statusType === 'my' 
+                                    ? isSameStatus(item.status, status.label) 
+                                    : (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()
+                                )
+                              });
+                            }}
+                            style={{ textAlign: 'center', fontWeight: count > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
+                          >
                             <span style={{ 
                               color: count > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
                               opacity: count > 0 ? 1 : 0.45 
@@ -1328,7 +1498,23 @@ export const DashboardOverview: React.FC = () => {
                         );
                       })}
 
-                      <td style={{ textAlign: 'center', fontWeight: row.noStatus > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
+                      <td 
+                        className="dashboard-clickable-number"
+                        onClick={() => {
+                          const prodItems = row.productGroup === 'No Product Group Assigned'
+                            ? validItems.filter(item => !item.product || item.product.trim() === '')
+                            : validItems.filter(item => item.product === row.productGroup);
+                          setPopupData({
+                            title: statusType === 'my' ? `No Status Tasks for ${row.productGroup}` : `No ClickUp Status Tasks for ${row.productGroup}`,
+                            tasks: prodItems.filter(item => 
+                              statusType === 'my'
+                                ? (!item.status || item.status.trim() === '' || !activeStatuses.some(s => isSameStatus(item.status, s.label)))
+                                : (!item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(s => (item.clickupStatus || '').toLowerCase().trim() === s.label.toLowerCase().trim()))
+                            )
+                          });
+                        }}
+                        style={{ textAlign: 'center', fontWeight: row.noStatus > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
+                      >
                         <span style={{ 
                           color: row.noStatus > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
                           opacity: row.noStatus > 0 ? 1 : 0.45 
@@ -1337,11 +1523,35 @@ export const DashboardOverview: React.FC = () => {
                         </span>
                       </td>
 
-                      <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-primary)', padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
+                      <td 
+                        className="dashboard-clickable-number"
+                        onClick={() => {
+                          const prodItems = row.productGroup === 'No Product Group Assigned'
+                            ? validItems.filter(item => !item.product || item.product.trim() === '')
+                            : validItems.filter(item => item.product === row.productGroup);
+                          setPopupData({
+                            title: `All Tasks for ${row.productGroup}`,
+                            tasks: prodItems
+                          });
+                        }}
+                        style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-primary)', padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
+                      >
                         {row.total}
                       </td>
 
-                      <td style={{ textAlign: 'center', fontWeight: 600, padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
+                      <td 
+                        className="dashboard-clickable-number"
+                        onClick={() => {
+                          const prodItems = row.productGroup === 'No Product Group Assigned'
+                            ? validItems.filter(item => !item.product || item.product.trim() === '')
+                            : validItems.filter(item => item.product === row.productGroup);
+                          setPopupData({
+                            title: `ClickUp Tasks for ${row.productGroup}`,
+                            tasks: prodItems.filter(item => item.taskLink && item.taskLink.trim() !== '')
+                          });
+                        }}
+                        style={{ textAlign: 'center', fontWeight: 600, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
+                      >
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           <span style={{ color: row.clickupCount > 0 ? 'var(--info)' : 'var(--text-muted)' }}>
                             {row.clickupCount}
@@ -1387,15 +1597,54 @@ export const DashboardOverview: React.FC = () => {
                 <tr style={{ fontWeight: 700 }}>
                   <td style={{ padding: '12px 10px' }}>Overall Totals</td>
                   {activeStatuses.map(status => (
-                    <td key={status.id} style={{ textAlign: 'center', color: 'var(--text-primary)', padding: '12px 10px' }}>
+                    <td 
+                      key={status.id} 
+                      className="dashboard-clickable-number"
+                      onClick={() => setPopupData({
+                        title: `All ${status.label} Tasks`,
+                        tasks: validItems.filter(item => 
+                          statusType === 'my' 
+                            ? isSameStatus(item.status, status.label) 
+                            : (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()
+                        )
+                      })}
+                      style={{ textAlign: 'center', color: 'var(--text-primary)', padding: '12px 10px', cursor: 'pointer' }}
+                    >
                       {overallStatusTotals[status.label] || 0}
                     </td>
                   ))}
-                  <td style={{ textAlign: 'center', color: 'var(--text-primary)', padding: '12px 10px' }}>
+                  <td 
+                    className="dashboard-clickable-number"
+                    onClick={() => setPopupData({
+                      title: statusType === 'my' ? 'All No Status Tasks' : 'All No ClickUp Status Tasks',
+                      tasks: validItems.filter(item => 
+                        statusType === 'my'
+                          ? (!item.status || item.status.trim() === '' || !activeStatuses.some(s => isSameStatus(item.status, s.label)))
+                          : (!item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(s => (item.clickupStatus || '').toLowerCase().trim() === s.label.toLowerCase().trim()))
+                      )
+                    })}
+                    style={{ textAlign: 'center', color: 'var(--text-primary)', padding: '12px 10px', cursor: 'pointer' }}
+                  >
                     {overallNoStatus}
                   </td>
-                  <td style={{ textAlign: 'center', color: 'var(--text-primary)', fontSize: '0.95rem', padding: '12px 10px' }}>{overallTotal}</td>
-                  <td style={{ textAlign: 'center', color: 'var(--info)', fontSize: '0.95rem', padding: '12px 10px' }}>
+                  <td 
+                    className="dashboard-clickable-number"
+                    onClick={() => setPopupData({
+                      title: 'All Tasks',
+                      tasks: validItems
+                    })}
+                    style={{ textAlign: 'center', color: 'var(--text-primary)', fontSize: '0.95rem', padding: '12px 10px', cursor: 'pointer' }}
+                  >
+                    {overallTotal}
+                  </td>
+                  <td 
+                    className="dashboard-clickable-number"
+                    onClick={() => setPopupData({
+                      title: 'All ClickUp Linked Tasks',
+                      tasks: validItems.filter(item => item.taskLink && item.taskLink.trim() !== '')
+                    })}
+                    style={{ textAlign: 'center', color: 'var(--info)', fontSize: '0.95rem', padding: '12px 10px', cursor: 'pointer' }}
+                  >
                     {overallClickup} <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)' }}>/ {overallTotal}</span>
                   </td>
                   <td style={{ padding: '12px 10px' }}>
@@ -1485,7 +1734,42 @@ export const DashboardOverview: React.FC = () => {
                   const coveragePercent = row.features.length > 0 ? Math.round((row.clickupCount / row.features.length) * 100) : 0;
                   return (
                     <tr key={row.category} style={{ transition: 'background-color 0.2s' }}>
-                      <td style={{ fontWeight: 600, padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
+                      <td 
+                        className="dashboard-clickable-number"
+                        onClick={() => {
+                          const calls = row.category === 'AMA Sessions' 
+                            ? filteredAmaSessions.map(ama => ({
+                                id: ama.id,
+                                feature: `${ama.cohort} - ${ama.topic}`,
+                                date: ama.date,
+                                status: ama.status,
+                                poc: ama.speaker,
+                                taskLink: ama.link,
+                                description: '',
+                                source: 'AMA & Meetings',
+                                rawItem: ama,
+                                stage: 'AMA Date'
+                              }))
+                            : filteredAdminCalls.map(call => ({
+                                id: call.id,
+                                feature: call.cohortTopic,
+                                date: call.date,
+                                status: call.status,
+                                poc: call.adminPoc,
+                                taskLink: '',
+                                description: call.discussion,
+                                notes: call.actions,
+                                source: 'Admin Calls',
+                                rawItem: call,
+                                stage: 'Call Date'
+                              }));
+                          setPopupData({
+                            title: `${row.category} (Calls)`,
+                            tasks: calls
+                          });
+                        }}
+                        style={{ fontWeight: 600, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
+                      >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{
                             width: '24px', height: '24px', borderRadius: '50%',
@@ -1505,7 +1789,19 @@ export const DashboardOverview: React.FC = () => {
                           ? row.features.filter(item => isSameStatus(item.status, status.label)).length
                           : row.features.filter(item => (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()).length;
                         return (
-                          <td key={status.id} style={{ textAlign: 'center', fontWeight: count > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
+                          <td 
+                            key={status.id} 
+                            className="dashboard-clickable-number"
+                            onClick={() => setPopupData({
+                              title: `${status.label} Features for ${row.category}`,
+                              tasks: row.features.filter(item => 
+                                statusType === 'my' 
+                                  ? isSameStatus(item.status, status.label) 
+                                  : (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()
+                              )
+                            })}
+                            style={{ textAlign: 'center', fontWeight: count > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
+                          >
                             <span style={{ 
                               color: count > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
                               opacity: count > 0 ? 1 : 0.45 
@@ -1516,14 +1812,28 @@ export const DashboardOverview: React.FC = () => {
                         );
                       })}
 
-                      <td style={{ textAlign: 'center', fontWeight: row.features.filter(item => {
-                        const val = statusType === 'my' ? item.status : item.clickupStatus;
-                        if (statusType === 'my') {
-                          return !val || val.trim() === '' || !activeStatuses.some(status => isSameStatus(val, status.label));
-                        } else {
-                          return !val || val.trim() === '' || !activeStatuses.some(status => val.toLowerCase().trim() === status.label.toLowerCase().trim());
-                        }
-                      }).length > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
+                      <td 
+                        className="dashboard-clickable-number"
+                        onClick={() => setPopupData({
+                          title: statusType === 'my' ? `No Status Features for ${row.category}` : `No ClickUp Status Features for ${row.category}`,
+                          tasks: row.features.filter(item => {
+                            const val = statusType === 'my' ? item.status : item.clickupStatus;
+                            if (statusType === 'my') {
+                              return !val || val.trim() === '' || !activeStatuses.some(s => isSameStatus(val, s.label));
+                            } else {
+                              return !val || val.trim() === '' || !activeStatuses.some(s => val.toLowerCase().trim() === s.label.toLowerCase().trim());
+                            }
+                          })
+                        })}
+                        style={{ textAlign: 'center', fontWeight: row.features.filter(item => {
+                          const val = statusType === 'my' ? item.status : item.clickupStatus;
+                          if (statusType === 'my') {
+                            return !val || val.trim() === '' || !activeStatuses.some(status => isSameStatus(val, status.label));
+                          } else {
+                            return !val || val.trim() === '' || !activeStatuses.some(status => val.toLowerCase().trim() === status.label.toLowerCase().trim());
+                          }
+                        }).length > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
+                      >
                         <span style={{ 
                           color: row.features.filter(item => {
                             const val = statusType === 'my' ? item.status : item.clickupStatus;
@@ -1553,11 +1863,25 @@ export const DashboardOverview: React.FC = () => {
                         </span>
                       </td>
 
-                      <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-primary)', padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
+                      <td 
+                        className="dashboard-clickable-number"
+                        onClick={() => setPopupData({
+                          title: `All Features for ${row.category}`,
+                          tasks: row.features
+                        })}
+                        style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-primary)', padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
+                      >
                         {row.features.length}
                       </td>
 
-                      <td style={{ textAlign: 'center', fontWeight: 600, padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
+                      <td 
+                        className="dashboard-clickable-number"
+                        onClick={() => setPopupData({
+                          title: `ClickUp Linked Features for ${row.category}`,
+                          tasks: row.features.filter(item => item.taskLink && item.taskLink.trim() !== '')
+                        })}
+                        style={{ textAlign: 'center', fontWeight: 600, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
+                      >
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           <span style={{ color: row.clickupCount > 0 ? 'var(--info)' : 'var(--text-muted)' }}>
                             {row.clickupCount}
@@ -1789,6 +2113,218 @@ export const DashboardOverview: React.FC = () => {
         </div>
 
       </div>
+
+      {popupData && (
+        <div 
+          className="dashboard-popup-backdrop"
+          onClick={() => setPopupData(null)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 1100,
+            display: 'flex',
+            justifyContent: 'flex-end',
+            animation: 'fadeIn 0.2s ease-out'
+          }}
+        >
+          <div 
+            className="dashboard-popup-drawer"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '500px',
+              maxWidth: '100%',
+              height: '100%',
+              backgroundColor: 'var(--panel-bg)',
+              boxShadow: 'var(--shadow-lg)',
+              borderLeft: '1px solid var(--border-light)',
+              display: 'flex',
+              flexDirection: 'column',
+              animation: 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+              position: 'relative'
+            }}
+          >
+            {/* Header */}
+            <div style={{
+              padding: '1.25rem 1.5rem',
+              borderBottom: '1px solid var(--border-light)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              backgroundColor: 'var(--background-alt)'
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'Outfit, sans-serif' }}>
+                  {popupData.title}
+                </h3>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  {popupData.tasks.length} task{popupData.tasks.length !== 1 ? 's' : ''} found
+                </span>
+              </div>
+              <button 
+                onClick={() => setPopupData(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--background-alt)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* List of Tasks */}
+            <div style={{
+              flex: 1,
+              overflowY: 'auto',
+              padding: '1.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem',
+              backgroundColor: 'var(--background)'
+            }}>
+              {popupData.tasks.length === 0 ? (
+                <div style={{
+                  padding: '3rem 1rem',
+                  textAlign: 'center',
+                  color: 'var(--text-muted)'
+                }}>
+                  No tasks found.
+                </div>
+              ) : (
+                popupData.tasks.map((task, idx) => (
+                  <div 
+                    key={`${task.id}-${idx}`}
+                    onClick={() => {
+                      handlePopupTaskClick(task);
+                      setPopupData(null); // Close pop-up drawer
+                    }}
+                    style={{
+                      padding: '1rem',
+                      backgroundColor: 'var(--panel-bg)',
+                      border: '1px solid var(--border-light)',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.75rem',
+                      boxShadow: 'var(--shadow-sm)'
+                    }}
+                    className="dashboard-popup-task-card"
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>
+                        {task.feature}
+                      </div>
+                      {task.taskLink && (
+                        <a 
+                          href={task.taskLink} 
+                          target="_blank" 
+                          rel="noreferrer" 
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            color: 'var(--info)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '6px',
+                            borderRadius: '6px',
+                            backgroundColor: 'var(--background-alt)',
+                            border: '1px solid var(--border-light)',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--border-light)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--background-alt)'; }}
+                          title="Open ClickUp Task"
+                        >
+                          <ExternalLink size={14} />
+                        </a>
+                      )}
+                    </div>
+
+                    {task.description && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.4', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                        {task.description}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', borderTop: '1px solid var(--border-light)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
+                      <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span className={`dashboard-date-badge-source ${getSourceClass(task.source)}`} style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
+                          {task.source}
+                        </span>
+                        {task.status && (
+                          <span style={{
+                            fontSize: '0.65rem',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            fontWeight: 600,
+                            backgroundColor: (configStatuses.find(s => isSameStatus(s.label, task.status))?.color || '#8b5cf6') + '20',
+                            color: configStatuses.find(s => isSameStatus(s.label, task.status))?.color || '#8b5cf6'
+                          }}>
+                            {task.status}
+                          </span>
+                        )}
+                        {task.clickupStatus && (
+                          <span style={{
+                            fontSize: '0.65rem',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            fontWeight: 600,
+                            backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                            color: '#3b82f6',
+                            border: '1px solid rgba(59, 130, 246, 0.3)'
+                          }}>
+                            CU: {task.clickupStatus}
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        {task.date && (
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                            {task.date}
+                          </span>
+                        )}
+                        {task.poc && (
+                          <div 
+                            className="dashboard-date-poc-avatar" 
+                            style={{ 
+                              backgroundColor: getAssigneeColor(task.poc),
+                              width: '20px',
+                              height: '20px',
+                              fontSize: '0.6rem'
+                            }}
+                            title={`POC: ${task.poc}`}
+                          >
+                            {getInitials(task.poc)}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </TabContainer>
   );
 };
