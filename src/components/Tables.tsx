@@ -7181,6 +7181,33 @@ export const ProductWiseSheet: React.FC = () => {
   const allTabs = [...products, NO_GROUP_TAB];
   const pocList = speakers.map(s => s.name);
 
+  const getProductFeatureCount = (prodName: string) => {
+    const isSpecial = prodName === NO_GROUP_TAB;
+    
+    const countProductItems = productItems.filter(item => 
+      !item.id.startsWith('prod-temp-') && 
+      (isSpecial ? (!item.product || item.product.trim() === '') : item.product === prodName)
+    ).length;
+    
+    const countProjects = studentProjects.filter(item => 
+      isSpecial ? (!item.product || item.product.trim() === '') : item.product === prodName
+    ).length;
+    
+    const countContent = contentItems.filter(item => 
+      isSpecial ? (!item.product || item.product.trim() === '') : item.product === prodName
+    ).length;
+    
+    const countMeetings = studentMeetings.filter(item => 
+      isSpecial ? (!item.product || item.product.trim() === '') : item.product === prodName
+    ).length;
+    
+    const countIssues = dailyIssues.filter(item => 
+      isSpecial ? (!item.product || item.product.trim() === '') : item.product === prodName
+    ).length;
+    
+    return countProductItems + countProjects + countContent + countMeetings + countIssues;
+  };
+
   const [activeProductTab, setActiveProductTab] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingFeatureId, setEditingFeatureId] = useState<string | null>(null);
@@ -7536,12 +7563,31 @@ export const ProductWiseSheet: React.FC = () => {
                           outline: 'none',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '6px',
+                          gap: '8px',
                           height: '100%',
                           transform: 'translateY(1px)'
                         }}
                       >
-                        {prod}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          {prod}
+                          <span style={{
+                            fontSize: '0.7rem',
+                            padding: '1px 5px',
+                            borderRadius: '8px',
+                            backgroundColor: isActive 
+                              ? (isSpecial ? 'rgba(245, 158, 11, 0.12)' : 'rgba(124, 58, 237, 0.12)') 
+                              : 'var(--bg-hover)',
+                            color: isActive 
+                              ? (isSpecial ? 'var(--warning)' : 'var(--primary)') 
+                              : 'var(--text-secondary)',
+                            border: isActive
+                              ? `1px solid ${isSpecial ? 'rgba(245, 158, 11, 0.2)' : 'rgba(124, 58, 237, 0.2)'}`
+                              : '1px solid var(--border)',
+                            fontWeight: 600
+                          }}>
+                            {getProductFeatureCount(prod)}
+                          </span>
+                        </span>
                       </button>
                     );
                   })}
@@ -7628,10 +7674,29 @@ export const ProductWiseSheet: React.FC = () => {
                       outline: 'none',
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '6px'
+                      gap: '8px'
                     }}
                   >
-                    {prod}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      {prod}
+                      <span style={{
+                        fontSize: '0.7rem',
+                        padding: '1px 5px',
+                        borderRadius: '8px',
+                        backgroundColor: isActive 
+                          ? (isSpecial ? 'rgba(245, 158, 11, 0.12)' : 'rgba(124, 58, 237, 0.12)') 
+                          : 'var(--bg-hover)',
+                        color: isActive 
+                          ? (isSpecial ? 'var(--warning)' : 'var(--primary)') 
+                          : 'var(--text-secondary)',
+                        border: isActive
+                          ? `1px solid ${isSpecial ? 'rgba(245, 158, 11, 0.2)' : 'rgba(124, 58, 237, 0.2)'}`
+                          : '1px solid var(--border)',
+                        fontWeight: 600
+                      }}>
+                        {getProductFeatureCount(prod)}
+                      </span>
+                    </span>
                   </button>
                 );
               })}
