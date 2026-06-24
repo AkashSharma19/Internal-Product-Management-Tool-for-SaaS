@@ -758,6 +758,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const getAssigneeColor = (name: string) => {
     const colors: Record<string, string> = {
       'Akash': '#7c3aed',
+      'Akash Sharma': '#7c3aed',
       'Anushka': '#db2777',
       'Nikhil': '#0284c7',
       'Nikhil Jain': '#059669',
@@ -1613,7 +1614,7 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
 };
 
 export const ProductTable: React.FC = () => {
-  const { productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId, statuses, canUserEdit } = useDashboard();
+  const { productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId, statuses, canUserEdit, currentUser } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState('All');
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
@@ -1689,7 +1690,7 @@ export const ProductTable: React.FC = () => {
       tarunSirApproval: false,
       raisedByTarunSir: false,
       priority: '',
-      poc: 'Akash',
+      poc: currentUser?.name || 'Akash Sharma',
       status: '',
       clickupStatus: '',
       taskLink: '',
@@ -1715,7 +1716,7 @@ export const ProductTable: React.FC = () => {
         tarunSirApproval: row[1]?.toLowerCase() === 'yes' || row[1]?.toLowerCase() === 'true',
         raisedByTarunSir: row[2]?.toLowerCase() === 'yes' || row[2]?.toLowerCase() === 'true',
         priority: (row[3] as any) || 'P2',
-        poc: row[4] || 'Akash',
+        poc: row[4] || currentUser?.name || 'Akash Sharma',
         status: (row[5] as any) || 'In Progress',
         clickupStatus: row[6] || 'open',
         taskLink: row[7] || '',
@@ -2899,7 +2900,7 @@ export const PlanTable: React.FC = () => {
 // ProjectDetailModal is deprecated in favor of unified ProductDetailView
 
 export const StudentProjectsTable: React.FC = () => {
-  const { studentProjects, updateStudentProject, addStudentProject, deleteStudentProject, openPreviewForFeature, statuses, productItems, canUserEdit } = useDashboard();
+  const { studentProjects, updateStudentProject, addStudentProject, deleteStudentProject, openPreviewForFeature, statuses, productItems, canUserEdit, currentUser } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [inlineEditValue, setInlineEditValue] = useState('');
@@ -3041,7 +3042,7 @@ export const StudentProjectsTable: React.FC = () => {
       blocker: '',
       completeInfoDate: '',
       priority: undefined,
-      poc: 'Akash',
+      poc: currentUser?.name || 'Akash Sharma',
       clickupStatus: '',
       taskLink: '',
       productDeadline: '',
@@ -3429,7 +3430,7 @@ export const StudentMeetingsTable: React.FC = () => {
   const { 
     amaSessions, addAMASession, updateAMASession, deleteAMASession,
     productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
-    speakers: configSpeakers, statuses
+    speakers: configSpeakers, statuses, currentUser
   } = useDashboard();
 
   // Derive speakers list from configuration context (live — updates when Config tab changes)
@@ -4318,7 +4319,7 @@ export const StudentMeetingsTable: React.FC = () => {
                                       tarunSirApproval: false,
                                       raisedByTarunSir: false,
                                       priority: '',
-                                      poc: 'Akash',
+                                      poc: currentUser?.name || 'Akash Sharma',
                                       status: '',
                                       clickupStatus: '',
                                       taskLink: '',
@@ -4530,7 +4531,7 @@ export const StudentMeetingsTable: React.FC = () => {
                                         tarunSirApproval: false,
                                         raisedByTarunSir: false,
                                         priority: '',
-                                        poc: 'Akash',
+                                        poc: currentUser?.name || 'Akash Sharma',
                                         status: '',
                                         clickupStatus: '',
                                         taskLink: '',
@@ -5070,7 +5071,7 @@ export const AdminCallsTable: React.FC = () => {
   const { 
     adminCalls, updateAdminCall, addAdminCall, deleteAdminCall, 
     productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
-    speakers: configSpeakers, statuses
+    speakers: configSpeakers, statuses, currentUser
   } = useDashboard();
   
   const speakersList = configSpeakers.map(s => s.name);
@@ -5232,7 +5233,7 @@ export const AdminCallsTable: React.FC = () => {
     const newCall: AdminCall = {
       id: `adm-${Date.now()}`,
       date: new Date().toISOString().slice(0, 10),
-      adminPoc: speakersList.length > 0 ? speakersList[0] : 'Akash',
+      adminPoc: currentUser?.name || (speakersList.length > 0 ? speakersList[0] : 'Akash Sharma'),
       cohortTopic: '',
       discussion: '',
       actions: '',
@@ -5724,7 +5725,7 @@ export const AdminCallsTable: React.FC = () => {
                                         tarunSirApproval: false,
                                         raisedByTarunSir: false,
                                         priority: '',
-                                        poc: 'Akash',
+                                        poc: currentUser?.name || 'Akash Sharma',
                                         status: '',
                                         clickupStatus: '',
                                         taskLink: '',
@@ -6323,7 +6324,7 @@ export const AdminCallsTable: React.FC = () => {
 export const ContentTable: React.FC = () => {
   const { 
     contentItems, updateContentItem, addContentItem, deleteContentItem, 
-    openPreviewForFeature, speakers: configSpeakers, productGroups, statuses: configStatuses 
+    openPreviewForFeature, speakers: configSpeakers, productGroups, statuses: configStatuses, currentUser
   } = useDashboard();
   
   const speakersList = configSpeakers.map(s => s.name);
@@ -6458,7 +6459,7 @@ export const ContentTable: React.FC = () => {
       module: '',
       subject: '',
       type: 'Video',
-      poc: 'Akash',
+      poc: currentUser?.name || 'Akash Sharma',
       draftLink: '',
       status: '',
       publishDate: '',
@@ -7170,7 +7171,8 @@ export const ProductWiseSheet: React.FC = () => {
     openPreviewForFeature,
     productGroups,
     statuses,
-    speakers
+    speakers,
+    currentUser
   } = useDashboard();
   const products = productGroups.map(g => g.name);
   const NO_GROUP_TAB = 'No Product Group Assigned';
@@ -7418,7 +7420,7 @@ export const ProductWiseSheet: React.FC = () => {
       tarunSirApproval: false,
       raisedByTarunSir: false,
       priority: '',
-      poc: 'Akash',
+      poc: currentUser?.name || 'Akash Sharma',
       status: '',
       clickupStatus: '',
       taskLink: '',
@@ -7840,7 +7842,7 @@ export const ProductWiseSheet: React.FC = () => {
 // DailyIssueDetailModal is deprecated in favor of unified ProductDetailView
 
 export const IssuesTable: React.FC = () => {
-  const { dailyIssues, addDailyIssue, deleteDailyIssue, statuses, setPreviewProductId } = useDashboard();
+  const { dailyIssues, addDailyIssue, deleteDailyIssue, statuses, setPreviewProductId, currentUser } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState('All');
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
@@ -7896,7 +7898,7 @@ export const IssuesTable: React.FC = () => {
       issues: '',
       contact: '',
       priority: '',
-      poc: 'Akash',
+      poc: currentUser?.name || 'Akash Sharma',
       status: '',
       clickupStatus: '',
       taskLink: '',

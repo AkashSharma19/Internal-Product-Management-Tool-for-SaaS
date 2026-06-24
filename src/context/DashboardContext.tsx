@@ -326,7 +326,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         tarunSirApproval: fallbackData?.tarunSirApproval || false,
         raisedByTarunSir: fallbackData?.raisedByTarunSir || false,
         priority: (fallbackData?.priority as any) || '',
-        poc: fallbackData?.poc || 'Akash',
+        poc: fallbackData?.poc || currentUser?.name || 'Akash Sharma',
         status: productStatus as any,
         clickupStatus: fallbackData?.clickupStatus || '',
         taskLink: fallbackData?.taskLink || '',

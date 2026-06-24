@@ -679,6 +679,7 @@ export const DashboardOverview: React.FC = () => {
   const getAssigneeColor = (name: string) => {
     const colors: Record<string, string> = {
       'Akash': '#7c3aed',
+      'Akash Sharma': '#7c3aed',
       'Anushka': '#db2777',
       'Nikhil': '#0284c7',
       'Nikhil Jain': '#059669',
