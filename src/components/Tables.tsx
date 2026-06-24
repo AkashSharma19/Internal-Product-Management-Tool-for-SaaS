@@ -1614,7 +1614,7 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
 };
 
 export const ProductTable: React.FC = () => {
-  const { productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId, statuses, canUserEdit, currentUser } = useDashboard();
+  const { productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId, statuses, canUserEdit, currentUser, confirm } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState('All');
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
@@ -1945,9 +1945,9 @@ export const ProductTable: React.FC = () => {
                   <td>
                     {canUserEdit && (
                       <button 
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation();
-                          if (window.confirm("Are you sure you want to delete this feature?")) {
+                          if (await confirm("Are you sure you want to delete this feature?", "Delete Feature")) {
                             deleteProductItem(item.id);
                           }
                         }}
@@ -2189,7 +2189,7 @@ export const PlanTable: React.FC = () => {
   const {
     planItems, updatePlanItem, addPlanItem, deletePlanItem,
     productItems, studentProjects, contentItems, studentMeetings,
-    openPreviewForFeature, canUserEdit
+    openPreviewForFeature, canUserEdit, confirm
   } = useDashboard();
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const now = new Date();
@@ -2848,8 +2848,8 @@ export const PlanTable: React.FC = () => {
                               )}
                               {canUserEdit && (
                                 <button
-                                  onClick={() => {
-                                    if (window.confirm('Are you sure you want to delete this sprint task?')) {
+                                  onClick={async () => {
+                                    if (await confirm('Are you sure you want to delete this sprint task?', 'Delete Sprint Task')) {
                                       deletePlanItem(manualItem.id);
                                     }
                                   }}
@@ -2900,7 +2900,7 @@ export const PlanTable: React.FC = () => {
 // ProjectDetailModal is deprecated in favor of unified ProductDetailView
 
 export const StudentProjectsTable: React.FC = () => {
-  const { studentProjects, updateStudentProject, addStudentProject, deleteStudentProject, openPreviewForFeature, statuses, productItems, canUserEdit, currentUser } = useDashboard();
+  const { studentProjects, updateStudentProject, addStudentProject, deleteStudentProject, openPreviewForFeature, statuses, productItems, canUserEdit, currentUser, confirm } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [inlineEditValue, setInlineEditValue] = useState('');
@@ -3267,9 +3267,9 @@ export const StudentProjectsTable: React.FC = () => {
                   <td>
                     {canUserEdit && (
                       <button 
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation();
-                          if (window.confirm("Are you sure you want to delete this project?")) {
+                          if (await confirm("Are you sure you want to delete this project?", "Delete Project")) {
                             deleteStudentProject(p.id);
                           }
                         }}
@@ -3430,7 +3430,7 @@ export const StudentMeetingsTable: React.FC = () => {
   const { 
     amaSessions, addAMASession, updateAMASession, deleteAMASession,
     productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
-    speakers: configSpeakers, statuses, currentUser
+    speakers: configSpeakers, statuses, currentUser, confirm
   } = useDashboard();
 
   // Derive speakers list from configuration context (live — updates when Config tab changes)
@@ -4275,8 +4275,8 @@ export const StudentMeetingsTable: React.FC = () => {
                               <Edit2 size={12} />
                             </button>
                             <button 
-                              onClick={() => {
-                                if (window.confirm("Are you sure you want to delete this AMA session?")) {
+                              onClick={async () => {
+                                if (await confirm("Are you sure you want to delete this AMA session?", "Delete AMA Session")) {
                                   deleteAMASession(ama.id);
                                 }
                               }} 
@@ -4490,9 +4490,9 @@ export const StudentMeetingsTable: React.FC = () => {
                                           </td>
                                           <td>
                                             <button 
-                                              onClick={(e) => {
+                                              onClick={async (e) => {
                                                 e.stopPropagation();
-                                                if (window.confirm("Are you sure you want to delete this feature?")) {
+                                                if (await confirm("Are you sure you want to delete this feature?", "Delete Feature")) {
                                                   deleteProductItem(feat.id);
                                                 }
                                               }} 
@@ -5029,8 +5029,8 @@ export const StudentMeetingsTable: React.FC = () => {
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
                           <button 
-                            onClick={() => {
-                              if (window.confirm("Are you sure you want to delete this feedback feature?")) {
+                            onClick={async () => {
+                              if (await confirm("Are you sure you want to delete this feedback feature?", "Delete Feedback Feature")) {
                                 deleteProductItem(feat.id);
                               }
                             }} 
@@ -5071,7 +5071,7 @@ export const AdminCallsTable: React.FC = () => {
   const { 
     adminCalls, updateAdminCall, addAdminCall, deleteAdminCall, 
     productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
-    speakers: configSpeakers, statuses, currentUser
+    speakers: configSpeakers, statuses, currentUser, confirm
   } = useDashboard();
   
   const speakersList = configSpeakers.map(s => s.name);
@@ -5647,8 +5647,8 @@ export const AdminCallsTable: React.FC = () => {
                               <Edit2 size={12} />
                             </button>
                             <button 
-                              onClick={() => {
-                                if (window.confirm("Are you sure you want to delete this Call?")) {
+                              onClick={async () => {
+                                if (await confirm("Are you sure you want to delete this Call?", "Delete Call")) {
                                   deleteAdminCall(call.id);
                                 }
                               }} 
@@ -5893,9 +5893,9 @@ export const AdminCallsTable: React.FC = () => {
                                             </td>
                                             <td>
                                               <button 
-                                                onClick={(e) => {
+                                                onClick={async (e) => {
                                                   e.stopPropagation();
-                                                  if (window.confirm("Are you sure you want to delete this feature?")) {
+                                                  if (await confirm("Are you sure you want to delete this feature?", "Delete Feature")) {
                                                     deleteProductItem(feat.id);
                                                   }
                                                 }} 
@@ -6289,8 +6289,8 @@ export const AdminCallsTable: React.FC = () => {
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
                           <button 
-                            onClick={() => {
-                              if (window.confirm("Are you sure you want to delete this feedback feature?")) {
+                            onClick={async () => {
+                              if (await confirm("Are you sure you want to delete this feedback feature?", "Delete Feedback Feature")) {
                                 deleteProductItem(feat.id);
                               }
                             }} 
@@ -6324,7 +6324,7 @@ export const AdminCallsTable: React.FC = () => {
 export const ContentTable: React.FC = () => {
   const { 
     contentItems, updateContentItem, addContentItem, deleteContentItem, 
-    openPreviewForFeature, speakers: configSpeakers, productGroups, statuses: configStatuses, currentUser
+    openPreviewForFeature, speakers: configSpeakers, productGroups, statuses: configStatuses, currentUser, confirm
   } = useDashboard();
   
   const speakersList = configSpeakers.map(s => s.name);
@@ -7135,9 +7135,9 @@ export const ContentTable: React.FC = () => {
                   {/* Actions */}
                   <td>
                     <button 
-                      onClick={(e) => {
+                      onClick={async (e) => {
                         e.stopPropagation();
-                        if (window.confirm("Are you sure you want to delete this content item?")) {
+                        if (await confirm("Are you sure you want to delete this content item?", "Delete Content Item")) {
                           deleteContentItem(item.id);
                         }
                       }} 
@@ -7172,7 +7172,9 @@ export const ProductWiseSheet: React.FC = () => {
     productGroups,
     statuses,
     speakers,
-    currentUser
+    currentUser,
+    confirm,
+    alert
   } = useDashboard();
   const products = productGroups.map(g => g.name);
   const NO_GROUP_TAB = 'No Product Group Assigned';
@@ -7405,9 +7407,14 @@ export const ProductWiseSheet: React.FC = () => {
       }))
   ];
 
-  const handleAddNewFeature = () => {
+  const handleAddNewFeature = async () => {
     if (!activeProduct || isNoGroupTab) {
-      alert(isNoGroupTab ? "Cannot add a feature without a product group. Please switch to a product tab." : "Please select a product category tab first.");
+      await alert(
+        isNoGroupTab ? "Cannot add a feature without a product group. Please switch to a product tab." : "Please select a product category tab first.",
+        "Unable to Add Feature",
+        "OK",
+        "warning"
+      );
       return;
     }
     
@@ -7805,9 +7812,9 @@ export const ProductWiseSheet: React.FC = () => {
                         <td>
                           {item.canDelete && (
                             <button 
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.stopPropagation();
-                                if (window.confirm("Are you sure you want to delete this feature?")) {
+                                if (await confirm("Are you sure you want to delete this feature?", "Delete Feature")) {
                                   deleteProductItem(item.sourceId);
                                 }
                               }}
@@ -7842,7 +7849,7 @@ export const ProductWiseSheet: React.FC = () => {
 // DailyIssueDetailModal is deprecated in favor of unified ProductDetailView
 
 export const IssuesTable: React.FC = () => {
-  const { dailyIssues, addDailyIssue, deleteDailyIssue, statuses, setPreviewProductId, currentUser } = useDashboard();
+  const { dailyIssues, addDailyIssue, deleteDailyIssue, statuses, setPreviewProductId, currentUser, confirm } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState('All');
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
@@ -8077,9 +8084,9 @@ export const IssuesTable: React.FC = () => {
                 </td>
                 <td>
                   <button 
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
-                      if (window.confirm("Are you sure you want to delete this feature?")) {
+                      if (await confirm("Are you sure you want to delete this daily issue?", "Delete Daily Issue")) {
                         deleteDailyIssue(item.id);
                       }
                     }} 
@@ -8101,7 +8108,7 @@ export const IssuesTable: React.FC = () => {
 export const AdoptionTable: React.FC = () => {
   const { 
     featureAdoptions, updateFeatureAdoption, addFeatureAdoption, deleteFeatureAdoption, 
-    programs, cohorts, productGroups
+    programs, cohorts, productGroups, confirm, alert
   } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -8257,10 +8264,10 @@ export const AdoptionTable: React.FC = () => {
     setIsAddingFeature(true);
   };
 
-  const handleSaveInline = () => {
+  const handleSaveInline = async () => {
     if (!editDraft) return;
     if (!editDraft.feature.trim()) {
-      alert("Feature name is required.");
+      await alert("Feature name is required.", "Validation Error", "OK", "warning");
       return;
     }
     if (isAddingFeature) {
@@ -8527,8 +8534,8 @@ export const AdoptionTable: React.FC = () => {
                                 <Edit2 size={12} />
                               </button>
                               <button 
-                                onClick={() => {
-                                  if (window.confirm("Are you sure you want to delete this launch metrics tracker?")) {
+                                onClick={async () => {
+                                  if (await confirm("Are you sure you want to delete this launch metrics tracker?", "Delete Launch Tracker")) {
                                     deleteFeatureAdoption(adopt.id);
                                   }
                                 }} 

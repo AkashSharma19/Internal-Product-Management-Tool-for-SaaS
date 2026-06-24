@@ -584,7 +584,8 @@ const DashboardContent: React.FC = () => {
     dailyIssues,
     updateDailyIssue,
     previousTab,
-    canUserEdit
+    canUserEdit,
+    alert
   } = useDashboard();
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [isRefreshingClickup, setIsRefreshingClickup] = useState(false);
@@ -621,12 +622,27 @@ const DashboardContent: React.FC = () => {
     try {
       const res = await refreshAllClickupStatuses();
       if (res.success) {
-        alert(`ClickUp sync complete! Scanned ${res.totalScanned} task links, updated ${res.updatedCount} items.`);
+        await alert(
+          `ClickUp sync complete!\nScanned ${res.totalScanned} task links, updated ${res.updatedCount} items.`,
+          'Sync Success',
+          'Dismiss',
+          'success'
+        );
       } else {
-        alert(`ClickUp sync failed: ${res.error || 'Unknown error'}`);
+        await alert(
+          `ClickUp sync failed: ${res.error || 'Unknown error'}`,
+          'Sync Failed',
+          'Dismiss',
+          'danger'
+        );
       }
     } catch (err: any) {
-      alert(`Sync failed: ${err.message || 'Unknown error'}`);
+      await alert(
+        `Sync failed: ${err.message || 'Unknown error'}`,
+        'Sync Error',
+        'Dismiss',
+        'danger'
+      );
     } finally {
       setIsRefreshingClickup(false);
     }
@@ -637,12 +653,27 @@ const DashboardContent: React.FC = () => {
     try {
       const res = await refreshAllData();
       if (res.success) {
-        alert(`Data refreshed! Pulled latest data from ${res.updatedSheets} sheets. All views are now up to date.`);
+        await alert(
+          `Data refreshed!\nPulled latest data from ${res.updatedSheets} sheets. All views are now up to date.`,
+          'Refresh Success',
+          'Dismiss',
+          'success'
+        );
       } else {
-        alert(`Data refresh failed: ${res.error || 'Unknown error'}`);
+        await alert(
+          `Data refresh failed: ${res.error || 'Unknown error'}`,
+          'Refresh Failed',
+          'Dismiss',
+          'danger'
+        );
       }
     } catch (err: any) {
-      alert(`Refresh failed: ${err.message || 'Unknown error'}`);
+      await alert(
+        `Refresh failed: ${err.message || 'Unknown error'}`,
+        'Refresh Error',
+        'Dismiss',
+        'danger'
+      );
     } finally {
       setIsRefreshingData(false);
     }

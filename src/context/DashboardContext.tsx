@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { AlertCircle, CheckCircle, Info } from 'lucide-react';
 import type { 
   ProductItem, 
   PlanItem, 
@@ -140,6 +141,19 @@ interface DashboardContextType {
 
   isLoading: boolean;
   syncStatus: 'syncing' | 'synced' | 'error';
+  confirm: (
+    message: string,
+    title?: string,
+    confirmText?: string,
+    cancelText?: string,
+    variant?: 'danger' | 'warning' | 'primary' | 'success'
+  ) => Promise<boolean>;
+  alert: (
+    message: string,
+    title?: string,
+    confirmText?: string,
+    variant?: 'danger' | 'warning' | 'primary' | 'success'
+  ) => Promise<void>;
 }
 
 
@@ -190,6 +204,56 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const setTabScrollPosition = (tab: string, pos: number) => {
     setTabScrollPositions(prev => ({ ...prev, [tab]: pos }));
+  };
+
+  const [dialogState, setDialogState] = useState<DialogState | null>(null);
+
+  const confirm = (
+    message: string,
+    title = 'Confirm Action',
+    confirmText = 'Confirm',
+    cancelText = 'Cancel',
+    variant: 'danger' | 'warning' | 'primary' | 'success' = 'danger'
+  ): Promise<boolean> => {
+    return new Promise((resolve) => {
+      setDialogState({
+        isOpen: true,
+        type: 'confirm',
+        message,
+        title,
+        confirmText,
+        cancelText,
+        variant,
+        resolve,
+      });
+    });
+  };
+
+  const alert = (
+    message: string,
+    title = 'Information',
+    confirmText = 'OK',
+    variant: 'danger' | 'warning' | 'primary' | 'success' = 'primary'
+  ): Promise<void> => {
+    return new Promise((resolve) => {
+      setDialogState({
+        isOpen: true,
+        type: 'alert',
+        message,
+        title,
+        confirmText,
+        cancelText: '',
+        variant,
+        resolve: () => resolve(),
+      });
+    });
+  };
+
+  const handleDialogClose = (result: boolean) => {
+    if (dialogState) {
+      dialogState.resolve(result);
+      setDialogState(null);
+    }
   };
 
   useEffect(() => {
@@ -1494,8 +1558,23 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       refreshAllData,
       currentUser, canUserEdit, loginUser, logoutUser,
       isLoading, syncStatus,
+      confirm,
+      alert,
     }}>
       {children}
+      {dialogState && (
+        <UnifiedDialogModal
+          isOpen={dialogState.isOpen}
+          type={dialogState.type}
+          title={dialogState.title}
+          message={dialogState.message}
+          confirmText={dialogState.confirmText}
+          cancelText={dialogState.cancelText}
+          variant={dialogState.variant}
+          onConfirm={() => handleDialogClose(true)}
+          onCancel={() => handleDialogClose(false)}
+        />
+      )}
     </DashboardContext.Provider>
   );
 };
@@ -1507,4 +1586,142 @@ export const useDashboard = () => {
     throw new Error('useDashboard must be used within a DashboardProvider');
   }
   return context;
+};
+
+interface DialogState {
+  isOpen: boolean;
+  type: 'confirm' | 'alert';
+  message: string;
+  title: string;
+  confirmText: string;
+  cancelText: string;
+  variant: 'danger' | 'warning' | 'primary' | 'success';
+  resolve: (value: boolean) => void;
+}
+
+const UnifiedDialogModal: React.FC<{
+  isOpen: boolean;
+  type: 'confirm' | 'alert';
+  title: string;
+  message: string;
+  confirmText: string;
+  cancelText: string;
+  variant: 'danger' | 'warning' | 'primary' | 'success';
+  onConfirm: () => void;
+  onCancel: () => void;
+}> = ({ isOpen, type, title, message, confirmText, cancelText, variant, onConfirm, onCancel }) => {
+  if (!isOpen) return null;
+
+  // Variant styling
+  const variantStyles = {
+    danger: {
+      icon: <AlertCircle size={28} />,
+      iconColor: '#ef4444',
+      iconBg: 'rgba(239, 68, 68, 0.1)',
+      confirmBg: '#ef4444',
+    },
+    warning: {
+      icon: <AlertCircle size={28} />,
+      iconColor: '#f59e0b',
+      iconBg: 'rgba(245, 158, 11, 0.1)',
+      confirmBg: '#f59e0b',
+    },
+    success: {
+      icon: <CheckCircle size={28} />,
+      iconColor: '#10b981',
+      iconBg: 'rgba(16, 185, 129, 0.1)',
+      confirmBg: '#10b981',
+    },
+    primary: {
+      icon: <Info size={28} />,
+      iconColor: '#7c3aed',
+      iconBg: 'rgba(124, 58, 237, 0.1)',
+      confirmBg: '#7c3aed',
+    },
+  }[variant];
+
+  return (
+    <div className="modal-overlay" onClick={type === 'confirm' ? onCancel : onConfirm} style={{ zIndex: 9999 }}>
+      <div 
+        className="modal-content" 
+        style={{ maxWidth: '420px', textAlign: 'center', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }} 
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+          <div style={{
+            width: '56px',
+            height: '56px',
+            borderRadius: '50%',
+            backgroundColor: variantStyles.iconBg,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: variantStyles.iconColor,
+            marginBottom: '0.25rem'
+          }}>
+            {variantStyles.icon}
+          </div>
+          
+          <h3 style={{ margin: 0, fontFamily: 'Outfit', fontSize: '1.35rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+            {title}
+          </h3>
+          
+          <p style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-secondary)', lineHeight: '1.6', whiteSpace: 'pre-line' }}>
+            {message}
+          </p>
+        </div>
+        
+        <div style={{ display: 'flex', gap: '12px', marginTop: '0.5rem' }}>
+          {type === 'confirm' && (
+            <button 
+              onClick={onCancel}
+              style={{
+                flex: 1,
+                padding: '0.75rem',
+                borderRadius: '10px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'transparent',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                transition: 'background-color 0.2s, color 0.2s'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+                e.currentTarget.style.color = 'var(--text-primary)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+                e.currentTarget.style.color = 'var(--text-secondary)';
+              }}
+            >
+              {cancelText || 'Cancel'}
+            </button>
+          )}
+          <button 
+            onClick={onConfirm}
+            style={{
+              flex: 1,
+              padding: '0.75rem',
+              borderRadius: '10px',
+              border: 'none',
+              backgroundColor: variantStyles.confirmBg,
+              color: '#ffffff',
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+              transition: 'opacity 0.2s, transform 0.1s'
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.opacity = '0.9')}
+            onMouseOut={(e) => (e.currentTarget.style.opacity = '1')}
+            onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.98)')}
+            onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+          >
+            {confirmText || 'OK'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };

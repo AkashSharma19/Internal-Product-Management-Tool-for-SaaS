@@ -857,7 +857,7 @@ const StatusesSection: React.FC = () => {
 const ProgramsSection: React.FC = () => {
   const { 
     programs, addProgram, updateProgram, deleteProgram,
-    cohorts, addCohort, updateCohort, deleteCohort, canUserEdit 
+    cohorts, addCohort, updateCohort, deleteCohort, canUserEdit, confirm 
   } = useDashboard();
 
   // Program edit states
@@ -1105,8 +1105,8 @@ const ProgramsSection: React.FC = () => {
                       <>
                         {canUserEdit && <IconBtn onClick={() => startProgramEdit(p)} title="Edit"><Pencil size={13} /></IconBtn>}
                         {canUserEdit && <IconBtn
-                          onClick={() => {
-                            if (window.confirm(`Delete program "${p.name}"? All its cohorts will also be removed.`)) {
+                          onClick={async () => {
+                            if (await confirm(`Delete program "${p.name}"? All its cohorts will also be removed.`, 'Delete Program')) {
                               programCohorts.forEach(c => deleteCohort(c.id));
                               deleteProgram(p.id);
                             }
