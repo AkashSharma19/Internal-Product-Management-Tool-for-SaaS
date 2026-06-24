@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import { TabContainer } from './TabContainer';
-import { Video, PhoneCall, AlertTriangle, Calendar, ExternalLink, CheckCircle } from 'lucide-react';
+import { Video, PhoneCall, AlertTriangle, Calendar, ExternalLink, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { AMASession, AdminCall, ProductItem } from '../types';
 
 const isSameStatus = (statusA?: string, statusB?: string): boolean => {
@@ -47,6 +47,27 @@ export const DashboardOverview: React.FC = () => {
   const [popupData, setPopupData] = useState<{ title: string; tasks: any[] } | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
+  const [stripCanScrollLeft, setStripCanScrollLeft] = useState(false);
+  const [stripCanScrollRight, setStripCanScrollRight] = useState(false);
+
+  const handleStripScroll = () => {
+    const el = stripRef.current;
+    if (!el) return;
+    setStripCanScrollLeft(el.scrollLeft > 0);
+    setStripCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+  };
+
+  const scrollStrip = (dir: 'left' | 'right') => {
+    const el = stripRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir === 'left' ? -240 : 240, behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    // Check initial scroll state after layout
+    setTimeout(handleStripScroll, 100);
+  }, []);
 
   useEffect(() => {
     const savedScroll = tabScrollPositions['dashboard'] || 0;
@@ -941,26 +962,84 @@ export const DashboardOverview: React.FC = () => {
         style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}
       >
         
-        {/* Status Metrics Cells Row */}
+        {/* Status Metrics Strip — flat, arrow-scrollable, no scrollbar */}
         <div style={{
-          display: 'flex',
-          padding: '0 1rem',
-          marginTop: '1.25rem',
-          marginBottom: '0.25rem',
-          flexShrink: 0
+          position: 'relative',
+          flexShrink: 0,
+          borderTop: '1px solid var(--border-light)',
+          borderBottom: '1px solid var(--border-light)',
         }}>
-          <div style={{
-            display: 'flex',
-            width: '100%',
-            backgroundColor: 'var(--background-alt)',
-            border: '1px solid var(--border-light)',
-            borderRadius: '6px',
-            overflow: 'hidden',
-            flexWrap: 'nowrap',
-            overflowX: 'auto',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none'
-          }}>
+          {/* Left arrow */}
+          {stripCanScrollLeft && (
+            <button
+              onClick={() => scrollStrip('left')}
+              style={{
+                position: 'absolute',
+                left: '6px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                zIndex: 10,
+                width: '26px',
+                height: '26px',
+                borderRadius: '50%',
+                border: '1px solid var(--border-light)',
+                background: 'var(--panel-bg)',
+                boxShadow: 'var(--shadow-sm)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text-secondary)',
+                transition: 'all 0.15s'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--background-alt)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'var(--panel-bg)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+            >
+              <ChevronLeft size={14} />
+            </button>
+          )}
+          {/* Right arrow */}
+          {stripCanScrollRight && (
+            <button
+              onClick={() => scrollStrip('right')}
+              style={{
+                position: 'absolute',
+                right: '6px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                zIndex: 10,
+                width: '26px',
+                height: '26px',
+                borderRadius: '50%',
+                border: '1px solid var(--border-light)',
+                background: 'var(--panel-bg)',
+                boxShadow: 'var(--shadow-sm)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text-secondary)',
+                transition: 'all 0.15s'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--background-alt)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'var(--panel-bg)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+            >
+              <ChevronRight size={14} />
+            </button>
+          )}
+          <div
+            ref={stripRef}
+            onScroll={handleStripScroll}
+            style={{
+              display: 'flex',
+              width: '100%',
+              overflowX: 'auto',
+              overflowY: 'hidden',
+              flexWrap: 'nowrap',
+              scrollbarWidth: 'none',    /* hide native scrollbar */
+              msOverflowStyle: 'none',
+            }}
+          >
             {/* Total Tasks Cell */}
             <div 
               className="dashboard-clickable-number"
@@ -968,7 +1047,7 @@ export const DashboardOverview: React.FC = () => {
               style={{
                 flex: '1 1 0px',
                 minWidth: '140px',
-                padding: '0.65rem 1rem',
+                padding: '0.75rem 1rem',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '0.15rem',
@@ -1021,7 +1100,7 @@ export const DashboardOverview: React.FC = () => {
                   style={{
                     flex: '1 1 0px',
                     minWidth: '140px',
-                    padding: '0.65rem 1rem',
+                    padding: '0.75rem 1rem',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '0.15rem',
@@ -1073,7 +1152,7 @@ export const DashboardOverview: React.FC = () => {
               style={{
                 flex: '1 1 0px',
                 minWidth: '140px',
-                padding: '0.65rem 1rem',
+                padding: '0.75rem 1rem',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '0.15rem',
@@ -1110,8 +1189,9 @@ export const DashboardOverview: React.FC = () => {
 
           </div>
         </div>
-        
+
         {/* POC Breakdown Table */}
+
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '1.5rem 1rem 0.5rem 1rem' }}>
             <h3 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', margin: 0 }}>
