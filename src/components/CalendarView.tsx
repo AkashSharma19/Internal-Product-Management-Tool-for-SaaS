@@ -395,6 +395,18 @@ export const CalendarView: React.FC = () => {
     return d.toLocaleDateString('default', { day: 'numeric', month: 'long', year: 'numeric' });
   }, [selectedDateStr]);
 
+  // Count overdue events: not completed, date is before today
+  const overdueCount = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return allEvents.filter(evt => {
+      if (evt.isCompleted) return false;
+      const evtDate = new Date(evt.dateStr);
+      evtDate.setHours(0, 0, 0, 0);
+      return evtDate < today;
+    }).length;
+  }, [allEvents]);
+
   return (
     <div className="full-canvas-workspace">
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
@@ -406,6 +418,38 @@ export const CalendarView: React.FC = () => {
               <h3 className="calendar-title" style={{ margin: 0 }}>
                 <Calendar size={18} color="var(--primary)" />
                 {currentMonth.toLocaleDateString('default', { month: 'long', year: 'numeric' })}
+                {overdueCount > 0 && (
+                  <span
+                    title={`${overdueCount} overdue deadline${overdueCount !== 1 ? 's' : ''} across all sheets`}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      marginLeft: '8px',
+                      backgroundColor: 'rgba(239,68,68,0.12)',
+                      border: '1px solid rgba(239,68,68,0.35)',
+                      borderRadius: '999px',
+                      padding: '2px 9px 2px 6px',
+                      fontSize: '0.675rem',
+                      fontWeight: 700,
+                      color: '#ef4444',
+                      letterSpacing: '0.01em',
+                      cursor: 'default',
+                      verticalAlign: 'middle',
+                      animation: 'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite'
+                    }}
+                  >
+                    <span style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      backgroundColor: '#ef4444',
+                      flexShrink: 0,
+                      animation: 'pulse 1.5s ease-in-out infinite'
+                    }} />
+                    {overdueCount} overdue
+                  </span>
+                )}
               </h3>
               <div className="search-input-wrapper" style={{ width: '220px', height: '32px' }}>
                 <Search size={14} />

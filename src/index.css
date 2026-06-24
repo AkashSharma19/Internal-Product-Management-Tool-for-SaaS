@@ -3766,3 +3766,13 @@ body.read-only-mode .btn:has(svg.lucide-plus) {
   border-color: var(--primary);
 }
 
+/* Pulse animation — used by overdue badge, status indicators, etc. */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
