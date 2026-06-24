@@ -3731,3 +3731,38 @@ body.read-only-mode .btn:has(svg.lucide-plus) {
     box-shadow: 0 0 0 3px hsla(24, 95%, 50%, 0.3);
   }
 }
+
+/* CONFIGURATION PAGE INPUTS */
+.config-input {
+  padding: 6px 12px;
+  background-color: var(--background);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  outline: none;
+  width: 100%;
+  transition: all 0.15s ease-in-out;
+}
+
+.config-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-glow);
+}
+
+.config-select {
+  padding: 6px 12px;
+  background-color: var(--background);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.config-select:focus {
+  border-color: var(--primary);
+}
+

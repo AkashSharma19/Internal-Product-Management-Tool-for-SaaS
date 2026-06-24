@@ -26,7 +26,6 @@ import {
   Search,
   Plus,
   Layers,
-  Tag,
   Grid
 } from 'lucide-react';
 import type { 
@@ -947,53 +946,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
             </div>
           </div>
 
-          {/* Type */}
-          <div className="property-row-flat">
-            <span className="premium-property-label">
-              <Tag size={13} /> Type
-            </span>
-            <div className="premium-property-value">
-              {(() => {
-                const typePresets = ['Feature', 'Enhancement', 'Bug/Defect', 'UI/UX', 'Research'];
-                const isCustomType = !!item.type && !typePresets.includes(item.type);
-                const selectTypeVal = isCustomType ? 'Other' : (item.type || 'Feature');
-                
-                return (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <div className="premium-select-pill">
-                      <select
-                        value={selectTypeVal}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === 'Other') {
-                            handleFieldUpdate('type', 'Custom Type');
-                          } else {
-                            handleFieldUpdate('type', val);
-                          }
-                        }}
-                      >
-                        <option value="Feature">Feature</option>
-                        <option value="Enhancement">Enhancement</option>
-                        <option value="Bug/Defect">Bug/Defect</option>
-                        <option value="UI/UX">UI/UX</option>
-                        <option value="Research">Research</option>
-                        <option value="Other">Other...</option>
-                      </select>
-                    </div>
-                    {isCustomType && (
-                      <input
-                        type="text"
-                        style={{ padding: '2px 6px', fontSize: '0.75rem', height: '26px', width: '100px', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-primary)', backgroundColor: 'var(--background)' }}
-                        value={item.type}
-                        onChange={(e) => handleFieldUpdate('type', e.target.value)}
-                        placeholder="Type name"
-                      />
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
+
           
           {/* Status */}
           <div className="property-row-flat">
@@ -1009,28 +962,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
             </div>
           </div>
 
-          {/* Priority */}
-          <div className="property-row-flat">
-            <span className="premium-property-label">
-              <Flag size={13} /> priority
-            </span>
-            <div className="premium-property-value">
-              <div className="premium-select-pill">
-                <Flag size={11} fill={getPriorityFlagColor(item.priority)} color={getPriorityFlagColor(item.priority)} style={{ marginRight: '2px' }} />
-                <select
-                  value={item.priority || ''}
-                  onChange={(e) => handleFieldUpdate('priority', e.target.value as any)}
-                >
-                  <option value="">— Select Priority —</option>
-                  <option value="P0">P0 (Critical)</option>
-                  <option value="P1">P1 (High)</option>
-                  <option value="P2">P2 (Medium)</option>
-                  <option value="P3">P3 (Normal)</option>
-                  <option value="P4">P4 (Low)</option>
-                </select>
-              </div>
-            </div>
-          </div>
+
 
           {/* ClickUp Task Link */}
           <div className="property-row-flat">
@@ -1323,6 +1255,29 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                 />
                 <span className="premium-toggle-slider" />
               </label>
+            </div>
+          </div>
+
+          {/* Priority */}
+          <div className="property-row-flat">
+            <span className="premium-property-label">
+              <Flag size={13} /> priority
+            </span>
+            <div className="premium-property-value">
+              <div className="premium-select-pill">
+                <Flag size={11} fill={getPriorityFlagColor(item.priority)} color={getPriorityFlagColor(item.priority)} style={{ marginRight: '2px' }} />
+                <select
+                  value={item.priority || ''}
+                  onChange={(e) => handleFieldUpdate('priority', e.target.value as any)}
+                >
+                  <option value="">— Select Priority —</option>
+                  <option value="P0">P0 (Critical)</option>
+                  <option value="P1">P1 (High)</option>
+                  <option value="P2">P2 (Medium)</option>
+                  <option value="P3">P3 (Normal)</option>
+                  <option value="P4">P4 (Low)</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>

@@ -37,57 +37,53 @@ const ColorSwatch: React.FC<{
 );
 
 // ─── Shared section card shell ─────────────────────────────────────────────────
-const SectionCard: React.FC<{ icon: React.ReactNode; title: string; subtitle: string; children: React.ReactNode }> = ({
-  icon, title, subtitle, children
+const SectionCard: React.FC<{
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  actionButton?: React.ReactNode;
+  children: React.ReactNode;
+}> = ({
+  icon, title, subtitle, actionButton, children
 }) => (
   <div style={{
-    background: 'var(--surface)',
-    border: '1px solid var(--border)',
-    borderRadius: '16px',
-    overflow: 'hidden',
-    boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    width: '100%',
+    backgroundColor: 'var(--panel-bg)',
   }}>
-    {/* Header */}
-    <div style={{
-      padding: '1.25rem 1.5rem',
-      borderBottom: '1px solid var(--border)',
-      background: 'var(--surface-elevated)',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '0.75rem',
-    }}>
-      <div style={{
-        width: 36, height: 36,
-        borderRadius: '10px',
-        background: 'linear-gradient(135deg, var(--primary), var(--primary-dark, #4f46e5))',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: '#fff', flexShrink: 0,
-      }}>
-        {icon}
+    {/* Toolbar */}
+    <div className="sheet-toolbar" style={{ borderBottom: '1px solid var(--border)', background: 'var(--panel-bg)', padding: '1rem 2rem' }}>
+      <div className="toolbar-left" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{
+          width: 34, height: 34,
+          borderRadius: '8px',
+          background: 'var(--background-alt)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: 'var(--primary)', flexShrink: 0,
+          border: '1px solid var(--border)',
+        }}>
+          {icon}
+        </div>
+        <div>
+          <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'Outfit, sans-serif' }}>{title}</h3>
+          <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>{subtitle}</p>
+        </div>
       </div>
-      <div>
-        <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>{title}</h3>
-        <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>{subtitle}</p>
-      </div>
+      {actionButton && (
+        <div className="toolbar-right" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {actionButton}
+        </div>
+      )}
     </div>
-    <div style={{ padding: '1rem 1.5rem 1.5rem' }}>
+    <div className="table-responsive" style={{ flex: 1, padding: '1.5rem 2rem', overflowY: 'auto' }}>
       {children}
     </div>
   </div>
 );
 
-// ─── Shared input style ────────────────────────────────────────────────────────
-const inputStyle: React.CSSProperties = {
-  padding: '6px 10px',
-  background: 'var(--background)',
-  border: '1.5px solid var(--border)',
-  borderRadius: '8px',
-  color: 'var(--text-primary)',
-  fontSize: '0.82rem',
-  outline: 'none',
-  width: '100%',
-  transition: 'border-color 0.15s',
-};
+
 
 // ─── Icon button ───────────────────────────────────────────────────────────────
 const IconBtn: React.FC<{
@@ -142,21 +138,7 @@ const Badge: React.FC<{ color: string; label: string }> = ({ color, label }) => 
   </span>
 );
 
-// ─── TABLE STYLES ─────────────────────────────────────────────────────────────
-const tbl: React.CSSProperties = { width: '100%', borderCollapse: 'collapse' };
-const th: React.CSSProperties = {
-  textAlign: 'left', padding: '8px 10px',
-  fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase',
-  letterSpacing: '0.06em', color: 'var(--text-muted)',
-  borderBottom: '1px solid var(--border)',
-};
-const td: React.CSSProperties = {
-  padding: '9px 10px',
-  borderBottom: '1px solid rgba(255,255,255,0.04)',
-  fontSize: '0.83rem',
-  color: 'var(--text-primary)',
-  verticalAlign: 'middle',
-};
+
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // SPEAKERS SECTION
@@ -223,75 +205,142 @@ const SpeakersSection: React.FC = () => {
     setShowAdd(false);
   };
 
+  const actionButton = !showAdd && canUserEdit ? (
+    <button
+      onClick={() => setShowAdd(true)}
+      className="btn btn-primary btn-sm"
+    >
+      <Plus size={14} /> Add Speaker
+    </button>
+  ) : null;
+
   return (
-    <SectionCard icon={<Users size={16} />} title="POC Owners / Speakers" subtitle="Manage the speaker & owner list used across all dropdowns">
-      <table style={tbl}>
+    <SectionCard
+      icon={<Users size={16} />}
+      title="POC Owners / Speakers"
+      subtitle="Manage the speaker & owner list used across all dropdowns"
+      actionButton={actionButton}
+    >
+      <table className="grid-table">
         <thead>
           <tr>
-            <th style={th}>Name</th>
-            <th style={th}>Email</th>
-            <th style={th}>Role / Title</th>
-            <th style={{ ...th, width: 150 }}>Password</th>
-            <th style={{ ...th, width: 90, textAlign: 'center' }}>Can Edit</th>
-            <th style={{ ...th, width: 72 }}>Actions</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role / Title</th>
+            <th style={{ width: 150 }}>Password</th>
+            <th style={{ width: 90, textAlign: 'center' }}>Can Edit</th>
+            <th style={{ width: 72 }}>Actions</th>
           </tr>
         </thead>
         <tbody>
           {speakers.map(s => (
-            <tr key={s.id} style={{ transition: 'background 0.15s' }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-elevated)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-            >
-              <td style={td}>
-                {editingId === s.id
-                  ? <input autoFocus style={inputStyle} value={editName} onChange={e => setEditName(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingId(null); }} />
-                  : <span style={{ fontWeight: 500 }}>{s.name}</span>}
+            <tr key={s.id}>
+              <td>
+                {editingId === s.id ? (
+                  <input
+                    autoFocus
+                    className="config-input"
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') saveEdit();
+                      if (e.key === 'Escape') setEditingId(null);
+                    }}
+                  />
+                ) : (
+                  <span style={{ fontWeight: 500 }}>{s.name}</span>
+                )}
               </td>
-              <td style={td}>
-                {editingId === s.id
-                  ? <input style={inputStyle} value={editEmail} onChange={e => setEditEmail(e.target.value)}
-                      placeholder="Email address…"
-                      onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingId(null); }} />
-                  : <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>{s.email || '—'}</span>}
+              <td>
+                {editingId === s.id ? (
+                  <input
+                    className="config-input"
+                    value={editEmail}
+                    onChange={e => setEditEmail(e.target.value)}
+                    placeholder="Email address…"
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') saveEdit();
+                      if (e.key === 'Escape') setEditingId(null);
+                    }}
+                  />
+                ) : (
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>{s.email || '—'}</span>
+                )}
               </td>
-              <td style={td}>
-                {editingId === s.id
-                  ? <input style={inputStyle} value={editRole} onChange={e => setEditRole(e.target.value)}
-                      placeholder="e.g. Professor, Finance"
-                      onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingId(null); }} />
-                  : <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{s.role || '—'}</span>}
+              <td>
+                {editingId === s.id ? (
+                  <input
+                    className="config-input"
+                    value={editRole}
+                    onChange={e => setEditRole(e.target.value)}
+                    placeholder="e.g. Professor, Finance"
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') saveEdit();
+                      if (e.key === 'Escape') setEditingId(null);
+                    }}
+                  />
+                ) : (
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{s.role || '—'}</span>
+                )}
               </td>
-              <td style={td}>
+              <td>
                 {editingId === s.id ? (
                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                     <input 
+                    <input
                       type={showPasswordMap[s.id] ? 'text' : 'password'}
-                      style={{ ...inputStyle, paddingRight: '30px' }} 
-                      value={editPassword} 
+                      className="config-input"
+                      style={{ paddingRight: '30px' }}
+                      value={editPassword}
                       onChange={e => setEditPassword(e.target.value)}
                       placeholder="Password"
-                      onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingId(null); }} 
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') saveEdit();
+                        if (e.key === 'Escape') setEditingId(null);
+                      }}
                     />
                     <button
                       type="button"
                       onClick={() => togglePasswordVisibility(s.id)}
-                      style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', padding: 0 }}
+                      style={{
+                        position: 'absolute',
+                        right: '8px',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: 'var(--text-secondary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: 0,
+                      }}
                     >
                       {showPasswordMap[s.id] ? <EyeOff size={14} /> : <Eye size={14} />}
                     </button>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '0.8rem', letterSpacing: showPasswordMap[s.id] ? 'normal' : '0.15em', fontFamily: showPasswordMap[s.id] ? 'Outfit, sans-serif' : 'monospace', color: showPasswordMap[s.id] ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                    <span style={{
+                      fontSize: '0.8rem',
+                      letterSpacing: showPasswordMap[s.id] ? 'normal' : '0.15em',
+                      fontFamily: showPasswordMap[s.id] ? 'Outfit, sans-serif' : 'monospace',
+                      color: showPasswordMap[s.id] ? 'var(--text-primary)' : 'var(--text-muted)',
+                    }}>
                       {showPasswordMap[s.id] ? (s.password || '1234') : '••••••'}
                     </span>
                     <button
                       type="button"
                       onClick={() => togglePasswordVisibility(s.id)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', padding: '4px', borderRadius: '4px' }}
-                      title={showPasswordMap[s.id] ? "Hide Password" : "Show Password"}
-                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--surface-elevated)'; }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: 'var(--text-secondary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '4px',
+                        borderRadius: '4px',
+                      }}
+                      title={showPasswordMap[s.id] ? 'Hide Password' : 'Show Password'}
+                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--background-alt)'; }}
                       onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                     >
                       {showPasswordMap[s.id] ? <EyeOff size={12} /> : <Eye size={12} />}
@@ -299,28 +348,28 @@ const SpeakersSection: React.FC = () => {
                   </div>
                 )}
               </td>
-              <td style={td}>
+              <td style={{ textAlign: 'center' }}>
                 {editingId === s.id ? (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                      checked={editCanEdit} 
-                      onChange={e => setEditCanEdit(e.target.checked)} 
+                      checked={editCanEdit}
+                      onChange={e => setEditCanEdit(e.target.checked)}
                     />
                   </div>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       style={{ width: '16px', height: '16px', cursor: 'default' }}
-                      checked={s.canEdit !== false} 
-                      disabled 
+                      checked={s.canEdit !== false}
+                      disabled
                     />
                   </div>
                 )}
               </td>
-              <td style={{ ...td, borderBottom: 'none' }}>
+              <td>
                 <div style={{ display: 'flex', gap: 2 }}>
                   {editingId === s.id ? (
                     <>
@@ -341,51 +390,87 @@ const SpeakersSection: React.FC = () => {
           {/* Add row */}
           {showAdd && (
             <tr>
-              <td style={td}>
-                <input autoFocus style={inputStyle} value={addName} onChange={e => setAddName(e.target.value)}
+              <td>
+                <input
+                  autoFocus
+                  className="config-input"
+                  value={addName}
+                  onChange={e => setAddName(e.target.value)}
                   placeholder="Speaker name…"
-                  onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setShowAdd(false); }} />
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleAdd();
+                    if (e.key === 'Escape') setShowAdd(false);
+                  }}
+                />
               </td>
-              <td style={td}>
-                <input style={inputStyle} value={addEmail} onChange={e => setAddEmail(e.target.value)}
+              <td>
+                <input
+                  className="config-input"
+                  value={addEmail}
+                  onChange={e => setAddEmail(e.target.value)}
                   placeholder="Email address…"
-                  onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setShowAdd(false); }} />
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleAdd();
+                    if (e.key === 'Escape') setShowAdd(false);
+                  }}
+                />
               </td>
-              <td style={td}>
-                <input style={inputStyle} value={addRole} onChange={e => setAddRole(e.target.value)}
+              <td>
+                <input
+                  className="config-input"
+                  value={addRole}
+                  onChange={e => setAddRole(e.target.value)}
                   placeholder="Role / Title (optional)"
-                  onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setShowAdd(false); }} />
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleAdd();
+                    if (e.key === 'Escape') setShowAdd(false);
+                  }}
+                />
               </td>
-              <td style={td}>
+              <td>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <input 
+                  <input
                     type={showAddPassword ? 'text' : 'password'}
-                    style={{ ...inputStyle, paddingRight: '30px' }} 
-                    value={addPassword} 
+                    className="config-input"
+                    style={{ paddingRight: '30px' }}
+                    value={addPassword}
                     onChange={e => setAddPassword(e.target.value)}
                     placeholder="Password (default 1234)"
-                    onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setShowAdd(false); }} 
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleAdd();
+                      if (e.key === 'Escape') setShowAdd(false);
+                    }}
                   />
                   <button
                     type="button"
                     onClick={() => setShowAddPassword(!showAddPassword)}
-                    style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', padding: 0 }}
+                    style={{
+                      position: 'absolute',
+                      right: '8px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--text-secondary)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: 0,
+                    }}
                   >
                     {showAddPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
               </td>
-              <td style={td}>
+              <td>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                    checked={addCanEdit} 
-                    onChange={e => setAddCanEdit(e.target.checked)} 
+                    checked={addCanEdit}
+                    onChange={e => setAddCanEdit(e.target.checked)}
                   />
                 </div>
               </td>
-              <td style={{ ...td, borderBottom: 'none' }}>
+              <td>
                 <div style={{ display: 'flex', gap: 2 }}>
                   <IconBtn onClick={handleAdd} success title="Add"><Check size={14} /></IconBtn>
                   <IconBtn onClick={() => setShowAdd(false)} title="Cancel"><X size={14} /></IconBtn>
@@ -395,29 +480,6 @@ const SpeakersSection: React.FC = () => {
           )}
         </tbody>
       </table>
-
-      {!showAdd && canUserEdit && (
-        <button
-          onClick={() => setShowAdd(true)}
-          style={{
-            marginTop: '0.75rem',
-            display: 'flex', alignItems: 'center', gap: '6px',
-            padding: '6px 14px',
-            background: 'var(--primary)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            transition: 'opacity 0.15s',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
-          onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-        >
-          <Plus size={14} /> Add Speaker
-        </button>
-      )}
     </SectionCard>
   );
 };
@@ -471,32 +533,54 @@ const ProductGroupsSection: React.FC = () => {
     setShowSwatchFor(null);
   };
 
+  const actionButton = !showAdd && canUserEdit ? (
+    <button
+      onClick={() => setShowAdd(true)}
+      className="btn btn-primary btn-sm"
+    >
+      <Plus size={14} /> Add Product Group
+    </button>
+  ) : null;
+
   return (
-    <SectionCard icon={<Layers size={16} />} title="Product Groups" subtitle="Define product areas used across the Priority Requests tracker">
-      <table style={tbl}>
+    <SectionCard
+      icon={<Layers size={16} />}
+      title="Product Groups"
+      subtitle="Define product areas used across the Priority Requests tracker"
+      actionButton={actionButton}
+    >
+      <table className="grid-table">
         <thead>
           <tr>
-            <th style={th}>Product Group</th>
-            <th style={{ ...th, width: 90 }}>Colour</th>
-            <th style={{ ...th, width: 72 }}>Actions</th>
+            <th>Product Group</th>
+            <th style={{ width: 90 }}>Colour</th>
+            <th style={{ width: 72 }}>Actions</th>
           </tr>
         </thead>
         <tbody>
           {productGroups.map(g => (
-            <tr key={g.id}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-elevated)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-              style={{ transition: 'background 0.15s' }}
-            >
-              <td style={td}>
+            <tr key={g.id}>
+              <td>
                 {editingId === g.id ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <input autoFocus style={inputStyle} value={editName} onChange={e => setEditName(e.target.value)}
+                    <input
+                      autoFocus
+                      className="config-input"
+                      value={editName}
+                      onChange={e => setEditName(e.target.value)}
                       placeholder="Product group name..."
-                      onKeyDown={e => { if (e.key === 'Escape') setEditingId(null); }} />
-                    <input style={inputStyle} value={editModules} onChange={e => setEditModules(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Escape') setEditingId(null); }}
+                    />
+                    <input
+                      className="config-input"
+                      value={editModules}
+                      onChange={e => setEditModules(e.target.value)}
                       placeholder="Modules (comma-separated)..."
-                      onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingId(null); }} />
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') saveEdit();
+                        if (e.key === 'Escape') setEditingId(null);
+                      }}
+                    />
                   </div>
                 ) : (
                   <div>
@@ -504,15 +588,18 @@ const ProductGroupsSection: React.FC = () => {
                     {g.modules && g.modules.length > 0 && (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px', paddingLeft: '4px' }}>
                         {g.modules.map((m, idx) => (
-                          <span key={idx} style={{
-                            fontSize: '0.65rem',
-                            backgroundColor: 'var(--background-alt)',
-                            color: 'var(--text-secondary)',
-                            border: '1px solid var(--border)',
-                            padding: '1px 6px',
-                            borderRadius: '6px',
-                            fontWeight: 600
-                          }}>
+                          <span
+                            key={idx}
+                            style={{
+                              fontSize: '0.65rem',
+                              backgroundColor: 'var(--background-alt)',
+                              color: 'var(--text-secondary)',
+                              border: '1px solid var(--border)',
+                              padding: '1px 6px',
+                              borderRadius: '6px',
+                              fontWeight: 600,
+                            }}
+                          >
                             {m}
                           </span>
                         ))}
@@ -521,7 +608,7 @@ const ProductGroupsSection: React.FC = () => {
                   </div>
                 )}
               </td>
-              <td style={td}>
+              <td>
                 {editingId === g.id ? (
                   <div style={{ position: 'relative' }}>
                     <button
@@ -537,11 +624,11 @@ const ProductGroupsSection: React.FC = () => {
                     {showSwatchFor === g.id && (
                       <div style={{
                         position: 'absolute', top: 30, left: 0, zIndex: 999,
-                        background: 'var(--surface-elevated)',
+                        background: 'var(--panel-bg)',
                         border: '1px solid var(--border)',
                         borderRadius: '10px',
                         padding: '8px',
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                        boxShadow: 'var(--shadow)',
                       }}>
                         <ColorSwatch value={editColor} onChange={c => { setEditColor(c); setShowSwatchFor(null); }} />
                       </div>
@@ -554,7 +641,7 @@ const ProductGroupsSection: React.FC = () => {
                   </span>
                 )}
               </td>
-              <td style={{ ...td, borderBottom: 'none' }}>
+              <td>
                 <div style={{ display: 'flex', gap: 2 }}>
                   {editingId === g.id ? (
                     <>
@@ -574,17 +661,29 @@ const ProductGroupsSection: React.FC = () => {
 
           {showAdd && (
             <tr>
-              <td style={td}>
+              <td>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <input autoFocus style={inputStyle} value={addName} onChange={e => setAddName(e.target.value)}
+                  <input
+                    autoFocus
+                    className="config-input"
+                    value={addName}
+                    onChange={e => setAddName(e.target.value)}
                     placeholder="Group name…"
-                    onKeyDown={e => { if (e.key === 'Escape') setShowAdd(false); }} />
-                  <input style={inputStyle} value={addModules} onChange={e => setAddModules(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Escape') setShowAdd(false); }}
+                  />
+                  <input
+                    className="config-input"
+                    value={addModules}
+                    onChange={e => setAddModules(e.target.value)}
                     placeholder="Modules (comma-separated)…"
-                    onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setShowAdd(false); }} />
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') handleAdd();
+                      if (e.key === 'Escape') setShowAdd(false);
+                    }}
+                  />
                 </div>
               </td>
-              <td style={td}>
+              <td>
                 <div style={{ position: 'relative' }}>
                   <button
                     onClick={() => setShowSwatchFor(showSwatchFor === 'add' ? null : 'add')}
@@ -599,18 +698,18 @@ const ProductGroupsSection: React.FC = () => {
                   {showSwatchFor === 'add' && (
                     <div style={{
                       position: 'absolute', top: 30, left: 0, zIndex: 999,
-                      background: 'var(--surface-elevated)',
+                      background: 'var(--panel-bg)',
                       border: '1px solid var(--border)',
                       borderRadius: '10px',
                       padding: '8px',
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                      boxShadow: 'var(--shadow)',
                     }}>
                       <ColorSwatch value={addColor} onChange={c => { setAddColor(c); setShowSwatchFor(null); }} />
                     </div>
                   )}
                 </div>
               </td>
-              <td style={{ ...td, borderBottom: 'none' }}>
+              <td>
                 <div style={{ display: 'flex', gap: 2 }}>
                   <IconBtn onClick={handleAdd} success title="Add"><Check size={14} /></IconBtn>
                   <IconBtn onClick={() => setShowAdd(false)} title="Cancel"><X size={14} /></IconBtn>
@@ -620,29 +719,6 @@ const ProductGroupsSection: React.FC = () => {
           )}
         </tbody>
       </table>
-
-      {!showAdd && canUserEdit && (
-        <button
-          onClick={() => setShowAdd(true)}
-          style={{
-            marginTop: '0.75rem',
-            display: 'flex', alignItems: 'center', gap: '6px',
-            padding: '6px 14px',
-            background: 'var(--primary)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            transition: 'opacity 0.15s',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
-          onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-        >
-          <Plus size={14} /> Add Product Group
-        </button>
-      )}
     </SectionCard>
   );
 };
@@ -692,38 +768,53 @@ const StatusesSection: React.FC = () => {
     setShowSwatchFor(null);
   };
 
-  const selectStyle: React.CSSProperties = {
-    ...inputStyle,
-    width: 'auto',
-    minWidth: 140,
-    cursor: 'pointer',
-  };
+
+
+  const actionButton = !showAdd && canUserEdit ? (
+    <button
+      onClick={() => setShowAdd(true)}
+      className="btn btn-primary btn-sm"
+    >
+      <Plus size={14} /> Add Status
+    </button>
+  ) : null;
 
   return (
-    <SectionCard icon={<Tag size={16} />} title="Statuses" subtitle="Manage status labels and where they appear across the dashboard">
-      <table style={tbl}>
+    <SectionCard
+      icon={<Tag size={16} />}
+      title="Statuses"
+      subtitle="Manage status labels and where they appear across the dashboard"
+      actionButton={actionButton}
+    >
+      <table className="grid-table">
         <thead>
           <tr>
-            <th style={th}>Label</th>
-            <th style={{ ...th, width: 90 }}>Colour</th>
-            <th style={{ ...th, width: 160 }}>Scope</th>
-            <th style={{ ...th, width: 72 }}>Actions</th>
+            <th>Label</th>
+            <th style={{ width: 90 }}>Colour</th>
+            <th style={{ width: 160 }}>Scope</th>
+            <th style={{ width: 72 }}>Actions</th>
           </tr>
         </thead>
         <tbody>
           {statuses.map(s => (
-            <tr key={s.id}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-elevated)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-              style={{ transition: 'background 0.15s' }}
-            >
-              <td style={td}>
-                {editingId === s.id
-                  ? <input autoFocus style={inputStyle} value={editLabel} onChange={e => setEditLabel(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingId(null); }} />
-                  : <Badge color={s.color} label={s.label} />}
+            <tr key={s.id}>
+              <td>
+                {editingId === s.id ? (
+                  <input
+                    autoFocus
+                    className="config-input"
+                    value={editLabel}
+                    onChange={e => setEditLabel(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') saveEdit();
+                      if (e.key === 'Escape') setEditingId(null);
+                    }}
+                  />
+                ) : (
+                  <Badge color={s.color} label={s.label} />
+                )}
               </td>
-              <td style={td}>
+              <td>
                 {editingId === s.id ? (
                   <div style={{ position: 'relative' }}>
                     <button
@@ -734,10 +825,10 @@ const StatusesSection: React.FC = () => {
                     {showSwatchFor === s.id && (
                       <div style={{
                         position: 'absolute', top: 30, left: 0, zIndex: 999,
-                        background: 'var(--surface-elevated)',
+                        background: 'var(--panel-bg)',
                         border: '1px solid var(--border)',
                         borderRadius: '10px', padding: '8px',
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                        boxShadow: 'var(--shadow)',
                       }}>
                         <ColorSwatch value={editColor} onChange={c => { setEditColor(c); setShowSwatchFor(null); }} />
                       </div>
@@ -750,20 +841,25 @@ const StatusesSection: React.FC = () => {
                   </span>
                 )}
               </td>
-              <td style={td}>
-                {editingId === s.id
-                  ? (
-                    <select style={selectStyle} value={editScope} onChange={e => setEditScope(e.target.value as ConfigStatus['scope'])}>
-                      <option value="product">Priority Requests</option>
-                      <option value="ama">AMA / Schedule</option>
-                      <option value="student">Student Projects</option>
-                      <option value="content">Content Pipeline</option>
-                      <option value="all">All Sections</option>
-                    </select>
-                  )
-                  : <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>{SCOPE_LABELS[s.scope]}</span>}
+              <td>
+                {editingId === s.id ? (
+                  <select
+                    className="config-select"
+                    style={{ width: 'auto', minWidth: 140 }}
+                    value={editScope}
+                    onChange={e => setEditScope(e.target.value as ConfigStatus['scope'])}
+                  >
+                    <option value="product">Priority Requests</option>
+                    <option value="ama">AMA / Schedule</option>
+                    <option value="student">Student Projects</option>
+                    <option value="content">Content Pipeline</option>
+                    <option value="all">All Sections</option>
+                  </select>
+                ) : (
+                  <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>{SCOPE_LABELS[s.scope]}</span>
+                )}
               </td>
-              <td style={{ ...td, borderBottom: 'none' }}>
+              <td>
                 <div style={{ display: 'flex', gap: 2 }}>
                   {editingId === s.id ? (
                     <>
@@ -783,12 +879,20 @@ const StatusesSection: React.FC = () => {
 
           {showAdd && (
             <tr>
-              <td style={td}>
-                <input autoFocus style={inputStyle} value={addLabel} onChange={e => setAddLabel(e.target.value)}
+              <td>
+                <input
+                  autoFocus
+                  className="config-input"
+                  value={addLabel}
+                  onChange={e => setAddLabel(e.target.value)}
                   placeholder="Status label…"
-                  onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setShowAdd(false); }} />
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleAdd();
+                    if (e.key === 'Escape') setShowAdd(false);
+                  }}
+                />
               </td>
-              <td style={td}>
+              <td>
                 <div style={{ position: 'relative' }}>
                   <button
                     onClick={() => setShowSwatchFor(showSwatchFor === 'add' ? null : 'add')}
@@ -798,18 +902,23 @@ const StatusesSection: React.FC = () => {
                   {showSwatchFor === 'add' && (
                     <div style={{
                       position: 'absolute', top: 30, left: 0, zIndex: 999,
-                      background: 'var(--surface-elevated)',
+                      background: 'var(--panel-bg)',
                       border: '1px solid var(--border)',
                       borderRadius: '10px', padding: '8px',
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                      boxShadow: 'var(--shadow)',
                     }}>
                       <ColorSwatch value={addColor} onChange={c => { setAddColor(c); setShowSwatchFor(null); }} />
                     </div>
                   )}
                 </div>
               </td>
-              <td style={td}>
-                <select style={selectStyle} value={addScope} onChange={e => setAddScope(e.target.value as ConfigStatus['scope'])}>
+              <td>
+                <select
+                  className="config-select"
+                  style={{ width: 'auto', minWidth: 140 }}
+                  value={addScope}
+                  onChange={e => setAddScope(e.target.value as ConfigStatus['scope'])}
+                >
                   <option value="product">Priority Requests</option>
                   <option value="ama">AMA / Schedule</option>
                   <option value="student">Student Projects</option>
@@ -817,7 +926,7 @@ const StatusesSection: React.FC = () => {
                   <option value="all">All Sections</option>
                 </select>
               </td>
-              <td style={{ ...td, borderBottom: 'none' }}>
+              <td>
                 <div style={{ display: 'flex', gap: 2 }}>
                   <IconBtn onClick={handleAdd} success title="Add"><Check size={14} /></IconBtn>
                   <IconBtn onClick={() => setShowAdd(false)} title="Cancel"><X size={14} /></IconBtn>
@@ -827,29 +936,6 @@ const StatusesSection: React.FC = () => {
           )}
         </tbody>
       </table>
-
-      {!showAdd && canUserEdit && (
-        <button
-          onClick={() => setShowAdd(true)}
-          style={{
-            marginTop: '0.75rem',
-            display: 'flex', alignItems: 'center', gap: '6px',
-            padding: '6px 14px',
-            background: 'var(--primary)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            transition: 'opacity 0.15s',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
-          onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-        >
-          <Plus size={14} /> Add Status
-        </button>
-      )}
     </SectionCard>
   );
 };
@@ -910,31 +996,42 @@ const ProgramsSection: React.FC = () => {
     setAddingCohortForProgramId(null);
   };
 
+  const actionButton = !showAddProgram && canUserEdit ? (
+    <button
+      onClick={() => { setShowAddProgram(true); setNewProgramName(''); }}
+      className="btn btn-primary btn-sm"
+    >
+      <Plus size={14} /> Add Program
+    </button>
+  ) : null;
+
   return (
-    <SectionCard icon={<Layers size={16} />} title="Programs & Cohorts" subtitle="Manage academic programs and their associated student cohorts/sections">
-      <table style={tbl}>
+    <SectionCard
+      icon={<Layers size={16} />}
+      title="Programs & Cohorts"
+      subtitle="Manage academic programs and their associated student cohorts/sections"
+      actionButton={actionButton}
+    >
+      <table className="grid-table">
         <thead>
           <tr>
-            <th style={{ ...th, width: '28%' }}>Program</th>
-            <th style={th}>Cohorts</th>
-            <th style={{ ...th, width: 100 }}>Actions</th>
+            <th style={{ width: '28%' }}>Program</th>
+            <th>Cohorts</th>
+            <th style={{ width: 100 }}>Actions</th>
           </tr>
         </thead>
         <tbody>
           {programs.map(p => {
             const programCohorts = cohorts.filter(c => c.programId === p.id);
             return (
-              <tr key={p.id}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-elevated)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                style={{ transition: 'background 0.15s', verticalAlign: 'top' }}
-              >
+              <tr key={p.id} style={{ verticalAlign: 'top' }}>
                 {/* Program name cell */}
-                <td style={{ ...td, paddingTop: '0.85rem' }}>
+                <td style={{ paddingTop: '0.85rem' }}>
                   {editingProgramId === p.id ? (
                     <input
                       autoFocus
-                      style={{ ...inputStyle, width: '100%' }}
+                      className="config-input"
+                      style={{ width: '100%' }}
                       value={editProgramName}
                       onChange={e => setEditProgramName(e.target.value)}
                       onKeyDown={e => {
@@ -948,7 +1045,7 @@ const ProgramsSection: React.FC = () => {
                 </td>
 
                 {/* Cohorts cell — list view */}
-                <td style={{ ...td, paddingTop: '0.5rem', paddingBottom: '0.5rem' }}>
+                <td style={{ paddingTop: '0.5rem', paddingBottom: '0.5rem' }}>
                   {programCohorts.length === 0 && addingCohortForProgramId !== p.id && (
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', display: 'block', padding: '0.4rem 0' }}>No cohorts yet</span>
                   )}
@@ -1014,7 +1111,8 @@ const ProgramsSection: React.FC = () => {
                           {editingCohortId === c.id ? (
                             <input
                               autoFocus
-                              style={{ ...inputStyle, padding: '2px 6px', fontSize: '0.8rem', width: '100%' }}
+                              className="config-input"
+                              style={{ padding: '2px 6px', fontSize: '0.8rem', width: '100%' }}
                               value={editCohortName}
                               onChange={e => setEditCohortName(e.target.value)}
                               onKeyDown={e => {
@@ -1056,7 +1154,8 @@ const ProgramsSection: React.FC = () => {
                           <input
                             autoFocus
                             placeholder="Cohort name…"
-                            style={{ ...inputStyle, padding: '4px 8px', fontSize: '0.8rem', flex: 1 }}
+                            className="config-input"
+                            style={{ padding: '4px 8px', fontSize: '0.8rem', flex: 1 }}
                             value={newCohortName}
                             onChange={e => setNewCohortName(e.target.value)}
                             onKeyDown={e => {
@@ -1094,7 +1193,7 @@ const ProgramsSection: React.FC = () => {
                 </td>
 
                 {/* Program actions cell */}
-                <td style={{ ...td, borderBottom: 'none', paddingTop: '0.75rem' }}>
+                <td style={{ paddingTop: '0.75rem' }}>
                   <div style={{ display: 'flex', gap: 2 }}>
                     {editingProgramId === p.id ? (
                       <>
@@ -1124,11 +1223,12 @@ const ProgramsSection: React.FC = () => {
           {/* Add Program row */}
           {showAddProgram && (
             <tr>
-              <td style={td} colSpan={2}>
+              <td colSpan={2}>
                 <input
                   autoFocus
                   placeholder="Enter program name…"
-                  style={{ ...inputStyle, width: '100%', maxWidth: 320 }}
+                  className="config-input"
+                  style={{ width: '100%', maxWidth: 320 }}
                   value={newProgramName}
                   onChange={e => setNewProgramName(e.target.value)}
                   onKeyDown={e => {
@@ -1137,7 +1237,7 @@ const ProgramsSection: React.FC = () => {
                   }}
                 />
               </td>
-              <td style={{ ...td, borderBottom: 'none' }}>
+              <td>
                 <div style={{ display: 'flex', gap: 2 }}>
                   <IconBtn onClick={handleAddProgram} success title="Add"><Check size={14} /></IconBtn>
                   <IconBtn onClick={() => setShowAddProgram(false)} title="Cancel"><X size={14} /></IconBtn>
@@ -1147,29 +1247,6 @@ const ProgramsSection: React.FC = () => {
           )}
         </tbody>
       </table>
-
-      {!showAddProgram && canUserEdit && (
-        <button
-          onClick={() => { setShowAddProgram(true); setNewProgramName(''); }}
-          style={{
-            marginTop: '0.75rem',
-            display: 'flex', alignItems: 'center', gap: '6px',
-            padding: '6px 14px',
-            background: 'var(--primary)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            transition: 'opacity 0.15s',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
-          onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-        >
-          <Plus size={14} /> Add Program
-        </button>
-      )}
     </SectionCard>
   );
 };
@@ -1255,8 +1332,8 @@ const ClickupSettingsSection: React.FC = () => {
               onChange={e => setApiKeyInput(e.target.value)}
               placeholder="pk_..."
               disabled={!canUserEdit}
+              className="config-input"
               style={{
-                ...inputStyle,
                 paddingRight: '40px',
                 opacity: canUserEdit ? 1 : 0.6,
               }}
@@ -1328,8 +1405,8 @@ const ClickupSettingsSection: React.FC = () => {
               onChange={e => setTestLink(e.target.value)}
               placeholder="e.g., https://app.clickup.com/t/86ay8h4v9 or 86ay8h4v9"
               disabled={!canUserEdit}
+              className="config-input"
               style={{
-                ...inputStyle,
                 opacity: canUserEdit ? 1 : 0.6,
               }}
               onKeyDown={e => { if (e.key === 'Enter') handleTest(); }}
@@ -1342,7 +1419,7 @@ const ClickupSettingsSection: React.FC = () => {
                 alignItems: 'center',
                 gap: '6px',
                 padding: '8px 16px',
-                background: 'var(--surface-elevated)',
+                background: 'var(--background-alt)',
                 color: 'var(--text-primary)',
                 border: '1.5px solid var(--border)',
                 borderRadius: '8px',
@@ -1475,9 +1552,9 @@ export const ConfigSection: React.FC = () => {
       </div>
 
       {/* ── Tab content ───────────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem 2rem' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Active section */}
-        <div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           {activeTab === 'speakers' && <SpeakersSection />}
           {activeTab === 'groups' && <ProductGroupsSection />}
           {activeTab === 'statuses' && <StatusesSection />}
