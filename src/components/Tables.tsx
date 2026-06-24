@@ -1575,6 +1575,7 @@ export const ProductTable: React.FC = () => {
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const productStatuses = statuses.filter(s => s.scope === 'product' || s.scope === 'all').map(s => s.label);
   const statusOptions = productStatuses.length > 0 ? productStatuses : ['On Hold', 'In Progress', 'Ongoing', 'Completed'];
 
@@ -1753,7 +1754,8 @@ export const ProductTable: React.FC = () => {
                       setPreviewProductId(item.id);
                     }
                   }} 
-                  style={{ cursor: 'pointer' }}
+                  className={deletingIds.has(item.id) ? 'row-deleting' : ''}
+                  style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
                 >
                   <td className="sticky-col" style={{ fontWeight: 600, width: '280px', minWidth: '280px', maxWidth: '280px', whiteSpace: 'normal' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', width: '100%' }}>
@@ -1903,7 +1905,11 @@ export const ProductTable: React.FC = () => {
                         onClick={async (e) => {
                           e.stopPropagation();
                           if (await confirm("Are you sure you want to delete this feature?", "Delete Feature")) {
-                            deleteProductItem(item.id);
+                            setDeletingIds(prev => new Set(prev).add(item.id));
+                            setTimeout(() => {
+                              deleteProductItem(item.id);
+                              setDeletingIds(prev => { const s = new Set(prev); s.delete(item.id); return s; });
+                            }, 320);
                           }
                         }}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}

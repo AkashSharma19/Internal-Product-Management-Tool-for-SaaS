@@ -421,6 +421,7 @@ export const CalendarView: React.FC = () => {
                 {overdueCount > 0 && (
                   <span
                     title={`${overdueCount} overdue deadline${overdueCount !== 1 ? 's' : ''} across all sheets`}
+                    className="animate-shake-once"
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -436,7 +437,7 @@ export const CalendarView: React.FC = () => {
                       letterSpacing: '0.01em',
                       cursor: 'default',
                       verticalAlign: 'middle',
-                      animation: 'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite'
+                      animation: 'shake 0.55s ease 0.4s 1 both, pulse 2s cubic-bezier(0.4,0,0.6,1) 1s infinite'
                     }}
                   >
                     <span style={{
@@ -558,7 +559,11 @@ export const CalendarView: React.FC = () => {
             <p className="calendar-sidebar-subtitle">{selectedDateLabel}</p>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', margin: '0 -1.25rem', borderTop: '1px solid var(--border-light)' }}>
+          <div
+            key={selectedDateStr}
+            className="calendar-sidebar-content-enter"
+            style={{ flex: 1, overflowY: 'auto', margin: '0 -1.25rem', borderTop: '1px solid var(--border-light)' }}
+          >
             {selectedDateEvents.length === 0 ? (
               <div className="calendar-sidebar-empty-state">
                 <div className="calendar-sidebar-empty-icon">

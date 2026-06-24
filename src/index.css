@@ -3505,6 +3505,27 @@ h1, h2, h3, h4, h5, h6 {
 
 .calendar-day-cell:hover {
   background-color: var(--background-alt);
+  box-shadow: inset 0 0 0 1px var(--border-light);
+}
+
+/* Shimmer sweep on hover */
+.calendar-day-cell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.04) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  transition: transform 0s;
+  pointer-events: none;
+}
+.calendar-day-cell:hover::after {
+  transform: translateX(100%);
+  transition: transform 0.55s ease;
 }
 
 .calendar-day-cell.selected-day {
@@ -3776,3 +3797,46 @@ body.read-only-mode .btn:has(svg.lucide-plus) {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+/* Shake — fires once on mount (used by overdue badge) */
+@keyframes shake {
+  0%   { transform: translateX(0); }
+  15%  { transform: translateX(-4px) rotate(-1deg); }
+  30%  { transform: translateX(4px) rotate(1deg); }
+  45%  { transform: translateX(-3px); }
+  60%  { transform: translateX(3px); }
+  75%  { transform: translateX(-1px); }
+  100% { transform: translateX(0); }
+}
+
+.animate-shake-once {
+  animation: shake 0.55s ease 0.4s 1 both;
+}
+
+/* Sidebar slide-in — triggered by key change on date select */
+@keyframes sidebar-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.calendar-sidebar-content-enter {
+  animation: sidebar-slide-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Row delete fade — applied right before a row is removed from the DOM */
+@keyframes row-delete-fade {
+  0%   { opacity: 1;   transform: scaleY(1)   translateX(0);    max-height: 80px; }
+  40%  { opacity: 0.3; transform: scaleY(0.9) translateX(6px);  max-height: 80px; }
+  100% { opacity: 0;   transform: scaleY(0)   translateX(12px); max-height: 0;    padding: 0; }
+}
+
+.row-deleting td {
+  animation: row-delete-fade 0.32s ease-in forwards;
+  overflow: hidden;
+  pointer-events: none;
+}
