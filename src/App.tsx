@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { DashboardProvider, useDashboard } from './context/DashboardContext';
 import type { ProductItem, DailyIssue } from './types';
 import {
@@ -1191,9 +1192,12 @@ const DashboardContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <DashboardProvider>
-      <DashboardContent />
-    </DashboardProvider>
+    <>
+      <DashboardProvider>
+        <DashboardContent />
+      </DashboardProvider>
+      <Analytics />
+    </>
   );
 };
 
