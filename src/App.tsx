@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { DashboardProvider, useDashboard } from './context/DashboardContext';
 import type { ProductItem, DailyIssue } from './types';
 import {
@@ -1229,6 +1230,7 @@ const App: React.FC = () => {
   return (
     <DashboardProvider>
       <DashboardContent />
+      <SpeedInsights />
     </DashboardProvider>
   );
 };
