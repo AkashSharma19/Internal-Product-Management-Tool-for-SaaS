@@ -676,12 +676,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const notesRef = useRef<HTMLTextAreaElement>(null);
 
-  const statusScope = 
-    activeTab === 'projects' ? 'student' :
-    activeTab === 'content' ? 'content' :
-    (activeTab === 'meetings' || activeTab === 'admin') ? 'ama' : 'product';
-
-  const productStatuses = configStatuses.filter(s => s.scope === statusScope || s.scope === 'all');
+  const productStatuses = configStatuses;
 
   // Auto-expand textareas based on content on mount or update
   useEffect(() => {
@@ -1533,7 +1528,7 @@ export const ProductTable: React.FC = () => {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
-  const productStatuses = statuses.filter(s => s.scope === 'product' || s.scope === 'all').map(s => s.label);
+  const productStatuses = statuses.map(s => s.label);
   const statusOptions = productStatuses.length > 0 ? productStatuses : ['On Hold', 'In Progress', 'Ongoing', 'Completed'];
 
   // Sorting state
@@ -2838,7 +2833,7 @@ export const StudentProjectsTable: React.FC = () => {
   const [sortField, setSortField] = useState<keyof StudentProject | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
 
-  const studentStatuses = statuses.filter(s => s.scope === 'student' || s.scope === 'all').map(s => s.label);
+  const studentStatuses = statuses.map(s => s.label);
   const statusOptions = studentStatuses.length > 0 ? studentStatuses : ['Delivered', 'Cancelled', 'In-Progress'];
 
   const handleSort = (field: keyof StudentProject) => {
@@ -3422,15 +3417,7 @@ export const StudentMeetingsTable: React.FC = () => {
     }
   };
 
-  const statusOptions = (() => {
-    if (subTab === 'schedule') {
-      const meetingStatuses = statuses.filter(s => s.scope === 'ama' || s.scope === 'all').map(s => s.label);
-      return meetingStatuses.length > 0 ? meetingStatuses : ['Scheduled', 'Completed', 'Postponed'];
-    } else {
-      const prodStatuses = statuses.filter(s => s.scope === 'product' || s.scope === 'all').map(s => s.label);
-      return prodStatuses.length > 0 ? prodStatuses : ['On Hold', 'In Progress', 'Ongoing', 'Completed'];
-    }
-  })();
+  const statusOptions = statuses.map(s => s.label).length > 0 ? statuses.map(s => s.label) : ['Scheduled', 'Completed', 'Postponed', 'On Hold', 'In Progress', 'Ongoing'];
 
   // Dropdown other state
   const [showCustomProgramInput, setShowCustomProgramInput] = useState(false);
@@ -5063,15 +5050,7 @@ export const AdminCallsTable: React.FC = () => {
     }
   };
 
-  const statusOptions = (() => {
-    if (subTab === 'schedule') {
-      const meetingStatuses = statuses.filter(s => s.scope === 'ama' || s.scope === 'all').map(s => s.label);
-      return meetingStatuses.length > 0 ? meetingStatuses : ['Scheduled', 'Pending Actions', 'Completed'];
-    } else {
-      const prodStatuses = statuses.filter(s => s.scope === 'product' || s.scope === 'all').map(s => s.label);
-      return prodStatuses.length > 0 ? prodStatuses : ['On Hold', 'In Progress', 'Ongoing', 'Completed'];
-    }
-  })();
+  const statusOptions = statuses.map(s => s.label).length > 0 ? statuses.map(s => s.label) : ['Scheduled', 'Pending Actions', 'Completed', 'On Hold', 'In Progress', 'Ongoing'];
 
   // Inline editing states for Admin Calls
   const [editingCallDateId, setEditingCallDateId] = useState<string | null>(null);
@@ -6283,7 +6262,7 @@ export const ContentTable: React.FC = () => {
   } = useDashboard();
   
   const speakersList = configSpeakers.map(s => s.name);
-  const contentStatuses = configStatuses.filter(s => s.scope === 'content' || s.scope === 'all');
+  const contentStatuses = configStatuses;
   const statusOptions = contentStatuses.length > 0 
     ? contentStatuses.map(s => s.label) 
     : ['Idea', 'Writing', 'In Progress', 'Scheduled', 'Published'];
@@ -7192,7 +7171,7 @@ export const ProductWiseSheet: React.FC = () => {
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
   const [filterPocs, setFilterPocs] = useState<string[]>([]);
 
-  const productStatuses = statuses.filter(s => s.scope === 'product' || s.scope === 'all').map(s => s.label);
+  const productStatuses = statuses.map(s => s.label);
   const statusOptions = productStatuses.length > 0 ? productStatuses : ['On Hold', 'In Progress', 'Ongoing', 'Completed'];
 
   // Sorting state
@@ -7902,7 +7881,7 @@ export const IssuesTable: React.FC = () => {
   const [filterPriority, setFilterPriority] = useState('All');
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
-  const productStatuses = statuses.filter(s => s.scope === 'product' || s.scope === 'all').map(s => s.label);
+  const productStatuses = statuses.map(s => s.label);
   const statusOptions = productStatuses.length > 0 ? productStatuses : ['On Hold', 'In Progress', 'Ongoing', 'Completed'];
   const [sortField, setSortField] = useState<keyof DailyIssue | null>(null);
   const [sortAsc, setSortAsc] = useState(true);

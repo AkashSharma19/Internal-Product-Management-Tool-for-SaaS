@@ -731,23 +731,13 @@ const ProductGroupsSection: React.FC = () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // STATUSES SECTION
 // ═══════════════════════════════════════════════════════════════════════════════
-const SCOPE_LABELS: Record<ConfigStatus['scope'], string> = {
-  product: 'Priority Requests',
-  ama: 'AMA / Schedule',
-  student: 'Student Projects',
-  content: 'Content Pipeline',
-  all: 'All Sections',
-};
-
 const StatusesSection: React.FC = () => {
   const { statuses, addStatus, updateStatus, deleteStatus, canUserEdit } = useDashboard();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState('');
   const [editColor, setEditColor] = useState('#6366f1');
-  const [editScope, setEditScope] = useState<ConfigStatus['scope']>('all');
   const [addLabel, setAddLabel] = useState('');
   const [addColor, setAddColor] = useState('#6366f1');
-  const [addScope, setAddScope] = useState<ConfigStatus['scope']>('all');
   const [showAdd, setShowAdd] = useState(false);
   const [showSwatchFor, setShowSwatchFor] = useState<string | null>(null);
 
@@ -755,25 +745,21 @@ const StatusesSection: React.FC = () => {
     setEditingId(s.id);
     setEditLabel(s.label);
     setEditColor(s.color);
-    setEditScope(s.scope);
     setShowSwatchFor(null);
   };
   const saveEdit = () => {
     if (!editLabel.trim() || !editingId) return;
-    updateStatus(editingId, { label: editLabel.trim(), color: editColor, scope: editScope });
+    updateStatus(editingId, { label: editLabel.trim(), color: editColor, scope: 'all' });
     setEditingId(null);
   };
   const handleAdd = () => {
     if (!addLabel.trim()) return;
-    addStatus({ id: `st-${Date.now()}`, label: addLabel.trim(), color: addColor, scope: addScope });
+    addStatus({ id: `st-${Date.now()}`, label: addLabel.trim(), color: addColor, scope: 'all' });
     setAddLabel('');
     setAddColor('#6366f1');
-    setAddScope('all');
     setShowAdd(false);
     setShowSwatchFor(null);
   };
-
-
 
   const actionButton = !showAdd && canUserEdit ? (
     <button
@@ -796,7 +782,6 @@ const StatusesSection: React.FC = () => {
           <tr>
             <th>Label</th>
             <th style={{ width: 90 }}>Colour</th>
-            <th style={{ width: 160 }}>Scope</th>
             <th style={{ width: 72 }}>Actions</th>
           </tr>
         </thead>
@@ -844,24 +829,6 @@ const StatusesSection: React.FC = () => {
                     <span style={{ width: 14, height: 14, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
                     <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{s.color}</span>
                   </span>
-                )}
-              </td>
-              <td>
-                {editingId === s.id ? (
-                  <select
-                    className="config-select"
-                    style={{ width: 'auto', minWidth: 140 }}
-                    value={editScope}
-                    onChange={e => setEditScope(e.target.value as ConfigStatus['scope'])}
-                  >
-                    <option value="product">Priority Requests</option>
-                    <option value="ama">AMA / Schedule</option>
-                    <option value="student">Student Projects</option>
-                    <option value="content">Content Pipeline</option>
-                    <option value="all">All Sections</option>
-                  </select>
-                ) : (
-                  <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>{SCOPE_LABELS[s.scope]}</span>
                 )}
               </td>
               <td>
@@ -916,20 +883,6 @@ const StatusesSection: React.FC = () => {
                     </div>
                   )}
                 </div>
-              </td>
-              <td>
-                <select
-                  className="config-select"
-                  style={{ width: 'auto', minWidth: 140 }}
-                  value={addScope}
-                  onChange={e => setAddScope(e.target.value as ConfigStatus['scope'])}
-                >
-                  <option value="product">Priority Requests</option>
-                  <option value="ama">AMA / Schedule</option>
-                  <option value="student">Student Projects</option>
-                  <option value="content">Content Pipeline</option>
-                  <option value="all">All Sections</option>
-                </select>
               </td>
               <td>
                 <div style={{ display: 'flex', gap: 2 }}>
