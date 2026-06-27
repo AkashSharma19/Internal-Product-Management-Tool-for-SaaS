@@ -34,6 +34,7 @@ import type {
   AMASession,
   StudentMeeting, 
   AdminCall, 
+  TarunSirMeeting,
   ContentItem, 
   DailyIssue, 
   FeatureAdoption 
@@ -1558,7 +1559,7 @@ export const ProductTable: React.FC = () => {
 
   // Filter & Search
   const filtered = productItems.filter(item => {
-    if (item.id.startsWith('prod-temp-') || item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-') || item.id.startsWith('prod-breakdown-')) return false;
+    if (item.id.startsWith('prod-temp-') || item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-') || item.id.startsWith('prod-tarun-') || item.id.startsWith('prod-breakdown-')) return false;
     const matchesSearch = 
       item.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.poc.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -2204,7 +2205,7 @@ export const PlanTable: React.FC = () => {
   interface AutoItem {
     id: string;
     title: string;
-    source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA & Meetings' | 'Product Breakdown';
+    source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA & Meetings' | 'Admin Calls' | 'Tarun Sir Meetings' | 'Product Breakdown';
     column: 'product' | 'design' | 'dev';
     priority?: string;
     poc?: string;
@@ -2221,13 +2222,16 @@ export const PlanTable: React.FC = () => {
     productItems.forEach(item => {
       if (item.id.startsWith('prod-temp-')) return;
       if (item.status === 'Completed') return;
-      const isRelatedFeature = item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-');
       const isBreakdown = item.id.startsWith('prod-breakdown-');
-      const itemSource = isRelatedFeature 
+      const itemSource = item.id.startsWith('prod-ama-') 
         ? 'AMA & Meetings' 
-        : isBreakdown 
-          ? 'Product Breakdown' 
-          : 'Priority Requests';
+        : item.id.startsWith('prod-call-')
+          ? 'Admin Calls'
+          : item.id.startsWith('prod-tarun-')
+            ? 'Tarun Sir Meetings'
+            : isBreakdown 
+              ? 'Product Breakdown' 
+              : 'Priority Requests';
       if (dateInSelectedMonth(item.productDeadline)) {
         autoItems.push({
           id: `auto-prod-specs-${item.id}`,
@@ -3595,7 +3599,7 @@ export const StudentMeetingsTable: React.FC = () => {
   const filteredFeedbackFeatures = productItems.filter(item => {
     if (item.id.startsWith('prod-temp-')) return false;
     // Admin Call features must never appear in the AMA Feedback tab
-    if (item.id.startsWith('prod-call-')) return false;
+    if (item.id.startsWith('prod-call-') || item.id.startsWith('prod-tarun-')) return false;
 
     // If it is a prod-ama- task, it must have an active parent AMA session
     if (item.id.startsWith('prod-ama-')) {
@@ -6255,6 +6259,1290 @@ export const AdminCallsTable: React.FC = () => {
   );
 };
 
+export const TarunSirMeetingsTable: React.FC = () => {
+  const { 
+    tarunSirMeetings, updateTarunSirMeeting, addTarunSirMeeting, deleteTarunSirMeeting, 
+    productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
+    speakers: configSpeakers, statuses, currentUser, confirm
+  } = useDashboard();
+  
+  const speakersList = configSpeakers.map(s => s.name);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [subTab, setSubTab] = useState<'schedule' | 'feedback'>('schedule');
+  const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+
+  useEffect(() => {
+    setFilterStatuses([]);
+  }, [subTab]);
+
+  // Sorting states
+  const [meetingSortField, setMeetingSortField] = useState<keyof TarunSirMeeting | null>(null);
+  const [meetingSortAsc, setMeetingSortAsc] = useState(true);
+
+  const [feedbackSortField, setFeedbackSortField] = useState<keyof ProductItem | 'meetingDate' | 'meetingPoc' | 'meetingTopic' | null>(null);
+  const [feedbackSortAsc, setFeedbackSortAsc] = useState(true);
+
+  const handleMeetingSort = (field: keyof TarunSirMeeting) => {
+    if (meetingSortField === field) {
+      setMeetingSortAsc(!meetingSortAsc);
+    } else {
+      setMeetingSortField(field);
+      setMeetingSortAsc(true);
+    }
+  };
+
+  const handleFeedbackSort = (field: typeof feedbackSortField) => {
+    if (feedbackSortField === field) {
+      setFeedbackSortAsc(!feedbackSortAsc);
+    } else {
+      setFeedbackSortField(field);
+      setFeedbackSortAsc(true);
+    }
+  };
+
+  const statusOptions = statuses.map(s => s.label).length > 0 ? statuses.map(s => s.label) : ['Scheduled', 'Pending Actions', 'Completed', 'On Hold', 'In Progress', 'Ongoing'];
+
+  // Inline editing states for Tarun Sir Meetings
+  const [editingMeetingDateId, setEditingMeetingDateId] = useState<string | null>(null);
+  const [inlineMeetingDateValue, setInlineMeetingDateValue] = useState('');
+  const editMeetingDateInputRef = useRef<HTMLInputElement>(null);
+
+  const [editingMeetingPocId, setEditingMeetingPocId] = useState<string | null>(null);
+  const [inlineMeetingPocValue, setInlineMeetingPocValue] = useState('');
+
+  const [editingMeetingTopicId, setEditingMeetingTopicId] = useState<string | null>(null);
+  const [inlineMeetingTopicValue, setInlineMeetingTopicValue] = useState('');
+  const editMeetingTopicInputRef = useRef<HTMLInputElement>(null);
+
+  const [expandedMeetingId, setExpandedMeetingId] = useState<string | null>(null);
+
+  // Related features state
+  const [editingMeetingRelatedId, setEditingMeetingRelatedId] = useState<string | null>(null);
+  const [inlineMeetingRelatedValue, setInlineMeetingRelatedValue] = useState('');
+  const editMeetingRelatedInputRef = useRef<HTMLInputElement>(null);
+
+  // Inline editing states for Feedback tab
+  const [editingFeedbackFeatureId, setEditingFeedbackFeatureId] = useState<string | null>(null);
+  const [inlineFeedbackFeatureValue, setInlineFeedbackFeatureValue] = useState('');
+  const editFeedbackFeatureInputRef = useRef<HTMLInputElement>(null);
+
+  const [editingFeedbackDateId, setEditingFeedbackDateId] = useState<string | null>(null);
+  const [inlineFeedbackDateValue, setInlineFeedbackDateValue] = useState('');
+  const editFeedbackDateInputRef = useRef<HTMLInputElement>(null);
+
+  const [editingFeedbackPocId, setEditingFeedbackPocId] = useState<string | null>(null);
+  const [inlineFeedbackPocValue, setInlineFeedbackPocValue] = useState('');
+
+  const [editingFeedbackTopicId, setEditingFeedbackTopicId] = useState<string | null>(null);
+  const [inlineFeedbackTopicValue, setInlineFeedbackTopicValue] = useState('');
+  const editFeedbackTopicInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingMeetingTopicId && editMeetingTopicInputRef.current) {
+      editMeetingTopicInputRef.current.focus();
+      editMeetingTopicInputRef.current.select();
+    }
+  }, [editingMeetingTopicId]);
+
+  useEffect(() => {
+    if (editingMeetingDateId && editMeetingDateInputRef.current) {
+      editMeetingDateInputRef.current.focus();
+    }
+  }, [editingMeetingDateId]);
+
+  useEffect(() => {
+    if (editingMeetingRelatedId && editMeetingRelatedInputRef.current) {
+      editMeetingRelatedInputRef.current.focus();
+      editMeetingRelatedInputRef.current.select();
+    }
+  }, [editingMeetingRelatedId]);
+
+  useEffect(() => {
+    if (editingFeedbackFeatureId && editFeedbackFeatureInputRef.current) {
+      editFeedbackFeatureInputRef.current.focus();
+      editFeedbackFeatureInputRef.current.select();
+    }
+  }, [editingFeedbackFeatureId]);
+
+  useEffect(() => {
+    if (editingFeedbackTopicId && editFeedbackTopicInputRef.current) {
+      editFeedbackTopicInputRef.current.focus();
+      editFeedbackTopicInputRef.current.select();
+    }
+  }, [editingFeedbackTopicId]);
+
+  useEffect(() => {
+    if (editingFeedbackDateId && editFeedbackDateInputRef.current) {
+      editFeedbackDateInputRef.current.focus();
+    }
+  }, [editingFeedbackDateId]);
+
+  // Handle Add New
+  const handleAddNew = () => {
+    setSearchQuery('');
+    setMeetingSortField(null);
+    setMeetingSortAsc(true);
+
+    const newMeeting: TarunSirMeeting = {
+      id: `meeting-${Date.now()}`,
+      date: new Date().toISOString().split('T')[0],
+      adminPoc: currentUser?.name || (speakersList.length > 0 ? speakersList[0] : 'Akash'),
+      cohortTopic: 'New Meeting Topic',
+      discussion: '',
+      actions: '',
+      status: 'Scheduled'
+    };
+    addTarunSirMeeting(newMeeting);
+    setExpandedMeetingId(newMeeting.id);
+  };
+
+  const getRelatedFeatures = (meeting: TarunSirMeeting) => {
+    const matchesId = productItems.filter(item => 
+      !item.id.startsWith('prod-temp-') && 
+      item.notes && 
+      item.notes.includes(`Tarun Sir Meeting ID: ${meeting.id}`)
+    );
+    return filterSuperPriorityOnly ? matchesId.filter(feat => feat.raisedByTarunSir) : matchesId;
+  };
+
+  const getParentMeeting = (item: ProductItem): TarunSirMeeting | undefined => {
+    if (item.notes && item.notes.includes('Tarun Sir Meeting ID:')) {
+      const match = item.notes.match(/Tarun Sir Meeting ID:\s*([^\s,;\]]+)/);
+      if (match && match[1]) {
+        return tarunSirMeetings.find(call => call.id === match[1]);
+      }
+    }
+    return undefined;
+  };
+
+  const filteredFeedbackFeatures = productItems.filter(item => {
+    if (item.id.startsWith('prod-temp-')) return false;
+    if (!item.id.startsWith('prod-tarun-')) return false;
+
+    const parent = getParentMeeting(item);
+    if (!parent) return false;
+    
+    const matchesSuperPriority = !filterSuperPriorityOnly || !!item.raisedByTarunSir;
+    if (!matchesSuperPriority) return false;
+    
+    if (filterStatuses.length > 0 && !filterStatuses.includes(item.status)) return false;
+
+    const matchesSearch = 
+      item.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.poc.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.notes.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.module || '').toLowerCase().includes(searchQuery.toLowerCase());
+      
+    return matchesSearch;
+  });
+
+  const sortedFeedbackFeatures = [...filteredFeedbackFeatures];
+  sortedFeedbackFeatures.sort((a, b) => {
+    const aComp = !!a.finalReleaseCompleted;
+    const bComp = !!b.finalReleaseCompleted;
+    if (aComp !== bComp) return aComp ? 1 : -1;
+    if (feedbackSortField) {
+      let valA: any = '';
+      let valB: any = '';
+      
+      if (feedbackSortField === 'meetingDate' || feedbackSortField === 'meetingPoc' || feedbackSortField === 'meetingTopic') {
+        const parentA = getParentMeeting(a);
+        const parentB = getParentMeeting(b);
+        if (feedbackSortField === 'meetingDate') {
+          valA = parentA?.date || '';
+          valB = parentB?.date || '';
+        } else if (feedbackSortField === 'meetingPoc') {
+          valA = parentA?.adminPoc || '';
+          valB = parentB?.adminPoc || '';
+        } else if (feedbackSortField === 'meetingTopic') {
+          valA = parentA?.cohortTopic || '';
+          valB = parentB?.cohortTopic || '';
+        }
+      } else {
+        valA = a[feedbackSortField as keyof ProductItem] || '';
+        valB = b[feedbackSortField as keyof ProductItem] || '';
+      }
+      
+      const strA = String(valA).toLowerCase();
+      const strB = String(valB).toLowerCase();
+      return feedbackSortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
+    }
+    return 0;
+  });
+
+  // Filter meetings
+  const filteredMeetings = tarunSirMeetings.filter(meeting => {
+    if (filterStatuses.length > 0 && !filterStatuses.includes(meeting.status)) return false;
+    const matchesSearch = 
+      meeting.cohortTopic.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      meeting.adminPoc.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      meeting.discussion.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      meeting.actions.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      meeting.date.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
+  });
+
+  // Sort meetings
+  const sortedMeetings = [...filteredMeetings];
+  if (meetingSortField) {
+    sortedMeetings.sort((a, b) => {
+      const aComp = a.status === 'Completed';
+      const bComp = b.status === 'Completed';
+      if (aComp !== bComp) return aComp ? 1 : -1;
+
+      const valA = a[meetingSortField as keyof TarunSirMeeting] || '';
+      const valB = b[meetingSortField as keyof TarunSirMeeting] || '';
+      const strA = String(valA).toLowerCase();
+      const strB = String(valB).toLowerCase();
+      return meetingSortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
+    });
+  } else {
+    // Default sorting: Scheduled/Pending first, then by date descending
+    sortedMeetings.sort((a, b) => {
+      const aComp = a.status === 'Completed';
+      const bComp = b.status === 'Completed';
+      if (aComp !== bComp) return aComp ? 1 : -1;
+      return b.date.localeCompare(a.date);
+    });
+  }
+
+  return (
+    <>
+      <TabContainer
+        title="Tarun Sir Meetings"
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        onAddClick={subTab === 'schedule' ? handleAddNew : undefined}
+        addLabel={subTab === 'schedule' ? 'Add Meeting' : undefined}
+        searchPlaceholder={subTab === 'schedule' ? 'Search meetings...' : 'Search feedback features...'}
+        filterComponent={
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <MultiSelectDropdown
+              options={statusOptions}
+              selectedValues={filterStatuses}
+              onChange={setFilterStatuses}
+              placeholder="Status"
+            />
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', marginLeft: '0.5rem', whiteSpace: 'nowrap' }}>
+              <input 
+                type="checkbox" 
+                className="form-checkbox"
+                checked={filterSuperPriorityOnly} 
+                onChange={(e) => setFilterSuperPriorityOnly(e.target.checked)} 
+                style={{ cursor: 'pointer' }}
+              />
+              Super Priority Only
+            </label>
+          </div>
+        }
+      >
+        {/* Sub-tab Navigation */}
+        <div style={{ 
+          display: 'flex', 
+          borderBottom: '1px solid var(--border)', 
+          padding: '0.25rem 1.5rem 0 1.5rem', 
+          background: 'var(--panel-bg)', 
+          gap: '1.5rem' 
+        }}>
+          <button
+            onClick={() => {
+              setSubTab('schedule');
+              setSearchQuery('');
+              setEditingFeedbackFeatureId(null);
+              setEditingFeedbackDateId(null);
+              setEditingFeedbackPocId(null);
+              setEditingFeedbackTopicId(null);
+            }}
+            style={{
+              padding: '0.75rem 0.5rem',
+              border: 'none',
+              background: 'none',
+              borderBottom: subTab === 'schedule' ? '2px solid var(--primary)' : '2px solid transparent',
+              color: subTab === 'schedule' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              outline: 'none'
+            }}
+          >
+            Schedule
+          </button>
+          <button
+            onClick={() => {
+              setSubTab('feedback');
+              setSearchQuery('');
+              setEditingFeedbackFeatureId(null);
+              setEditingFeedbackDateId(null);
+              setEditingFeedbackPocId(null);
+              setEditingFeedbackTopicId(null);
+            }}
+            style={{
+              padding: '0.75rem 0.5rem',
+              border: 'none',
+              background: 'none',
+              borderBottom: subTab === 'feedback' ? '2px solid var(--primary)' : '2px solid transparent',
+              color: subTab === 'feedback' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              outline: 'none'
+            }}
+          >
+            Feedback
+          </button>
+        </div>
+
+        {subTab === 'schedule' ? (
+          <div className="table-responsive">
+            <table className="grid-table">
+              <thead>
+                <tr>
+                  <th onClick={() => handleMeetingSort('date')} style={{ width: '150px', cursor: 'pointer' }}>Meeting Date {meetingSortField === 'date' ? (meetingSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleMeetingSort('adminPoc')} style={{ width: '200px', cursor: 'pointer' }}>Admin / POC {meetingSortField === 'adminPoc' ? (meetingSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleMeetingSort('cohortTopic')} style={{ cursor: 'pointer' }}>Topic / Meeting Agenda {meetingSortField === 'cohortTopic' ? (meetingSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleMeetingSort('status')} style={{ width: '150px', cursor: 'pointer' }}>Status {meetingSortField === 'status' ? (meetingSortAsc ? '▲' : '▼') : ''}</th>
+                  <th style={{ width: '40px' }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedMeetings.map(meeting => {
+                  const related = getRelatedFeatures(meeting);
+                  const isExpanded = expandedMeetingId === meeting.id;
+                  
+                  return (
+                    <React.Fragment key={meeting.id}>
+                      <tr 
+                        onClick={() => setExpandedMeetingId(isExpanded ? null : meeting.id)} 
+                        style={{ 
+                          cursor: 'pointer',
+                          backgroundColor: isExpanded ? 'var(--background-alt)' : 'transparent',
+                          transition: 'background-color 0.2s ease'
+                        }}
+                      >
+                        <td 
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setEditingMeetingDateId(meeting.id);
+                            setInlineMeetingDateValue(meeting.date);
+                          }}
+                          title="Double click to edit Date"
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center' }}>
+                            {isExpanded ? (
+                              <ChevronUp size={16} style={{ marginRight: '8px', color: 'var(--primary)', flexShrink: 0 }} />
+                            ) : (
+                              <ChevronDown size={16} style={{ marginRight: '8px', color: 'var(--text-secondary)', flexShrink: 0 }} />
+                            )}
+                            {editingMeetingDateId === meeting.id ? (
+                              <input
+                                ref={editMeetingDateInputRef}
+                                type="date"
+                                value={inlineMeetingDateValue}
+                                onChange={(e) => setInlineMeetingDateValue(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    updateTarunSirMeeting(meeting.id, { date: inlineMeetingDateValue });
+                                    setEditingMeetingDateId(null);
+                                  } else if (e.key === 'Escape') {
+                                    e.preventDefault();
+                                    setEditingMeetingDateId(null);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  updateTarunSirMeeting(meeting.id, { date: inlineMeetingDateValue });
+                                  setEditingMeetingDateId(null);
+                                }}
+                                style={{
+                                  padding: '4px 6px',
+                                  backgroundColor: 'var(--background)',
+                                  border: '1.5px solid var(--primary)',
+                                  borderRadius: '6px',
+                                  color: 'var(--text-primary)',
+                                  fontSize: '0.8rem',
+                                  outline: 'none',
+                                }}
+                              />
+                            ) : (
+                              <span>{formatDateToUserPattern(meeting.date)}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingMeetingPocId(meeting.id);
+                            setInlineMeetingPocValue(meeting.adminPoc);
+                          }}
+                          title="Click to edit POC"
+                        >
+                          {editingMeetingPocId === meeting.id ? (
+                            <select
+                              autoFocus
+                              value={inlineMeetingPocValue}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setInlineMeetingPocValue(val);
+                                updateTarunSirMeeting(meeting.id, { adminPoc: val });
+                                setEditingMeetingPocId(null);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              onBlur={() => setEditingMeetingPocId(null)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Escape') {
+                                  setEditingMeetingPocId(null);
+                                }
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '4px 6px',
+                                backgroundColor: 'var(--background)',
+                                border: '1.5px solid var(--primary)',
+                                borderRadius: '6px',
+                                color: 'var(--text-primary)',
+                                fontSize: '0.8rem',
+                                outline: 'none',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {speakersList.map(s => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                              {inlineMeetingPocValue && !speakersList.includes(inlineMeetingPocValue) && (
+                                <option value={inlineMeetingPocValue}>{inlineMeetingPocValue}</option>
+                              )}
+                            </select>
+                          ) : (
+                            <span style={{ fontWeight: 600 }}>{meeting.adminPoc}</span>
+                          )}
+                        </td>
+                        <td
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setEditingMeetingTopicId(meeting.id);
+                            setInlineMeetingTopicValue(meeting.cohortTopic);
+                          }}
+                          style={{ fontWeight: 500 }}
+                          title="Double click to edit Topic"
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', width: '100%' }}>
+                            {editingMeetingTopicId === meeting.id ? (
+                              <input
+                                ref={editMeetingTopicInputRef}
+                                type="text"
+                                value={inlineMeetingTopicValue}
+                                onChange={(e) => setInlineMeetingTopicValue(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    const finalVal = inlineMeetingTopicValue.trim() || 'New Meeting Topic';
+                                    updateTarunSirMeeting(meeting.id, { cohortTopic: finalVal });
+                                    setEditingMeetingTopicId(null);
+                                  } else if (e.key === 'Escape') {
+                                    e.preventDefault();
+                                    setEditingMeetingTopicId(null);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  const finalVal = inlineMeetingTopicValue.trim() || 'New Meeting Topic';
+                                  updateTarunSirMeeting(meeting.id, { cohortTopic: finalVal });
+                                  setEditingMeetingTopicId(null);
+                                }}
+                                style={{
+                                  width: '100%',
+                                  padding: '4px 6px',
+                                  backgroundColor: 'var(--background)',
+                                  border: '1.5px solid var(--primary)',
+                                  borderRadius: '6px',
+                                  color: 'var(--text-primary)',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 600,
+                                  outline: 'none',
+                                }}
+                              />
+                            ) : (
+                              <>
+                                <span>{meeting.cohortTopic || <span style={{ color: 'var(--text-muted)' }}>— (No topic)</span>}</span>
+                                {related.length > 0 && (
+                                  <span className="badge" style={{ 
+                                    fontSize: '0.7rem', 
+                                    padding: '2px 6px', 
+                                    background: 'var(--primary-glow)', 
+                                    color: 'var(--primary)', 
+                                    border: '1px solid var(--primary-border)',
+                                    fontWeight: 500
+                                  }}>
+                                    {related.length} {related.length === 1 ? 'feature' : 'features'}
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <select
+                            value={meeting.status || 'Scheduled'}
+                            onChange={(e) => updateTarunSirMeeting(meeting.id, { status: e.target.value as any })}
+                            onClick={(e) => e.stopPropagation()}
+                            className={`badge ${
+                              meeting.status === 'Completed' ? 'status-completed' :
+                              meeting.status === 'Pending Actions' ? 'status-hold' : 'status-progress'
+                            }`}
+                            style={{ 
+                              border: 'none', 
+                              outline: 'none', 
+                              cursor: 'pointer',
+                              padding: '2px 6px',
+                              fontFamily: 'inherit',
+                              fontWeight: 'inherit',
+                              fontSize: '0.75rem',
+                              borderRadius: '4px',
+                              appearance: 'none',
+                              textAlign: 'center'
+                            }}
+                          >
+                            <option value="Scheduled" style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>Scheduled</option>
+                            <option value="Completed" style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>Completed</option>
+                            <option value="Pending Actions" style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>Pending Actions</option>
+                          </select>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
+                            <button 
+                              onClick={() => {
+                                setEditingMeetingTopicId(meeting.id);
+                                setInlineMeetingTopicValue(meeting.cohortTopic);
+                              }} 
+                              style={{ 
+                                background: 'none', 
+                                border: 'none', 
+                                cursor: 'pointer', 
+                                color: 'var(--text-secondary)', 
+                                display: 'flex', 
+                                alignItems: 'center',
+                                padding: '4px'
+                              }}
+                              title="Edit Topic Inline"
+                            >
+                              <Edit2 size={12} />
+                            </button>
+                            <button 
+                              onClick={async () => {
+                                if (await confirm("Are you sure you want to delete this Meeting?", "Delete Meeting")) {
+                                  deleteTarunSirMeeting(meeting.id);
+                                }
+                              }} 
+                              style={{ 
+                                background: 'none', 
+                                border: 'none', 
+                                cursor: 'pointer', 
+                                color: 'var(--danger)', 
+                                display: 'flex', 
+                                alignItems: 'center',
+                                padding: '4px'
+                              }}
+                              title="Delete Meeting"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Accordion Expansion */}
+                      {isExpanded && (
+                        <tr style={{ background: 'var(--background)' }}>
+                          <td colSpan={5} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
+                            <div style={{
+                              background: 'var(--panel-bg)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '8px',
+                              padding: '1.25rem',
+                              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '1.25rem'
+                            }}>
+                              {/* Top Split: Discussion & Actions */}
+                              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                                <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                  <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Discussion</label>
+                                  <textarea
+                                    value={meeting.discussion}
+                                    onChange={(e) => updateTarunSirMeeting(meeting.id, { discussion: e.target.value })}
+                                    placeholder="Enter discussion details..."
+                                    style={{
+                                      width: '100%',
+                                      height: '80px',
+                                      padding: '8px 10px',
+                                      backgroundColor: 'var(--background)',
+                                      border: '1px solid var(--border)',
+                                      borderRadius: '6px',
+                                      color: 'var(--text-primary)',
+                                      fontSize: '0.8rem',
+                                      fontFamily: 'inherit',
+                                      resize: 'vertical',
+                                      outline: 'none'
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                </div>
+                                <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                  <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Action Items</label>
+                                  <textarea
+                                    value={meeting.actions}
+                                    onChange={(e) => updateTarunSirMeeting(meeting.id, { actions: e.target.value })}
+                                    placeholder="Enter action items/decisions..."
+                                    style={{
+                                      width: '100%',
+                                      height: '80px',
+                                      padding: '8px 10px',
+                                      backgroundColor: 'var(--background)',
+                                      border: '1px solid var(--border)',
+                                      borderRadius: '6px',
+                                      color: 'var(--text-primary)',
+                                      fontSize: '0.8rem',
+                                      fontFamily: 'inherit',
+                                      resize: 'vertical',
+                                      outline: 'none'
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                </div>
+                              </div>
+
+                              <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: 0 }} />
+
+                              {/* Bottom Section: Related Features table */}
+                              <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                  <h4 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', margin: 0 }}>Related Feature Requests</h4>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const newItem: ProductItem = {
+                                        id: `prod-tarun-${Date.now()}`,
+                                        feature: '',
+                                        description: '',
+                                        tarunSirApproval: false,
+                                        raisedByTarunSir: false,
+                                        priority: '',
+                                        poc: currentUser?.name || '',
+                                        status: '',
+                                        clickupStatus: '',
+                                        taskLink: '',
+                                        blocker: '',
+                                        deadline: '',
+                                        notes: `Tarun Sir Meeting ID: ${meeting.id} | Meeting: ${meeting.cohortTopic || ''}`,
+                                        product: '',
+                                        module: '',
+                                        uiux: '',
+                                        finalRelease: '',
+                                        productDeadline: ''
+                                      };
+                                      addProductItem(newItem);
+                                      setInlineMeetingRelatedValue('');
+                                      setEditingMeetingRelatedId(newItem.id);
+                                    }}
+                                    className="btn btn-secondary"
+                                    style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                  >
+                                    + Add Related Feature
+                                  </button>
+                                </div>
+
+                                {related.length > 0 ? (
+                                  <div className="table-responsive" style={{ border: '1px solid var(--border)', borderRadius: '6px' }}>
+                                    <table className="grid-table" style={{ background: 'var(--background)' }}>
+                                      <thead>
+                                        <tr style={{ background: 'var(--background-alt)' }}>
+                                          <th>Feature</th>
+                                          <th style={{ width: '150px' }}>Product</th>
+                                          <th style={{ width: '80px' }}>Priority</th>
+                                          <th style={{ width: '120px' }}>Status</th>
+                                          <th style={{ width: '120px' }}>POC</th>
+                                          <th style={{ width: '100px' }}>ClickUp</th>
+                                          <th style={{ width: '120px' }}>Specs Date</th>
+                                          <th style={{ width: '120px' }}>UI/UX Date</th>
+                                          <th style={{ width: '120px' }}>Dev Date</th>
+                                          <th style={{ width: '120px' }}>Release Date</th>
+                                          <th style={{ width: '40px' }}></th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {related.map(feat => (
+                                          <tr 
+                                            key={feat.id} 
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              if (editingMeetingRelatedId !== feat.id) {
+                                                setPreviewProductId(feat.id);
+                                              }
+                                            }} 
+                                            style={{ cursor: 'pointer' }}
+                                          >
+                                            <td style={{ fontWeight: 600, whiteSpace: 'normal' }}>
+                                              {editingMeetingRelatedId === feat.id ? (
+                                                <input
+                                                  ref={editMeetingRelatedInputRef}
+                                                  type="text"
+                                                  value={inlineMeetingRelatedValue}
+                                                  onChange={(e) => setInlineMeetingRelatedValue(e.target.value)}
+                                                  onClick={(e) => e.stopPropagation()}
+                                                  onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                      e.preventDefault();
+                                                      const finalVal = inlineMeetingRelatedValue.trim() || 'New Feature';
+                                                      updateProductItem(feat.id, { feature: finalVal });
+                                                      setEditingMeetingRelatedId(null);
+                                                    } else if (e.key === 'Escape') {
+                                                      e.preventDefault();
+                                                      setEditingMeetingRelatedId(null);
+                                                    }
+                                                  }}
+                                                  onBlur={() => {
+                                                    const finalVal = inlineMeetingRelatedValue.trim() || 'New Feature';
+                                                    updateProductItem(feat.id, { feature: finalVal });
+                                                    setEditingMeetingRelatedId(null);
+                                                  }}
+                                                  style={{
+                                                    width: '100%',
+                                                    padding: '6px 8px',
+                                                    backgroundColor: 'var(--background)',
+                                                    border: '1.5px solid var(--primary)',
+                                                    borderRadius: '6px',
+                                                    color: 'var(--text-primary)',
+                                                    fontSize: '0.8rem',
+                                                    fontWeight: 600,
+                                                    outline: 'none',
+                                                    boxShadow: '0 0 0 2px var(--primary-glow)'
+                                                  }}
+                                                />
+                                              ) : (
+                                                <>
+                                                  {feat.feature || '—'}
+                                                  {feat.raisedByTarunSir && (
+                                                    <span className="badge-super-priority" style={{ padding: '1px 4px', fontSize: '0.6rem', borderRadius: '3px', marginLeft: '6px' }}>
+                                                      <Sparkles size={8} /> Super Priority
+                                                    </span>
+                                                  )}
+                                                  {feat.tarunSirApproval && (
+                                                    <span className="badge-verified" style={{ padding: '1px 4px', fontSize: '0.6rem', borderRadius: '3px', marginLeft: '6px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', fontWeight: 650 }}>
+                                                      <CheckCircle size={8} /> Verified
+                                                    </span>
+                                                  )}
+                                                </>
+                                              )}
+                                            </td>
+                                            <td>{feat.product || '—'}</td>
+                                            <td>
+                                              {feat.priority ? (
+                                                <span className={`badge badge-${feat.priority.toLowerCase()}`}>
+                                                  {feat.priority}
+                                                </span>
+                                              ) : '—'}
+                                            </td>
+                                            <td>
+                                              {feat.status ? (
+                                                <span className={`badge ${
+                                                  feat.status === 'On Hold' ? 'status-hold' :
+                                                  feat.status === 'In Progress' ? 'status-progress' :
+                                                  feat.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
+                                                }`}>
+                                                  {feat.status}
+                                                </span>
+                                              ) : '—'}
+                                            </td>
+                                            <td>
+                                              {feat.poc ? (
+                                                <span style={getPOCBadgeStyle(feat.poc)}>
+                                                  {feat.poc}
+                                                </span>
+                                              ) : '—'}
+                                            </td>
+                                            <td>
+                                              {feat.clickupStatus ? (
+                                                <span style={getClickupBadgeStyle(feat.clickupStatus)}>
+                                                  {feat.clickupStatus}
+                                                </span>
+                                              ) : '—'}
+                                            </td>
+                                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                              {feat.productDeadline ? (
+                                                <span style={getDateSpanStyle(feat.productDeadline, feat.productDeadlineCompleted)}>
+                                                  {formatDateToUserPattern(feat.productDeadline)}
+                                                </span>
+                                              ) : '—'}
+                                            </td>
+                                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                                              <DateDiffBadge prevDate={feat.productDeadline} currentDate={feat.uiux} />
+                                              {feat.uiux ? (
+                                                <span style={getDateSpanStyle(feat.uiux, feat.uiuxCompleted)}>
+                                                  {formatDateToUserPattern(feat.uiux)}
+                                                </span>
+                                              ) : '—'}
+                                            </td>
+                                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                                              <DateDiffBadge prevDate={feat.uiux} currentDate={feat.deadline} />
+                                              {feat.deadline ? (
+                                                <span style={getDateSpanStyle(feat.deadline, feat.deadlineCompleted)}>
+                                                  {formatDateToUserPattern(feat.deadline)}
+                                                </span>
+                                              ) : '—'}
+                                            </td>
+                                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                                              <DateDiffBadge prevDate={feat.deadline} currentDate={feat.finalRelease} />
+                                              {feat.finalRelease ? (
+                                                <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
+                                                  {formatDateToUserPattern(feat.finalRelease)}
+                                                </span>
+                                              ) : '—'}
+                                            </td>
+                                            <td>
+                                              <button 
+                                                onClick={async (e) => {
+                                                  e.stopPropagation();
+                                                  if (await confirm("Are you sure you want to delete this feature?", "Delete Feature")) {
+                                                    deleteProductItem(feat.id);
+                                                  }
+                                                }} 
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center', padding: '4px' }}
+                                                title="Delete Feature"
+                                              >
+                                                <Trash2 size={12} />
+                                              </button>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                ) : (
+                                  <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: '1.5rem',
+                                    border: '1px dashed var(--border)',
+                                    borderRadius: '6px',
+                                    color: 'var(--text-secondary)',
+                                    gap: '0.5rem',
+                                    background: 'var(--background)'
+                                  }}>
+                                    <span style={{ fontSize: '0.8rem' }}>No associated feature requests found for this discussion.</span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const newItem: ProductItem = {
+                                          id: `prod-tarun-${Date.now()}`,
+                                          feature: '',
+                                          description: '',
+                                          tarunSirApproval: false,
+                                          raisedByTarunSir: false,
+                                          priority: '',
+                                          poc: currentUser?.name || '',
+                                          status: '',
+                                          clickupStatus: '',
+                                          taskLink: '',
+                                          blocker: '',
+                                          deadline: '',
+                                          notes: `Tarun Sir Meeting ID: ${meeting.id} | Meeting: ${meeting.cohortTopic || ''}`,
+                                          product: '',
+                                          module: '',
+                                          uiux: '',
+                                          finalRelease: '',
+                                          productDeadline: ''
+                                        };
+                                        addProductItem(newItem);
+                                        setInlineMeetingRelatedValue('');
+                                        setEditingMeetingRelatedId(newItem.id);
+                                      }}
+                                      className="btn btn-secondary"
+                                      style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                                    >
+                                      Create one now
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="table-responsive">
+            <table className="grid-table">
+              <thead>
+                <tr>
+                  <th className="sticky-header-col" onClick={() => handleFeedbackSort('feature')} style={{ width: '250px', minWidth: '250px', maxWidth: '250px', cursor: 'pointer' }}>Feature {feedbackSortField === 'feature' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('meetingDate')} style={{ width: '150px', cursor: 'pointer' }}>Meeting Date {feedbackSortField === 'meetingDate' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('meetingPoc')} style={{ width: '180px', cursor: 'pointer' }}>Admin / POC {feedbackSortField === 'meetingPoc' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('meetingTopic')} style={{ width: '220px', cursor: 'pointer' }}>Topic / Meeting Agenda {feedbackSortField === 'meetingTopic' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('product')} style={{ width: '150px', cursor: 'pointer' }}>Product Group {feedbackSortField === 'product' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('priority')} style={{ width: '80px', cursor: 'pointer' }}>Priority {feedbackSortField === 'priority' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('poc')} style={{ width: '120px', cursor: 'pointer' }}>POC Owner {feedbackSortField === 'poc' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('status')} style={{ width: '120px', cursor: 'pointer' }}>Status {feedbackSortField === 'status' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('clickupStatus')} style={{ width: '100px', cursor: 'pointer' }}>Clickup {feedbackSortField === 'clickupStatus' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('productDeadline')} style={{ width: '120px', cursor: 'pointer' }}>Specs Date {feedbackSortField === 'productDeadline' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('uiux')} style={{ width: '120px', cursor: 'pointer' }}>UI/UX Date {feedbackSortField === 'uiux' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('deadline')} style={{ width: '120px', cursor: 'pointer' }}>Dev Date {feedbackSortField === 'deadline' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>Release Date {feedbackSortField === 'finalRelease' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th style={{ width: '40px' }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedFeedbackFeatures.map(feat => {
+                  const parentMeeting = getParentMeeting(feat);
+                  return (
+                    <tr 
+                      key={feat.id} 
+                      onClick={() => {
+                        if (
+                          editingFeedbackFeatureId !== feat.id &&
+                          editingFeedbackDateId !== feat.id &&
+                          editingFeedbackPocId !== feat.id &&
+                          editingFeedbackTopicId !== feat.id
+                        ) {
+                          setPreviewProductId(feat.id);
+                        }
+                      }} 
+                      style={{ 
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s ease'
+                      }}
+                    >
+                      <td className="sticky-col" style={{ fontWeight: 600, width: '250px', minWidth: '250px', maxWidth: '250px', whiteSpace: 'normal' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', width: '100%' }}>
+                          {editingFeedbackFeatureId === feat.id ? (
+                            <input
+                              ref={editFeedbackFeatureInputRef}
+                              type="text"
+                              value={inlineFeedbackFeatureValue}
+                              onChange={(e) => setInlineFeedbackFeatureValue(e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const finalVal = inlineFeedbackFeatureValue.trim() || 'New Feature';
+                                  updateProductItem(feat.id, { feature: finalVal });
+                                  setEditingFeedbackFeatureId(null);
+                                } else if (e.key === 'Escape') {
+                                  e.preventDefault();
+                                  setEditingFeedbackFeatureId(null);
+                                }
+                              }}
+                              onBlur={() => {
+                                  const finalVal = inlineFeedbackFeatureValue.trim() || 'New Feature';
+                                  updateProductItem(feat.id, { feature: finalVal });
+                                  setEditingFeedbackFeatureId(null);
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '6px 8px',
+                                backgroundColor: 'var(--background)',
+                                border: '1.5px solid var(--primary)',
+                                borderRadius: '6px',
+                                color: 'var(--text-primary)',
+                                fontSize: '0.8rem',
+                                fontWeight: 600,
+                                outline: 'none',
+                                boxShadow: '0 0 0 2px var(--primary-glow)'
+                              }}
+                            />
+                          ) : (
+                            <div 
+                              onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                setEditingFeedbackFeatureId(feat.id);
+                                setInlineFeedbackFeatureValue(feat.feature || '');
+                              }}
+                              style={{ width: '100%', cursor: 'pointer' }}
+                              title="Double click to edit"
+                            >
+                              <span style={{ display: 'block', wordBreak: 'break-word' }}>
+                                {feat.feature || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
+                              </span>
+                              <div style={{ display: 'flex', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
+                                {feat.raisedByTarunSir && (
+                                  <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                                    <Sparkles size={10} /> Super Priority
+                                  </span>
+                                )}
+                                {feat.tarunSirApproval && (
+                                  <span className="badge-verified" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', fontWeight: 650 }}>
+                                    <CheckCircle size={10} /> Verified
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td
+                        onDoubleClick={(e) => {
+                          if (!parentMeeting) return;
+                          e.stopPropagation();
+                          setEditingFeedbackDateId(feat.id);
+                          setInlineFeedbackDateValue(parentMeeting.date);
+                        }}
+                        title={parentMeeting ? "Double click to edit Date" : undefined}
+                      >
+                        {parentMeeting ? (
+                          editingFeedbackDateId === feat.id ? (
+                            <input
+                              ref={editFeedbackDateInputRef}
+                              type="date"
+                              value={inlineFeedbackDateValue}
+                              onChange={(e) => setInlineFeedbackDateValue(e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  updateTarunSirMeeting(parentMeeting.id, { date: inlineFeedbackDateValue });
+                                  setEditingFeedbackDateId(null);
+                                } else if (e.key === 'Escape') {
+                                  e.preventDefault();
+                                  setEditingFeedbackDateId(null);
+                                }
+                              }}
+                              onBlur={() => {
+                                updateTarunSirMeeting(parentMeeting.id, { date: inlineFeedbackDateValue });
+                                setEditingFeedbackDateId(null);
+                              }}
+                              style={{
+                                padding: '4px 6px',
+                                backgroundColor: 'var(--background)',
+                                border: '1.5px solid var(--primary)',
+                                borderRadius: '6px',
+                                color: 'var(--text-primary)',
+                                fontSize: '0.8rem',
+                                outline: 'none',
+                              }}
+                            />
+                          ) : (
+                            formatDateToUserPattern(parentMeeting.date)
+                          )
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td
+                        onClick={(e) => {
+                          if (!parentMeeting) return;
+                          e.stopPropagation();
+                          setEditingFeedbackPocId(feat.id);
+                          setInlineFeedbackPocValue(parentMeeting.adminPoc || '');
+                        }}
+                        title={parentMeeting ? "Click to edit POC" : undefined}
+                      >
+                        {parentMeeting ? (
+                          editingFeedbackPocId === feat.id ? (
+                            <select
+                              autoFocus
+                              value={inlineFeedbackPocValue}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setInlineFeedbackPocValue(val);
+                                updateTarunSirMeeting(parentMeeting.id, { adminPoc: val });
+                                setEditingFeedbackPocId(null);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Escape') {
+                                  e.preventDefault();
+                                  setEditingFeedbackPocId(null);
+                                }
+                              }}
+                              onBlur={() => setEditingFeedbackPocId(null)}
+                              style={{
+                                width: '100%',
+                                padding: '4px 6px',
+                                backgroundColor: 'var(--background)',
+                                border: '1.5px solid var(--primary)',
+                                borderRadius: '6px',
+                                color: 'var(--text-primary)',
+                                fontSize: '0.8rem',
+                                outline: 'none',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {speakersList.map(s => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                              {inlineFeedbackPocValue && !speakersList.includes(inlineFeedbackPocValue) && (
+                                <option value={inlineFeedbackPocValue}>{inlineFeedbackPocValue}</option>
+                              )}
+                            </select>
+                          ) : (
+                            parentMeeting.adminPoc || '—'
+                          )
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td
+                        onDoubleClick={(e) => {
+                          if (!parentMeeting) return;
+                          e.stopPropagation();
+                          setEditingFeedbackTopicId(feat.id);
+                          setInlineFeedbackTopicValue(parentMeeting.cohortTopic || '');
+                        }}
+                        title={parentMeeting ? "Double click to edit Topic" : undefined}
+                      >
+                        {parentMeeting ? (
+                          editingFeedbackTopicId === feat.id ? (
+                            <input
+                              ref={editFeedbackTopicInputRef}
+                              type="text"
+                              value={inlineFeedbackTopicValue}
+                              onChange={(e) => setInlineFeedbackTopicValue(e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const finalVal = inlineFeedbackTopicValue.trim() || 'New Topic';
+                                  updateTarunSirMeeting(parentMeeting.id, { cohortTopic: finalVal });
+                                  setEditingFeedbackTopicId(null);
+                                } else if (e.key === 'Escape') {
+                                  e.preventDefault();
+                                  setEditingFeedbackTopicId(null);
+                                }
+                              }}
+                              onBlur={() => {
+                                const finalVal = inlineFeedbackTopicValue.trim() || 'New Topic';
+                                updateTarunSirMeeting(parentMeeting.id, { cohortTopic: finalVal });
+                                setEditingFeedbackTopicId(null);
+                              }}
+                              style={{
+                                width: '100%',
+                                padding: '4px 6px',
+                                backgroundColor: 'var(--background)',
+                                border: '1.5px solid var(--primary)',
+                                borderRadius: '6px',
+                                color: 'var(--text-primary)',
+                                fontSize: '0.8rem',
+                                outline: 'none',
+                              }}
+                            />
+                          ) : (
+                            parentMeeting.cohortTopic || '—'
+                          )
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td>{feat.product || '—'}</td>
+                      <td>
+                        {feat.priority ? (
+                          <span className={`badge badge-${feat.priority.toLowerCase()}`}>
+                            {feat.priority}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td>
+                        {feat.poc ? (
+                          <span style={getPOCBadgeStyle(feat.poc)}>
+                            {feat.poc}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td>
+                        {feat.status ? (
+                          <span className={`badge ${
+                            feat.status === 'On Hold' ? 'status-hold' :
+                            feat.status === 'In Progress' ? 'status-progress' :
+                            feat.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
+                          }`}>
+                            {feat.status}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td>
+                        {feat.clickupStatus ? (
+                          <span style={getClickupBadgeStyle(feat.clickupStatus)}>
+                            {feat.clickupStatus}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        {feat.productDeadline ? (
+                          <span style={getDateSpanStyle(feat.productDeadline, feat.productDeadlineCompleted)}>
+                            {formatDateToUserPattern(feat.productDeadline)}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                        <DateDiffBadge prevDate={feat.productDeadline} currentDate={feat.uiux} />
+                        {feat.uiux ? (
+                          <span style={getDateSpanStyle(feat.uiux, feat.uiuxCompleted)}>
+                            {formatDateToUserPattern(feat.uiux)}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                        <DateDiffBadge prevDate={feat.uiux} currentDate={feat.deadline} />
+                        {feat.deadline ? (
+                          <span style={getDateSpanStyle(feat.deadline, feat.deadlineCompleted)}>
+                            {formatDateToUserPattern(feat.deadline)}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                        <DateDiffBadge prevDate={feat.deadline} currentDate={feat.finalRelease} />
+                        {feat.finalRelease ? (
+                          <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
+                            {formatDateToUserPattern(feat.finalRelease)}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
+                          <button 
+                            onClick={async () => {
+                              if (await confirm("Are you sure you want to delete this feedback feature?", "Delete Feedback Feature")) {
+                                deleteProductItem(feat.id);
+                              }
+                            }} 
+                            style={{ 
+                              background: 'none', 
+                              border: 'none', 
+                              cursor: 'pointer', 
+                              color: 'var(--danger)', 
+                              display: 'flex', 
+                              alignItems: 'center',
+                              padding: '4px'
+                            }}
+                            title="Delete Feedback Feature"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </TabContainer>
+    </>
+  );
+};
+
 export const ContentTable: React.FC = () => {
   const { 
     contentItems, updateContentItem, addContentItem, deleteContentItem, 
@@ -7228,7 +8516,7 @@ export const ProductWiseSheet: React.FC = () => {
         deadlineCompleted: item.deadlineCompleted || isCompletedStatus(item.status),
         finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatus(item.status),
         sourceLabel: 
-          item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-') 
+          item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-') || item.id.startsWith('prod-tarun-')
             ? 'Feedback' 
             : item.id.startsWith('prod-breakdown-')
               ? 'Product Breakdown'

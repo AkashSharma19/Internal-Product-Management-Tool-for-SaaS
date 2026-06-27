@@ -4,9 +4,10 @@ import type {
   StudentProject, 
   AMASession, 
   StudentMeeting, 
-  AdminCall, 
-  ContentItem, 
-  DailyIssue, 
+  AdminCall,
+  TarunSirMeeting,
+  ContentItem,
+  DailyIssue,
   FeatureAdoption,
   ConfigSpeaker,
   ConfigProductGroup,
@@ -26,6 +27,8 @@ export const initialAMASessions: AMASession[] = [];
 export const initialStudentMeetings: StudentMeeting[] = [];
 
 export const initialAdminCalls: AdminCall[] = [];
+
+export const initialTarunSirMeetings: TarunSirMeeting[] = [];
 
 export const initialContentItems: ContentItem[] = [];
 

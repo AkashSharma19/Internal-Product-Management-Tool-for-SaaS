@@ -75,9 +75,9 @@ const isCompletedStatus = (status?: string): boolean => {
 
 interface CalendarEvent {
   id: string;
-  source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA Sessions' | 'Student Meetings' | 'Admin Calls' | 'Daily Issues Log';
+  source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA Sessions' | 'Student Meetings' | 'Admin Calls' | 'Tarun Sir Meetings' | 'Daily Issues Log';
   title: string;
-  stage: 'Specs' | 'UI/UX' | 'Dev' | 'Final Release' | 'AMA Date' | 'Call Date' | 'Publish Date' | 'Deadline';
+  stage: 'Specs' | 'UI/UX' | 'Dev' | 'Final Release' | 'AMA Date' | 'Call Date' | 'Meeting Date' | 'Publish Date' | 'Deadline';
   dateStr: string; // normalized YYYY-MM-DD
   poc: string;
   priority?: string;
@@ -95,6 +95,7 @@ export const CalendarView: React.FC = () => {
     amaSessions,
     studentMeetings,
     adminCalls,
+    tarunSirMeetings,
     contentItems,
     dailyIssues,
     setActiveTab,
@@ -183,6 +184,11 @@ export const CalendarView: React.FC = () => {
       addEvent(item.id, 'Admin Calls', item.cohortTopic, 'Call Date', item.date, isCompletedStatus(item.status), item.adminPoc, undefined, undefined, item, 'admin');
     });
 
+    // 5b. Tarun Sir Meetings
+    tarunSirMeetings.forEach(item => {
+      addEvent(item.id, 'Tarun Sir Meetings', item.cohortTopic, 'Meeting Date', item.date, isCompletedStatus(item.status), item.adminPoc, undefined, undefined, item, 'tarun-meetings');
+    });
+
     // 6. Content Pipeline
     contentItems.forEach(item => {
       const isOverallCompleted = isCompletedStatus(item.status);
@@ -197,7 +203,7 @@ export const CalendarView: React.FC = () => {
     });
 
     return list;
-  }, [productItems, studentProjects, amaSessions, studentMeetings, adminCalls, contentItems, dailyIssues]);
+  }, [productItems, studentProjects, amaSessions, studentMeetings, adminCalls, tarunSirMeetings, contentItems, dailyIssues]);
 
   // 2. Filter events by search query
   const filteredEvents = useMemo(() => {

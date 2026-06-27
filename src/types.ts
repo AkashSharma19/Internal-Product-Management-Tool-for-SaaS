@@ -112,6 +112,16 @@ export interface AdminCall {
   status: 'Completed' | 'Pending Actions' | 'Scheduled';
 }
 
+export interface TarunSirMeeting {
+  id: string;
+  date: string;
+  adminPoc: string;
+  cohortTopic: string;
+  discussion: string;
+  actions: string;
+  status: 'Completed' | 'Pending Actions' | 'Scheduled';
+}
+
 export interface ContentItem {
   id: string;
   module: string;

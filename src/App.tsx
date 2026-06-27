@@ -7,6 +7,7 @@ import {
   StudentProjectsTable,
   StudentMeetingsTable,
   AdminCallsTable,
+  TarunSirMeetingsTable,
   ContentTable,
   ProductWiseSheet,
   IssuesTable,
@@ -24,6 +25,7 @@ import {
   FolderGit,
   Video,
   PhoneCall,
+  Crown,
   BookOpen,
   PieChart,
   AlertTriangle,
@@ -757,6 +759,7 @@ const DashboardContent: React.FC = () => {
       title: "Operations & Logs",
       items: [
         { id: 'projects', label: 'Student Projects', icon: <FolderGit size={18} /> },
+        { id: 'tarun-meetings', label: 'Tarun Sir Meetings', icon: <Crown size={18} /> },
         { id: 'meetings', label: 'AMA & Meetings', icon: <Video size={18} /> },
         { id: 'admin', label: 'Admin Calls', icon: <PhoneCall size={18} /> },
         { id: 'content', label: 'Content Pipeline', icon: <BookOpen size={18} /> },
@@ -784,6 +787,8 @@ const DashboardContent: React.FC = () => {
         return <PlanTable />;
       case 'projects':
         return <StudentProjectsTable />;
+      case 'tarun-meetings':
+        return <TarunSirMeetingsTable />;
       case 'meetings':
         return <StudentMeetingsTable />;
       case 'admin':

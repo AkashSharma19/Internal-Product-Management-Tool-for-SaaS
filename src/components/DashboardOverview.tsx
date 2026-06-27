@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import { TabContainer } from './TabContainer';
-import { Video, PhoneCall, AlertTriangle, Calendar, ExternalLink, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
-import type { AMASession, AdminCall, ProductItem } from '../types';
+import { Video, PhoneCall, Crown, AlertTriangle, Calendar, ExternalLink, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import type { AMASession, AdminCall, TarunSirMeeting, ProductItem } from '../types';
 
 const isSameStatus = (statusA?: string, statusB?: string): boolean => {
   if (!statusA || !statusB) return (statusA || '').trim() === (statusB || '').trim();
@@ -30,6 +30,7 @@ export const DashboardOverview: React.FC = () => {
     statuses: configStatuses, 
     amaSessions, 
     adminCalls, 
+    tarunSirMeetings,
     productGroups,
     studentProjects,
     contentItems,
@@ -188,9 +189,9 @@ export const DashboardOverview: React.FC = () => {
   interface DashboardDateItem {
     id: string;
     rawId: string;
-    source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA & Meetings' | 'Admin Calls' | 'Daily Issues Log' | 'Product Breakdown';
+    source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA & Meetings' | 'Admin Calls' | 'Tarun Sir Meetings' | 'Daily Issues Log' | 'Product Breakdown';
     title: string;
-    stage: 'Specs' | 'UI/UX' | 'Dev' | 'Final Release' | 'AMA Date' | 'Call Date' | 'Target Date';
+    stage: 'Specs' | 'UI/UX' | 'Dev' | 'Final Release' | 'AMA Date' | 'Call Date' | 'Meeting Date' | 'Target Date';
     dateStr: string;
     dateObj: Date;
     poc: string;
@@ -380,6 +381,13 @@ export const DashboardOverview: React.FC = () => {
       }
     });
 
+    // 7b. Tarun Sir Meetings
+    tarunSirMeetings.forEach(meeting => {
+      if (meeting.status === 'Scheduled' || meeting.status === 'Pending Actions') {
+        addDate(meeting.id, 'Tarun Sir Meetings', meeting.cohortTopic, 'Meeting Date', meeting.date, false, meeting.adminPoc, undefined, undefined, meeting.status, meeting);
+      }
+    });
+
     return list;
   };
 
@@ -393,6 +401,8 @@ export const DashboardOverview: React.FC = () => {
       tab = 'meetings';
     } else if (item.source === 'Admin Calls') {
       tab = 'admin';
+    } else if (item.source === 'Tarun Sir Meetings') {
+      tab = 'tarun-meetings';
     } else if (item.source === 'Content Pipeline') {
       tab = 'content';
     } else if (item.source === 'Daily Issues Log') {
@@ -418,6 +428,12 @@ export const DashboardOverview: React.FC = () => {
           openPreviewForFeature(item.title, item.rawItem as Partial<ProductItem>);
         }
       } else if (item.source === 'Admin Calls') {
+        openPreviewForFeature(item.title, { 
+          notes: item.rawItem.discussion, 
+          description: item.rawItem.actions, 
+          status: item.rawItem.status as any 
+        });
+      } else if (item.source === 'Tarun Sir Meetings') {
         openPreviewForFeature(item.title, { 
           notes: item.rawItem.discussion, 
           description: item.rawItem.actions, 
@@ -488,6 +504,21 @@ export const DashboardOverview: React.FC = () => {
           const match = item.notes.match(/Admin Call ID:\s*([^\s,;\]]+)/);
           if (match && match[1]) {
             const parentExists = adminCalls.some(call => call.id === match[1]);
+            if (!parentExists) return false;
+          } else {
+            return false;
+          }
+        } else {
+          return false;
+        }
+      }
+
+      // Filter out orphaned Tarun Sir Meeting features
+      if (item.id.startsWith('prod-tarun-')) {
+        if (item.notes && item.notes.includes('Tarun Sir Meeting ID:')) {
+          const match = item.notes.match(/Tarun Sir Meeting ID:\s*([^\s,;\]]+)/);
+          if (match && match[1]) {
+            const parentExists = tarunSirMeetings.some(call => call.id === match[1]);
             if (!parentExists) return false;
           } else {
             return false;
@@ -761,6 +792,7 @@ export const DashboardOverview: React.FC = () => {
   // 6. Meetings & AMA Sessions Calculations
   const filteredAmaSessions = amaSessions.filter(ama => isWithinDateRange(ama.date));
   const filteredAdminCalls = adminCalls.filter(call => isWithinDateRange(call.date));
+  const filteredTarunSirMeetings = tarunSirMeetings.filter(call => isWithinDateRange(call.date));
 
   const getAmaRelatedFeatures = (ama: AMASession) => {
     return validItems.filter(item => 
@@ -773,6 +805,13 @@ export const DashboardOverview: React.FC = () => {
     return validItems.filter(item => 
       item.notes && 
       item.notes.includes(`Admin Call ID: ${call.id}`)
+    );
+  };
+
+  const getTarunSirMeetingRelatedFeatures = (call: TarunSirMeeting) => {
+    return validItems.filter(item => 
+      item.notes && 
+      item.notes.includes(`Tarun Sir Meeting ID: ${call.id}`)
     );
   };
 
@@ -798,6 +837,17 @@ export const DashboardOverview: React.FC = () => {
     });
   });
 
+  // Get all unique related features for filtered Tarun Sir Meetings
+  const allTarunFeatures: any[] = [];
+  filteredTarunSirMeetings.forEach(call => {
+    const feats = getTarunSirMeetingRelatedFeatures(call);
+    feats.forEach(f => {
+      if (!allTarunFeatures.some(x => x.id === f.id)) {
+        allTarunFeatures.push(f);
+      }
+    });
+  });
+
   const meetingRows = [
     {
       category: 'AMA Sessions',
@@ -812,6 +862,13 @@ export const DashboardOverview: React.FC = () => {
       features: allAdminFeatures,
       clickupCount: allAdminFeatures.filter(item => item.taskLink && item.taskLink.trim() !== '').length,
       callCount: filteredAdminCalls.length,
+    },
+    {
+      category: 'Tarun Sir Meetings',
+      icon: <Crown size={14} style={{ color: 'var(--success)' }} />,
+      features: allTarunFeatures,
+      clickupCount: allTarunFeatures.filter(item => item.taskLink && item.taskLink.trim() !== '').length,
+      callCount: filteredTarunSirMeetings.length,
     }
   ];
   const allDateItems = collectAllDates();
@@ -1831,19 +1888,33 @@ export const DashboardOverview: React.FC = () => {
                                 rawItem: ama,
                                 stage: 'AMA Date'
                               }))
-                            : filteredAdminCalls.map(call => ({
-                                id: call.id,
-                                feature: call.cohortTopic,
-                                date: call.date,
-                                status: call.status,
-                                poc: call.adminPoc,
-                                taskLink: '',
-                                description: call.discussion,
-                                notes: call.actions,
-                                source: 'Admin Calls',
-                                rawItem: call,
-                                stage: 'Call Date'
-                              }));
+                            : row.category === 'Admin Meetings'
+                              ? filteredAdminCalls.map(call => ({
+                                  id: call.id,
+                                  feature: call.cohortTopic,
+                                  date: call.date,
+                                  status: call.status,
+                                  poc: call.adminPoc,
+                                  taskLink: '',
+                                  description: call.discussion,
+                                  notes: call.actions,
+                                  source: 'Admin Calls',
+                                  rawItem: call,
+                                  stage: 'Call Date'
+                                }))
+                              : filteredTarunSirMeetings.map(call => ({
+                                  id: call.id,
+                                  feature: call.cohortTopic,
+                                  date: call.date,
+                                  status: call.status,
+                                  poc: call.adminPoc,
+                                  taskLink: '',
+                                  description: call.discussion,
+                                  notes: call.actions,
+                                  source: 'Tarun Sir Meetings',
+                                  rawItem: call,
+                                  stage: 'Meeting Date'
+                                }));
                           setPopupData({
                             title: `${row.category} (Calls)`,
                             tasks: calls

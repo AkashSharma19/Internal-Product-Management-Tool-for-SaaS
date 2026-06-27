@@ -7,6 +7,7 @@ import type {
   AMASession, 
   StudentMeeting, 
   AdminCall, 
+  TarunSirMeeting,
   ContentItem, 
   DailyIssue, 
   FeatureAdoption,
@@ -23,6 +24,7 @@ import {
   initialAMASessions,
   initialStudentMeetings,
   initialAdminCalls,
+  initialTarunSirMeetings,
   initialContentItems,
   initialDailyIssues,
   initialFeatureAdoptions,
@@ -72,6 +74,12 @@ interface DashboardContextType {
   updateAdminCall: (id: string, updated: Partial<AdminCall>) => void;
   addAdminCall: (item: AdminCall) => void;
   deleteAdminCall: (id: string) => void;
+
+  tarunSirMeetings: TarunSirMeeting[];
+  setTarunSirMeetings: React.Dispatch<React.SetStateAction<TarunSirMeeting[]>>;
+  updateTarunSirMeeting: (id: string, updated: Partial<TarunSirMeeting>) => void;
+  addTarunSirMeeting: (item: TarunSirMeeting) => void;
+  deleteTarunSirMeeting: (id: string) => void;
 
   contentItems: ContentItem[];
   setContentItems: React.Dispatch<React.SetStateAction<ContentItem[]>>;
@@ -471,6 +479,11 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return data ? JSON.parse(data) : initialAdminCalls;
   });
 
+  const [tarunSirMeetings, setTarunSirMeetings] = useState<TarunSirMeeting[]>(() => {
+    const data = localStorage.getItem('data-tarun-meetings');
+    return data ? JSON.parse(data) : initialTarunSirMeetings;
+  });
+
   const [contentItems, setContentItems] = useState<ContentItem[]>(() => {
     const data = localStorage.getItem('data-content-items');
     return data ? JSON.parse(data) : initialContentItems;
@@ -569,6 +582,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [adminCalls]);
 
   useEffect(() => {
+    localStorage.setItem('data-tarun-meetings', JSON.stringify(tarunSirMeetings));
+  }, [tarunSirMeetings]);
+
+  useEffect(() => {
     localStorage.setItem('data-content-items', JSON.stringify(contentItems));
   }, [contentItems]);
 
@@ -652,6 +669,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (db.amaSessions && db.amaSessions.length > 0)     { setAMASessions(db.amaSessions);     updatedSheets++; }
         if (db.studentMeetings && db.studentMeetings.length > 0) { setStudentMeetings(db.studentMeetings); updatedSheets++; }
         if (db.adminCalls && db.adminCalls.length > 0)       { setAdminCalls(db.adminCalls);       updatedSheets++; }
+        if (db.tarunSirMeetings && db.tarunSirMeetings.length > 0) { setTarunSirMeetings(db.tarunSirMeetings); updatedSheets++; }
         if (db.contentItems && db.contentItems.length > 0)   { setContentItems(db.contentItems);   updatedSheets++; }
         if (db.dailyIssues && db.dailyIssues.length > 0)     { setDailyIssues(db.dailyIssues);     updatedSheets++; }
         if (db.featureAdoptions && db.featureAdoptions.length > 0) { setFeatureAdoptions(db.featureAdoptions); updatedSheets++; }
@@ -1013,6 +1031,35 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         item.id.startsWith('prod-call-') && 
         item.notes && 
         item.notes.includes(`Admin Call ID: ${id}`)
+      );
+      itemsToDelete.forEach(item => {
+        persistChange('delete', 'products', item.id, null);
+      });
+      return prev.filter(item => !itemsToDelete.some(d => d.id === item.id));
+    });
+  };
+
+  const updateTarunSirMeeting = (id: string, updated: Partial<TarunSirMeeting>) => {
+    setTarunSirMeetings(prev => {
+      const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
+      const updatedItem = next.find(item => item.id === id);
+      if (updatedItem) persistChange('update', 'tarunSirMeetings', id, updatedItem);
+      return next;
+    });
+  };
+  const addTarunSirMeeting = (item: TarunSirMeeting) => {
+    setTarunSirMeetings(prev => [item, ...prev]);
+    persistChange('create', 'tarunSirMeetings', null, item);
+  };
+  const deleteTarunSirMeeting = (id: string) => {
+    setTarunSirMeetings(prev => prev.filter(item => item.id !== id));
+    persistChange('delete', 'tarunSirMeetings', id, null);
+
+    setProductItems(prev => {
+      const itemsToDelete = prev.filter(item => 
+        item.id.startsWith('prod-tarun-') && 
+        item.notes && 
+        item.notes.includes(`Tarun Sir Meeting ID: ${id}`)
       );
       itemsToDelete.forEach(item => {
         persistChange('delete', 'products', item.id, null);
@@ -1434,6 +1481,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       amaSessions, setAMASessions, updateAMASession, addAMASession, deleteAMASession,
       studentMeetings, setStudentMeetings, updateStudentMeeting, addStudentMeeting, deleteStudentMeeting,
       adminCalls, setAdminCalls, updateAdminCall, addAdminCall, deleteAdminCall,
+      tarunSirMeetings, setTarunSirMeetings, updateTarunSirMeeting, addTarunSirMeeting, deleteTarunSirMeeting,
       contentItems, setContentItems, updateContentItem, addContentItem, deleteContentItem,
       dailyIssues, setDailyIssues, updateDailyIssue, addDailyIssue, deleteDailyIssue,
       featureAdoptions, setFeatureAdoptions, updateFeatureAdoption, addFeatureAdoption, deleteFeatureAdoption,

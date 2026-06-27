@@ -119,6 +119,17 @@ const AdminCallSchema = new Schema({
   status: { type: String, default: "Scheduled" }
 }, { timestamps: true });
 
+// 6b. TarunSirMeeting
+const TarunSirMeetingSchema = new Schema({
+  id: { type: String, required: true, unique: true },
+  date: { type: String, default: "" },
+  adminPoc: { type: String, default: "" },
+  cohortTopic: { type: String, default: "" },
+  discussion: { type: String, default: "" },
+  actions: { type: String, default: "" },
+  status: { type: String, default: "Scheduled" }
+}, { timestamps: true });
+
 // 7. ContentItem
 const ContentItemSchema = new Schema({
   id: { type: String, required: true, unique: true },
@@ -242,6 +253,7 @@ export const StudentProjectModel = mongoose.models.StudentProject || mongoose.mo
 export const AMASessionModel = mongoose.models.AMASession || mongoose.model('AMASession', AMASessionSchema);
 export const StudentMeetingModel = mongoose.models.StudentMeeting || mongoose.model('StudentMeeting', StudentMeetingSchema);
 export const AdminCallModel = mongoose.models.AdminCall || mongoose.model('AdminCall', AdminCallSchema);
+export const TarunSirMeetingModel = mongoose.models.TarunSirMeeting || mongoose.model('TarunSirMeeting', TarunSirMeetingSchema);
 export const ContentItemModel = mongoose.models.ContentItem || mongoose.model('ContentItem', ContentItemSchema);
 export const DailyIssueModel = mongoose.models.DailyIssue || mongoose.model('DailyIssue', DailyIssueSchema);
 export const FeatureAdoptionModel = mongoose.models.FeatureAdoption || mongoose.model('FeatureAdoption', FeatureAdoptionSchema);
