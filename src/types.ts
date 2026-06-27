@@ -159,6 +159,7 @@ export interface DailyIssue {
   deadlineCompleted?: boolean;
   finalReleaseCompleted?: boolean;
   raisedByTarunSir?: boolean;
+  tarunSirApproval?: boolean;
 }
 
 export interface FeatureAdoption {
@@ -184,6 +185,7 @@ export interface ConfigSpeaker {
   role?: string; // e.g. "Lead Research Engineer", "Alumni", "Industry Expert"
   password?: string;
   canEdit?: boolean;
+  isAdmin?: boolean;
 }
 
 export interface ConfigProductGroup {

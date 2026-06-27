@@ -25,8 +25,7 @@ import {
   RefreshCw,
   Search,
   Plus,
-  Layers,
-  Grid
+  Layers
 } from 'lucide-react';
 import type { 
   ProductItem, 
@@ -667,11 +666,12 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({ value, onChange, produc
 };
 
 export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBack, onUpdate }) => {
-  const { speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit } = useDashboard();
+  const { speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser } = useDashboard();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const pocList = configSpeakers.map(s => s.name);
   const productList = productGroups.map(g => g.name);
+  const isCurrentUserAdmin = currentUser ? (currentUser.isAdmin !== false) : false;
   
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const notesRef = useRef<HTMLTextAreaElement>(null);
@@ -896,55 +896,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
             </div>
           </div>
 
-          {/* Module */}
-          <div className="property-row-flat">
-            <span className="premium-property-label">
-              <Grid size={13} /> Module
-            </span>
-            <div className="premium-property-value">
-              {(() => {
-                const matchedGroup = productGroups.find(g => g.name === item.product);
-                const modulePresets = (matchedGroup && matchedGroup.modules && matchedGroup.modules.length > 0)
-                  ? matchedGroup.modules
-                  : ['General', 'Academic Grades', 'Attendance Widget', 'MU.Ai Bot', 'Zoom Cohorts', 'Onboarding UI', 'Parent Portal', 'To-do widget'];
-                const isCustomModule = !!item.module && !modulePresets.includes(item.module);
-                const defaultValue = modulePresets[0] || 'General';
-                const selectModuleVal = isCustomModule ? 'Other' : (item.module || defaultValue);
-                
-                return (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <div className="premium-select-pill">
-                      <select
-                        value={selectModuleVal}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === 'Other') {
-                            handleFieldUpdate('module', 'Custom Module');
-                          } else {
-                            handleFieldUpdate('module', val);
-                          }
-                        }}
-                      >
-                        {modulePresets.map(mod => (
-                          <option key={mod} value={mod}>{mod}</option>
-                        ))}
-                        <option value="Other">Other...</option>
-                      </select>
-                    </div>
-                    {isCustomModule && (
-                      <input
-                        type="text"
-                        style={{ padding: '2px 6px', fontSize: '0.75rem', height: '26px', width: '100px', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-primary)', backgroundColor: 'var(--background)' }}
-                        value={item.module}
-                        onChange={(e) => handleFieldUpdate('module', e.target.value)}
-                        placeholder="Module name"
-                      />
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
+
 
 
           
@@ -1228,11 +1180,16 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
               <CheckSquare size={13} /> Tarun Sir verified
             </span>
             <div className="premium-property-value">
-              <label className="premium-toggle-wrapper">
+              <label 
+                className="premium-toggle-wrapper"
+                style={{ opacity: isCurrentUserAdmin ? 1 : 0.6, cursor: isCurrentUserAdmin ? 'pointer' : 'not-allowed' }}
+                title={isCurrentUserAdmin ? 'Toggle verification status' : 'Only admins can toggle Tarun Sir verification'}
+              >
                 <input 
                   type="checkbox" 
                   className="premium-toggle-checkbox" 
                   checked={item.tarunSirApproval} 
+                  disabled={!isCurrentUserAdmin}
                   onChange={(e) => handleFieldUpdate('tarunSirApproval', e.target.checked)} 
                 />
                 <span className="premium-toggle-slider" />
@@ -1641,7 +1598,7 @@ export const ProductTable: React.FC = () => {
 
     const newItem: ProductItem = {
       id: `prod-${Date.now()}`,
-      feature: '',
+      feature: 'New Priority Request',
       description: '',
       tarunSirApproval: false,
       raisedByTarunSir: false,
@@ -1659,8 +1616,9 @@ export const ProductTable: React.FC = () => {
       productDeadline: ''
     };
     addProductItem(newItem);
-    setInlineEditValue('');
-    setEditingFeatureId(newItem.id);
+    setTimeout(() => {
+      setPreviewProductId(newItem.id);
+    }, 50);
   };
 
   const handleImportCSV = (data: string[][]) => {
@@ -1811,11 +1769,18 @@ export const ProductTable: React.FC = () => {
                           {item.feature}
                         </span>
                       )}
-                      {item.raisedByTarunSir && (
-                        <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                          <Sparkles size={10} /> Super Priority
-                        </span>
-                      )}
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+                        {item.raisedByTarunSir && (
+                          <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                            <Star size={10} fill="currentColor" /> Super Priority
+                          </span>
+                        )}
+                        {item.tarunSirApproval && (
+                          <span className="badge-verified" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', fontWeight: 650 }}>
+                            <CheckCircle size={10} /> Verified
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </td>
                   <td>{item.product || '—'}</td>
@@ -2993,9 +2958,10 @@ export const StudentProjectsTable: React.FC = () => {
 
   const handleAddNew = () => {
     setSearchQuery('');
+    setSortField(null);
     const newItem: StudentProject = {
       id: `proj-${Date.now()}`,
-      title: '',
+      title: 'New Project',
       description: '',
       thingsWeBuild: '',
       status: '',
@@ -3009,11 +2975,29 @@ export const StudentProjectsTable: React.FC = () => {
       productDeadline: '',
       uiux: '',
       deadline: '',
-      finalRelease: ''
+      finalRelease: '',
+      raisedByTarunSir: false,
+      tarunSirApproval: false
     };
     addStudentProject(newItem);
-    setInlineEditValue('');
-    setEditingProjectId(newItem.id);
+    setTimeout(() => {
+      openPreviewForFeature(newItem.title, { 
+        id: newItem.id,
+        description: newItem.description, 
+        status: newItem.status as any, 
+        priority: newItem.priority || '',
+        poc: newItem.poc || '',
+        clickupStatus: newItem.clickupStatus || '',
+        taskLink: newItem.taskLink || '',
+        blocker: newItem.blocker || '',
+        deadline: newItem.deadline || newItem.completeInfoDate || '',
+        uiux: newItem.uiux || '',
+        finalRelease: newItem.finalRelease || '',
+        productDeadline: newItem.productDeadline || '',
+        raisedByTarunSir: newItem.raisedByTarunSir || false,
+        tarunSirApproval: newItem.tarunSirApproval || false
+      });
+    }, 50);
   };
 
   return (
@@ -3142,11 +3126,18 @@ export const StudentProjectsTable: React.FC = () => {
                           {p.title || 'Untitled Project'}
                         </span>
                       )}
-                      {p.raisedByTarunSir && (
-                        <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                          <Sparkles size={10} /> Super Priority
-                        </span>
-                      )}
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+                        {p.raisedByTarunSir && (
+                          <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                            <Star size={10} fill="currentColor" /> Super Priority
+                          </span>
+                        )}
+                        {p.tarunSirApproval && (
+                          <span className="badge-verified" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', fontWeight: 650 }}>
+                            <CheckCircle size={10} /> Verified
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </td>
                   <td>{p.product || '—'}</td>
@@ -3717,11 +3708,12 @@ export const StudentMeetingsTable: React.FC = () => {
 
   const handleAddNew = () => {
     setSearchQuery('');
+    setAmaSortField(null);
     if (subTab === 'schedule') {
       const newAMA: AMASession = {
         id: `ama-${Date.now()}`,
         date: new Date().toISOString().slice(0, 16),
-        topic: '',
+        topic: 'New AMA Session',
         speaker: '',
         cohort: '',
         program: '',
@@ -3729,8 +3721,9 @@ export const StudentMeetingsTable: React.FC = () => {
         status: 'Scheduled'
       };
       addAMASession(newAMA);
-      setInlineAMATopicValue('');
+      setInlineAMATopicValue('New AMA Session');
       setEditingAMATopicId(newAMA.id);
+      setExpandedAMAId(newAMA.id);
     }
   };
 
@@ -5191,17 +5184,18 @@ export const AdminCallsTable: React.FC = () => {
   });
 
   const handleAddNew = () => {
+    setSearchQuery('');
     const newCall: AdminCall = {
       id: `adm-${Date.now()}`,
       date: new Date().toISOString().slice(0, 10),
       adminPoc: currentUser?.name || (speakersList.length > 0 ? speakersList[0] : 'Akash Sharma'),
-      cohortTopic: '',
+      cohortTopic: 'New Admin Call',
       discussion: '',
       actions: '',
       status: 'Scheduled'
     };
     addAdminCall(newCall);
-    setInlineCallTopicValue('');
+    setInlineCallTopicValue('New Admin Call');
     setEditingCallTopicId(newCall.id);
     setExpandedCallId(newCall.id);
   };
@@ -6415,9 +6409,11 @@ export const ContentTable: React.FC = () => {
 
   // Handle new item add inline
   const handleAddNew = () => {
+    setSearchQuery('');
+    setSortField('module');
     const newItem: ContentItem = {
       id: `cont-${Date.now()}`,
-      module: '',
+      module: 'New Content Topic',
       subject: '',
       type: 'Video',
       poc: currentUser?.name || 'Akash Sharma',
@@ -6434,11 +6430,29 @@ export const ContentTable: React.FC = () => {
       productDeadlineCompleted: false,
       uiuxCompleted: false,
       deadlineCompleted: false,
-      finalReleaseCompleted: false
+      finalReleaseCompleted: false,
+      raisedByTarunSir: false
     };
     addContentItem(newItem);
-    setInlineModuleValue('');
-    setEditingModuleId(newItem.id);
+    setTimeout(() => {
+      openPreviewForFeature(newItem.module, { 
+        description: `Content topic: ${newItem.module}. Subject: ${newItem.subject || ''}. Type: ${newItem.type}.`, 
+        status: newItem.status as any, 
+        clickupStatus: newItem.clickupStatus || 'open',
+        priority: newItem.priority || '',
+        poc: newItem.poc || '',
+        product: newItem.product || '',
+        productDeadline: newItem.productDeadline || '',
+        uiux: newItem.uiux || '',
+        deadline: newItem.deadline || '',
+        finalRelease: newItem.finalRelease || '',
+        productDeadlineCompleted: newItem.productDeadlineCompleted || false,
+        uiuxCompleted: newItem.uiuxCompleted || false,
+        deadlineCompleted: newItem.deadlineCompleted || false,
+        finalReleaseCompleted: newItem.finalReleaseCompleted || false,
+        raisedByTarunSir: newItem.raisedByTarunSir || false
+      });
+    }, 50);
   };
 
 
@@ -7358,8 +7372,8 @@ export const ProductWiseSheet: React.FC = () => {
         id: `breakdown-issue-${item.id}`,
         feature: item.module || `Issue #${item.id}`,
         description: item.issues || '',
-        tarunSirApproval: false,
-        raisedByTarunSir: false,
+        tarunSirApproval: item.tarunSirApproval || false,
+        raisedByTarunSir: item.raisedByTarunSir || false,
         priority: (item.priority || '') as ProductItem['priority'],
         poc: item.poc || item.contact || '',
         status: (item.status || '') as ProductItem['status'],
@@ -7410,7 +7424,7 @@ export const ProductWiseSheet: React.FC = () => {
 
     const newItem: ProductItem = {
       id: `prod-breakdown-${Date.now()}`,
-      feature: '',
+      feature: 'New Feature Request',
       description: '',
       tarunSirApproval: false,
       raisedByTarunSir: false,
@@ -7429,8 +7443,9 @@ export const ProductWiseSheet: React.FC = () => {
     };
     
     addProductItem(newItem);
-    setInlineEditValue('');
-    setEditingFeatureId(newItem.id);
+    setTimeout(() => {
+      setPreviewProductId(newItem.id);
+    }, 50);
   };
 
   const filteredFeatures = features.filter(item => {
@@ -7746,11 +7761,18 @@ export const ProductWiseSheet: React.FC = () => {
                                 {item.feature || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
                               </span>
                             )}
-                            {item.raisedByTarunSir && (
-                              <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                                <Sparkles size={10} /> Super Priority
-                              </span>
-                            )}
+                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+                              {item.raisedByTarunSir && (
+                                <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                                  <Star size={10} fill="currentColor" /> Super Priority
+                                </span>
+                              )}
+                              {item.tarunSirApproval && (
+                                <span className="badge-verified" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', fontWeight: 650 }}>
+                                  <CheckCircle size={10} /> Verified
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td>
@@ -7926,7 +7948,7 @@ export const IssuesTable: React.FC = () => {
       id: newId,
       cohort: '',
       product: '',
-      module: 'New Feature Request',
+      module: 'New Daily Issue',
       type: 'Bug/Defect',
       issues: '',
       contact: '',
@@ -7940,7 +7962,9 @@ export const IssuesTable: React.FC = () => {
       notes: '',
       uiux: '',
       finalRelease: '',
-      productDeadline: ''
+      productDeadline: '',
+      raisedByTarunSir: false,
+      tarunSirApproval: false
     };
     addDailyIssue(newItem);
     setSearchQuery('');
@@ -8047,7 +8071,12 @@ export const IssuesTable: React.FC = () => {
                       </span>
                       {item.raisedByTarunSir && (
                         <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                          <Sparkles size={10} /> Super Priority
+                          <Star size={10} fill="currentColor" /> Super Priority
+                        </span>
+                      )}
+                      {item.tarunSirApproval && (
+                        <span className="badge-verified" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', fontWeight: 650 }}>
+                          <CheckCircle size={10} /> Verified
                         </span>
                       )}
                     </div>

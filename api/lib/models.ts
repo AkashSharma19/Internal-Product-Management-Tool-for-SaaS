@@ -167,7 +167,8 @@ const DailyIssueSchema = new Schema({
   uiuxCompleted: { type: Boolean, default: false },
   deadlineCompleted: { type: Boolean, default: false },
   finalReleaseCompleted: { type: Boolean, default: false },
-  raisedByTarunSir: { type: Boolean, default: false }
+  raisedByTarunSir: { type: Boolean, default: false },
+  tarunSirApproval: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // 9. FeatureAdoption
@@ -194,7 +195,8 @@ const ConfigSpeakerSchema = new Schema({
   email: { type: String, default: "" },
   role: { type: String, default: "" },
   password: { type: String, default: "1234" },
-  canEdit: { type: Boolean, default: true }
+  canEdit: { type: Boolean, default: true },
+  isAdmin: { type: Boolean, default: true }
 });
 
 // Product Group

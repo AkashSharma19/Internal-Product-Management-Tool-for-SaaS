@@ -144,23 +144,28 @@ const Badge: React.FC<{ color: string; label: string }> = ({ color, label }) => 
 // SPEAKERS SECTION
 // ═══════════════════════════════════════════════════════════════════════════════
 const SpeakersSection: React.FC = () => {
-  const { speakers, addSpeaker, updateSpeaker, deleteSpeaker, canUserEdit } = useDashboard();
+  const { speakers, addSpeaker, updateSpeaker, deleteSpeaker, canUserEdit, currentUser } = useDashboard();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editRole, setEditRole] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [editCanEdit, setEditCanEdit] = useState(true);
+  const [editIsAdmin, setEditIsAdmin] = useState(true);
+
   const [addName, setAddName] = useState('');
   const [addEmail, setAddEmail] = useState('');
   const [addRole, setAddRole] = useState('');
   const [addPassword, setAddPassword] = useState('1234');
   const [addCanEdit, setAddCanEdit] = useState(true);
+  const [addIsAdmin, setAddIsAdmin] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
 
   // Visibility toggles for passwords
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
   const [showAddPassword, setShowAddPassword] = useState(false);
+
+  const isCurrentUserAdmin = currentUser ? (currentUser.isAdmin !== false) : false;
 
   const togglePasswordVisibility = (id: string) => {
     setShowPasswordMap(prev => ({ ...prev, [id]: !prev[id] }));
@@ -173,6 +178,7 @@ const SpeakersSection: React.FC = () => {
     setEditRole(s.role ?? '');
     setEditPassword(s.password ?? '1234');
     setEditCanEdit(s.canEdit !== false);
+    setEditIsAdmin(s.isAdmin !== false);
   };
 
   const saveEdit = () => {
@@ -182,7 +188,8 @@ const SpeakersSection: React.FC = () => {
       email: editEmail.trim(), 
       role: editRole.trim(), 
       password: editPassword.trim(),
-      canEdit: editCanEdit
+      canEdit: editCanEdit,
+      isAdmin: editIsAdmin
     });
     setEditingId(null);
   };
@@ -195,17 +202,19 @@ const SpeakersSection: React.FC = () => {
       email: addEmail.trim(), 
       role: addRole.trim(),
       password: addPassword.trim() || '1234',
-      canEdit: addCanEdit
+      canEdit: addCanEdit,
+      isAdmin: addIsAdmin
     });
     setAddName('');
     setAddEmail('');
     setAddRole('');
     setAddPassword('1234');
     setAddCanEdit(true);
+    setAddIsAdmin(true);
     setShowAdd(false);
   };
 
-  const actionButton = !showAdd && canUserEdit ? (
+  const actionButton = !showAdd && canUserEdit && isCurrentUserAdmin ? (
     <button
       onClick={() => setShowAdd(true)}
       className="btn btn-primary btn-sm"
@@ -229,166 +238,201 @@ const SpeakersSection: React.FC = () => {
             <th>Role / Title</th>
             <th style={{ width: 150 }}>Password</th>
             <th style={{ width: 90, textAlign: 'center' }}>Can Edit</th>
+            <th style={{ width: 90, textAlign: 'center' }}>Admin</th>
             <th style={{ width: 72 }}>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {speakers.map(s => (
-            <tr key={s.id}>
-              <td>
-                {editingId === s.id ? (
-                  <input
-                    autoFocus
-                    className="config-input"
-                    value={editName}
-                    onChange={e => setEditName(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') saveEdit();
-                      if (e.key === 'Escape') setEditingId(null);
-                    }}
-                  />
-                ) : (
-                  <span style={{ fontWeight: 500 }}>{s.name}</span>
-                )}
-              </td>
-              <td>
-                {editingId === s.id ? (
-                  <input
-                    className="config-input"
-                    value={editEmail}
-                    onChange={e => setEditEmail(e.target.value)}
-                    placeholder="Email address…"
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') saveEdit();
-                      if (e.key === 'Escape') setEditingId(null);
-                    }}
-                  />
-                ) : (
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>{s.email || '—'}</span>
-                )}
-              </td>
-              <td>
-                {editingId === s.id ? (
-                  <input
-                    className="config-input"
-                    value={editRole}
-                    onChange={e => setEditRole(e.target.value)}
-                    placeholder="e.g. Professor, Finance"
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') saveEdit();
-                      if (e.key === 'Escape') setEditingId(null);
-                    }}
-                  />
-                ) : (
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{s.role || '—'}</span>
-                )}
-              </td>
-              <td>
-                {editingId === s.id ? (
-                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+          {speakers.map(s => {
+            const isSelf = currentUser && currentUser.id === s.id;
+            const canViewOrEditPassword = isCurrentUserAdmin || isSelf;
+
+            return (
+              <tr key={s.id}>
+                <td>
+                  {editingId === s.id ? (
                     <input
-                      type={showPasswordMap[s.id] ? 'text' : 'password'}
+                      autoFocus
                       className="config-input"
-                      style={{ paddingRight: '30px' }}
-                      value={editPassword}
-                      onChange={e => setEditPassword(e.target.value)}
-                      placeholder="Password"
+                      value={editName}
+                      onChange={e => setEditName(e.target.value)}
                       onKeyDown={e => {
                         if (e.key === 'Enter') saveEdit();
                         if (e.key === 'Escape') setEditingId(null);
                       }}
                     />
-                    <button
-                      type="button"
-                      onClick={() => togglePasswordVisibility(s.id)}
-                      style={{
-                        position: 'absolute',
-                        right: '8px',
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        color: 'var(--text-secondary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        padding: 0,
-                      }}
-                    >
-                      {showPasswordMap[s.id] ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{
-                      fontSize: '0.8rem',
-                      letterSpacing: showPasswordMap[s.id] ? 'normal' : '0.15em',
-                      fontFamily: showPasswordMap[s.id] ? 'Outfit, sans-serif' : 'monospace',
-                      color: showPasswordMap[s.id] ? 'var(--text-primary)' : 'var(--text-muted)',
-                    }}>
-                      {showPasswordMap[s.id] ? (s.password || '1234') : '••••••'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => togglePasswordVisibility(s.id)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        color: 'var(--text-secondary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        padding: '4px',
-                        borderRadius: '4px',
-                      }}
-                      title={showPasswordMap[s.id] ? 'Hide Password' : 'Show Password'}
-                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--background-alt)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                    >
-                      {showPasswordMap[s.id] ? <EyeOff size={12} /> : <Eye size={12} />}
-                    </button>
-                  </div>
-                )}
-              </td>
-              <td style={{ textAlign: 'center' }}>
-                {editingId === s.id ? (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <input
-                      type="checkbox"
-                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                      checked={editCanEdit}
-                      onChange={e => setEditCanEdit(e.target.checked)}
-                    />
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <input
-                      type="checkbox"
-                      style={{ width: '16px', height: '16px', cursor: 'default' }}
-                      checked={s.canEdit !== false}
-                      disabled
-                    />
-                  </div>
-                )}
-              </td>
-              <td>
-                <div style={{ display: 'flex', gap: 2 }}>
-                  {editingId === s.id ? (
-                    <>
-                      <IconBtn onClick={saveEdit} success title="Save"><Check size={14} /></IconBtn>
-                      <IconBtn onClick={() => { setEditingId(null); }} title="Cancel"><X size={14} /></IconBtn>
-                    </>
                   ) : (
-                    <>
-                      {canUserEdit && <IconBtn onClick={() => startEdit(s)} title="Edit"><Pencil size={14} /></IconBtn>}
-                      {canUserEdit && <IconBtn onClick={() => deleteSpeaker(s.id)} danger title="Delete"><Trash2 size={14} /></IconBtn>}
-                    </>
+                    <span style={{ fontWeight: 500 }}>{s.name}</span>
                   )}
-                </div>
-              </td>
-            </tr>
-          ))}
+                </td>
+                <td>
+                  {editingId === s.id ? (
+                    <input
+                      className="config-input"
+                      value={editEmail}
+                      onChange={e => setEditEmail(e.target.value)}
+                      placeholder="Email address…"
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') saveEdit();
+                        if (e.key === 'Escape') setEditingId(null);
+                      }}
+                    />
+                  ) : (
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>{s.email || '—'}</span>
+                  )}
+                </td>
+                <td>
+                  {editingId === s.id ? (
+                    <input
+                      className="config-input"
+                      value={editRole}
+                      disabled={!isCurrentUserAdmin}
+                      onChange={e => setEditRole(e.target.value)}
+                      placeholder="e.g. Professor, Finance"
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') saveEdit();
+                        if (e.key === 'Escape') setEditingId(null);
+                      }}
+                    />
+                  ) : (
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{s.role || '—'}</span>
+                  )}
+                </td>
+                <td>
+                  {editingId === s.id ? (
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <input
+                        type={showPasswordMap[s.id] ? 'text' : 'password'}
+                        className="config-input"
+                        style={{ paddingRight: '30px' }}
+                        value={editPassword}
+                        disabled={!canViewOrEditPassword}
+                        onChange={e => setEditPassword(e.target.value)}
+                        placeholder="Password"
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') saveEdit();
+                          if (e.key === 'Escape') setEditingId(null);
+                        }}
+                      />
+                      {canViewOrEditPassword && (
+                        <button
+                          type="button"
+                          onClick={() => togglePasswordVisibility(s.id)}
+                          style={{
+                            position: 'absolute',
+                            right: '8px',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: 'var(--text-secondary)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: 0,
+                          }}
+                        >
+                          {showPasswordMap[s.id] ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{
+                        fontSize: '0.8rem',
+                        letterSpacing: (showPasswordMap[s.id] && canViewOrEditPassword) ? 'normal' : '0.15em',
+                        fontFamily: (showPasswordMap[s.id] && canViewOrEditPassword) ? 'Outfit, sans-serif' : 'monospace',
+                        color: (showPasswordMap[s.id] && canViewOrEditPassword) ? 'var(--text-primary)' : 'var(--text-muted)',
+                      }}>
+                        {(showPasswordMap[s.id] && canViewOrEditPassword) ? (s.password || '1234') : '••••••'}
+                      </span>
+                      {canViewOrEditPassword && (
+                        <button
+                          type="button"
+                          onClick={() => togglePasswordVisibility(s.id)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: 'var(--text-secondary)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '4px',
+                            borderRadius: '4px',
+                          }}
+                          title={showPasswordMap[s.id] ? 'Hide Password' : 'Show Password'}
+                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--background-alt)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                        >
+                          {showPasswordMap[s.id] ? <EyeOff size={12} /> : <Eye size={12} />}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </td>
+                <td style={{ textAlign: 'center' }}>
+                  {editingId === s.id ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <input
+                        type="checkbox"
+                        style={{ width: '16px', height: '16px', cursor: isCurrentUserAdmin ? 'pointer' : 'not-allowed' }}
+                        checked={editCanEdit}
+                        disabled={!isCurrentUserAdmin}
+                        onChange={e => setEditCanEdit(e.target.checked)}
+                      />
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <input
+                        type="checkbox"
+                        style={{ width: '16px', height: '16px', cursor: 'default' }}
+                        checked={s.canEdit !== false}
+                        disabled
+                      />
+                    </div>
+                  )}
+                </td>
+                <td style={{ textAlign: 'center' }}>
+                  {editingId === s.id ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <input
+                        type="checkbox"
+                        style={{ width: '16px', height: '16px', cursor: isCurrentUserAdmin ? 'pointer' : 'not-allowed' }}
+                        checked={editIsAdmin}
+                        disabled={!isCurrentUserAdmin}
+                        onChange={e => setEditIsAdmin(e.target.checked)}
+                      />
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <input
+                        type="checkbox"
+                        style={{ width: '16px', height: '16px', cursor: 'default' }}
+                        checked={s.isAdmin !== false}
+                        disabled
+                      />
+                    </div>
+                  )}
+                </td>
+                <td>
+                  <div style={{ display: 'flex', gap: 2 }}>
+                    {editingId === s.id ? (
+                      <>
+                        <IconBtn onClick={saveEdit} success title="Save"><Check size={14} /></IconBtn>
+                        <IconBtn onClick={() => { setEditingId(null); }} title="Cancel"><X size={14} /></IconBtn>
+                      </>
+                    ) : (
+                      <>
+                        {canUserEdit && (isCurrentUserAdmin || isSelf) && <IconBtn onClick={() => startEdit(s)} title="Edit"><Pencil size={14} /></IconBtn>}
+                        {canUserEdit && isCurrentUserAdmin && <IconBtn onClick={() => deleteSpeaker(s.id)} danger title="Delete"><Trash2 size={14} /></IconBtn>}
+                      </>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
 
           {/* Add row */}
-          {showAdd && (
+          {showAdd && isCurrentUserAdmin && (
             <tr>
               <td>
                 <input
@@ -467,6 +511,16 @@ const SpeakersSection: React.FC = () => {
                     style={{ width: '16px', height: '16px', cursor: 'pointer' }}
                     checked={addCanEdit}
                     onChange={e => setAddCanEdit(e.target.checked)}
+                  />
+                </div>
+              </td>
+              <td>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <input
+                    type="checkbox"
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                    checked={addIsAdmin}
+                    onChange={e => setAddIsAdmin(e.target.checked)}
                   />
                 </div>
               </td>

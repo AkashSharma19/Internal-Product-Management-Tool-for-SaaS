@@ -1096,7 +1096,7 @@ const DashboardContent: React.FC = () => {
                 id: foundIssue.id,
                 feature: foundIssue.module || `Issue #${foundIssue.id}`,
                 description: foundIssue.issues || foundIssue.notes || '',
-                tarunSirApproval: foundIssue.raisedByTarunSir || false,
+                tarunSirApproval: foundIssue.tarunSirApproval || false,
                 raisedByTarunSir: foundIssue.raisedByTarunSir || false,
                 priority: foundIssue.priority as any || '',
                 poc: foundIssue.poc || foundIssue.contact || '',
@@ -1123,7 +1123,7 @@ const DashboardContent: React.FC = () => {
                 if (updated.feature !== undefined) updatedIssue.module = updated.feature;
                 if (updated.description !== undefined) updatedIssue.issues = updated.description;
                 if (updated.raisedByTarunSir !== undefined) updatedIssue.raisedByTarunSir = updated.raisedByTarunSir;
-                if (updated.tarunSirApproval !== undefined) updatedIssue.raisedByTarunSir = updated.tarunSirApproval;
+                if (updated.tarunSirApproval !== undefined) updatedIssue.tarunSirApproval = updated.tarunSirApproval;
                 if (updated.priority !== undefined) updatedIssue.priority = updated.priority;
                 if (updated.poc !== undefined) updatedIssue.poc = updated.poc;
                 if (updated.status !== undefined) updatedIssue.status = updated.status;
