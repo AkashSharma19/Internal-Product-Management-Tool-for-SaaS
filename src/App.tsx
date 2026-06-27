@@ -42,7 +42,7 @@ import {
 } from 'lucide-react';
 
 const LoginView: React.FC = () => {
-  const { speakers, loginUser } = useDashboard();
+  const { speakers, loginUser, isLoading } = useDashboard();
   const [selectedUser, setSelectedUser] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -110,6 +110,24 @@ const LoginView: React.FC = () => {
           </div>
           <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', color: 'var(--text-primary)' }}>OPERATIONS CONTROL</h2>
           <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Secure Identity Portal</p>
+          {isLoading && (
+            <div style={{ 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: '6px', 
+              marginTop: '0.85rem', 
+              padding: '4px 12px', 
+              borderRadius: '20px', 
+              backgroundColor: 'var(--primary-glow)', 
+              border: '1px solid var(--primary-border)',
+              color: 'var(--primary)', 
+              fontSize: '0.7rem', 
+              fontWeight: 600 
+            }}>
+              <RefreshCw size={10} className="animate-spin" />
+              <span>Fetching database data...</span>
+            </div>
+          )}
         </div>
 
         {/* Form */}
@@ -123,6 +141,7 @@ const LoginView: React.FC = () => {
               </span>
               <select
                 value={selectedUser}
+                disabled={isLoading}
                 onChange={e => setSelectedUser(e.target.value)}
                 style={{
                   width: '100%',
@@ -133,17 +152,29 @@ const LoginView: React.FC = () => {
                   color: 'var(--text-primary)',
                   fontSize: '0.85rem',
                   outline: 'none',
-                  cursor: 'pointer',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
                   appearance: 'none',
                   WebkitAppearance: 'none'
                 }}
               >
-                <option value="" style={{ background: '#fff', color: 'var(--text-muted)' }}>-- Select Name --</option>
-                {speakers.map(s => (
-                  <option key={s.id} value={s.id} style={{ background: '#fff', color: 'var(--text-primary)' }}>{s.name}</option>
-                ))}
+                {isLoading ? (
+                  <option value="">Loading users from MongoDB...</option>
+                ) : (
+                  <>
+                    <option value="" style={{ background: '#fff', color: 'var(--text-muted)' }}>-- Select Name --</option>
+                    {speakers.map(s => (
+                      <option key={s.id} value={s.id} style={{ background: '#fff', color: 'var(--text-primary)' }}>{s.name}</option>
+                    ))}
+                  </>
+                )}
               </select>
-              <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none', fontSize: '0.65rem' }}>▼</span>
+              <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none', display: 'flex', alignItems: 'center' }}>
+                {isLoading ? (
+                  <RefreshCw size={12} className="animate-spin" />
+                ) : (
+                  '▼'
+                )}
+              </span>
             </div>
           </div>
 
