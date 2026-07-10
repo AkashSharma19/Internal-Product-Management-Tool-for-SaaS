@@ -17,6 +17,7 @@ import {
 import { ConfigSection } from './components/ConfigSection';
 import { DashboardOverview } from './components/DashboardOverview';
 import { CalendarView } from './components/CalendarView';
+import { PublicFeedbackForm } from './components/PublicFeedbackForm';
 import {
   LayoutDashboard,
   Flame,
@@ -711,6 +712,15 @@ const DashboardContent: React.FC = () => {
       setIsRefreshingData(false);
     }
   };
+
+  // Public feedback mode routing bypass
+  const searchParams = new URLSearchParams(window.location.search);
+  const feedbackId = searchParams.get('feedback');
+  const feedbackCategory = searchParams.get('category');
+
+  if (feedbackId) {
+    return <PublicFeedbackForm itemId={feedbackId} category={feedbackCategory} />;
+  }
 
   if (!currentUser) {
     return <LoginView />;

@@ -265,3 +265,33 @@ export const ConfigProgramModel = mongoose.models.ConfigProgram || mongoose.mode
 export const ConfigCohortModel = mongoose.models.ConfigCohort || mongoose.model('ConfigCohort', ConfigCohortSchema);
 
 export const GlobalSettingsModel = mongoose.models.GlobalSettings || mongoose.model('GlobalSettings', GlobalSettingsSchema);
+
+// ── Feedback & Form Builder Schemas ──────────────────────────────────────────
+
+const FeedbackFormFieldSchema = new Schema({
+  id: { type: String, required: true },
+  label: { type: String, required: true },
+  type: { type: String, required: true }, // 'rating', 'text', 'textarea', 'select', 'checkbox'
+  required: { type: Boolean, default: false },
+  options: { type: [String], default: [] },
+  order: { type: Number, default: 0 }
+});
+
+const FeedbackFormConfigSchema = new Schema({
+  id: { type: String, required: true, unique: true },
+  category: { type: String, required: true }, // 'admin-calls', 'ama-meetings', 'student-projects'
+  enabled: { type: Boolean, default: true },
+  fields: [FeedbackFormFieldSchema]
+}, { timestamps: true });
+
+const FeedbackSubmissionSchema = new Schema({
+  id: { type: String, required: true, unique: true },
+  category: { type: String, required: true },
+  itemId: { type: String, required: true },
+  answers: { type: Schema.Types.Mixed, default: {} }, // map of fieldId -> answer
+  submittedBy: { type: String, default: "Anonymous" }
+}, { timestamps: true });
+
+export const FeedbackFormConfigModel = mongoose.models.FeedbackFormConfig || mongoose.model('FeedbackFormConfig', FeedbackFormConfigSchema);
+export const FeedbackSubmissionModel = mongoose.models.FeedbackSubmission || mongoose.model('FeedbackSubmission', FeedbackSubmissionSchema);
+

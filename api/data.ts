@@ -15,7 +15,9 @@ import {
   ConfigStatusModel,
   ConfigProgramModel,
   ConfigCohortModel,
-  GlobalSettingsModel
+  GlobalSettingsModel,
+  FeedbackFormConfigModel,
+  FeedbackSubmissionModel
 } from './lib/models.js';
 
 const modelsMap: Record<string, any> = {
@@ -34,7 +36,9 @@ const modelsMap: Record<string, any> = {
   statuses: ConfigStatusModel,
   programs: ConfigProgramModel,
   cohorts: ConfigCohortModel,
-  settings: GlobalSettingsModel
+  settings: GlobalSettingsModel,
+  formConfigs: FeedbackFormConfigModel,
+  feedbackSubmissions: FeedbackSubmissionModel
 };
 
 export default async function handler(req: any, res: any) {

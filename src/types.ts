@@ -224,3 +224,31 @@ export interface ConfigCohort {
   active?: boolean; // true = Active, false = Inactive
 }
 
+// ── Feedback & Form Builder Types ──────────────────────────────────────────
+
+export interface FeedbackFormField {
+  id: string;
+  label: string;
+  type: 'rating' | 'text' | 'textarea' | 'select' | 'checkbox';
+  required: boolean;
+  options?: string[];
+  order: number;
+}
+
+export interface FeedbackFormConfig {
+  id: string; // e.g. "form-admin-calls", "form-ama-meetings", "form-student-projects"
+  category: 'admin-calls' | 'ama-meetings' | 'student-projects';
+  enabled: boolean;
+  fields: FeedbackFormField[];
+}
+
+export interface FeedbackSubmission {
+  id: string;
+  category: 'admin-calls' | 'ama-meetings' | 'student-projects';
+  itemId: string; // matches the admin call id, meeting id, or project id
+  answers: Record<string, any>; // fieldId -> value
+  submittedBy?: string;
+  createdAt?: string; // ISO string
+}
+
+

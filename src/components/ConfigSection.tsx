@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useDashboard } from '../context/DashboardContext';
-import type { ConfigSpeaker, ConfigProductGroup, ConfigStatus, ConfigProgram, ConfigCohort } from '../types';
-import { Plus, Trash2, Check, X, Pencil, Users, Layers, Tag, Settings, Key, Eye, EyeOff, RefreshCw, AlertCircle } from 'lucide-react';
+import type { ConfigSpeaker, ConfigProductGroup, ConfigStatus, ConfigProgram, ConfigCohort, FeedbackFormField } from '../types';
+import { Plus, Trash2, Check, X, Pencil, Users, Layers, Tag, Settings, Key, Eye, EyeOff, RefreshCw, AlertCircle, ClipboardList, ChevronUp, ChevronDown } from 'lucide-react';
 
 // ─── Colour palette ────────────────────────────────────────────────────────────
 const PALETTE = [
@@ -1438,13 +1438,391 @@ const ClickupSettingsSection: React.FC = () => {
         </div>
       </div>
     </SectionCard>
+    );
+  };
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FORM BUILDER SECTION
+// ═══════════════════════════════════════════════════════════════════════════════
+const OptionsInput: React.FC<{
+  options: string[];
+  onChange: (options: string[]) => void;
+  disabled?: boolean;
+}> = ({ options, onChange, disabled }) => {
+  const [inputValue, setInputValue] = React.useState((options || []).join(', '));
+
+  React.useEffect(() => {
+    const currentParsed = inputValue.split(',').map(s => s.trim()).filter(Boolean);
+    if (JSON.stringify(currentParsed) !== JSON.stringify(options || [])) {
+      setInputValue((options || []).join(', '));
+    }
+  }, [options]);
+
+  return (
+    <input
+      type="text"
+      placeholder="e.g. Good, Neutral, Poor (comma separated)"
+      value={inputValue}
+      disabled={disabled}
+      onChange={e => {
+        const val = e.target.value;
+        setInputValue(val);
+        const parsed = val.split(',').map(s => s.trim()).filter(Boolean);
+        onChange(parsed);
+      }}
+      style={{
+        flex: 1,
+        padding: '4px 8px',
+        background: 'var(--panel-bg)',
+        border: '1.5px solid var(--border-light)',
+        borderRadius: '6px',
+        color: 'var(--text-primary)',
+        fontSize: '0.75rem',
+        outline: 'none'
+      }}
+    />
+  );
+};
+
+const FormBuilderSection: React.FC = () => {
+  const { formConfigs, saveFormConfig, canUserEdit, alert } = useDashboard();
+  const [selectedCategory, setSelectedCategory] = useState<'admin-calls' | 'ama-meetings' | 'student-projects'>('admin-calls');
+  const [enabled, setEnabled] = useState(true);
+  const [fields, setFields] = useState<FeedbackFormField[]>([]);
+
+  React.useEffect(() => {
+    const config = formConfigs.find(c => c.category === selectedCategory);
+    if (config) {
+      setEnabled(config.enabled);
+      setFields(config.fields || []);
+    } else {
+      setEnabled(false);
+      setFields([]);
+    }
+  }, [selectedCategory, formConfigs]);
+
+  const handleAddField = () => {
+    const newField: FeedbackFormField = {
+      id: `field-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      label: '',
+      type: 'rating',
+      required: true,
+      options: [],
+      order: fields.length
+    };
+    setFields([...fields, newField]);
+  };
+
+  const handleDeleteField = (fieldId: string) => {
+    setFields(fields.filter(f => f.id !== fieldId).map((f, idx) => ({ ...f, order: idx })));
+  };
+
+  const handleUpdateField = (fieldId: string, updated: Partial<FeedbackFormField>) => {
+    setFields(fields.map(f => f.id === fieldId ? { ...f, ...updated } : f));
+  };
+
+  const handleMoveUp = (index: number) => {
+    if (index === 0) return;
+    const newFields = [...fields];
+    const temp = newFields[index];
+    newFields[index] = newFields[index - 1];
+    newFields[index - 1] = temp;
+    setFields(newFields.map((f, i) => ({ ...f, order: i })));
+  };
+
+  const handleMoveDown = (index: number) => {
+    if (index === fields.length - 1) return;
+    const newFields = [...fields];
+    const temp = newFields[index];
+    newFields[index] = newFields[index + 1];
+    newFields[index + 1] = temp;
+    setFields(newFields.map((f, i) => ({ ...f, order: i })));
+  };
+
+  const handleSave = async () => {
+    if (fields.some(f => !f.label.trim())) {
+      await alert('All questions must have a label.', 'Validation Error', 'OK', 'danger');
+      return;
+    }
+
+    const configId = `form-${selectedCategory}`;
+    try {
+      await saveFormConfig({
+        id: configId,
+        category: selectedCategory,
+        enabled,
+        fields
+      });
+      await alert('Form configuration saved successfully!', 'Saved', 'OK', 'success');
+    } catch (err: any) {
+      await alert(`Failed to save: ${err.message}`, 'Save Failed', 'OK', 'danger');
+    }
+  };
+
+  return (
+    <SectionCard
+      icon={<ClipboardList size={16} />}
+      title="Feedback Form Builder"
+      subtitle="Configure dynamic feedback questionnaires for each meeting/project type"
+      actionButton={
+        canUserEdit && (
+          <button
+            onClick={handleSave}
+            style={{
+              background: 'var(--primary)',
+              color: '#fff',
+              border: 'none',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'opacity 0.15s'
+            }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+          >
+            <Check size={14} /> Save Configuration
+          </button>
+        )
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '800px' }}>
+        
+        {/* Category selector */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Choose Target Category
+          </label>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            {(['admin-calls', 'ama-meetings', 'student-projects'] as const).map(cat => {
+              const labelMap = {
+                'admin-calls': 'Admin Calls',
+                'ama-meetings': 'AMA & Meetings',
+                'student-projects': 'Student Projects'
+              };
+              const isSelected = selectedCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: '1.5px solid var(--border-light)',
+                    background: isSelected ? 'var(--primary-glow)' : 'var(--background)',
+                    color: isSelected ? 'var(--primary)' : 'var(--text-secondary)',
+                    borderColor: isSelected ? 'var(--primary)' : 'var(--border-light)',
+                    fontWeight: 600,
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  {labelMap[cat]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Enabled status */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '10px',
+          background: 'var(--background-alt)', padding: '1rem', borderRadius: '12px',
+          border: '1px solid var(--border)'
+        }}>
+          <input
+            type="checkbox"
+            id="form-enabled-toggle"
+            checked={enabled}
+            disabled={!canUserEdit}
+            onChange={e => setEnabled(e.target.checked)}
+            style={{ width: '16px', height: '16px', cursor: canUserEdit ? 'pointer' : 'default' }}
+          />
+          <label htmlFor="form-enabled-toggle" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', cursor: canUserEdit ? 'pointer' : 'default' }}>
+            Enable feedback form links for this category
+          </label>
+        </div>
+
+        {/* Questions list */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Form Questions ({fields.length})
+            </h4>
+            {canUserEdit && (
+              <button
+                onClick={handleAddField}
+                style={{
+                  background: 'var(--background-alt)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border)',
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Plus size={12} /> Add Question
+              </button>
+            )}
+          </div>
+
+          {fields.length === 0 ? (
+            <div style={{
+              textAlign: 'center', padding: '2.5rem', borderRadius: '12px',
+              border: '1.5px dashed var(--border-light)', color: 'var(--text-muted)',
+              fontSize: '0.85rem'
+            }}>
+              No questions configured. Click "Add Question" to start building this feedback form.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {fields.map((field, index) => (
+                <div
+                  key={field.id}
+                  style={{
+                    background: 'var(--background)',
+                    border: '1px solid var(--border-light)',
+                    borderRadius: '12px',
+                    padding: '1.25rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.75rem',
+                    position: 'relative'
+                  }}
+                >
+                  {/* Top Row: Input and Controls */}
+                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', width: '20px' }}>
+                      #{index + 1}
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="Enter question text..."
+                      value={field.label}
+                      disabled={!canUserEdit}
+                      onChange={e => handleUpdateField(field.id, { label: e.target.value })}
+                      style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        background: 'var(--panel-bg)',
+                        border: '1.5px solid var(--border-light)',
+                        borderRadius: '8px',
+                        color: 'var(--text-primary)',
+                        fontSize: '0.85rem',
+                        outline: 'none'
+                      }}
+                    />
+                    
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: canUserEdit ? 'pointer' : 'default', userSelect: 'none' }}>
+                      <input
+                        type="checkbox"
+                        checked={field.required}
+                        disabled={!canUserEdit}
+                        onChange={e => handleUpdateField(field.id, { required: e.target.checked })}
+                        style={{ cursor: canUserEdit ? 'pointer' : 'default' }}
+                      />
+                      Required
+                    </label>
+
+                    {/* Sorting & Delete buttons */}
+                    {canUserEdit && (
+                      <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+                        <button
+                          disabled={index === 0}
+                          onClick={() => handleMoveUp(index)}
+                          style={{
+                            background: 'none', border: 'none', color: index === 0 ? 'var(--text-muted)' : 'var(--text-secondary)',
+                            cursor: index === 0 ? 'default' : 'pointer', padding: '4px', borderRadius: '4px', opacity: index === 0 ? 0.3 : 1
+                          }}
+                        >
+                          <ChevronUp size={14} />
+                        </button>
+                        <button
+                          disabled={index === fields.length - 1}
+                          onClick={() => handleMoveDown(index)}
+                          style={{
+                            background: 'none', border: 'none', color: index === fields.length - 1 ? 'var(--text-muted)' : 'var(--text-secondary)',
+                            cursor: index === fields.length - 1 ? 'default' : 'pointer', padding: '4px', borderRadius: '4px', opacity: index === fields.length - 1 ? 0.3 : 1
+                          }}
+                        >
+                          <ChevronDown size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteField(field.id)}
+                          style={{
+                            background: 'none', border: 'none', color: 'var(--danger)',
+                            cursor: 'pointer', padding: '4px', borderRadius: '4px', marginLeft: '4px'
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Middle Row: Question Type & Extra options */}
+                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', paddingLeft: '28px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Type:</span>
+                      <select
+                        value={field.type}
+                        disabled={!canUserEdit}
+                        onChange={e => handleUpdateField(field.id, { type: e.target.value as any, options: [] })}
+                        style={{
+                          padding: '4px 8px',
+                          background: 'var(--panel-bg)',
+                          border: '1.5px solid var(--border-light)',
+                          borderRadius: '6px',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.75rem',
+                          cursor: canUserEdit ? 'pointer' : 'default',
+                          outline: 'none'
+                        }}
+                      >
+                        <option value="rating">Rating (1-5 Stars)</option>
+                        <option value="text">Short Answer</option>
+                        <option value="textarea">Paragraph Comment</option>
+                        <option value="select">Dropdown Select</option>
+                        <option value="checkbox">Multiple Checkboxes</option>
+                      </select>
+                    </div>
+
+                    {/* Options list for select/checkbox */}
+                    {(field.type === 'select' || field.type === 'checkbox') && (
+                      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Choices:</span>
+                        <OptionsInput
+                          options={field.options || []}
+                          disabled={!canUserEdit}
+                          onChange={opts => handleUpdateField(field.id, { options: opts })}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </SectionCard>
   );
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT — tabbed layout
 // ═══════════════════════════════════════════════════════════════════════════════
-type ConfigTab = 'speakers' | 'groups' | 'statuses' | 'programs' | 'clickup';
+type ConfigTab = 'speakers' | 'groups' | 'statuses' | 'programs' | 'clickup' | 'forms';
 
 const CONFIG_TABS: { id: ConfigTab; label: string; icon: React.ReactNode }[] = [
   { id: 'speakers', label: 'POC Owners / Speakers', icon: <Users size={15} /> },
@@ -1452,6 +1830,7 @@ const CONFIG_TABS: { id: ConfigTab; label: string; icon: React.ReactNode }[] = [
   { id: 'statuses', label: 'Statuses',               icon: <Tag size={15} /> },
   { id: 'programs', label: 'Programs & Cohorts',     icon: <Layers size={15} /> },
   { id: 'clickup',  label: 'ClickUp Integration',    icon: <Settings size={15} /> },
+  { id: 'forms',    label: 'Form Builder',           icon: <ClipboardList size={15} /> },
 ];
 
 export const ConfigSection: React.FC = () => {
@@ -1518,6 +1897,7 @@ export const ConfigSection: React.FC = () => {
           {activeTab === 'statuses' && <StatusesSection />}
           {activeTab === 'programs' && <ProgramsSection />}
           {activeTab === 'clickup' && <ClickupSettingsSection />}
+          {activeTab === 'forms' && <FormBuilderSection />}
         </div>
       </div>
     </div>

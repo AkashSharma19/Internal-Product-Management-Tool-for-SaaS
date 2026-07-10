@@ -15,7 +15,9 @@ import type {
   ConfigProductGroup,
   ConfigStatus,
   ConfigProgram,
-  ConfigCohort
+  ConfigCohort,
+  FeedbackFormConfig,
+  FeedbackSubmission
 } from '../types';
 import {
   initialProductItems,
@@ -162,6 +164,16 @@ interface DashboardContextType {
     confirmText?: string,
     variant?: 'danger' | 'warning' | 'primary' | 'success'
   ) => Promise<void>;
+
+  // Form Configurations & Feedback Submissions
+  formConfigs: FeedbackFormConfig[];
+  setFormConfigs: React.Dispatch<React.SetStateAction<FeedbackFormConfig[]>>;
+  saveFormConfig: (config: FeedbackFormConfig) => Promise<void>;
+  
+  feedbackSubmissions: FeedbackSubmission[];
+  setFeedbackSubmissions: React.Dispatch<React.SetStateAction<FeedbackSubmission[]>>;
+  addFeedbackSubmission: (submission: Omit<FeedbackSubmission, 'id'>) => Promise<FeedbackSubmission>;
+  deleteFeedbackSubmission: (id: string) => Promise<void>;
 }
 
 
@@ -529,6 +541,24 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return localStorage.getItem('config-clickup-api-key') || '';
   });
 
+  const [formConfigs, setFormConfigs] = useState<FeedbackFormConfig[]>(() => {
+    const data = localStorage.getItem('config-form-configs');
+    return data ? JSON.parse(data) : [];
+  });
+
+  const [feedbackSubmissions, setFeedbackSubmissions] = useState<FeedbackSubmission[]>(() => {
+    const data = localStorage.getItem('data-feedback-submissions');
+    return data ? JSON.parse(data) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('config-form-configs', JSON.stringify(formConfigs));
+  }, [formConfigs]);
+
+  useEffect(() => {
+    localStorage.setItem('data-feedback-submissions', JSON.stringify(feedbackSubmissions));
+  }, [feedbackSubmissions]);
+
   const [currentUser, setCurrentUser] = useState<ConfigSpeaker | null>(null);
   const canUserEdit = currentUser ? (currentUser.canEdit !== false) : true;
 
@@ -687,6 +717,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (db.statuses && db.statuses.length > 0)           { setStatuses(db.statuses);           updatedSheets++; }
         if (db.programs && db.programs.length > 0)           { setPrograms(db.programs);           updatedSheets++; }
         if (db.cohorts && db.cohorts.length > 0)             { setCohorts(db.cohorts);             updatedSheets++; }
+
+        if (db.formConfigs) { setFormConfigs(db.formConfigs); }
+        if (db.feedbackSubmissions) { setFeedbackSubmissions(db.feedbackSubmissions); }
 
         if (db.settings) {
           const clickupSetting = db.settings.find((s: any) => s.key === 'clickupApiKey');
@@ -1265,6 +1298,35 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     persistChange('delete', 'cohorts', id, null);
   };
 
+  const saveFormConfig = async (config: FeedbackFormConfig) => {
+    setFormConfigs(prev => {
+      const exists = prev.some(c => c.id === config.id);
+      if (exists) {
+        return prev.map(c => c.id === config.id ? config : c);
+      } else {
+        return [...prev, config];
+      }
+    });
+    await persistChange('update', 'formConfigs', config.id, config);
+  };
+
+  const addFeedbackSubmission = async (submission: Omit<FeedbackSubmission, 'id'>) => {
+    const id = `sub-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const newSubmission: FeedbackSubmission = {
+      ...submission,
+      id,
+      createdAt: new Date().toISOString()
+    };
+    setFeedbackSubmissions(prev => [newSubmission, ...prev]);
+    await persistChange('create', 'feedbackSubmissions', null, newSubmission);
+    return newSubmission;
+  };
+
+  const deleteFeedbackSubmission = async (id: string) => {
+    setFeedbackSubmissions(prev => prev.filter(sub => sub.id !== id));
+    await persistChange('delete', 'feedbackSubmissions', id, null);
+  };
+
   const extractClickupTaskId = (url: string): string | null => {
     if (!url) return null;
     const trimmed = url.trim();
@@ -1500,6 +1562,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       isLoading, syncStatus,
       confirm,
       alert,
+      formConfigs, setFormConfigs, saveFormConfig,
+      feedbackSubmissions, setFeedbackSubmissions, addFeedbackSubmission, deleteFeedbackSubmission,
     }}>
       {children}
       {dialogState && (

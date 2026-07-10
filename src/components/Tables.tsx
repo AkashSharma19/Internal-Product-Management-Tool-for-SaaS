@@ -6,6 +6,7 @@ import {
   Edit2,
   ExternalLink, 
   X,
+  Check,
   ArrowLeft,
   AlertCircle,
   Palette,
@@ -25,7 +26,8 @@ import {
   RefreshCw,
   Search,
   Plus,
-  Layers
+  Layers,
+  ClipboardList
 } from 'lucide-react';
 import type { 
   ProductItem, 
@@ -109,6 +111,380 @@ const getPOCBadgeStyle = (name: string) => {
     alignItems: 'center',
     lineHeight: 1
   };
+};
+
+const AttendeeFeedbackDetails: React.FC<{
+  itemId: string;
+  category: 'admin-calls' | 'ama-meetings' | 'student-projects';
+}> = ({ itemId, category }) => {
+  const { formConfigs, feedbackSubmissions, currentUser, confirm, deleteFeedbackSubmission } = useDashboard();
+  const [copied, setCopied] = useState(false);
+  const isCurrentUserAdmin = currentUser ? (currentUser.isAdmin !== false) : false;
+
+  const config = formConfigs.find(c => c.category === category);
+  const isFormConfigured = config && config.enabled && config.fields && config.fields.length > 0;
+  const submissions = feedbackSubmissions.filter(sub => sub.itemId === itemId);
+
+  const handleCopyLink = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const link = `${window.location.origin}/?feedback=${itemId}&category=${category}`;
+    navigator.clipboard.writeText(link).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  if (!isFormConfigured) {
+    return (
+      <div style={{ marginTop: '1.25rem', padding: '1rem', border: '1px dashed var(--border)', borderRadius: '8px', background: 'var(--background-alt)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h5 style={{ margin: 0, fontSize: '0.8rem', fontWeight: 650, color: 'var(--text-secondary)' }}>Attendee Feedback Portal</h5>
+            <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              {"Feedback form is currently not configured or disabled in Configuration -> Form Builder."}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Calculate Averages for rating fields
+  const ratingFields = config.fields.filter(f => f.type === 'rating');
+  const ratingsSummary = ratingFields.map(field => {
+    const scores = submissions
+      .map(sub => Number(sub.answers[field.id]))
+      .filter(score => !isNaN(score) && score > 0);
+    const avg = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : null;
+    return { fieldId: field.id, label: field.label, avg, count: scores.length };
+  });
+
+  const sortedFields = [...config.fields].sort((a, b) => a.order - b.order);
+
+  return (
+    <div style={{
+      marginTop: '1.25rem', padding: '1.25rem', border: '1px solid var(--border)',
+      borderRadius: '10px', background: 'var(--background-alt)', display: 'flex', flexDirection: 'column', gap: '1rem'
+    }} onClick={(e) => e.stopPropagation()}>
+      
+      {/* Header bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+        <div>
+          <h4 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <ClipboardList size={14} /> Attendee Feedback ({submissions.length} {submissions.length === 1 ? 'response' : 'responses'})
+          </h4>
+          <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            Share the link below with participants to collect feedback.
+          </p>
+        </div>
+        <button
+          onClick={handleCopyLink}
+          style={{
+            background: copied ? 'var(--success-bg)' : 'var(--primary)',
+            color: copied ? 'var(--success)' : '#fff',
+            border: copied ? '1px solid var(--success)' : 'none',
+            padding: '6px 12px',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '0.75rem',
+            fontWeight: 650,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            transition: 'all 0.2s'
+          }}
+        >
+          {copied ? <Check size={12} /> : <Link size={12} />}
+          {copied ? 'Link Copied!' : 'Copy Feedback Link'}
+        </button>
+      </div>
+
+      {/* Ratings Summary Cards */}
+      {ratingsSummary.length > 0 && submissions.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '8px' }}>
+          {ratingsSummary.map((item) => (
+            <div key={item.fieldId} style={{ background: 'var(--panel-bg)', border: '1px solid var(--border)', padding: '0.6rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600 }} title={item.label}>
+                {item.label}
+              </span>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  {item.avg ?? '—'}
+                </span>
+                {item.avg && <Star size={11} fill="#fbbf24" color="#fbbf24" style={{ position: 'relative', top: '-1px' }} />}
+                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginLeft: 'auto' }}>({item.count})</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Tabular Feedback View */}
+      {submissions.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.75rem', border: '1px dashed var(--border)', borderRadius: '8px', background: 'var(--panel-bg)' }}>
+          No feedback responses submitted yet for this item.
+        </div>
+      ) : (
+        <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid var(--border)' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+            <thead>
+              <tr style={{ background: 'var(--panel-bg)', borderBottom: '2px solid var(--border)' }}>
+                <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap', borderRight: '1px solid var(--border)', position: 'sticky', left: 0, background: 'var(--panel-bg)', zIndex: 1, minWidth: '100px' }}>Respondent</th>
+                <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap', borderRight: '1px solid var(--border)', minWidth: '110px' }}>Date</th>
+                {sortedFields.map(field => (
+                  <th key={field.id} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap', borderRight: '1px solid var(--border)', minWidth: field.type === 'rating' ? '70px' : '120px' }}>
+                    {field.label}
+                  </th>
+                ))}
+                {isCurrentUserAdmin && (
+                  <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap', minWidth: '60px' }}>
+                    Actions
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {submissions.map((sub, idx) => (
+                <tr key={sub.id} style={{ borderBottom: '1px solid var(--border)', background: idx % 2 === 0 ? 'var(--background)' : 'var(--background-alt)' }}>
+                  <td style={{ padding: '7px 10px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', borderRight: '1px solid var(--border)', position: 'sticky', left: 0, background: idx % 2 === 0 ? 'var(--background)' : 'var(--background-alt)', zIndex: 1 }}>
+                    {sub.submittedBy || 'Anonymous'}
+                  </td>
+                  <td style={{ padding: '7px 10px', color: 'var(--text-muted)', whiteSpace: 'nowrap', borderRight: '1px solid var(--border)' }}>
+                    {sub.createdAt ? new Date(sub.createdAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : '—'}
+                  </td>
+                  {sortedFields.map(field => {
+                    const ans = sub.answers[field.id];
+                    return (
+                      <td key={field.id} style={{ padding: '7px 10px', borderRight: '1px solid var(--border)', color: 'var(--text-primary)' }}>
+                        {ans === undefined || ans === null || ans === '' ? (
+                          <span style={{ color: 'var(--text-muted)' }}>—</span>
+                        ) : field.type === 'rating' ? (
+                          <span style={{ color: '#d97706', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                            {ans} <Star size={10} fill="#fbbf24" color="#fbbf24" />
+                          </span>
+                        ) : Array.isArray(ans) ? (
+                          <span>{ans.join(', ')}</span>
+                        ) : (
+                          <span style={{ maxWidth: '200px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{ans}</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                  {isCurrentUserAdmin && (
+                    <td style={{ padding: '7px 10px', textAlign: 'center' }}>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const confirmed = await confirm(
+                            'Are you sure you want to delete this feedback submission?',
+                            'Delete Feedback',
+                            'Delete',
+                            'Cancel',
+                            'danger'
+                          );
+                          if (confirmed) {
+                            await deleteFeedbackSubmission(sub.id);
+                          }
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: 'var(--danger)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '4px',
+                          borderRadius: '4px',
+                          transition: 'background-color 0.15s'
+                        }}
+                        title="Delete submission"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+const FeedbackRatingCell: React.FC<{
+  itemId: string;
+  category: 'admin-calls' | 'ama-meetings' | 'student-projects';
+  onCellClick: (itemId: string, category: 'admin-calls' | 'ama-meetings' | 'student-projects') => void;
+}> = ({ itemId, category, onCellClick }) => {
+  const { feedbackSubmissions, formConfigs } = useDashboard();
+  
+  const config = formConfigs.find(c => c.category === category);
+  if (!config || !config.enabled) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+
+  const submissions = feedbackSubmissions.filter(sub => sub.itemId === itemId);
+  if (submissions.length === 0) return <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>—</span>;
+
+  const ratingFields = config.fields.filter(f => f.type === 'rating');
+  let avg: string | null = null;
+  let totalCount = 0;
+
+  if (ratingFields.length > 0) {
+    const scores: number[] = [];
+    submissions.forEach(sub => {
+      ratingFields.forEach(field => {
+        const score = Number(sub.answers[field.id]);
+        if (!isNaN(score) && score > 0) {
+          scores.push(score);
+        }
+      });
+    });
+    if (scores.length > 0) {
+      avg = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
+      totalCount = submissions.length;
+    }
+  }
+
+  if (avg) {
+    return (
+      <span 
+        className="badge" 
+        onClick={(e) => {
+          e.stopPropagation();
+          onCellClick(itemId, category);
+        }}
+        style={{
+          fontSize: '0.725rem',
+          padding: '4px 8px',
+          background: 'rgba(251, 191, 36, 0.12)',
+          color: '#d97706',
+          border: '1px solid rgba(251, 191, 36, 0.3)',
+          fontWeight: 700,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          transition: 'all 0.2s',
+          userSelect: 'none'
+        }}
+        title="Click to view feedback submissions"
+      >
+        <Star size={11} fill="#d97706" />
+        {avg} <span style={{ opacity: 0.6, fontSize: '0.625rem', fontWeight: 500 }}>({totalCount})</span>
+      </span>
+    );
+  }
+
+  return (
+    <span 
+      className="badge" 
+      onClick={(e) => {
+        e.stopPropagation();
+        onCellClick(itemId, category);
+      }}
+      style={{
+        fontSize: '0.725rem',
+        padding: '4px 8px',
+        background: 'rgba(99, 102, 241, 0.12)',
+        color: 'var(--primary)',
+        border: '1px solid rgba(99, 102, 241, 0.3)',
+        fontWeight: 700,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px',
+        borderRadius: '6px',
+        cursor: 'pointer',
+        transition: 'all 0.2s',
+        userSelect: 'none'
+      }}
+      title="Click to view feedback submissions"
+    >
+      <ClipboardList size={11} />
+      {submissions.length} <span style={{ opacity: 0.6, fontSize: '0.625rem', fontWeight: 500 }}>{submissions.length === 1 ? 'response' : 'responses'}</span>
+    </span>
+  );
+};
+
+const FeedbackDrawer: React.FC<{
+  itemId: string | null;
+  category: 'admin-calls' | 'ama-meetings' | 'student-projects' | null;
+  onClose: () => void;
+}> = ({ itemId, category, onClose }) => {
+  if (!itemId || !category) return null;
+
+  return (
+    <div 
+      style={{
+        position: 'fixed',
+        top: 0,
+        right: 0,
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        zIndex: 9999,
+        display: 'flex',
+        justifyContent: 'flex-end',
+      }}
+      onClick={onClose}
+    >
+      <div 
+        style={{
+          width: '100%',
+          maxWidth: '65vw',
+          height: '100%',
+          backgroundColor: 'var(--panel-bg)',
+          boxShadow: '-4px 0 24px rgba(0, 0, 0, 0.15)',
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'relative'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{
+          padding: '1.25rem 1.5rem',
+          borderBottom: '1px solid var(--border)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          background: 'var(--background-alt)'
+        }}>
+          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'Outfit' }}>
+            Feedback Submissions Drawer
+          </h3>
+          <button 
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text-secondary)',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '6px',
+              borderRadius: '50%',
+              transition: 'background-color 0.15s'
+            }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Scrollable Content */}
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '1rem 1.5rem'
+        }}>
+          <AttendeeFeedbackDetails itemId={itemId} category={category} />
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const getClickupBadgeStyle = (status: string) => {
@@ -667,13 +1043,16 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({ value, onChange, produc
 };
 
 export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBack, onUpdate }) => {
-  const { speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser } = useDashboard();
+  const { studentProjects, speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser } = useDashboard();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const pocList = configSpeakers.map(s => s.name);
   const productList = productGroups.map(g => g.name);
   const isCurrentUserAdmin = currentUser ? (currentUser.isAdmin !== false) : false;
   
+  const realProjectId = item.id.startsWith('prod-temp-') ? item.id.replace('prod-temp-', '') : item.id;
+  const isProject = item.id.startsWith('proj-') || studentProjects.some(p => p.id === realProjectId);
+
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const notesRef = useRef<HTMLTextAreaElement>(null);
 
@@ -1443,6 +1822,13 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
           defaultValue={item.notes}
         />
       </div>
+
+      {isProject && (
+        <>
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '1.5rem 0' }} />
+          <AttendeeFeedbackDetails itemId={realProjectId} category="student-projects" />
+        </>
+      )}
 
       </div>
     </div>
@@ -2827,6 +3213,9 @@ export const PlanTable: React.FC = () => {
 export const StudentProjectsTable: React.FC = () => {
   const { studentProjects, updateStudentProject, addStudentProject, deleteStudentProject, openPreviewForFeature, statuses, productItems, canUserEdit, currentUser, confirm } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [drawerItemId, setDrawerItemId] = useState<string | null>(null);
+  const [drawerCategory, setDrawerCategory] = useState<'admin-calls' | 'ama-meetings' | 'student-projects' | null>(null);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [inlineEditValue, setInlineEditValue] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
@@ -3038,6 +3427,7 @@ export const StudentProjectsTable: React.FC = () => {
                 <th onClick={() => handleSort('poc')} style={{ width: '120px', cursor: 'pointer' }}>POC Owner {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('status')} style={{ width: '120px', cursor: 'pointer' }}>Status {sortField === 'status' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('clickupStatus')} style={{ width: '100px', cursor: 'pointer' }}>Clickup {sortField === 'clickupStatus' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th style={{ width: '120px' }}>Rating</th>
                 <th onClick={() => handleSort('productDeadline')} style={{ width: '120px', cursor: 'pointer' }}>Specs Date {sortField === 'productDeadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('uiux')} style={{ width: '120px', cursor: 'pointer' }}>UI/UX Date {sortField === 'uiux' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('deadline')} style={{ width: '120px', cursor: 'pointer' }}>Dev Date {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
@@ -3126,6 +3516,7 @@ export const StudentProjectsTable: React.FC = () => {
                         </span>
                       )}
                       <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+
                         {p.raisedByTarunSir && (
                           <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
                             <Star size={10} fill="currentColor" /> Super Priority
@@ -3183,6 +3574,16 @@ export const StudentProjectsTable: React.FC = () => {
                   <td>
                     {renderClickupStatusCell(p)}
                   </td>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <FeedbackRatingCell 
+                      itemId={p.id} 
+                      category="student-projects" 
+                      onCellClick={(id, cat) => {
+                        setDrawerItemId(id);
+                        setDrawerCategory(cat);
+                      }}
+                    />
+                  </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                     {p.productDeadline ? (
                       <span style={getDateSpanStyle(p.productDeadline, isCompletedStatus(p.status) || !!matchedProduct?.productDeadlineCompleted)}>
@@ -3216,19 +3617,43 @@ export const StudentProjectsTable: React.FC = () => {
                   </td>
 
                   <td>
-                    {canUserEdit && (
-                      <button 
-                        onClick={async (e) => {
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={(e) => {
                           e.stopPropagation();
-                          if (await confirm("Are you sure you want to delete this project?", "Delete Project")) {
-                            deleteStudentProject(p.id);
-                          }
+                          const link = `${window.location.origin}/?feedback=${p.id}&category=student-projects`;
+                          navigator.clipboard.writeText(link).then(() => {
+                            setCopiedId(p.id);
+                            setTimeout(() => setCopiedId(null), 2000);
+                          });
                         }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: copiedId === p.id ? 'var(--success)' : 'var(--text-secondary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '4px'
+                        }}
+                        title={copiedId === p.id ? "Link Copied!" : "Copy Feedback Link"}
                       >
-                        <Trash2 size={14} />
+                        {copiedId === p.id ? <Check size={12} /> : <Link size={12} />}
                       </button>
-                    )}
+                      {canUserEdit && (
+                        <button 
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (await confirm("Are you sure you want to delete this project?", "Delete Project")) {
+                              deleteStudentProject(p.id);
+                            }
+                          }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center', padding: '4px' }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
@@ -3237,6 +3662,14 @@ export const StudentProjectsTable: React.FC = () => {
           </table>
         </div>
       </TabContainer>
+      <FeedbackDrawer
+        itemId={drawerItemId}
+        category={drawerCategory}
+        onClose={() => {
+          setDrawerItemId(null);
+          setDrawerCategory(null);
+        }}
+      />
     </>
   );
 };
@@ -3389,6 +3822,9 @@ export const StudentMeetingsTable: React.FC = () => {
 
   const [subTab, setSubTab] = useState<'schedule' | 'feedback'>('schedule');
   const [searchQuery, setSearchQuery] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [drawerItemId, setDrawerItemId] = useState<string | null>(null);
+  const [drawerCategory, setDrawerCategory] = useState<'admin-calls' | 'ama-meetings' | 'student-projects' | null>(null);
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
 
@@ -3818,6 +4254,7 @@ export const StudentMeetingsTable: React.FC = () => {
                   <th onClick={() => handleAmaSort('speaker')} style={{ width: '220px', cursor: 'pointer' }}>Speaker(s) {amaSortField === 'speaker' ? (amaSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleAmaSort('cohort')} style={{ width: '150px', cursor: 'pointer' }}>Cohort {amaSortField === 'cohort' ? (amaSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleAmaSort('status')} style={{ width: '130px', cursor: 'pointer' }}>Status {amaSortField === 'status' ? (amaSortAsc ? '▲' : '▼') : ''}</th>
+                  <th style={{ width: '120px' }}>Rating</th>
                   <th style={{ width: '40px' }}></th>
                 </tr>
               </thead>
@@ -3935,6 +4372,7 @@ export const StudentMeetingsTable: React.FC = () => {
                             ) : (
                               <>
                                 <span>{ama.topic || <span style={{ color: 'var(--text-muted)' }}>— (No topic)</span>}</span>
+
                                 {related.length > 0 && (
                                   <span className="badge" style={{ 
                                     fontSize: '0.7rem', 
@@ -4199,8 +4637,40 @@ export const StudentMeetingsTable: React.FC = () => {
                             <option value="Postponed" style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>Postponed</option>
                           </select>
                         </td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <FeedbackRatingCell 
+                            itemId={ama.id} 
+                            category="ama-meetings" 
+                            onCellClick={(id, cat) => {
+                              setDrawerItemId(id);
+                              setDrawerCategory(cat);
+                            }}
+                          />
+                        </td>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const link = `${window.location.origin}/?feedback=${ama.id}&category=ama-meetings`;
+                                navigator.clipboard.writeText(link).then(() => {
+                                  setCopiedId(ama.id);
+                                  setTimeout(() => setCopiedId(null), 2000);
+                                });
+                              }}
+                              style={{ 
+                                background: 'none', 
+                                border: 'none', 
+                                cursor: 'pointer', 
+                                color: copiedId === ama.id ? 'var(--success)' : 'var(--text-secondary)', 
+                                display: 'flex', 
+                                alignItems: 'center',
+                                padding: '4px'
+                              }}
+                              title={copiedId === ama.id ? "Link Copied!" : "Copy Feedback Link"}
+                            >
+                              {copiedId === ama.id ? <Check size={12} /> : <Link size={12} />}
+                            </button>
                             <button 
                               onClick={() => {
                                 setEditingAMATopicId(ama.id);
@@ -4500,6 +4970,9 @@ export const StudentMeetingsTable: React.FC = () => {
                                   </button>
                                 </div>
                               )}
+                              
+                              <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '1rem 0' }} />
+                              <AttendeeFeedbackDetails itemId={ama.id} category="ama-meetings" />
                             </div>
                           </td>
                         </tr>
@@ -5002,9 +5475,14 @@ export const StudentMeetingsTable: React.FC = () => {
           </div>
         )}
       </TabContainer>
-
-
-
+      <FeedbackDrawer
+        itemId={drawerItemId}
+        category={drawerCategory}
+        onClose={() => {
+          setDrawerItemId(null);
+          setDrawerCategory(null);
+        }}
+      />
     </>
   );
 };
@@ -5021,7 +5499,10 @@ export const AdminCallsTable: React.FC = () => {
   
   const speakersList = configSpeakers.map(s => s.name);
   const [searchQuery, setSearchQuery] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [subTab, setSubTab] = useState<'schedule' | 'feedback'>('schedule');
+  const [drawerItemId, setDrawerItemId] = useState<string | null>(null);
+  const [drawerCategory, setDrawerCategory] = useState<'admin-calls' | 'ama-meetings' | 'student-projects' | null>(null);
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
 
@@ -5357,6 +5838,7 @@ export const AdminCallsTable: React.FC = () => {
                   <th onClick={() => handleCallSort('adminPoc')} style={{ width: '200px', cursor: 'pointer' }}>Admin / POC {callSortField === 'adminPoc' ? (callSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleCallSort('cohortTopic')} style={{ cursor: 'pointer' }}>Topic / Call Agenda {callSortField === 'cohortTopic' ? (callSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleCallSort('status')} style={{ width: '150px', cursor: 'pointer' }}>Status {callSortField === 'status' ? (callSortAsc ? '▲' : '▼') : ''}</th>
+                  <th style={{ width: '120px' }}>Rating</th>
                   <th style={{ width: '40px' }}></th>
                 </tr>
               </thead>
@@ -5521,6 +6003,7 @@ export const AdminCallsTable: React.FC = () => {
                             ) : (
                               <>
                                 <span>{call.cohortTopic || <span style={{ color: 'var(--text-muted)' }}>— (No topic)</span>}</span>
+
                                 {related.length > 0 && (
                                   <span className="badge" style={{ 
                                     fontSize: '0.7rem', 
@@ -5564,8 +6047,40 @@ export const AdminCallsTable: React.FC = () => {
                             <option value="Pending Actions" style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>Pending Actions</option>
                           </select>
                         </td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <FeedbackRatingCell 
+                            itemId={call.id} 
+                            category="admin-calls" 
+                            onCellClick={(id, cat) => {
+                              setDrawerItemId(id);
+                              setDrawerCategory(cat);
+                            }}
+                          />
+                        </td>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const link = `${window.location.origin}/?feedback=${call.id}&category=admin-calls`;
+                                navigator.clipboard.writeText(link).then(() => {
+                                  setCopiedId(call.id);
+                                  setTimeout(() => setCopiedId(null), 2000);
+                                });
+                              }}
+                              style={{ 
+                                background: 'none', 
+                                border: 'none', 
+                                cursor: 'pointer', 
+                                color: copiedId === call.id ? 'var(--success)' : 'var(--text-secondary)', 
+                                display: 'flex', 
+                                alignItems: 'center',
+                                padding: '4px'
+                              }}
+                              title={copiedId === call.id ? "Link Copied!" : "Copy Feedback Link"}
+                            >
+                              {copiedId === call.id ? <Check size={12} /> : <Link size={12} />}
+                            </button>
                             <button 
                               onClick={() => {
                                 setEditingCallTopicId(call.id);
@@ -5897,6 +6412,9 @@ export const AdminCallsTable: React.FC = () => {
                                   </div>
                                 )}
                               </div>
+                              
+                              <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: 0 }} />
+                              <AttendeeFeedbackDetails itemId={call.id} category="admin-calls" />
                             </div>
                           </td>
                         </tr>
@@ -6255,6 +6773,14 @@ export const AdminCallsTable: React.FC = () => {
           </div>
         )}
       </TabContainer>
+      <FeedbackDrawer
+        itemId={drawerItemId}
+        category={drawerCategory}
+        onClose={() => {
+          setDrawerItemId(null);
+          setDrawerCategory(null);
+        }}
+      />
     </>
   );
 };
