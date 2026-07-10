@@ -143,6 +143,14 @@ interface DashboardContextType {
   refreshAllClickupStatuses: () => Promise<{ success: boolean; totalScanned: number; updatedCount: number; error?: string }>;
   refreshAllData: () => Promise<{ success: boolean; updatedSheets: number; error?: string }>;
 
+  // Google OAuth Settings
+  googleClientId: string;
+  setGoogleClientId: (val: string) => void;
+  requireGoogleLogin: boolean;
+  setRequireGoogleLogin: (val: boolean) => void;
+  googleAllowedDomains: string;
+  setGoogleAllowedDomains: (val: string) => void;
+
   // User Authentication
   currentUser: ConfigSpeaker | null;
   canUserEdit: boolean;
@@ -541,6 +549,18 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return localStorage.getItem('config-clickup-api-key') || '';
   });
 
+  const [googleClientId, setGoogleClientId] = useState<string>(() => {
+    return localStorage.getItem('config-google-client-id') || '';
+  });
+
+  const [requireGoogleLogin, setRequireGoogleLogin] = useState<boolean>(() => {
+    return localStorage.getItem('config-require-google-login') === 'true';
+  });
+
+  const [googleAllowedDomains, setGoogleAllowedDomains] = useState<string>(() => {
+    return localStorage.getItem('config-google-allowed-domains') || '';
+  });
+
   const [formConfigs, setFormConfigs] = useState<FeedbackFormConfig[]>(() => {
     const data = localStorage.getItem('config-form-configs');
     return data ? JSON.parse(data) : [];
@@ -651,6 +671,18 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     localStorage.setItem('config-clickup-api-key', clickupApiKey);
   }, [clickupApiKey]);
 
+  useEffect(() => {
+    localStorage.setItem('config-google-client-id', googleClientId);
+  }, [googleClientId]);
+
+  useEffect(() => {
+    localStorage.setItem('config-require-google-login', String(requireGoogleLogin));
+  }, [requireGoogleLogin]);
+
+  useEffect(() => {
+    localStorage.setItem('config-google-allowed-domains', googleAllowedDomains);
+  }, [googleAllowedDomains]);
+
 
   // Helper to persist to API
   const [syncStatus, setSyncStatus] = useState<'syncing' | 'synced' | 'error'>('synced');
@@ -724,6 +756,15 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (db.settings) {
           const clickupSetting = db.settings.find((s: any) => s.key === 'clickupApiKey');
           if (clickupSetting) setClickupApiKey(clickupSetting.value || '');
+
+          const gClientIdSetting = db.settings.find((s: any) => s.key === 'googleClientId');
+          if (gClientIdSetting) setGoogleClientId(gClientIdSetting.value || '');
+
+          const gReqLoginSetting = db.settings.find((s: any) => s.key === 'requireGoogleLogin');
+          if (gReqLoginSetting) setRequireGoogleLogin(gReqLoginSetting.value === 'true');
+
+          const gAllowedDomainsSetting = db.settings.find((s: any) => s.key === 'googleAllowedDomains');
+          if (gAllowedDomainsSetting) setGoogleAllowedDomains(gAllowedDomainsSetting.value || '');
         }
         setSyncStatus('synced');
         return { success: true, updatedSheets };
@@ -746,6 +787,21 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const updateClickupApiKey = (key: string) => {
     setClickupApiKey(key);
     persistChange('update', 'settings', 'clickupApiKey', { id: 'clickupApiKey', key: 'clickupApiKey', value: key });
+  };
+
+  const updateGoogleClientId = (val: string) => {
+    setGoogleClientId(val);
+    persistChange('update', 'settings', 'googleClientId', { id: 'googleClientId', key: 'googleClientId', value: val });
+  };
+
+  const updateRequireGoogleLogin = (val: boolean) => {
+    setRequireGoogleLogin(val);
+    persistChange('update', 'settings', 'requireGoogleLogin', { id: 'requireGoogleLogin', key: 'requireGoogleLogin', value: String(val) });
+  };
+
+  const updateGoogleAllowedDomains = (val: string) => {
+    setGoogleAllowedDomains(val);
+    persistChange('update', 'settings', 'googleAllowedDomains', { id: 'googleAllowedDomains', key: 'googleAllowedDomains', value: val });
   };
 
   // Helper Updaters
@@ -1558,6 +1614,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       clickupApiKey, setClickupApiKey: updateClickupApiKey, syncClickupTask,
       refreshAllClickupStatuses,
       refreshAllData,
+      googleClientId, setGoogleClientId: updateGoogleClientId,
+      requireGoogleLogin, setRequireGoogleLogin: updateRequireGoogleLogin,
+      googleAllowedDomains, setGoogleAllowedDomains: updateGoogleAllowedDomains,
       currentUser, canUserEdit, loginUser, logoutUser,
       isLoading, syncStatus,
       confirm,

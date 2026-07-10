@@ -247,7 +247,12 @@ const AttendeeFeedbackDetails: React.FC<{
               {submissions.map((sub, idx) => (
                 <tr key={sub.id} style={{ borderBottom: '1px solid var(--border)', background: idx % 2 === 0 ? 'var(--background)' : 'var(--background-alt)' }}>
                   <td style={{ padding: '7px 10px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', borderRight: '1px solid var(--border)', position: 'sticky', left: 0, background: idx % 2 === 0 ? 'var(--background)' : 'var(--background-alt)', zIndex: 1 }}>
-                    {sub.submittedBy || 'Anonymous'}
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span>{sub.submittedBy || 'Anonymous'}</span>
+                      {sub.submittedByEmail && (
+                        <span style={{ fontSize: '0.65rem', fontWeight: 400, color: 'var(--text-muted)' }}>{sub.submittedByEmail}</span>
+                      )}
+                    </div>
                   </td>
                   <td style={{ padding: '7px 10px', color: 'var(--text-muted)', whiteSpace: 'nowrap', borderRight: '1px solid var(--border)' }}>
                     {sub.createdAt ? new Date(sub.createdAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : '—'}

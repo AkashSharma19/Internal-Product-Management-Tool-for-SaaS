@@ -289,7 +289,8 @@ const FeedbackSubmissionSchema = new Schema({
   category: { type: String, required: true },
   itemId: { type: String, required: true },
   answers: { type: Schema.Types.Mixed, default: {} }, // map of fieldId -> answer
-  submittedBy: { type: String, default: "Anonymous" }
+  submittedBy: { type: String, default: "Anonymous" },
+  submittedByEmail: { type: String, default: "" }
 }, { timestamps: true });
 
 export const FeedbackFormConfigModel = mongoose.models.FeedbackFormConfig || mongoose.model('FeedbackFormConfig', FeedbackFormConfigSchema);

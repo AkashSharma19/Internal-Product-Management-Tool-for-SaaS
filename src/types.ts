@@ -248,6 +248,7 @@ export interface FeedbackSubmission {
   itemId: string; // matches the admin call id, meeting id, or project id
   answers: Record<string, any>; // fieldId -> value
   submittedBy?: string;
+  submittedByEmail?: string;
   createdAt?: string; // ISO string
 }
 

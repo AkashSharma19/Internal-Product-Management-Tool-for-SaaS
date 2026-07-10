@@ -1,11 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDashboard } from '../context/DashboardContext';
-import { Star, CheckCircle, AlertCircle, ClipboardList } from 'lucide-react';
+import { Star, CheckCircle, AlertCircle, ClipboardList, Shield } from 'lucide-react';
 
 interface PublicFeedbackFormProps {
   itemId: string;
   category?: string | null;
 }
+
+// Simple Base64 URL Decode for decoding Google JWT on the client side
+const decodeGoogleJwt = (token: string) => {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      window.atob(base64)
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    console.error('Error decoding JWT', e);
+    return null;
+  }
+};
 
 export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, category }) => {
   const { 
@@ -15,7 +33,11 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
     studentProjects, 
     formConfigs, 
     addFeedbackSubmission,
-    isLoading
+    feedbackSubmissions,
+    isLoading,
+    googleClientId,
+    requireGoogleLogin,
+    googleAllowedDomains
   } = useDashboard();
 
   const [answers, setAnswers] = useState<Record<string, any>>({});
@@ -23,6 +45,17 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [googleLoginError, setGoogleLoginError] = useState<string | null>(null);
+
+  // Authenticated Google User State
+  const [googleUser, setGoogleUser] = useState<{
+    email: string;
+    name: string;
+    picture?: string;
+  } | null>(() => {
+    const saved = localStorage.getItem('feedback-google-user');
+    return saved ? JSON.parse(saved) : null;
+  });
 
   // 1. Resolve Category
   let resolvedCategory: 'admin-calls' | 'ama-meetings' | 'student-projects' | null = null;
@@ -75,15 +108,102 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
   const config = formConfigs.find(c => c.category === resolvedCategory);
   const isFormConfigured = config && config.enabled && config.fields && config.fields.length > 0;
 
+  // 4. Check past submissions
+  const userPastSubmission = googleUser
+    ? feedbackSubmissions.find(sub => sub.itemId === itemId && sub.submittedByEmail === googleUser.email)
+    : null;
+
+  // If already submitted, pre-fill and lock form
+  useEffect(() => {
+    if (userPastSubmission) {
+      setAnswers(userPastSubmission.answers || {});
+      setSubmittedBy(userPastSubmission.submittedBy || '');
+    } else {
+      setAnswers({});
+      setSubmittedBy(googleUser ? googleUser.name : '');
+    }
+  }, [userPastSubmission, googleUser]);
+
+  // Google Login Script Handler
+  useEffect(() => {
+    if (!requireGoogleLogin || googleUser || !googleClientId) return;
+
+    let isMounted = true;
+
+    const initializeGoogleBtn = () => {
+      const g = (window as any).google;
+      if (g?.accounts?.id) {
+        g.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: (response: any) => {
+            if (!isMounted) return;
+            const payload = decodeGoogleJwt(response.credential);
+            if (payload && payload.email) {
+              // Check Domain Restriction
+              if (googleAllowedDomains) {
+                const domains = googleAllowedDomains.split(',')
+                  .map(d => d.trim().toLowerCase())
+                  .filter(Boolean);
+                const userDomain = payload.email.split('@')[1]?.toLowerCase();
+                
+                if (domains.length > 0 && !domains.includes(userDomain)) {
+                  setGoogleLoginError(`Access Denied: Your email domain (@${userDomain}) is not authorized to submit feedback.`);
+                  return;
+                }
+              }
+
+              const user = {
+                email: payload.email,
+                name: payload.name || payload.email,
+                picture: payload.picture
+              };
+              setGoogleUser(user);
+              setGoogleLoginError(null);
+              localStorage.setItem('feedback-google-user', JSON.stringify(user));
+            }
+          }
+        });
+
+        const btnContainer = document.getElementById('google-signin-btn-container');
+        if (btnContainer) {
+          g.accounts.id.renderButton(btnContainer, {
+            theme: 'outline',
+            size: 'large',
+            width: 320
+          });
+        }
+      } else {
+        setTimeout(initializeGoogleBtn, 300);
+      }
+    };
+
+    initializeGoogleBtn();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [requireGoogleLogin, googleUser, googleClientId, googleAllowedDomains]);
+
+  const handleGoogleLogout = () => {
+    setGoogleUser(null);
+    localStorage.removeItem('feedback-google-user');
+    setAnswers({});
+    setValidationError(null);
+    setGoogleLoginError(null);
+  };
+
   const handleRatingClick = (fieldId: string, rating: number) => {
+    if (userPastSubmission) return; // read-only
     setAnswers(prev => ({ ...prev, [fieldId]: rating }));
   };
 
   const handleTextChange = (fieldId: string, value: string) => {
+    if (userPastSubmission) return; // read-only
     setAnswers(prev => ({ ...prev, [fieldId]: value }));
   };
 
   const handleCheckboxChange = (fieldId: string, option: string, checked: boolean) => {
+    if (userPastSubmission) return; // read-only
     setAnswers(prev => {
       const current = (prev[fieldId] as string[]) || [];
       const updated = checked 
@@ -95,6 +215,7 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (userPastSubmission) return; // prevent submission of past responses
     if (!resolvedCategory || !isFormConfigured) return;
 
     setValidationError(null);
@@ -116,7 +237,8 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
         category: resolvedCategory,
         itemId,
         answers,
-        submittedBy: submittedBy.trim() || 'Anonymous'
+        submittedBy: googleUser ? googleUser.name : (submittedBy.trim() || 'Anonymous'),
+        submittedByEmail: googleUser ? googleUser.email : ''
       });
       setSubmitted(true);
     } catch (err: any) {
@@ -174,6 +296,76 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
               The feedback form for this session is not yet configured or has been disabled by the administrator. Please check back later.
             </p>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Render Google Login Secured state (when login required but not logged in)
+  if (requireGoogleLogin && !googleUser) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height: '100vh', overflowY: 'auto', background: 'linear-gradient(180deg, var(--background-alt) 0%, var(--background) 100%)',
+        fontFamily: 'Outfit, sans-serif', padding: '1.5rem'
+      }}>
+        <div style={{
+          background: 'var(--panel-bg)', border: '1px solid var(--border-light)', borderRadius: '24px',
+          padding: '3rem 2rem', width: '100%', maxWidth: '480px', boxShadow: 'var(--shadow)',
+          textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem'
+        }}>
+          <div style={{
+            width: '60px', height: '60px', borderRadius: '18px',
+            background: 'rgba(99, 102, 241, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--primary)'
+          }}>
+            <Shield size={28} />
+          </div>
+          <div>
+            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+              Authentication Required
+            </h3>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+              This feedback portal is secured. Please sign in with your Google account to submit your responses.
+            </p>
+          </div>
+
+          {/* Alert Message for unconfigured Client ID */}
+          {!googleClientId ? (
+            <div style={{
+              display: 'flex', gap: '0.5rem', alignItems: 'start', padding: '10px 14px', borderRadius: '12px',
+              background: 'var(--danger-bg)', border: '1px solid rgba(239, 68, 68, 0.25)',
+              color: 'var(--danger)', fontSize: '0.8rem', textAlign: 'left'
+            }}>
+              <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+              <span>Google Login client credential ID is not yet configured. Please contact the administrator to setup the Client ID.</span>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%', alignItems: 'center', margin: '0.5rem 0' }}>
+              <div id="google-signin-btn-container" style={{ minHeight: '40px' }} />
+              {googleLoginError && (
+                <div style={{
+                  display: 'flex', gap: '0.5rem', alignItems: 'start', padding: '10px 14px', borderRadius: '12px',
+                  background: 'var(--danger-bg)', border: '1px solid rgba(239, 68, 68, 0.25)',
+                  color: 'var(--danger)', fontSize: '0.8rem', textAlign: 'left', marginTop: '0.5rem'
+                }}>
+                  <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <span>{googleLoginError}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {foundItem && (
+            <div style={{
+              background: 'var(--background-alt)', borderRadius: '12px', padding: '0.85rem 1.25rem',
+              width: '100%', border: '1px solid var(--border)', fontSize: '0.85rem', color: 'var(--text-primary)',
+              textAlign: 'left'
+            }}>
+              <strong style={{ display: 'block', marginBottom: '2px' }}>{itemTitle}</strong>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{itemSubtitle}</span>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -261,6 +453,22 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
 
           {/* Form */}
           <form onSubmit={handleSubmit} style={{ padding: '2rem 1.75rem', display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+            
+            {/* Warning block if they already submitted */}
+            {userPastSubmission && (
+              <div style={{
+                display: 'flex', gap: '0.75rem', alignItems: 'center', padding: '1rem', borderRadius: '12px',
+                background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.25)',
+                color: '#d97706', fontSize: '0.85rem'
+              }}>
+                <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                <div>
+                  <strong style={{ display: 'block', marginBottom: '2px' }}>Feedback Already Submitted</strong>
+                  <span>You have already submitted feedback for this session. Your responses are read-only and cannot be changed.</span>
+                </div>
+              </div>
+            )}
+
             {validationError && (
               <div style={{
                 display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0.85rem 1rem', borderRadius: '12px',
@@ -274,11 +482,12 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
 
             {/* Dynamic Questions */}
             {sortedFields.map((field) => {
+              const disabled = !!userPastSubmission;
               return (
-                <div key={field.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <div key={field.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: disabled ? 0.8 : 1 }}>
                   <label style={{ fontSize: '0.875rem', fontWeight: 650, color: 'var(--text-primary)' }}>
                     {field.label}
-                    {field.required && <span style={{ color: 'var(--danger)', marginLeft: '3px' }}>*</span>}
+                    {field.required && !disabled && <span style={{ color: 'var(--danger)', marginLeft: '3px' }}>*</span>}
                   </label>
 
                   {/* Rating Field */}
@@ -291,14 +500,15 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
                           <button
                             key={star}
                             type="button"
+                            disabled={disabled}
                             onClick={() => handleRatingClick(field.id, star)}
                             style={{
-                              background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                              background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', padding: 0,
                               color: isSelected ? '#fbbf24' : 'var(--text-muted)',
                               transition: 'transform 0.1s, color 0.15s'
                             }}
-                            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.2)')}
-                            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                            onMouseEnter={e => { if (!disabled) e.currentTarget.style.transform = 'scale(1.2)'; }}
+                            onMouseLeave={e => { if (!disabled) e.currentTarget.style.transform = 'scale(1)'; }}
                           >
                             <Star size={32} fill={isSelected ? '#fbbf24' : 'none'} strokeWidth={1.5} />
                           </button>
@@ -311,6 +521,7 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
                   {field.type === 'text' && (
                     <input
                       type="text"
+                      disabled={disabled}
                       placeholder="Type your response..."
                       value={answers[field.id] || ''}
                       onChange={(e) => handleTextChange(field.id, e.target.value)}
@@ -319,14 +530,15 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
                         border: '1.5px solid var(--border-light)', color: 'var(--text-primary)',
                         fontSize: '0.85rem', outline: 'none', width: '100%', transition: 'border-color 0.2s'
                       }}
-                      onFocus={e => (e.currentTarget.style.borderColor = 'var(--primary)')}
-                      onBlur={e => (e.currentTarget.style.borderColor = 'var(--border-light)')}
+                      onFocus={e => { if (!disabled) e.currentTarget.style.borderColor = 'var(--primary)'; }}
+                      onBlur={e => { if (!disabled) e.currentTarget.style.borderColor = 'var(--border-light)'; }}
                     />
                   )}
 
                   {/* Textarea */}
                   {field.type === 'textarea' && (
                     <textarea
+                      disabled={disabled}
                       placeholder="Write your comments here..."
                       rows={4}
                       value={answers[field.id] || ''}
@@ -337,20 +549,21 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
                         fontSize: '0.85rem', outline: 'none', width: '100%', resize: 'vertical',
                         transition: 'border-color 0.2s', fontFamily: 'inherit'
                       }}
-                      onFocus={e => (e.currentTarget.style.borderColor = 'var(--primary)')}
-                      onBlur={e => (e.currentTarget.style.borderColor = 'var(--border-light)')}
+                      onFocus={e => { if (!disabled) e.currentTarget.style.borderColor = 'var(--primary)'; }}
+                      onBlur={e => { if (!disabled) e.currentTarget.style.borderColor = 'var(--border-light)'; }}
                     />
                   )}
 
                   {/* Dropdown Select */}
                   {field.type === 'select' && (
                     <select
+                      disabled={disabled}
                       value={answers[field.id] || ''}
                       onChange={(e) => handleTextChange(field.id, e.target.value)}
                       style={{
                         padding: '10px 14px', borderRadius: '10px', background: 'var(--background)',
                         border: '1.5px solid var(--border-light)', color: 'var(--text-primary)',
-                        fontSize: '0.85rem', outline: 'none', width: '100%', cursor: 'pointer'
+                        fontSize: '0.85rem', outline: 'none', width: '100%', cursor: disabled ? 'default' : 'pointer'
                       }}
                     >
                       <option value="">-- Select Option --</option>
@@ -367,12 +580,13 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
                         const checkedList = (answers[field.id] as string[]) || [];
                         const isChecked = checkedList.includes(opt);
                         return (
-                          <label key={opt} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                          <label key={opt} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: disabled ? 'default' : 'pointer' }}>
                             <input
                               type="checkbox"
+                              disabled={disabled}
                               checked={isChecked}
                               onChange={(e) => handleCheckboxChange(field.id, opt, e.target.checked)}
-                              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                              style={{ width: '16px', height: '16px', cursor: disabled ? 'default' : 'pointer' }}
                             />
                             <span style={{ color: 'var(--text-primary)' }}>{opt}</span>
                           </label>
@@ -384,39 +598,67 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
               );
             })}
 
-            {/* Optional Identity */}
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Your Name / Email (Optional)
-              </label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type="text"
-                  placeholder="Leave blank to remain anonymous"
-                  value={submittedBy}
-                  onChange={(e) => setSubmittedBy(e.target.value)}
-                  style={{
-                    padding: '10px 14px', borderRadius: '10px', background: 'var(--background)',
-                    border: '1.5px solid var(--border-light)', color: 'var(--text-primary)',
-                    fontSize: '0.85rem', outline: 'none', width: '100%'
-                  }}
-                />
+            {/* Google Identity Info / Optional Name Input */}
+            {googleUser ? (
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Submitting As
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--background-alt)', padding: '10px 14px', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+                  {googleUser.picture && (
+                    <img src={googleUser.picture} alt="Google Profile" style={{ width: '28px', height: '28px', borderRadius: '50%' }} />
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{googleUser.name}</span>
+                    <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>{googleUser.email}</span>
+                  </div>
+                  {!userPastSubmission && (
+                    <button 
+                      type="button" 
+                      onClick={handleGoogleLogout} 
+                      style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      Switch Account
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Your Name / Email (Optional)
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    disabled={!!userPastSubmission}
+                    placeholder="Leave blank to remain anonymous"
+                    value={submittedBy}
+                    onChange={(e) => setSubmittedBy(e.target.value)}
+                    style={{
+                      padding: '10px 14px', borderRadius: '10px', background: 'var(--background)',
+                      border: '1.5px solid var(--border-light)', color: 'var(--text-primary)',
+                      fontSize: '0.85rem', outline: 'none', width: '100%'
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || !!userPastSubmission}
               style={{
-                background: 'linear-gradient(135deg, var(--primary), #4f46e5)',
-                color: '#fff', border: 'none', borderRadius: '12px', padding: '12px',
-                fontSize: '0.9rem', fontWeight: 650, cursor: submitting ? 'not-allowed' : 'pointer',
-                boxShadow: 'var(--primary-glow) 0 8px 16px', transition: 'all 0.15s',
+                background: userPastSubmission ? 'var(--border-light)' : 'linear-gradient(135deg, var(--primary), #4f46e5)',
+                color: userPastSubmission ? 'var(--text-muted)' : '#fff', 
+                border: 'none', borderRadius: '12px', padding: '12px',
+                fontSize: '0.9rem', fontWeight: 650, cursor: (submitting || userPastSubmission) ? 'not-allowed' : 'pointer',
+                boxShadow: userPastSubmission ? 'none' : 'var(--primary-glow) 0 8px 16px', transition: 'all 0.15s',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '0.5rem'
               }}
-              onMouseEnter={e => { if (!submitting) e.currentTarget.style.transform = 'translateY(-1px)'; }}
-              onMouseLeave={e => { if (!submitting) e.currentTarget.style.transform = 'translateY(0)'; }}
+              onMouseEnter={e => { if (!submitting && !userPastSubmission) e.currentTarget.style.transform = 'translateY(-1px)'; }}
+              onMouseLeave={e => { if (!submitting && !userPastSubmission) e.currentTarget.style.transform = 'translateY(0)'; }}
             >
               {submitting ? (
                 <>
@@ -426,6 +668,8 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
                   }} />
                   Submitting Feedback...
                 </>
+              ) : userPastSubmission ? (
+                'Feedback Already Submitted'
               ) : (
                 'Submit Feedback'
               )}

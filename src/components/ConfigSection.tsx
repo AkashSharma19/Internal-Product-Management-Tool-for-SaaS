@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import type { ConfigSpeaker, ConfigProductGroup, ConfigStatus, ConfigProgram, ConfigCohort, FeedbackFormField } from '../types';
-import { Plus, Trash2, Check, X, Pencil, Users, Layers, Tag, Settings, Key, Eye, EyeOff, RefreshCw, AlertCircle, ClipboardList, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Check, X, Pencil, Users, Layers, Tag, Settings, Key, Eye, EyeOff, RefreshCw, AlertCircle, ClipboardList, ChevronUp, ChevronDown, Shield } from 'lucide-react';
 
 // ─── Colour palette ────────────────────────────────────────────────────────────
 const PALETTE = [
@@ -1820,9 +1820,181 @@ const FormBuilderSection: React.FC = () => {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// FORM SECURITY SECTION
+// ═══════════════════════════════════════════════════════════════════════════════
+const FormSecuritySection: React.FC = () => {
+  const {
+    googleClientId, setGoogleClientId,
+    requireGoogleLogin, setRequireGoogleLogin,
+    googleAllowedDomains, setGoogleAllowedDomains,
+    canUserEdit
+  } = useDashboard();
+
+  const [clientIdInput, setClientIdInput] = useState(googleClientId);
+  const [allowedDomainsInput, setAllowedDomainsInput] = useState(googleAllowedDomains);
+  const [requireLoginVal, setRequireLoginVal] = useState(requireGoogleLogin);
+  const [isSaved, setIsSaved] = useState(false);
+
+  // Sync inputs with DB values when loaded
+  React.useEffect(() => {
+    setClientIdInput(googleClientId);
+    setRequireLoginVal(requireGoogleLogin);
+    setAllowedDomainsInput(googleAllowedDomains);
+  }, [googleClientId, requireGoogleLogin, googleAllowedDomains]);
+
+  const handleSave = () => {
+    if (!canUserEdit) return;
+    setGoogleClientId(clientIdInput.trim());
+    setRequireGoogleLogin(requireLoginVal);
+    setGoogleAllowedDomains(allowedDomainsInput.trim());
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 3000);
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1.5rem', overflowY: 'auto', flex: 1, minHeight: 0 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', alignItems: 'start' }}>
+        
+        {/* Settings Card */}
+        <SectionCard
+          icon={<Shield size={16} />}
+          title="Form Security Settings"
+          subtitle="Configure Google Sign-In requirements and response policies"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            
+            {/* Require Google Login Checkbox */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--background-alt)', padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+              <input
+                type="checkbox"
+                id="requireGoogleLogin"
+                checked={requireLoginVal}
+                onChange={e => setRequireLoginVal(e.target.checked)}
+                disabled={!canUserEdit}
+                style={{ width: '18px', height: '18px', cursor: canUserEdit ? 'pointer' : 'not-allowed' }}
+              />
+              <label htmlFor="requireGoogleLogin" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', cursor: canUserEdit ? 'pointer' : 'not-allowed' }}>
+                Require Google Login for Feedback Forms
+              </label>
+            </div>
+
+            {/* Client ID Input */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Google OAuth Client ID
+              </label>
+              <input
+                type="text"
+                value={clientIdInput}
+                onChange={e => setClientIdInput(e.target.value)}
+                placeholder="e.g. 123456789-abc123xyz.apps.googleusercontent.com"
+                disabled={!canUserEdit}
+                className="config-input"
+                style={{ opacity: canUserEdit ? 1 : 0.6 }}
+              />
+              <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+                Create a web client credential in your Google Cloud Console.
+              </span>
+            </div>
+
+            {/* Allowed Domains Input */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Restricted Email Domains (Optional)
+              </label>
+              <input
+                type="text"
+                value={allowedDomainsInput}
+                onChange={e => setAllowedDomainsInput(e.target.value)}
+                placeholder="e.g. gmail.com, yourcompany.com (comma separated)"
+                disabled={!canUserEdit}
+                className="config-input"
+                style={{ opacity: canUserEdit ? 1 : 0.6 }}
+              />
+              <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+                Leave empty to allow any Google account. Separated by commas.
+              </span>
+            </div>
+
+            {/* Action Buttons */}
+            {canUserEdit && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className="btn btn-primary"
+                  style={{ padding: '8px 24px', borderRadius: '10px' }}
+                >
+                  Save Config
+                </button>
+                {isSaved && (
+                  <span style={{ color: 'var(--success)', fontSize: '0.8rem', fontWeight: 600, animation: 'fadeIn 0.2s' }}>
+                    ✓ Settings saved to MongoDB
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </SectionCard>
+
+        {/* Setup Guide Card */}
+        <SectionCard
+          icon={<Key size={16} />}
+          title="Google Console Setup Guide"
+          subtitle="Follow these steps to generate and configure your OAuth Credentials"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+            
+            <div style={{ background: 'var(--background-alt)', padding: '12px 16px', borderRadius: '12px', borderLeft: '4px solid var(--primary)' }}>
+              <h4 style={{ margin: '0 0 4px 0', fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 700 }}>Important Origin Settings</h4>
+              <p style={{ margin: 0, fontSize: '0.775rem' }}>
+                Google OAuth requires matching domains. Ensure your site origins are added correctly in the console credentials.
+              </p>
+            </div>
+
+            <ol style={{ paddingLeft: '20px', margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <li>
+                <strong>Go to Google Cloud Console:</strong>
+                <div>Navigate to <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 500 }}>console.cloud.google.com</a>.</div>
+              </li>
+              <li>
+                <strong>Create/Select Project:</strong>
+                <div>Create a new project or select your existing portal operations project.</div>
+              </li>
+              <li>
+                <strong>Configure OAuth Consent Screen:</strong>
+                <div>Go to <strong>APIs & Services &gt; OAuth consent screen</strong>, select <strong>External</strong>, and fill in application metadata (App name, support email).</div>
+              </li>
+              <li>
+                <strong>Create Web Client ID:</strong>
+                <div>Go to <strong>Credentials</strong>, click <strong>Create Credentials</strong> &gt; <strong>OAuth client ID</strong>. Set Application type to <strong>Web application</strong>.</div>
+              </li>
+              <li>
+                <strong>Configure Authorized Origins:</strong>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                  <span>Under <strong>Authorized JavaScript origins</strong>, add:</span>
+                  <code style={{ background: 'var(--background-alt)', padding: '2px 6px', borderRadius: '4px', color: 'var(--primary)', fontSize: '0.75rem', width: 'fit-content' }}>
+                    {window.location.origin}
+                  </code>
+                </div>
+              </li>
+              <li>
+                <strong>Copy Client ID:</strong>
+                <div>Save changes and copy the generated <strong>Client ID</strong> into the form on the left.</div>
+              </li>
+            </ol>
+          </div>
+        </SectionCard>
+
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT — tabbed layout
 // ═══════════════════════════════════════════════════════════════════════════════
-type ConfigTab = 'speakers' | 'groups' | 'statuses' | 'programs' | 'clickup' | 'forms';
+type ConfigTab = 'speakers' | 'groups' | 'statuses' | 'programs' | 'clickup' | 'forms' | 'security';
 
 const CONFIG_TABS: { id: ConfigTab; label: string; icon: React.ReactNode }[] = [
   { id: 'speakers', label: 'POC Owners / Speakers', icon: <Users size={15} /> },
@@ -1831,6 +2003,7 @@ const CONFIG_TABS: { id: ConfigTab; label: string; icon: React.ReactNode }[] = [
   { id: 'programs', label: 'Programs & Cohorts',     icon: <Layers size={15} /> },
   { id: 'clickup',  label: 'ClickUp Integration',    icon: <Settings size={15} /> },
   { id: 'forms',    label: 'Form Builder',           icon: <ClipboardList size={15} /> },
+  { id: 'security', label: 'Form Security',          icon: <Shield size={15} /> },
 ];
 
 export const ConfigSection: React.FC = () => {
@@ -1898,10 +2071,9 @@ export const ConfigSection: React.FC = () => {
           {activeTab === 'programs' && <ProgramsSection />}
           {activeTab === 'clickup' && <ClickupSettingsSection />}
           {activeTab === 'forms' && <FormBuilderSection />}
+          {activeTab === 'security' && <FormSecuritySection />}
         </div>
       </div>
     </div>
   );
 };
-
-
