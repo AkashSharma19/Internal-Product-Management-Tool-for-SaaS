@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import { TabContainer } from './TabContainer';
 import { 
@@ -23,6 +23,8 @@ import {
   Clock,
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   RefreshCw,
   Search,
   Plus,
@@ -580,6 +582,208 @@ const formatClickupAssignee = (assigneesStr: string) => {
   return `${parts[0]} +${parts.length - 1}`;
 };
 
+export const extractClickupTaskId = (url: string): string | null => {
+  if (!url) return null;
+  const trimmed = url.trim();
+  if (/^[a-zA-Z0-9\-_]{7,12}$/.test(trimmed)) {
+    return trimmed;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.hostname.includes('clickup.com')) {
+      const pathParts = parsed.pathname.split('/').filter(Boolean);
+      const tIndex = pathParts.indexOf('t');
+      if (tIndex !== -1 && tIndex < pathParts.length - 1) {
+        const nextPart = pathParts[tIndex + 1];
+        if (nextPart === 'h' && tIndex < pathParts.length - 2) {
+          return pathParts[tIndex + 2];
+        }
+        const lastPart = pathParts[pathParts.length - 1];
+        if (/^[a-zA-Z0-9\-_]{7,12}$/.test(lastPart)) {
+          return lastPart;
+        }
+      }
+    }
+  } catch (e) {}
+  return null;
+};
+
+const isDateOverdue = (dateStr: string | undefined, isCompleted: boolean | undefined): boolean => {
+  if (!dateStr || isCompleted) return false;
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return false;
+    d.setHours(23, 59, 59, 999);
+    const today = new Date();
+    return d.getTime() < today.getTime();
+  } catch (e) {
+    return false;
+  }
+};
+
+interface ClickupSubtasksModalProps {
+  taskLink: string;
+  onClose: () => void;
+}
+
+export const ClickupSubtasksModal: React.FC<ClickupSubtasksModalProps> = ({ taskLink, onClose }) => {
+  const { clickupApiKey } = useDashboard();
+  const [subtasks, setSubtasks] = useState<{ id: string; name: string; status: { status: string; color: string } }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchSubtasks = async () => {
+      const taskId = extractClickupTaskId(taskLink);
+      if (!taskId) {
+        setError('Invalid ClickUp Task Link');
+        setLoading(false);
+        return;
+      }
+      if (!clickupApiKey) {
+        setError('ClickUp API Key not configured in Settings');
+        setLoading(false);
+        return;
+      }
+      try {
+        const response = await fetch(`https://api.clickup.com/api/v2/task/${taskId}?include_subtasks=true`, {
+          method: 'GET',
+          headers: {
+            'Authorization': clickupApiKey.trim(),
+            'Content-Type': 'application/json'
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.subtasks) {
+            setSubtasks(data.subtasks);
+          } else {
+            setSubtasks([]);
+          }
+        } else {
+          setError('Could not fetch task details from ClickUp API');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Error fetching subtasks');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSubtasks();
+  }, [taskLink, clickupApiKey]);
+
+  const modalRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [onClose]);
+
+  return (
+    <div 
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        zIndex: 99999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}
+      onClick={onClose}
+    >
+      <div 
+        ref={modalRef}
+        style={{
+          width: '420px',
+          maxWidth: '92vw',
+          maxHeight: '80vh',
+          backgroundColor: 'var(--panel-bg)',
+          border: '1px solid var(--border-light)',
+          borderRadius: '12px',
+          padding: '1.25rem',
+          boxShadow: 'var(--shadow)',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+          <h4 style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>ClickUp Subtasks</h4>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', fontSize: '0.75rem' }}>
+          {loading && <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '1rem' }}>Loading subtasks from ClickUp...</div>}
+          {error && <div style={{ color: 'var(--danger)', padding: '0.5rem', textAlign: 'center' }}>{error}</div>}
+          {!loading && !error && subtasks.length === 0 && (
+            <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem' }}>No subtasks found for this task.</div>
+          )}
+          {!loading && !error && subtasks.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {subtasks.map(sub => {
+                const isClosed = sub.status?.status?.toLowerCase() === 'closed';
+                return (
+                  <div key={sub.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', backgroundColor: 'var(--background-alt)', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                    <span style={{ color: isClosed ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: isClosed ? 'line-through' : 'none', fontWeight: 500 }}>
+                      {sub.name}
+                    </span>
+                    <span 
+                      style={{ 
+                        fontSize: '0.65rem', 
+                        fontWeight: 700, 
+                        textTransform: 'uppercase', 
+                        padding: '2px 6px', 
+                        borderRadius: '4px', 
+                        backgroundColor: sub.status?.color || '#cbd5e1', 
+                        color: '#fff' 
+                      }}
+                    >
+                      {sub.status?.status}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const ClickUpStatusBadge: React.FC<{ status: string; subtasksCount?: number; taskLink?: string }> = ({ status, subtasksCount, taskLink }) => {
+  const { setActiveSubtasksTaskLink } = useDashboard();
+  if (!status) return <span>—</span>;
+  const hasSubtasks = subtasksCount !== undefined && subtasksCount > 0;
+  return (
+    <span 
+      style={{ 
+        ...getClickupBadgeStyle(status), 
+        cursor: hasSubtasks && taskLink ? 'pointer' : 'default' 
+      }}
+      onClick={(e) => {
+        if (hasSubtasks && taskLink) {
+          e.stopPropagation();
+          setActiveSubtasksTaskLink(taskLink);
+        }
+      }}
+      title={hasSubtasks && taskLink ? "Click to view subtasks breakdown" : ""}
+    >
+      {status}{hasSubtasks ? ` (${subtasksCount})` : ""}
+    </span>
+  );
+};
+
 interface CSVImportModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -704,6 +908,241 @@ const parseDateToYYYYMMDD = (dateStr: string) => {
   } catch (e) {}
 
   return '';
+};
+
+
+interface CustomDatePickerProps {
+  value: string; // "YYYY-MM-DD" or ""
+  onChange: (value: string) => void;
+  onClose: () => void;
+  align?: 'left' | 'right';
+}
+
+const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onChange, onClose, align = 'left' }) => {
+  const initialDate = value ? new Date(value) : new Date();
+  const [currentYear, setCurrentYear] = useState(initialDate.getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(initialDate.getMonth()); // 0-indexed
+
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const getDaysInMonth = (year: number, month: number) => {
+    return new Date(year, month + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (year: number, month: number) => {
+    return new Date(year, month, 1).getDay();
+  };
+
+  const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+  const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
+  const weekdays = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+  const prevMonth = () => {
+    if (currentMonth === 0) {
+      setCurrentMonth(11);
+      setCurrentYear(prev => prev - 1);
+    } else {
+      setCurrentMonth(prev => prev - 1);
+    }
+  };
+
+  const nextMonth = () => {
+    if (currentMonth === 11) {
+      setCurrentMonth(0);
+      setCurrentYear(prev => prev + 1);
+    } else {
+      setCurrentMonth(prev => prev + 1);
+    }
+  };
+
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstDay; i++) {
+    cells.push(null);
+  }
+  for (let i = 1; i <= daysInMonth; i++) {
+    cells.push(i);
+  }
+
+  const handleDayClick = (day: number) => {
+    const paddedMonth = (currentMonth + 1).toString().padStart(2, '0');
+    const paddedDay = day.toString().padStart(2, '0');
+    const dateStr = `${currentYear}-${paddedMonth}-${paddedDay}`;
+    onChange(dateStr);
+    onClose();
+  };
+
+  const isSelected = (day: number) => {
+    if (!value) return false;
+    const d = new Date(value);
+    return d.getFullYear() === currentYear && d.getMonth() === currentMonth && d.getDate() === day;
+  };
+
+  const isToday = (day: number) => {
+    const today = new Date();
+    return today.getFullYear() === currentYear && today.getMonth() === currentMonth && today.getDate() === day;
+  };
+
+  const calendarRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (calendarRef.current && !calendarRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [onClose]);
+
+  return (
+    <div 
+      ref={calendarRef}
+      style={{
+        position: 'absolute',
+        top: '110%',
+        left: align === 'left' ? 0 : undefined,
+        right: align === 'right' ? 0 : undefined,
+        backgroundColor: 'var(--panel-bg)',
+        border: '1px solid var(--border-light)',
+        borderRadius: '8px',
+        boxShadow: 'var(--shadow)',
+        padding: '12px',
+        width: '240px',
+        zIndex: 10002,
+        fontFamily: 'inherit',
+        userSelect: 'none'
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+        <button 
+          onClick={prevMonth}
+          style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <span style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+          {months[currentMonth]} {currentYear}
+        </span>
+        <button 
+          onClick={nextMonth}
+          style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', textAlign: 'center', marginBottom: '4px' }}>
+        {weekdays.map(day => (
+          <span key={day} style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+            {day}
+          </span>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', textAlign: 'center' }}>
+        {cells.map((cell, index) => {
+          if (cell === null) {
+            return <div key={`empty-${index}`} />;
+          }
+
+          const selected = isSelected(cell);
+          const current = isToday(cell);
+
+          return (
+            <div 
+              key={`day-${cell}`}
+              onClick={() => handleDayClick(cell)}
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: selected ? '700' : '500',
+                padding: '4px 0',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: selected ? 'var(--primary)' : 'transparent',
+                color: selected ? '#ffffff' : current ? 'var(--accent)' : 'var(--text-primary)',
+                transition: 'background-color 0.15s, color 0.15s',
+                border: current && !selected ? '1px solid var(--accent)' : 'none'
+              }}
+              onMouseEnter={(e) => {
+                if (!selected) {
+                  e.currentTarget.style.backgroundColor = 'var(--background-alt)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!selected) {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
+            >
+              {cell}
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', borderTop: '1px solid var(--border)', paddingTop: '8px' }}>
+        <button 
+          onClick={() => {
+            const today = new Date();
+            const paddedMonth = (today.getMonth() + 1).toString().padStart(2, '0');
+            const paddedDay = today.getDate().toString().padStart(2, '0');
+            const dateStr = `${today.getFullYear()}-${paddedMonth}-${paddedDay}`;
+            onChange(dateStr);
+            onClose();
+          }}
+          style={{
+            background: 'var(--primary-glow)',
+            border: 'none',
+            borderRadius: '4px',
+            color: 'var(--primary)',
+            fontSize: '0.65rem',
+            fontWeight: 700,
+            padding: '4px 8px',
+            cursor: 'pointer'
+          }}
+        >
+          Today
+        </button>
+        <button 
+          onClick={() => {
+            onChange('');
+            onClose();
+          }}
+          style={{
+            background: 'none',
+            border: '1px solid var(--border)',
+            borderRadius: '4px',
+            color: 'var(--danger)',
+            fontSize: '0.65rem',
+            fontWeight: 700,
+            padding: '4px 8px',
+            cursor: 'pointer'
+          }}
+        >
+          Clear
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const formatDateToShortPattern = (dateStr: string): string => {
+  if (!dateStr) return '';
+  const monthsShort = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      const year = d.getFullYear().toString();
+      const monthIndex = d.getMonth();
+      const day = d.getDate().toString();
+      return `${day} ${monthsShort[monthIndex]} ${year}`;
+    }
+  } catch (e) {}
+  return dateStr;
 };
 
 const formatDateToUserPattern = (dateStr: string): string => {
@@ -1056,12 +1495,38 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({ value, onChange, produc
 };
 
 export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBack, onUpdate }) => {
-  const { studentProjects, speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser } = useDashboard();
+  const { studentProjects, speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser, productItems, setActiveSubtasksTaskLink } = useDashboard();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [isEditingCreatedAt, setIsEditingCreatedAt] = useState(false);
+  const [isEditingSpecsDate, setIsEditingSpecsDate] = useState(false);
+  const [isEditingUiuxDate, setIsEditingUiuxDate] = useState(false);
+  const [isEditingDevDate, setIsEditingDevDate] = useState(false);
+  const [isEditingReleaseDate, setIsEditingReleaseDate] = useState(false);
+
   const pocList = configSpeakers.map(s => s.name);
   const productList = productGroups.map(g => g.name);
   const isCurrentUserAdmin = currentUser ? (currentUser.isAdmin !== false) : false;
+
+  // Visual Workload Indicators mapping
+  const pocActiveTaskCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    pocList.forEach(name => {
+      counts[name] = 0;
+    });
+    productItems.forEach((pi: ProductItem) => {
+      if (pi.poc && pi.status !== 'Completed' && pi.status !== 'On Hold') {
+        counts[pi.poc] = (counts[pi.poc] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [productItems, pocList]);
+
+  // Overdue milestones flags
+  const specsOverdue = isDateOverdue(item.productDeadline, item.productDeadlineCompleted);
+  const uiuxOverdue = isDateOverdue(item.uiux, item.uiuxCompleted);
+  const devOverdue = isDateOverdue(item.deadline, item.deadlineCompleted);
+  const releaseOverdue = isDateOverdue(item.finalRelease, item.finalReleaseCompleted);
   
   const realProjectId = item.id.startsWith('prod-temp-') ? item.id.replace('prod-temp-', '') : item.id;
   const isProject = item.id.startsWith('proj-') || studentProjects.some(p => p.id === realProjectId);
@@ -1083,34 +1548,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     }
   }, [item.id, item.description, item.notes]);
 
-  // Timeline progress calculations
-  const getProgressPercentage = () => {
-    if (item.status === 'Completed') return 87.5;
-    if (item.status === 'On Hold') return 12.5;
-    
-    let percentage = 12.5;
-    if (item.productDeadlineCompleted || item.tarunSirApproval) {
-      percentage = 12.5;
-      if (item.uiuxCompleted) {
-        percentage = 37.5;
-        if (item.deadlineCompleted) {
-          percentage = 62.5;
-          if (item.finalReleaseCompleted) {
-            percentage = 87.5;
-          }
-        }
-      }
-    }
-    return percentage;
-  };
 
-  const isProductCompleted = !!item.productDeadlineCompleted || item.tarunSirApproval || item.status === 'Completed';
-  const isUiuxCompleted = !!item.uiuxCompleted || item.status === 'Completed';
-  const isUiuxActive = isProductCompleted && !item.uiuxCompleted && item.status !== 'Completed';
-  const isDevCompleted = !!item.deadlineCompleted || item.status === 'Completed' || item.clickupStatus?.toLowerCase() === 'closed';
-  const isDevActive = isUiuxCompleted && !item.deadlineCompleted && item.status !== 'Completed' && item.clickupStatus?.toLowerCase() !== 'closed';
-  const isFinalCompleted = !!item.finalReleaseCompleted || item.status === 'Completed';
-  const isFinalActive = isDevCompleted && !item.finalReleaseCompleted && item.status !== 'Completed';
 
 
   const getClickupStatusColor = (status: string) => {
@@ -1377,7 +1815,11 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                   defaultValue={item.clickupStatus || ''}
                 />
                 {item.clickupSubtasksCount !== undefined && item.clickupSubtasksCount > 0 && (
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginLeft: '4px' }}>
+                  <span 
+                    onClick={() => setActiveSubtasksTaskLink(item.taskLink)}
+                    style={{ fontSize: '0.75rem', color: 'var(--primary)', marginLeft: '4px', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}
+                    title="Click to view subtasks breakdown"
+                  >
                     ({item.clickupSubtasksCount} subtasks)
                   </span>
                 )}
@@ -1413,19 +1855,56 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
         <div className="properties-panel">
           <h4 className="properties-panel-title">Milestone Checkpoints</h4>
           
+          {/* Created Date */}
+          <div className="property-row-flat" style={{ position: 'relative' }}>
+            <span className="premium-property-label">
+              <Calendar size={13} /> Created Date
+            </span>
+            <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span 
+                style={{ cursor: 'pointer', fontWeight: 600, borderBottom: '1px dashed var(--text-muted)' }}
+                onClick={() => setIsEditingCreatedAt(true)}
+                title="Click to edit Created Date"
+              >
+                {item.createdAt ? formatDateToShortPattern(item.createdAt) : 'Set Date'}
+              </span>
+              {isEditingCreatedAt && (
+                <CustomDatePicker
+                  value={item.createdAt ? item.createdAt.substring(0, 10) : ''}
+                  onChange={(date) => handleFieldUpdate('createdAt', date)}
+                  onClose={() => setIsEditingCreatedAt(false)}
+                  align="right"
+                />
+              )}
+            </div>
+          </div>
+
           {/* Specs Date */}
-          <div className="property-row-flat">
+          <div className="property-row-flat" style={{ position: 'relative' }}>
             <span className="premium-property-label">
               <Calendar size={13} /> Specs Date
             </span>
             <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <input
-                type="date"
-                style={{ width: '110px', textAlign: 'right', cursor: 'pointer', fontWeight: 600 }}
-                value={item.productDeadline || ''}
-                onClick={(e) => (e.target as any).showPicker?.()}
-                onChange={(e) => handleFieldUpdate('productDeadline', e.target.value)}
-              />
+              <span 
+                onClick={() => setIsEditingSpecsDate(true)}
+                style={{ cursor: 'pointer', fontWeight: 600, color: specsOverdue ? 'var(--danger)' : 'var(--text-primary)', borderBottom: specsOverdue ? '1px dashed var(--danger)' : '1px dashed var(--text-muted)' }}
+                title={specsOverdue ? "Overdue milestone!" : "Click to edit Specs Date"}
+              >
+                {item.productDeadline ? formatDateToShortPattern(item.productDeadline) : 'Set Date'}
+              </span>
+              {item.productDeadline && getDateDiffDays(item.createdAt, item.productDeadline) && (
+                <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', backgroundColor: 'var(--primary-glow)', color: 'var(--primary)', fontWeight: 600 }} title="Days since Created Date">
+                  {getDateDiffDays(item.createdAt, item.productDeadline)}
+                </span>
+              )}
+              {isEditingSpecsDate && (
+                <CustomDatePicker
+                  value={item.productDeadline || ''}
+                  onChange={(date) => handleFieldUpdate('productDeadline', date)}
+                  onClose={() => setIsEditingSpecsDate(false)}
+                  align="right"
+                />
+              )}
               <input
                 type="checkbox"
                 checked={!!item.productDeadlineCompleted}
@@ -1437,18 +1916,31 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
           </div>
 
           {/* UI/UX Date */}
-          <div className="property-row-flat">
+          <div className="property-row-flat" style={{ position: 'relative' }}>
             <span className="premium-property-label">
               <Palette size={13} /> UI/UX Date
             </span>
             <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <input
-                type="date"
-                style={{ width: '110px', textAlign: 'right', cursor: 'pointer', fontWeight: 600 }}
-                value={item.uiux || ''}
-                onClick={(e) => (e.target as any).showPicker?.()}
-                onChange={(e) => handleFieldUpdate('uiux', e.target.value)}
-              />
+              <span 
+                onClick={() => setIsEditingUiuxDate(true)}
+                style={{ cursor: 'pointer', fontWeight: 600, color: uiuxOverdue ? 'var(--danger)' : 'var(--text-primary)', borderBottom: uiuxOverdue ? '1px dashed var(--danger)' : '1px dashed var(--text-muted)' }}
+                title={uiuxOverdue ? "Overdue milestone!" : "Click to edit UI/UX Date"}
+              >
+                {item.uiux ? formatDateToShortPattern(item.uiux) : 'Set Date'}
+              </span>
+              {item.uiux && getDateDiffDays(item.productDeadline, item.uiux) && (
+                <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', backgroundColor: 'var(--primary-glow)', color: 'var(--primary)', fontWeight: 600 }} title="Days since Specs Date">
+                  {getDateDiffDays(item.productDeadline, item.uiux)}
+                </span>
+              )}
+              {isEditingUiuxDate && (
+                <CustomDatePicker
+                  value={item.uiux || ''}
+                  onChange={(date) => handleFieldUpdate('uiux', date)}
+                  onClose={() => setIsEditingUiuxDate(false)}
+                  align="right"
+                />
+              )}
               <input
                 type="checkbox"
                 checked={!!item.uiuxCompleted}
@@ -1460,18 +1952,31 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
           </div>
 
           {/* Dev Date */}
-          <div className="property-row-flat">
+          <div className="property-row-flat" style={{ position: 'relative' }}>
             <span className="premium-property-label">
               <Code size={13} /> Dev Date
             </span>
             <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <input
-                type="date"
-                style={{ width: '110px', textAlign: 'right', cursor: 'pointer', fontWeight: 600 }}
-                value={item.deadline || ''}
-                onClick={(e) => (e.target as any).showPicker?.()}
-                onChange={(e) => handleFieldUpdate('deadline', e.target.value)}
-              />
+              <span 
+                onClick={() => setIsEditingDevDate(true)}
+                style={{ cursor: 'pointer', fontWeight: 600, color: devOverdue ? 'var(--danger)' : 'var(--text-primary)', borderBottom: devOverdue ? '1px dashed var(--danger)' : '1px dashed var(--text-muted)' }}
+                title={devOverdue ? "Overdue milestone!" : "Click to edit Dev Date"}
+              >
+                {item.deadline ? formatDateToShortPattern(item.deadline) : 'Set Date'}
+              </span>
+              {item.deadline && getDateDiffDays(item.uiux, item.deadline) && (
+                <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', backgroundColor: 'var(--primary-glow)', color: 'var(--primary)', fontWeight: 600 }} title="Days since UI/UX Date">
+                  {getDateDiffDays(item.uiux, item.deadline)}
+                </span>
+              )}
+              {isEditingDevDate && (
+                <CustomDatePicker
+                  value={item.deadline || ''}
+                  onChange={(date) => handleFieldUpdate('deadline', date)}
+                  onClose={() => setIsEditingDevDate(false)}
+                  align="right"
+                />
+              )}
               <input
                 type="checkbox"
                 checked={!!item.deadlineCompleted}
@@ -1483,18 +1988,31 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
           </div>
 
           {/* Release Date */}
-          <div className="property-row-flat">
+          <div className="property-row-flat" style={{ position: 'relative' }}>
             <span className="premium-property-label">
               <Sparkles size={13} /> Release Date
             </span>
             <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <input
-                type="date"
-                style={{ width: '110px', textAlign: 'right', cursor: 'pointer', fontWeight: 600 }}
-                value={item.finalRelease || ''}
-                onClick={(e) => (e.target as any).showPicker?.()}
-                onChange={(e) => handleFieldUpdate('finalRelease', e.target.value)}
-              />
+              <span 
+                onClick={() => setIsEditingReleaseDate(true)}
+                style={{ cursor: 'pointer', fontWeight: 600, color: releaseOverdue ? 'var(--danger)' : 'var(--text-primary)', borderBottom: releaseOverdue ? '1px dashed var(--danger)' : '1px dashed var(--text-muted)' }}
+                title={releaseOverdue ? "Overdue milestone!" : "Click to edit Release Date"}
+              >
+                {item.finalRelease ? formatDateToShortPattern(item.finalRelease) : 'Set Date'}
+              </span>
+              {item.finalRelease && getDateDiffDays(item.deadline, item.finalRelease) && (
+                <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', backgroundColor: 'var(--primary-glow)', color: 'var(--primary)', fontWeight: 600 }} title="Days since Dev Date">
+                  {getDateDiffDays(item.deadline, item.finalRelease)}
+                </span>
+              )}
+              {isEditingReleaseDate && (
+                <CustomDatePicker
+                  value={item.finalRelease || ''}
+                  onChange={(date) => handleFieldUpdate('finalRelease', date)}
+                  onClose={() => setIsEditingReleaseDate(false)}
+                  align="right"
+                />
+              )}
               <input
                 type="checkbox"
                 checked={!!item.finalReleaseCompleted}
@@ -1541,13 +2059,32 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                 >
                   <option value="">— Select POC —</option>
                   {pocList.map(p => (
-                    <option key={p} value={p}>{p}</option>
+                    <option key={p} value={p}>
+                      {p} ({pocActiveTaskCounts[p] || 0} active)
+                    </option>
                   ))}
                   {item.poc && !pocList.includes(item.poc) && (
                     <option value={item.poc}>{item.poc}</option>
                   )}
                 </select>
               </div>
+              {item.poc && (
+                <span 
+                  style={{ 
+                    fontSize: '0.65rem', 
+                    marginLeft: '6px', 
+                    backgroundColor: 'var(--primary-glow)', 
+                    border: '1px solid var(--primary-border)', 
+                    borderRadius: '10px', 
+                    padding: '2px 8px',
+                    color: 'var(--primary)',
+                    fontWeight: 700
+                  }}
+                  title="Total active tasks managed by this POC"
+                >
+                  {pocActiveTaskCounts[item.poc] || 0} active
+                </span>
+              )}
             </div>
           </div>
 
@@ -1638,154 +2175,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
       </div>
 
-      {/* Stepper progress timeline tracker */}
-      <div className="compact-timeline-container" style={{ margin: '1.5rem 0' }}>
-        <div className="compact-timeline-track">
-          <div 
-            className="compact-timeline-track-progress" 
-            style={{ width: `${getProgressPercentage()}%` }} 
-          />
-        </div>
-        <div className="compact-timeline-steps">
-          
-          {/* Step 1: Specs */}
-          <div className={`compact-timeline-step ${isProductCompleted ? 'completed' : 'active'}`}>
-            <div className="compact-timeline-node">
-              {isProductCompleted ? (
-                <CheckSquare size={12} />
-              ) : (
-                <span>1</span>
-              )}
-            </div>
-            <span className="compact-timeline-step-label">Specs</span>
-            
-            <span 
-              className="compact-timeline-step-date" 
-              style={{ cursor: 'pointer', userSelect: 'none' }}
-              onClick={() => {
-                const inputEl = document.getElementById(`date-picker-specs-${item.id}`);
-                if (inputEl) (inputEl as any).showPicker?.();
-              }}
-            >
-              {item.productDeadline ? formatDateToUserPattern(item.productDeadline) : 'Set Date'}
-            </span>
-            <input
-              id={`date-picker-specs-${item.id}`}
-              type="date"
-              style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
-              value={parseDateToYYYYMMDD(item.productDeadline)}
-              onChange={(e) => {
-                if (e.target.value) {
-                  handleFieldUpdate('productDeadline', e.target.value);
-                }
-              }}
-            />
-          </div>
 
-          {/* Step 2: UI/UX */}
-          <div className={`compact-timeline-step ${isUiuxCompleted ? 'completed' : isUiuxActive ? 'active' : 'pending'}`}>
-            <div className="compact-timeline-node">
-              {isUiuxCompleted ? (
-                <CheckSquare size={12} />
-              ) : (
-                <span>2</span>
-              )}
-            </div>
-            <span className="compact-timeline-step-label">UI/UX</span>
-            
-            <span 
-              className="compact-timeline-step-date" 
-              style={{ cursor: 'pointer', userSelect: 'none' }}
-              onClick={() => {
-                const inputEl = document.getElementById(`date-picker-uiux-${item.id}`);
-                if (inputEl) (inputEl as any).showPicker?.();
-              }}
-            >
-              {item.uiux ? formatDateToUserPattern(item.uiux) : 'Set Date'}
-            </span>
-            <input
-              id={`date-picker-uiux-${item.id}`}
-              type="date"
-              style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
-              value={parseDateToYYYYMMDD(item.uiux)}
-              onChange={(e) => {
-                if (e.target.value) {
-                  handleFieldUpdate('uiux', e.target.value);
-                }
-              }}
-            />
-          </div>
-
-          {/* Step 3: Dev */}
-          <div className={`compact-timeline-step ${isDevCompleted ? 'completed' : isDevActive ? 'active' : 'pending'}`}>
-            <div className="compact-timeline-node">
-              {isDevCompleted ? (
-                <CheckSquare size={12} />
-              ) : (
-                <span>3</span>
-              )}
-            </div>
-            <span className="compact-timeline-step-label">Dev</span>
-            
-            <span 
-              className="compact-timeline-step-date" 
-              style={{ cursor: 'pointer', userSelect: 'none' }}
-              onClick={() => {
-                const inputEl = document.getElementById(`date-picker-dev-${item.id}`);
-                if (inputEl) (inputEl as any).showPicker?.();
-              }}
-            >
-              {item.deadline ? formatDateToUserPattern(item.deadline) : 'Set Date'}
-            </span>
-            <input
-              id={`date-picker-dev-${item.id}`}
-              type="date"
-              style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
-              value={parseDateToYYYYMMDD(item.deadline)}
-              onChange={(e) => {
-                if (e.target.value) {
-                  handleFieldUpdate('deadline', e.target.value);
-                }
-              }}
-            />
-          </div>
-
-          {/* Step 4: Release */}
-          <div className={`compact-timeline-step ${isFinalCompleted ? 'completed' : isFinalActive ? 'active' : 'pending'}`}>
-            <div className="compact-timeline-node">
-              {isFinalCompleted ? (
-                <CheckSquare size={12} />
-              ) : (
-                <span>4</span>
-              )}
-            </div>
-            <span className="compact-timeline-step-label">Release</span>
-            
-            <span 
-              className="compact-timeline-step-date" 
-              style={{ cursor: 'pointer', userSelect: 'none' }}
-              onClick={() => {
-                const inputEl = document.getElementById(`date-picker-release-${item.id}`);
-                if (inputEl) (inputEl as any).showPicker?.();
-              }}
-            >
-              {item.finalRelease ? formatDateToUserPattern(item.finalRelease) : 'Set Date'}
-            </span>
-            <input
-              id={`date-picker-release-${item.id}`}
-              type="date"
-              style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
-              value={parseDateToYYYYMMDD(item.finalRelease)}
-              onChange={(e) => {
-                if (e.target.value) {
-                  handleFieldUpdate('finalRelease', e.target.value);
-                }
-              }}
-            />
-          </div>
-
-        </div>
-      </div>
 
       {/* Blocker Alert Banner */}
       {item.blocker && (
@@ -3879,8 +4269,8 @@ export const StudentMeetingsTable: React.FC = () => {
   }, [subTab]);
 
   // Sorting states
-  const [amaSortField, setAmaSortField] = useState<keyof AMASession | null>(null);
-  const [amaSortAsc, setAmaSortAsc] = useState(true);
+  const [amaSortField, setAmaSortField] = useState<keyof AMASession | null>('date');
+  const [amaSortAsc, setAmaSortAsc] = useState(false);
 
   const [feedbackSortField, setFeedbackSortField] = useState<keyof ProductItem | 'amaDate' | 'amaProgram' | 'amaCohort' | 'amaSpeaker' | null>(null);
   const [feedbackSortAsc, setFeedbackSortAsc] = useState(true);
@@ -4066,6 +4456,12 @@ export const StudentMeetingsTable: React.FC = () => {
     const aComp = a.status === 'Completed';
     const bComp = b.status === 'Completed';
     if (aComp !== bComp) return aComp ? 1 : -1;
+
+    if (amaSortField === 'date') {
+      const valA = a.date || '';
+      const valB = b.date || '';
+      return amaSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+    }
     if (amaSortField) {
       let valA = a[amaSortField];
       let valB = b[amaSortField];
@@ -4075,7 +4471,7 @@ export const StudentMeetingsTable: React.FC = () => {
       const strB = String(valB).toLowerCase();
       return amaSortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
     }
-    return 0;
+    return (b.date || '').localeCompare(a.date || '');
   });
 
   const filteredFeedbackFeatures = productItems.filter(item => {
@@ -5580,8 +5976,8 @@ export const AdminCallsTable: React.FC = () => {
   }, [subTab]);
 
   // Sorting states
-  const [callSortField, setCallSortField] = useState<keyof AdminCall | null>(null);
-  const [callSortAsc, setCallSortAsc] = useState(true);
+  const [callSortField, setCallSortField] = useState<keyof AdminCall | null>('date');
+  const [callSortAsc, setCallSortAsc] = useState(false);
 
   const [feedbackSortField, setFeedbackSortField] = useState<keyof ProductItem | 'callDate' | 'callPoc' | 'callTopic' | null>(null);
   const [feedbackSortAsc, setFeedbackSortAsc] = useState(true);
@@ -5608,8 +6004,6 @@ export const AdminCallsTable: React.FC = () => {
 
   // Inline editing states for Admin Calls
   const [editingCallDateId, setEditingCallDateId] = useState<string | null>(null);
-  const [inlineCallDateValue, setInlineCallDateValue] = useState('');
-  const editCallDateInputRef = useRef<HTMLInputElement>(null);
 
   const [editingCallPocId, setEditingCallPocId] = useState<string | null>(null);
   const [inlineCallPocValue, setInlineCallPocValue] = useState('');
@@ -5648,11 +6042,7 @@ export const AdminCallsTable: React.FC = () => {
     }
   }, [editingCallTopicId]);
 
-  useEffect(() => {
-    if (editingCallDateId && editCallDateInputRef.current) {
-      editCallDateInputRef.current.focus();
-    }
-  }, [editingCallDateId]);
+
 
   useEffect(() => {
     if (editingCallRelatedId && editCallRelatedInputRef.current) {
@@ -5704,6 +6094,12 @@ export const AdminCallsTable: React.FC = () => {
     const aComp = a.status === 'Completed';
     const bComp = b.status === 'Completed';
     if (aComp !== bComp) return aComp ? 1 : -1;
+
+    if (callSortField === 'date') {
+      const valA = a.date || '';
+      const valB = b.date || '';
+      return callSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+    }
     if (callSortField) {
       let valA = a[callSortField];
       let valB = b[callSortField];
@@ -5713,7 +6109,7 @@ export const AdminCallsTable: React.FC = () => {
       const strB = String(valB).toLowerCase();
       return callSortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
     }
-    return 0;
+    return (b.date || '').localeCompare(a.date || '');
   });
 
   const handleAddNew = () => {
@@ -5927,12 +6323,12 @@ export const AdminCallsTable: React.FC = () => {
                         }}
                       >
                         <td 
-                          onDoubleClick={(e) => {
+                          onClick={(e) => {
                             e.stopPropagation();
                             setEditingCallDateId(call.id);
-                            setInlineCallDateValue(call.date);
                           }}
-                          title="Double click to edit Date"
+                          style={{ position: 'relative', cursor: 'pointer' }}
+                          title="Click to edit Date"
                         >
                           <div style={{ display: 'flex', alignItems: 'center' }}>
                             {isExpanded ? (
@@ -5940,39 +6336,15 @@ export const AdminCallsTable: React.FC = () => {
                             ) : (
                               <ChevronDown size={16} style={{ marginRight: '8px', color: 'var(--text-secondary)', flexShrink: 0 }} />
                             )}
-                            {editingCallDateId === call.id ? (
-                              <input
-                                ref={editCallDateInputRef}
-                                type="date"
-                                value={inlineCallDateValue}
-                                onChange={(e) => setInlineCallDateValue(e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    updateAdminCall(call.id, { date: inlineCallDateValue });
-                                    setEditingCallDateId(null);
-                                  } else if (e.key === 'Escape') {
-                                    e.preventDefault();
-                                    setEditingCallDateId(null);
-                                  }
-                                }}
-                                onBlur={() => {
-                                  updateAdminCall(call.id, { date: inlineCallDateValue });
-                                  setEditingCallDateId(null);
-                                }}
-                                style={{
-                                  padding: '4px 6px',
-                                  backgroundColor: 'var(--background)',
-                                  border: '1.5px solid var(--primary)',
-                                  borderRadius: '6px',
-                                  color: 'var(--text-primary)',
-                                  fontSize: '0.8rem',
-                                  outline: 'none',
-                                }}
+                            <span style={{ borderBottom: '1px dashed var(--text-muted)' }}>
+                              {call.date ? formatDateToShortPattern(call.date) : 'Set Date'}
+                            </span>
+                            {editingCallDateId === call.id && (
+                              <CustomDatePicker
+                                value={call.date || ''}
+                                onChange={(date) => updateAdminCall(call.id, { date })}
+                                onClose={() => setEditingCallDateId(null)}
                               />
-                            ) : (
-                              <span>{formatDateToUserPattern(call.date)}</span>
                             )}
                           </div>
                         </td>
@@ -6895,8 +7267,8 @@ export const TarunSirMeetingsTable: React.FC = () => {
   }, [subTab]);
 
   // Sorting states
-  const [meetingSortField, setMeetingSortField] = useState<keyof TarunSirMeeting | null>(null);
-  const [meetingSortAsc, setMeetingSortAsc] = useState(true);
+  const [meetingSortField, setMeetingSortField] = useState<keyof TarunSirMeeting | null>('date');
+  const [meetingSortAsc, setMeetingSortAsc] = useState(false);
 
   const [feedbackSortField, setFeedbackSortField] = useState<keyof ProductItem | 'meetingDate' | 'meetingPoc' | 'meetingTopic' | null>(null);
   const [feedbackSortAsc, setFeedbackSortAsc] = useState(true);
@@ -6923,8 +7295,6 @@ export const TarunSirMeetingsTable: React.FC = () => {
 
   // Inline editing states for Tarun Sir Meetings
   const [editingMeetingDateId, setEditingMeetingDateId] = useState<string | null>(null);
-  const [inlineMeetingDateValue, setInlineMeetingDateValue] = useState('');
-  const editMeetingDateInputRef = useRef<HTMLInputElement>(null);
 
   const [editingMeetingPocId, setEditingMeetingPocId] = useState<string | null>(null);
   const [inlineMeetingPocValue, setInlineMeetingPocValue] = useState('');
@@ -6963,11 +7333,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
     }
   }, [editingMeetingTopicId]);
 
-  useEffect(() => {
-    if (editingMeetingDateId && editMeetingDateInputRef.current) {
-      editMeetingDateInputRef.current.focus();
-    }
-  }, [editingMeetingDateId]);
+
 
   useEffect(() => {
     if (editingMeetingRelatedId && editMeetingRelatedInputRef.current) {
@@ -7104,27 +7470,25 @@ export const TarunSirMeetingsTable: React.FC = () => {
 
   // Sort meetings
   const sortedMeetings = [...filteredMeetings];
-  if (meetingSortField) {
-    sortedMeetings.sort((a, b) => {
-      const aComp = a.status === 'Completed';
-      const bComp = b.status === 'Completed';
-      if (aComp !== bComp) return aComp ? 1 : -1;
+  sortedMeetings.sort((a, b) => {
+    const aComp = a.status === 'Completed';
+    const bComp = b.status === 'Completed';
+    if (aComp !== bComp) return aComp ? 1 : -1;
 
+    if (meetingSortField === 'date') {
+      const valA = a.date || '';
+      const valB = b.date || '';
+      return meetingSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+    }
+    if (meetingSortField) {
       const valA = a[meetingSortField as keyof TarunSirMeeting] || '';
       const valB = b[meetingSortField as keyof TarunSirMeeting] || '';
       const strA = String(valA).toLowerCase();
       const strB = String(valB).toLowerCase();
       return meetingSortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
-    });
-  } else {
-    // Default sorting: Scheduled/Pending first, then by date descending
-    sortedMeetings.sort((a, b) => {
-      const aComp = a.status === 'Completed';
-      const bComp = b.status === 'Completed';
-      if (aComp !== bComp) return aComp ? 1 : -1;
-      return b.date.localeCompare(a.date);
-    });
-  }
+    }
+    return (b.date || '').localeCompare(a.date || '');
+  });
 
   return (
     <>
@@ -7242,12 +7606,12 @@ export const TarunSirMeetingsTable: React.FC = () => {
                         }}
                       >
                         <td 
-                          onDoubleClick={(e) => {
+                          onClick={(e) => {
                             e.stopPropagation();
                             setEditingMeetingDateId(meeting.id);
-                            setInlineMeetingDateValue(meeting.date);
                           }}
-                          title="Double click to edit Date"
+                          style={{ position: 'relative', cursor: 'pointer' }}
+                          title="Click to edit Date"
                         >
                           <div style={{ display: 'flex', alignItems: 'center' }}>
                             {isExpanded ? (
@@ -7255,39 +7619,15 @@ export const TarunSirMeetingsTable: React.FC = () => {
                             ) : (
                               <ChevronDown size={16} style={{ marginRight: '8px', color: 'var(--text-secondary)', flexShrink: 0 }} />
                             )}
-                            {editingMeetingDateId === meeting.id ? (
-                              <input
-                                ref={editMeetingDateInputRef}
-                                type="date"
-                                value={inlineMeetingDateValue}
-                                onChange={(e) => setInlineMeetingDateValue(e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    updateTarunSirMeeting(meeting.id, { date: inlineMeetingDateValue });
-                                    setEditingMeetingDateId(null);
-                                  } else if (e.key === 'Escape') {
-                                    e.preventDefault();
-                                    setEditingMeetingDateId(null);
-                                  }
-                                }}
-                                onBlur={() => {
-                                  updateTarunSirMeeting(meeting.id, { date: inlineMeetingDateValue });
-                                  setEditingMeetingDateId(null);
-                                }}
-                                style={{
-                                  padding: '4px 6px',
-                                  backgroundColor: 'var(--background)',
-                                  border: '1.5px solid var(--primary)',
-                                  borderRadius: '6px',
-                                  color: 'var(--text-primary)',
-                                  fontSize: '0.8rem',
-                                  outline: 'none',
-                                }}
+                            <span style={{ borderBottom: '1px dashed var(--text-muted)' }}>
+                              {meeting.date ? formatDateToShortPattern(meeting.date) : 'Set Date'}
+                            </span>
+                            {editingMeetingDateId === meeting.id && (
+                              <CustomDatePicker
+                                value={meeting.date || ''}
+                                onChange={(date) => updateTarunSirMeeting(meeting.id, { date })}
+                                onClose={() => setEditingMeetingDateId(null)}
                               />
-                            ) : (
-                              <span>{formatDateToUserPattern(meeting.date)}</span>
                             )}
                           </div>
                         </td>
@@ -8248,20 +8588,9 @@ export const ContentTable: React.FC = () => {
   const editClickupStatusInputRef = useRef<HTMLInputElement>(null);
 
   const [editingSpecsDateId, setEditingSpecsDateId] = useState<string | null>(null);
-  const [inlineSpecsDateValue, setInlineSpecsDateValue] = useState('');
-  const editSpecsDateInputRef = useRef<HTMLInputElement>(null);
-
   const [editingUiuxDateId, setEditingUiuxDateId] = useState<string | null>(null);
-  const [inlineUiuxDateValue, setInlineUiuxDateValue] = useState('');
-  const editUiuxDateInputRef = useRef<HTMLInputElement>(null);
-
   const [editingDevDateId, setEditingDevDateId] = useState<string | null>(null);
-  const [inlineDevDateValue, setInlineDevDateValue] = useState('');
-  const editDevDateInputRef = useRef<HTMLInputElement>(null);
-
   const [editingReleaseDateId, setEditingReleaseDateId] = useState<string | null>(null);
-  const [inlineReleaseDateValue, setInlineReleaseDateValue] = useState('');
-  const editReleaseDateInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (editingModuleId && editModuleInputRef.current) {
@@ -8292,29 +8621,7 @@ export const ContentTable: React.FC = () => {
     }
   }, [editingClickupStatusId]);
 
-  useEffect(() => {
-    if (editingSpecsDateId && editSpecsDateInputRef.current) {
-      editSpecsDateInputRef.current.focus();
-    }
-  }, [editingSpecsDateId]);
 
-  useEffect(() => {
-    if (editingUiuxDateId && editUiuxDateInputRef.current) {
-      editUiuxDateInputRef.current.focus();
-    }
-  }, [editingUiuxDateId]);
-
-  useEffect(() => {
-    if (editingDevDateId && editDevDateInputRef.current) {
-      editDevDateInputRef.current.focus();
-    }
-  }, [editingDevDateId]);
-
-  useEffect(() => {
-    if (editingReleaseDateId && editReleaseDateInputRef.current) {
-      editReleaseDateInputRef.current.focus();
-    }
-  }, [editingReleaseDateId]);
 
   // Handle new item add inline
   const handleAddNew = () => {
@@ -8826,203 +9133,88 @@ export const ContentTable: React.FC = () => {
 
                   {/* Specs Date (productDeadline) */}
                   <td
-                    onDoubleClick={(e) => {
+                    onClick={(e) => {
                       e.stopPropagation();
                       setEditingSpecsDateId(item.id);
-                      setInlineSpecsDateValue(item.productDeadline || '');
                     }}
-                    title="Double click to edit Specs Date"
+                    style={{ position: 'relative', cursor: 'pointer' }}
+                    title="Click to edit Specs Date"
                   >
-                    {editingSpecsDateId === item.id ? (
-                      <input
-                        ref={editSpecsDateInputRef}
-                        type="date"
-                        value={inlineSpecsDateValue}
-                        onChange={(e) => setInlineSpecsDateValue(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            updateContentItem(item.id, { productDeadline: inlineSpecsDateValue });
-                            setEditingSpecsDateId(null);
-                          } else if (e.key === 'Escape') {
-                            e.preventDefault();
-                            setEditingSpecsDateId(null);
-                          }
-                        }}
-                        onBlur={() => {
-                          updateContentItem(item.id, { productDeadline: inlineSpecsDateValue });
-                          setEditingSpecsDateId(null);
-                        }}
-                        style={{
-                          padding: '4px 6px',
-                          backgroundColor: 'var(--background)',
-                          border: '1.5px solid var(--primary)',
-                          borderRadius: '6px',
-                          color: 'var(--text-primary)',
-                          fontSize: '0.8rem',
-                          outline: 'none',
-                        }}
+                    <span style={{ ...getDateSpanStyle(item.productDeadline, item.productDeadlineCompleted), borderBottom: '1px dashed var(--text-muted)' }}>
+                      {item.productDeadline ? formatDateToShortPattern(item.productDeadline) : 'Set Date'}
+                    </span>
+                    {editingSpecsDateId === item.id && (
+                      <CustomDatePicker
+                        value={item.productDeadline || ''}
+                        onChange={(date) => updateContentItem(item.id, { productDeadline: date })}
+                        onClose={() => setEditingSpecsDateId(null)}
                       />
-                    ) : (
-                      item.productDeadline ? (
-                        <span style={getDateSpanStyle(item.productDeadline, item.productDeadlineCompleted)}>
-                          {formatDateToUserPattern(item.productDeadline)}
-                        </span>
-                      ) : '—'
                     )}
                   </td>
 
                   {/* UI/UX Date */}
                   <td
-                    onDoubleClick={(e) => {
+                    onClick={(e) => {
                       e.stopPropagation();
                       setEditingUiuxDateId(item.id);
-                      setInlineUiuxDateValue(item.uiux || '');
                     }}
-                    style={{ position: 'relative' }}
-                    title="Double click to edit UI/UX Date"
+                    style={{ position: 'relative', cursor: 'pointer' }}
+                    title="Click to edit UI/UX Date"
                   >
                     <DateDiffBadge prevDate={item.productDeadline} currentDate={item.uiux} />
-                    {editingUiuxDateId === item.id ? (
-                      <input
-                        ref={editUiuxDateInputRef}
-                        type="date"
-                        value={inlineUiuxDateValue}
-                        onChange={(e) => setInlineUiuxDateValue(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            updateContentItem(item.id, { uiux: inlineUiuxDateValue });
-                            setEditingUiuxDateId(null);
-                          } else if (e.key === 'Escape') {
-                            e.preventDefault();
-                            setEditingUiuxDateId(null);
-                          }
-                        }}
-                        onBlur={() => {
-                          updateContentItem(item.id, { uiux: inlineUiuxDateValue });
-                          setEditingUiuxDateId(null);
-                        }}
-                        style={{
-                          padding: '4px 6px',
-                          backgroundColor: 'var(--background)',
-                          border: '1.5px solid var(--primary)',
-                          borderRadius: '6px',
-                          color: 'var(--text-primary)',
-                          fontSize: '0.8rem',
-                          outline: 'none',
-                        }}
+                    <span style={{ ...getDateSpanStyle(item.uiux, item.uiuxCompleted), borderBottom: '1px dashed var(--text-muted)' }}>
+                      {item.uiux ? formatDateToShortPattern(item.uiux) : 'Set Date'}
+                    </span>
+                    {editingUiuxDateId === item.id && (
+                      <CustomDatePicker
+                        value={item.uiux || ''}
+                        onChange={(date) => updateContentItem(item.id, { uiux: date })}
+                        onClose={() => setEditingUiuxDateId(null)}
                       />
-                    ) : (
-                      item.uiux ? (
-                        <span style={getDateSpanStyle(item.uiux, item.uiuxCompleted)}>
-                          {formatDateToUserPattern(item.uiux)}
-                        </span>
-                      ) : '—'
                     )}
                   </td>
 
                   {/* Dev Date */}
                   <td
-                    onDoubleClick={(e) => {
+                    onClick={(e) => {
                       e.stopPropagation();
                       setEditingDevDateId(item.id);
-                      setInlineDevDateValue(item.deadline || '');
                     }}
-                    style={{ position: 'relative' }}
-                    title="Double click to edit Dev Date"
+                    style={{ position: 'relative', cursor: 'pointer' }}
+                    title="Click to edit Dev Date"
                   >
                     <DateDiffBadge prevDate={item.uiux || item.productDeadline} currentDate={item.deadline} />
-                    {editingDevDateId === item.id ? (
-                      <input
-                        ref={editDevDateInputRef}
-                        type="date"
-                        value={inlineDevDateValue}
-                        onChange={(e) => setInlineDevDateValue(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            updateContentItem(item.id, { deadline: inlineDevDateValue });
-                            setEditingDevDateId(null);
-                          } else if (e.key === 'Escape') {
-                            e.preventDefault();
-                            setEditingDevDateId(null);
-                          }
-                        }}
-                        onBlur={() => {
-                          updateContentItem(item.id, { deadline: inlineDevDateValue });
-                          setEditingDevDateId(null);
-                        }}
-                        style={{
-                          padding: '4px 6px',
-                          backgroundColor: 'var(--background)',
-                          border: '1.5px solid var(--primary)',
-                          borderRadius: '6px',
-                          color: 'var(--text-primary)',
-                          fontSize: '0.8rem',
-                          outline: 'none',
-                        }}
+                    <span style={{ ...getDateSpanStyle(item.deadline, item.deadlineCompleted), borderBottom: '1px dashed var(--text-muted)' }}>
+                      {item.deadline ? formatDateToShortPattern(item.deadline) : 'Set Date'}
+                    </span>
+                    {editingDevDateId === item.id && (
+                      <CustomDatePicker
+                        value={item.deadline || ''}
+                        onChange={(date) => updateContentItem(item.id, { deadline: date })}
+                        onClose={() => setEditingDevDateId(null)}
                       />
-                    ) : (
-                      item.deadline ? (
-                        <span style={getDateSpanStyle(item.deadline, item.deadlineCompleted)}>
-                          {formatDateToUserPattern(item.deadline)}
-                        </span>
-                      ) : '—'
                     )}
                   </td>
 
                   {/* Release Date */}
                   <td
-                    onDoubleClick={(e) => {
+                    onClick={(e) => {
                       e.stopPropagation();
                       setEditingReleaseDateId(item.id);
-                      setInlineReleaseDateValue(item.finalRelease || '');
                     }}
-                    style={{ position: 'relative' }}
-                    title="Double click to edit Release Date"
+                    style={{ position: 'relative', cursor: 'pointer' }}
+                    title="Click to edit Release Date"
                   >
                     <DateDiffBadge prevDate={item.deadline || item.uiux || item.productDeadline} currentDate={item.finalRelease} />
-                    {editingReleaseDateId === item.id ? (
-                      <input
-                        ref={editReleaseDateInputRef}
-                        type="date"
-                        value={inlineReleaseDateValue}
-                        onChange={(e) => setInlineReleaseDateValue(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            updateContentItem(item.id, { finalRelease: inlineReleaseDateValue });
-                            setEditingReleaseDateId(null);
-                          } else if (e.key === 'Escape') {
-                            e.preventDefault();
-                            setEditingReleaseDateId(null);
-                          }
-                        }}
-                        onBlur={() => {
-                          updateContentItem(item.id, { finalRelease: inlineReleaseDateValue });
-                          setEditingReleaseDateId(null);
-                        }}
-                        style={{
-                          padding: '4px 6px',
-                          backgroundColor: 'var(--background)',
-                          border: '1.5px solid var(--primary)',
-                          borderRadius: '6px',
-                          color: 'var(--text-primary)',
-                          fontSize: '0.8rem',
-                          outline: 'none',
-                        }}
+                    <span style={{ ...getDateSpanStyle(item.finalRelease, item.finalReleaseCompleted), borderBottom: '1px dashed var(--text-muted)' }}>
+                      {item.finalRelease ? formatDateToShortPattern(item.finalRelease) : 'Set Date'}
+                    </span>
+                    {editingReleaseDateId === item.id && (
+                      <CustomDatePicker
+                        value={item.finalRelease || ''}
+                        onChange={(date) => updateContentItem(item.id, { finalRelease: date })}
+                        onClose={() => setEditingReleaseDateId(null)}
                       />
-                    ) : (
-                      item.finalRelease ? (
-                        <span style={getDateSpanStyle(item.finalRelease, item.finalReleaseCompleted)}>
-                          {formatDateToUserPattern(item.finalRelease)}
-                        </span>
-                      ) : '—'
                     )}
                   </td>
 

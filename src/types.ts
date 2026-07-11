@@ -25,6 +25,7 @@ export interface ProductItem {
   finalReleaseCompleted?: boolean;
   clickupSubtasksCount?: number;
   clickupAssignee?: string;
+  createdAt?: string;
 }
 
 export interface PlanItem {
@@ -38,6 +39,7 @@ export interface PlanItem {
   clickupStatus?: string;
   clickupSubtasksCount?: number;
   clickupAssignee?: string;
+  createdAt?: string;
 }
 
 export interface StudentProject {
@@ -54,6 +56,7 @@ export interface StudentProject {
   clickupStatus?: string;
   clickupSubtasksCount?: number;
   clickupAssignee?: string;
+  createdAt?: string;
   taskLink?: string;
   productDeadline?: string;
   uiux?: string;
@@ -92,6 +95,7 @@ export interface StudentMeeting {
   clickupStatus?: string;
   clickupSubtasksCount?: number;
   clickupAssignee?: string;
+  createdAt?: string;
   taskLink?: string;
   blocker?: string;
   deadline?: string;
@@ -144,6 +148,7 @@ export interface ContentItem {
   clickupStatus?: string;
   clickupSubtasksCount?: number;
   clickupAssignee?: string;
+  createdAt?: string;
   productDeadline?: string;
   uiux?: string;
   deadline?: string;
@@ -169,6 +174,7 @@ export interface DailyIssue {
   clickupStatus?: string;
   clickupSubtasksCount?: number;
   clickupAssignee?: string;
+  createdAt?: string;
   taskLink?: string;
   blocker?: string;
   deadline?: string;

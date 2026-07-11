@@ -105,6 +105,8 @@ interface DashboardContextType {
   previewProductId: string | null;
   setPreviewProductId: (id: string | null) => void;
   openPreviewForFeature: (featureName: string, fallbackData?: Partial<ProductItem>) => void;
+  activeSubtasksTaskLink: string | null;
+  setActiveSubtasksTaskLink: (link: string | null) => void;
   previousTab: string | null;
   setPreviousTab: (tab: string | null) => void;
   tabScrollPositions: Record<string, number>;
@@ -226,6 +228,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const params = new URLSearchParams(window.location.search);
     return params.get('task');
   });
+  const [activeSubtasksTaskLink, setActiveSubtasksTaskLink] = useState<string | null>(null);
 
   const [previousTab, setPreviousTab] = useState<string | null>(null);
   const [tabScrollPositions, setTabScrollPositions] = useState<Record<string, number>>({});
@@ -1719,6 +1722,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       dailyIssues, setDailyIssues, updateDailyIssue, addDailyIssue, deleteDailyIssue,
       featureAdoptions, setFeatureAdoptions, updateFeatureAdoption, addFeatureAdoption, deleteFeatureAdoption,
       previewProductId, setPreviewProductId, openPreviewForFeature,
+      activeSubtasksTaskLink, setActiveSubtasksTaskLink,
       previousTab, setPreviousTab,
       tabScrollPositions, setTabScrollPosition,
       speakers, addSpeaker, updateSpeaker, deleteSpeaker,

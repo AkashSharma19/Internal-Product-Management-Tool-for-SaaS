@@ -12,7 +12,8 @@ import {
   ProductWiseSheet,
   IssuesTable,
   AdoptionTable,
-  ProductDetailView
+  ProductDetailView,
+  ClickupSubtasksModal
 } from './components/Tables';
 import { ConfigSection } from './components/ConfigSection';
 import { DashboardOverview } from './components/DashboardOverview';
@@ -619,7 +620,9 @@ const DashboardContent: React.FC = () => {
     updateDailyIssue,
     previousTab,
     canUserEdit,
-    alert
+    alert,
+    activeSubtasksTaskLink,
+    setActiveSubtasksTaskLink
   } = useDashboard();
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [isRefreshingClickup, setIsRefreshingClickup] = useState(false);
@@ -1230,6 +1233,12 @@ const DashboardContent: React.FC = () => {
       </main>
       {isCommandPaletteOpen && (
         <CommandPalette onClose={() => setIsCommandPaletteOpen(false)} />
+      )}
+      {activeSubtasksTaskLink && (
+        <ClickupSubtasksModal 
+          taskLink={activeSubtasksTaskLink} 
+          onClose={() => setActiveSubtasksTaskLink(null)} 
+        />
       )}
     </div>
   );
