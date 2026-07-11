@@ -4719,7 +4719,7 @@ export const StudentMeetingsTable: React.FC = () => {
                       
                       {isExpanded && (
                         <tr style={{ background: 'var(--background)' }}>
-                          <td colSpan={6} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
+                          <td colSpan={7} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
                             <div style={{
                               background: 'var(--panel-bg)',
                               border: '1px solid var(--border)',
@@ -4976,8 +4976,7 @@ export const StudentMeetingsTable: React.FC = () => {
                                 </div>
                               )}
                               
-                              <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '1rem 0' }} />
-                              <AttendeeFeedbackDetails itemId={ama.id} category="ama-meetings" />
+
                             </div>
                           </td>
                         </tr>
@@ -6130,7 +6129,7 @@ export const AdminCallsTable: React.FC = () => {
                       {/* Accordion Expansion */}
                       {isExpanded && (
                         <tr style={{ background: 'var(--background)' }}>
-                          <td colSpan={5} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
+                          <td colSpan={6} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
                             <div style={{
                               background: 'var(--panel-bg)',
                               border: '1px solid var(--border)',
@@ -6418,8 +6417,7 @@ export const AdminCallsTable: React.FC = () => {
                                 )}
                               </div>
                               
-                              <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: 0 }} />
-                              <AttendeeFeedbackDetails itemId={call.id} category="admin-calls" />
+
                             </div>
                           </td>
                         </tr>
