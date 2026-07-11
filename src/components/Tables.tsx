@@ -1515,7 +1515,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
       counts[name] = 0;
     });
     productItems.forEach((pi: ProductItem) => {
-      if (pi.poc && pi.status !== 'Completed' && pi.status !== 'On Hold') {
+      if (pi.poc && !pi.finalReleaseCompleted) {
         counts[pi.poc] = (counts[pi.poc] || 0) + 1;
       }
     });
