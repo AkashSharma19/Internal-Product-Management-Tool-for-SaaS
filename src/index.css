@@ -3840,3 +3840,40 @@ body.read-only-mode .btn:has(svg.lucide-plus) {
   overflow: hidden;
   pointer-events: none;
 }
+
+/* Custom Instantly Responsive CSS Tooltips */
+.cu-tooltip-container {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+}
+
+.cu-tooltip-text {
+  visibility: hidden;
+  width: max-content;
+  max-width: 250px;
+  background-color: var(--panel-bg);
+  color: var(--text-primary);
+  text-align: left;
+  border-radius: 6px;
+  padding: 6px 10px;
+  position: absolute;
+  z-index: 10000;
+  top: 50%;
+  left: 105%; /* Position to the right */
+  opacity: 0;
+  transition: opacity 0.1s ease-in-out, transform 0.1s ease-in-out;
+  transform: translateY(-50%) translateX(-4px); /* Center vertically, offset left */
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-light);
+  font-size: 0.72rem;
+  font-weight: 500;
+  pointer-events: none;
+  white-space: pre-line;
+}
+
+.cu-tooltip-container:hover .cu-tooltip-text {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(-50%) translateX(0); /* Slide in to place */
+}

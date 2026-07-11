@@ -1247,12 +1247,12 @@ const ClickupSettingsSection: React.FC = () => {
       // Temporarily save first to context so it can be tested
       setClickupApiKey(apiKeyInput.trim());
       
-      const status = await syncClickupTask(testLink.trim());
-      if (status) {
+      const res = await syncClickupTask(testLink.trim());
+      if (res) {
         setTestResult({
           success: true,
           message: `Successfully connected! Task status is:`,
-          status: status
+          status: res.status
         });
       } else {
         setTestResult({

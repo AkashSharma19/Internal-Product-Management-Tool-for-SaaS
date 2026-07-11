@@ -139,7 +139,7 @@ interface DashboardContextType {
   // ClickUp Integration
   clickupApiKey: string;
   setClickupApiKey: (key: string) => void;
-  syncClickupTask: (taskIdOrUrl: string) => Promise<string | null>;
+  syncClickupTask: (taskIdOrUrl: string) => Promise<{ status: string; subtasksCount: number; assignee: string } | null>;
   refreshAllClickupStatuses: () => Promise<{ success: boolean; totalScanned: number; updatedCount: number; error?: string }>;
   refreshAllData: () => Promise<{ success: boolean; updatedSheets: number; error?: string }>;
 
@@ -782,6 +782,37 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     refreshAllData().finally(() => setIsLoading(false));
   }, []);
 
+  // Auto-sync Admin Call status based on related tasks
+  useEffect(() => {
+    if (isLoading) return;
+
+    let changed = false;
+    const updatedCalls = adminCalls.map(call => {
+      const relatedTasks = productItems.filter(item => 
+        !item.id.startsWith('prod-temp-') && 
+        item.notes && 
+        item.notes.includes(`Admin Call ID: ${call.id}`)
+      );
+
+      if (relatedTasks.length > 0) {
+        const allReleased = relatedTasks.every(task => !!task.finalReleaseCompleted);
+        const targetStatus = allReleased ? 'Completed' : 'Pending Actions';
+
+        if (call.status !== targetStatus) {
+          changed = true;
+          const updatedCall = { ...call, status: targetStatus as any };
+          persistChange('update', 'adminCalls', call.id, updatedCall);
+          return updatedCall;
+        }
+      }
+      return call;
+    });
+
+    if (changed) {
+      setAdminCalls(updatedCalls);
+    }
+  }, [productItems, adminCalls, isLoading]);
+
 
 
   const updateClickupApiKey = (key: string) => {
@@ -1413,13 +1444,13 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return null;
   };
 
-  const syncClickupTask = async (taskIdOrUrl: string): Promise<string | null> => {
+  const syncClickupTask = async (taskIdOrUrl: string): Promise<{ status: string; subtasksCount: number; assignee: string } | null> => {
     const taskId = extractClickupTaskId(taskIdOrUrl);
     if (!taskId) return null;
     if (!clickupApiKey.trim()) return null;
 
     try {
-      const response = await fetch(`https://api.clickup.com/api/v2/task/${taskId}`, {
+      const response = await fetch(`https://api.clickup.com/api/v2/task/${taskId}?include_subtasks=true`, {
         method: 'GET',
         headers: {
           'Authorization': clickupApiKey.trim(),
@@ -1429,7 +1460,14 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (response.ok) {
         const data = await response.json();
         if (data && data.status && data.status.status) {
-          return data.status.status;
+          const assigneeName = data.assignees && Array.isArray(data.assignees)
+            ? data.assignees.map((a: any) => a.username).join(', ')
+            : '';
+          return {
+            status: data.status.status,
+            subtasksCount: data.subtasks ? data.subtasks.length : 0,
+            assignee: assigneeName
+          };
         }
       }
     } catch (err) {
@@ -1464,7 +1502,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       const fetchPromises = uniqueTaskIds.map(async (taskId) => {
         try {
-          const response = await fetch(`https://api.clickup.com/api/v2/task/${taskId}`, {
+          const response = await fetch(`https://api.clickup.com/api/v2/task/${taskId}?include_subtasks=true`, {
             method: 'GET',
             headers: {
               'Authorization': clickupApiKey.trim(),
@@ -1474,7 +1512,15 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           if (response.ok) {
             const data = await response.json();
             if (data && data.status && data.status.status) {
-              return { taskId, status: data.status.status };
+              const assigneeName = data.assignees && Array.isArray(data.assignees)
+                ? data.assignees.map((a: any) => a.username).join(', ')
+                : '';
+              return { 
+                taskId, 
+                status: data.status.status,
+                subtasksCount: data.subtasks ? data.subtasks.length : 0,
+                assignee: assigneeName
+              };
             }
           }
         } catch (e) {
@@ -1484,41 +1530,65 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       });
 
       const results = await Promise.all(fetchPromises);
-      const statusMap: Record<string, string> = {};
+      const statusMap: Record<string, { status: string; subtasksCount: number; assignee: string }> = {};
       results.forEach(res => {
         if (res) {
-          statusMap[res.taskId] = res.status;
+          statusMap[res.taskId] = { 
+            status: res.status, 
+            subtasksCount: res.subtasksCount,
+            assignee: res.assignee
+          };
         }
       });
 
       // Compute updated count accurately
       productItems.forEach(item => {
         const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
-        if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
+        if (tId && statusMap[tId] && (
+          item.clickupStatus !== statusMap[tId].status || 
+          item.clickupSubtasksCount !== statusMap[tId].subtasksCount ||
+          item.clickupAssignee !== statusMap[tId].assignee
+        )) {
           updatedCount++;
         }
       });
       studentProjects.forEach(item => {
         const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
-        if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
+        if (tId && statusMap[tId] && (
+          item.clickupStatus !== statusMap[tId].status || 
+          item.clickupSubtasksCount !== statusMap[tId].subtasksCount ||
+          item.clickupAssignee !== statusMap[tId].assignee
+        )) {
           updatedCount++;
         }
       });
       studentMeetings.forEach(item => {
         const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
-        if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
+        if (tId && statusMap[tId] && (
+          item.clickupStatus !== statusMap[tId].status || 
+          item.clickupSubtasksCount !== statusMap[tId].subtasksCount ||
+          item.clickupAssignee !== statusMap[tId].assignee
+        )) {
           updatedCount++;
         }
       });
       dailyIssues.forEach(item => {
         const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
-        if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
+        if (tId && statusMap[tId] && (
+          item.clickupStatus !== statusMap[tId].status || 
+          item.clickupSubtasksCount !== statusMap[tId].subtasksCount ||
+          item.clickupAssignee !== statusMap[tId].assignee
+        )) {
           updatedCount++;
         }
       });
       planItems.forEach(item => {
         const tId = item.link ? extractClickupTaskId(item.link) : null;
-        if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
+        if (tId && statusMap[tId] && (
+          item.clickupStatus !== statusMap[tId].status || 
+          item.clickupSubtasksCount !== statusMap[tId].subtasksCount ||
+          item.clickupAssignee !== statusMap[tId].assignee
+        )) {
           updatedCount++;
         }
       });
@@ -1526,8 +1596,17 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setProductItems(prev => {
         return prev.map(item => {
           const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
-          if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
-            const updatedItem = { ...item, clickupStatus: statusMap[tId] };
+          if (tId && statusMap[tId] && (
+            item.clickupStatus !== statusMap[tId].status || 
+            item.clickupSubtasksCount !== statusMap[tId].subtasksCount ||
+            item.clickupAssignee !== statusMap[tId].assignee
+          )) {
+            const updatedItem = { 
+              ...item, 
+              clickupStatus: statusMap[tId].status,
+              clickupSubtasksCount: statusMap[tId].subtasksCount,
+              clickupAssignee: statusMap[tId].assignee
+            };
             persistChange('update', 'products', item.id, updatedItem);
             return updatedItem;
           }
@@ -1538,8 +1617,17 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setStudentProjects(prev => {
         return prev.map(item => {
           const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
-          if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
-            const updatedItem = { ...item, clickupStatus: statusMap[tId] };
+          if (tId && statusMap[tId] && (
+            item.clickupStatus !== statusMap[tId].status || 
+            item.clickupSubtasksCount !== statusMap[tId].subtasksCount ||
+            item.clickupAssignee !== statusMap[tId].assignee
+          )) {
+            const updatedItem = { 
+              ...item, 
+              clickupStatus: statusMap[tId].status,
+              clickupSubtasksCount: statusMap[tId].subtasksCount,
+              clickupAssignee: statusMap[tId].assignee
+            };
             persistChange('update', 'projects', item.id, updatedItem);
             return updatedItem;
           }
@@ -1550,8 +1638,17 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setStudentMeetings(prev => {
         return prev.map(item => {
           const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
-          if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
-            const updatedItem = { ...item, clickupStatus: statusMap[tId] };
+          if (tId && statusMap[tId] && (
+            item.clickupStatus !== statusMap[tId].status || 
+            item.clickupSubtasksCount !== statusMap[tId].subtasksCount ||
+            item.clickupAssignee !== statusMap[tId].assignee
+          )) {
+            const updatedItem = { 
+              ...item, 
+              clickupStatus: statusMap[tId].status,
+              clickupSubtasksCount: statusMap[tId].subtasksCount,
+              clickupAssignee: statusMap[tId].assignee
+            };
             persistChange('update', 'studentMeetings', item.id, updatedItem);
             return updatedItem;
           }
@@ -1562,8 +1659,17 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setDailyIssues(prev => {
         return prev.map(item => {
           const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
-          if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
-            const updatedItem = { ...item, clickupStatus: statusMap[tId] };
+          if (tId && statusMap[tId] && (
+            item.clickupStatus !== statusMap[tId].status || 
+            item.clickupSubtasksCount !== statusMap[tId].subtasksCount ||
+            item.clickupAssignee !== statusMap[tId].assignee
+          )) {
+            const updatedItem = { 
+              ...item, 
+              clickupStatus: statusMap[tId].status,
+              clickupSubtasksCount: statusMap[tId].subtasksCount,
+              clickupAssignee: statusMap[tId].assignee
+            };
             persistChange('update', 'dailyIssues', item.id, updatedItem);
             return updatedItem;
           }
@@ -1574,8 +1680,17 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setPlanItems(prev => {
         return prev.map(item => {
           const tId = item.link ? extractClickupTaskId(item.link) : null;
-          if (tId && statusMap[tId] && item.clickupStatus !== statusMap[tId]) {
-            const updatedItem = { ...item, clickupStatus: statusMap[tId] };
+          if (tId && statusMap[tId] && (
+            item.clickupStatus !== statusMap[tId].status || 
+            item.clickupSubtasksCount !== statusMap[tId].subtasksCount ||
+            item.clickupAssignee !== statusMap[tId].assignee
+          )) {
+            const updatedItem = { 
+              ...item, 
+              clickupStatus: statusMap[tId].status,
+              clickupSubtasksCount: statusMap[tId].subtasksCount,
+              clickupAssignee: statusMap[tId].assignee
+            };
             persistChange('update', 'plans', item.id, updatedItem);
             return updatedItem;
           }

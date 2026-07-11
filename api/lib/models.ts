@@ -11,6 +11,8 @@ const ProductItemSchema = new Schema({
   poc: { type: String, default: "" },
   status: { type: String, default: "" },
   clickupStatus: { type: String, default: "" },
+  clickupSubtasksCount: { type: Number, default: 0 },
+  clickupAssignee: { type: String, default: "" },
   taskLink: { type: String, default: "" },
   blocker: { type: String, default: "" },
   deadline: { type: String, default: "" },
@@ -36,7 +38,9 @@ const PlanItemSchema = new Schema({
   link: { type: String, default: "" },
   status: { type: String, default: "" },
   completed: { type: Boolean, default: false },
-  clickupStatus: { type: String, default: "" }
+  clickupStatus: { type: String, default: "" },
+  clickupSubtasksCount: { type: Number, default: 0 },
+  clickupAssignee: { type: String, default: "" }
 }, { timestamps: true });
 
 // 3. StudentProject
@@ -52,6 +56,8 @@ const StudentProjectSchema = new Schema({
   priority: { type: String, default: "" },
   poc: { type: String, default: "" },
   clickupStatus: { type: String, default: "" },
+  clickupSubtasksCount: { type: Number, default: 0 },
+  clickupAssignee: { type: String, default: "" },
   taskLink: { type: String, default: "" },
   productDeadline: { type: String, default: "" },
   uiux: { type: String, default: "" },
@@ -90,6 +96,8 @@ const StudentMeetingSchema = new Schema({
   poc: { type: String, default: "" },
   status: { type: String, default: "" },
   clickupStatus: { type: String, default: "" },
+  clickupSubtasksCount: { type: Number, default: 0 },
+  clickupAssignee: { type: String, default: "" },
   taskLink: { type: String, default: "" },
   blocker: { type: String, default: "" },
   deadline: { type: String, default: "" },
@@ -143,6 +151,8 @@ const ContentItemSchema = new Schema({
   product: { type: String, default: "" },
   priority: { type: String, default: "" },
   clickupStatus: { type: String, default: "" },
+  clickupSubtasksCount: { type: Number, default: 0 },
+  clickupAssignee: { type: String, default: "" },
   productDeadline: { type: String, default: "" },
   uiux: { type: String, default: "" },
   deadline: { type: String, default: "" },
@@ -167,6 +177,8 @@ const DailyIssueSchema = new Schema({
   poc: { type: String, default: "" },
   status: { type: String, default: "" },
   clickupStatus: { type: String, default: "" },
+  clickupSubtasksCount: { type: Number, default: 0 },
+  clickupAssignee: { type: String, default: "" },
   taskLink: { type: String, default: "" },
   blocker: { type: String, default: "" },
   deadline: { type: String, default: "" },

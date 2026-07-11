@@ -572,6 +572,14 @@ const getClickupBadgeStyle = (status: string) => {
 /* =========================================================================
    CSV IMPORT MODAL
    ========================================================================= */
+
+const formatClickupAssignee = (assigneesStr: string) => {
+  if (!assigneesStr) return '';
+  const parts = assigneesStr.split(',').map(s => s.trim()).filter(Boolean);
+  if (parts.length <= 1) return parts[0] || '';
+  return `${parts[0]} +${parts.length - 1}`;
+};
+
 interface CSVImportModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -1165,9 +1173,13 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     setIsSyncing(true);
     setSyncError(null);
     try {
-      const fetchedStatus = await syncClickupTask(taskLinkValue);
-      if (fetchedStatus) {
-        handleFieldUpdate('clickupStatus', fetchedStatus);
+      const res = await syncClickupTask(taskLinkValue);
+      if (res) {
+        onUpdate(item.id, { 
+          clickupStatus: res.status, 
+          clickupSubtasksCount: res.subtasksCount,
+          clickupAssignee: res.assignee
+        });
       } else {
         setSyncError('Could not fetch status from ClickUp API. Please check your credentials or connection.');
       }
@@ -1364,6 +1376,11 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                   }}
                   defaultValue={item.clickupStatus || ''}
                 />
+                {item.clickupSubtasksCount !== undefined && item.clickupSubtasksCount > 0 && (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginLeft: '4px' }}>
+                    ({item.clickupSubtasksCount} subtasks)
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={() => handleSyncClickup(item.taskLink)}
@@ -2179,11 +2196,23 @@ export const ProductTable: React.FC = () => {
                     ) : '—'}
                   </td>
                   <td>
-                    {item.poc ? (
-                      <span style={getPOCBadgeStyle(item.poc)}>
-                        {item.poc}
-                      </span>
-                    ) : '—'}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                      {item.poc ? (
+                          <span style={{ ...getPOCBadgeStyle(item.poc) }}>
+                              {item.poc}
+                          </span>
+                      ) : '—'}
+                      {item.clickupAssignee && (
+                        <div className="cu-tooltip-container">
+                          <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
+                            CU: {formatClickupAssignee(item.clickupAssignee)}
+                          </span>
+                          <span className="cu-tooltip-text">
+                            {item.clickupAssignee.split(',').map(s => s.trim()).join('\n')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td>
                     {item.status ? (() => {
@@ -2215,7 +2244,7 @@ export const ProductTable: React.FC = () => {
                   <td>
                     {item.clickupStatus ? (
                       <span style={getClickupBadgeStyle(item.clickupStatus)}>
-                        {item.clickupStatus}
+                        {item.clickupStatus}{item.clickupSubtasksCount ? ` (${item.clickupSubtasksCount})` : ""}
                       </span>
                     ) : '—'}
                   </td>
@@ -2459,7 +2488,7 @@ const PlanDetailModal: React.FC<PlanDetailModalProps> = ({ item, onClose, onUpda
                 <span className="detail-label">ClickUp Status</span>
                 <div>
                   <span style={getClickupBadgeStyle(item.clickupStatus)}>
-                    {item.clickupStatus}
+                    {item.clickupStatus}{item.clickupSubtasksCount ? ` (${item.clickupSubtasksCount})` : ""}
                   </span>
                 </div>
               </div>
@@ -3298,7 +3327,7 @@ export const StudentProjectsTable: React.FC = () => {
 
     const display = p.clickupStatus ? (
       <span style={getClickupBadgeStyle(p.clickupStatus)}>
-        {p.clickupStatus}
+        {p.clickupStatus}{p.clickupSubtasksCount ? ` (${p.clickupSubtasksCount})` : ""}
       </span>
     ) : '—';
 
@@ -3544,11 +3573,23 @@ export const StudentProjectsTable: React.FC = () => {
                     ) : '—'}
                   </td>
                   <td>
-                    {p.poc ? (
-                      <span style={getPOCBadgeStyle(p.poc)}>
-                        {p.poc}
-                      </span>
-                    ) : '—'}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                      {p.poc ? (
+                          <span style={{ ...getPOCBadgeStyle(p.poc) }}>
+                              {p.poc}
+                          </span>
+                      ) : '—'}
+                      {p.clickupAssignee && (
+                        <div className="cu-tooltip-container">
+                          <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
+                            CU: {formatClickupAssignee(p.clickupAssignee)}
+                          </span>
+                          <span className="cu-tooltip-text">
+                            {p.clickupAssignee.split(',').map(s => s.trim()).join('\n')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td>
                     {p.status ? (() => {
@@ -4864,16 +4905,28 @@ export const StudentMeetingsTable: React.FC = () => {
                                             ) : '—'}
                                           </td>
                                           <td>
-                                            {feat.poc ? (
-                                              <span style={getPOCBadgeStyle(feat.poc)}>
-                                                {feat.poc}
-                                              </span>
-                                            ) : '—'}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                                              {feat.poc ? (
+                                                  <span style={{ ...getPOCBadgeStyle(feat.poc) }}>
+                                                      {feat.poc}
+                                                  </span>
+                                              ) : '—'}
+                                              {feat.clickupAssignee && (
+                                                <div className="cu-tooltip-container">
+                                                  <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
+                                                    CU: {formatClickupAssignee(feat.clickupAssignee)}
+                                                  </span>
+                                                  <span className="cu-tooltip-text">
+                                                    {feat.clickupAssignee.split(',').map(s => s.trim()).join('\n')}
+                                                  </span>
+                                                </div>
+                                              )}
+                                            </div>
                                           </td>
                                           <td>
                                             {feat.clickupStatus ? (
                                               <span style={getClickupBadgeStyle(feat.clickupStatus)}>
-                                                {feat.clickupStatus}
+                                                {feat.clickupStatus}{feat.clickupSubtasksCount ? ` (${feat.clickupSubtasksCount})` : ""}
                                               </span>
                                             ) : '—'}
                                           </td>
@@ -5393,11 +5446,23 @@ export const StudentMeetingsTable: React.FC = () => {
                         ) : '—'}
                       </td>
                       <td>
-                        {feat.poc ? (
-                          <span style={getPOCBadgeStyle(feat.poc)}>
-                            {feat.poc}
-                          </span>
-                        ) : '—'}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                          {feat.poc ? (
+                              <span style={{ ...getPOCBadgeStyle(feat.poc) }}>
+                                  {feat.poc}
+                              </span>
+                          ) : '—'}
+                          {feat.clickupAssignee && (
+                            <div className="cu-tooltip-container">
+                              <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
+                                CU: {formatClickupAssignee(feat.clickupAssignee)}
+                              </span>
+                              <span className="cu-tooltip-text">
+                                {feat.clickupAssignee.split(',').map(s => s.trim()).join('\n')}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td>
                         {feat.status ? (
@@ -5413,7 +5478,7 @@ export const StudentMeetingsTable: React.FC = () => {
                       <td>
                         {feat.clickupStatus ? (
                           <span style={getClickupBadgeStyle(feat.clickupStatus)}>
-                            {feat.clickupStatus}
+                            {feat.clickupStatus}{feat.clickupSubtasksCount ? ` (${feat.clickupSubtasksCount})` : ""}
                           </span>
                         ) : '—'}
                       </td>
@@ -6304,16 +6369,28 @@ export const AdminCallsTable: React.FC = () => {
                                               ) : '—'}
                                             </td>
                                             <td>
-                                              {feat.poc ? (
-                                                <span style={getPOCBadgeStyle(feat.poc)}>
-                                                  {feat.poc}
-                                                </span>
-                                              ) : '—'}
+                                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                                                {feat.poc ? (
+                                                    <span style={{ ...getPOCBadgeStyle(feat.poc) }}>
+                                                        {feat.poc}
+                                                    </span>
+                                                ) : '—'}
+                                                {feat.clickupAssignee && (
+                                                  <div className="cu-tooltip-container">
+                                                    <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
+                                                      CU: {formatClickupAssignee(feat.clickupAssignee)}
+                                                    </span>
+                                                    <span className="cu-tooltip-text">
+                                                      {feat.clickupAssignee.split(',').map(s => s.trim()).join('\n')}
+                                                    </span>
+                                                  </div>
+                                                )}
+                                              </div>
                                             </td>
                                             <td>
                                               {feat.clickupStatus ? (
                                                 <span style={getClickupBadgeStyle(feat.clickupStatus)}>
-                                                  {feat.clickupStatus}
+                                                  {feat.clickupStatus}{feat.clickupSubtasksCount ? ` (${feat.clickupSubtasksCount})` : ""}
                                                 </span>
                                               ) : '—'}
                                             </td>
@@ -6690,11 +6767,23 @@ export const AdminCallsTable: React.FC = () => {
                         ) : '—'}
                       </td>
                       <td>
-                        {feat.poc ? (
-                          <span style={getPOCBadgeStyle(feat.poc)}>
-                            {feat.poc}
-                          </span>
-                        ) : '—'}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                          {feat.poc ? (
+                              <span style={{ ...getPOCBadgeStyle(feat.poc) }}>
+                                  {feat.poc}
+                              </span>
+                          ) : '—'}
+                          {feat.clickupAssignee && (
+                            <div className="cu-tooltip-container">
+                              <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
+                                CU: {formatClickupAssignee(feat.clickupAssignee)}
+                              </span>
+                              <span className="cu-tooltip-text">
+                                {feat.clickupAssignee.split(',').map(s => s.trim()).join('\n')}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td>
                         {feat.status ? (
@@ -6710,7 +6799,7 @@ export const AdminCallsTable: React.FC = () => {
                       <td>
                         {feat.clickupStatus ? (
                           <span style={getClickupBadgeStyle(feat.clickupStatus)}>
-                            {feat.clickupStatus}
+                            {feat.clickupStatus}{feat.clickupSubtasksCount ? ` (${feat.clickupSubtasksCount})` : ""}
                           </span>
                         ) : '—'}
                       </td>
@@ -7589,16 +7678,28 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                               ) : '—'}
                                             </td>
                                             <td>
-                                              {feat.poc ? (
-                                                <span style={getPOCBadgeStyle(feat.poc)}>
-                                                  {feat.poc}
-                                                </span>
-                                              ) : '—'}
+                                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                                                {feat.poc ? (
+                                                    <span style={{ ...getPOCBadgeStyle(feat.poc) }}>
+                                                        {feat.poc}
+                                                    </span>
+                                                ) : '—'}
+                                                {feat.clickupAssignee && (
+                                                  <div className="cu-tooltip-container">
+                                                    <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
+                                                      CU: {formatClickupAssignee(feat.clickupAssignee)}
+                                                    </span>
+                                                    <span className="cu-tooltip-text">
+                                                      {feat.clickupAssignee.split(',').map(s => s.trim()).join('\n')}
+                                                    </span>
+                                                  </div>
+                                                )}
+                                              </div>
                                             </td>
                                             <td>
                                               {feat.clickupStatus ? (
                                                 <span style={getClickupBadgeStyle(feat.clickupStatus)}>
-                                                  {feat.clickupStatus}
+                                                  {feat.clickupStatus}{feat.clickupSubtasksCount ? ` (${feat.clickupSubtasksCount})` : ""}
                                                 </span>
                                               ) : '—'}
                                             </td>
@@ -7982,11 +8083,23 @@ export const TarunSirMeetingsTable: React.FC = () => {
                         ) : '—'}
                       </td>
                       <td>
-                        {feat.poc ? (
-                          <span style={getPOCBadgeStyle(feat.poc)}>
-                            {feat.poc}
-                          </span>
-                        ) : '—'}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                          {feat.poc ? (
+                              <span style={{ ...getPOCBadgeStyle(feat.poc) }}>
+                                  {feat.poc}
+                              </span>
+                          ) : '—'}
+                          {feat.clickupAssignee && (
+                            <div className="cu-tooltip-container">
+                              <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
+                                CU: {formatClickupAssignee(feat.clickupAssignee)}
+                              </span>
+                              <span className="cu-tooltip-text">
+                                {feat.clickupAssignee.split(',').map(s => s.trim()).join('\n')}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td>
                         {feat.status ? (
@@ -8002,7 +8115,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                       <td>
                         {feat.clickupStatus ? (
                           <span style={getClickupBadgeStyle(feat.clickupStatus)}>
-                            {feat.clickupStatus}
+                            {feat.clickupStatus}{feat.clickupSubtasksCount ? ` (${feat.clickupSubtasksCount})` : ""}
                           </span>
                         ) : '—'}
                       </td>
@@ -8604,9 +8717,21 @@ export const ContentTable: React.FC = () => {
                       </select>
                     ) : (
                       item.poc ? (
-                        <span style={getPOCBadgeStyle(item.poc)}>
-                          {item.poc}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                            <span style={{ ...getPOCBadgeStyle(item.poc) }}>
+                                {item.poc}
+                            </span>
+                          {item.clickupAssignee && (
+                            <div className="cu-tooltip-container">
+                              <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
+                                CU: {formatClickupAssignee(item.clickupAssignee)}
+                              </span>
+                              <span className="cu-tooltip-text">
+                                {item.clickupAssignee.split(',').map(s => s.trim()).join('\n')}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       ) : '—'
                     )}
                   </td>
@@ -9582,11 +9707,23 @@ export const ProductWiseSheet: React.FC = () => {
                           {item.sourceLabel}
                         </td>
                         <td>
-                          {item.poc ? (
-                            <span style={getPOCBadgeStyle(item.poc)}>
-                              {item.poc}
-                            </span>
-                          ) : '—'}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                            {item.poc ? (
+                                <span style={{ ...getPOCBadgeStyle(item.poc) }}>
+                                    {item.poc}
+                                </span>
+                            ) : '—'}
+                            {item.clickupAssignee && (
+                              <div className="cu-tooltip-container">
+                                <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
+                                  CU: {formatClickupAssignee(item.clickupAssignee)}
+                                </span>
+                                <span className="cu-tooltip-text">
+                                  {item.clickupAssignee.split(',').map(s => s.trim()).join('\n')}
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td>
                           {item.status ? (() => {
@@ -9618,7 +9755,7 @@ export const ProductWiseSheet: React.FC = () => {
                         <td>
                           {item.clickupStatus ? (
                             <span style={getClickupBadgeStyle(item.clickupStatus)}>
-                              {item.clickupStatus}
+                              {item.clickupStatus}{item.clickupSubtasksCount ? ` (${item.clickupSubtasksCount})` : ""}
                             </span>
                           ) : '—'}
                         </td>
@@ -9917,7 +10054,7 @@ export const IssuesTable: React.FC = () => {
                 <td>
                   {item.clickupStatus ? (
                     <span style={getClickupBadgeStyle(item.clickupStatus)}>
-                      {item.clickupStatus}
+                      {item.clickupStatus}{item.clickupSubtasksCount ? ` (${item.clickupSubtasksCount})` : ""}
                     </span>
                   ) : '—'}
                 </td>

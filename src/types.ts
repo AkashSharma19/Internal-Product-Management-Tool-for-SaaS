@@ -23,6 +23,8 @@ export interface ProductItem {
   uiuxCompleted?: boolean;
   deadlineCompleted?: boolean;
   finalReleaseCompleted?: boolean;
+  clickupSubtasksCount?: number;
+  clickupAssignee?: string;
 }
 
 export interface PlanItem {
@@ -34,6 +36,8 @@ export interface PlanItem {
   status: 'testing' | 'development' | 'closed' | 'tested' | 'open' | 'in design' | 'Done';
   completed?: boolean;
   clickupStatus?: string;
+  clickupSubtasksCount?: number;
+  clickupAssignee?: string;
 }
 
 export interface StudentProject {
@@ -48,6 +52,8 @@ export interface StudentProject {
   priority?: 'P0' | 'P1' | 'P2' | 'P3' | 'P4';
   poc?: string;
   clickupStatus?: string;
+  clickupSubtasksCount?: number;
+  clickupAssignee?: string;
   taskLink?: string;
   productDeadline?: string;
   uiux?: string;
@@ -84,6 +90,8 @@ export interface StudentMeeting {
   poc?: string;
   status?: 'On Hold' | 'In Progress' | 'Ongoing' | 'Completed' | '';
   clickupStatus?: string;
+  clickupSubtasksCount?: number;
+  clickupAssignee?: string;
   taskLink?: string;
   blocker?: string;
   deadline?: string;
@@ -134,6 +142,8 @@ export interface ContentItem {
   product?: string;
   priority?: 'P0' | 'P1' | 'P2' | 'P3' | 'P4' | '';
   clickupStatus?: string;
+  clickupSubtasksCount?: number;
+  clickupAssignee?: string;
   productDeadline?: string;
   uiux?: string;
   deadline?: string;
@@ -157,6 +167,8 @@ export interface DailyIssue {
   poc?: string;
   status?: 'On Hold' | 'In Progress' | 'Ongoing' | 'Completed' | '';
   clickupStatus?: string;
+  clickupSubtasksCount?: number;
+  clickupAssignee?: string;
   taskLink?: string;
   blocker?: string;
   deadline?: string;
