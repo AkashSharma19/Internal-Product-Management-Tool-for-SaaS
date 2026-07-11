@@ -2060,7 +2060,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                   <option value="">— Select POC —</option>
                   {pocList.map(p => (
                     <option key={p} value={p}>
-                      {p} ({pocActiveTaskCounts[p] || 0} active)
+                      {p}
                     </option>
                   ))}
                   {item.poc && !pocList.includes(item.poc) && (
