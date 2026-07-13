@@ -441,7 +441,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         uiuxCompleted: fallbackData?.uiuxCompleted || false,
         deadlineCompleted: fallbackData?.deadlineCompleted || false,
         finalReleaseCompleted: fallbackData?.finalReleaseCompleted || false,
-        createdAt: fallbackData?.createdAt || '',
+        createdAt: fallbackData?.createdAt || new Date().toISOString(),
         clickupSubtasksCount: fallbackData?.clickupSubtasksCount,
         clickupAssignee: fallbackData?.clickupAssignee || ''
       };
@@ -988,8 +988,12 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
   };
   const addProductItem = (item: ProductItem) => {
-    setProductItems(prev => [item, ...prev]);
-    persistChange('create', 'products', null, item);
+    const itemWithDate = {
+      ...item,
+      createdAt: item.createdAt || new Date().toISOString()
+    };
+    setProductItems(prev => [itemWithDate, ...prev]);
+    persistChange('create', 'products', null, itemWithDate);
   };
   const deleteProductItem = (id: string) => {
     setProductItems(prev => prev.filter(item => item.id !== id));

@@ -2407,7 +2407,8 @@ export const ProductTable: React.FC = () => {
       product: '',
       uiux: '',
       finalRelease: '',
-      productDeadline: ''
+      productDeadline: '',
+      createdAt: new Date().toISOString()
     };
     addProductItem(newItem);
     setTimeout(() => {
@@ -2435,7 +2436,8 @@ export const ProductTable: React.FC = () => {
         uiux: row[12] || '',
         finalRelease: row[13] || '',
         productDeadline: row[14] || '',
-        description: row[15] || ''
+        description: row[15] || '',
+        createdAt: new Date().toISOString()
       };
       addProductItem(newItem);
     });
@@ -5187,7 +5189,8 @@ export const StudentMeetingsTable: React.FC = () => {
                                       module: ama.cohort,
                                       uiux: '',
                                       finalRelease: '',
-                                      productDeadline: ''
+                                      productDeadline: '',
+                                      createdAt: new Date().toISOString()
                                     };
                                     addProductItem(newItem);
                                     setInlineRelatedFeatureValue('');
@@ -5411,7 +5414,8 @@ export const StudentMeetingsTable: React.FC = () => {
                                         module: ama.cohort,
                                         uiux: '',
                                         finalRelease: '',
-                                        productDeadline: ''
+                                        productDeadline: '',
+                                        createdAt: new Date().toISOString()
                                       };
                                       addProductItem(newItem);
                                       setInlineRelatedFeatureValue('');
@@ -6582,12 +6586,23 @@ export const AdminCallsTable: React.FC = () => {
                                 <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                   <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Attendees</label>
                                   <textarea
+                                    ref={(el) => {
+                                      if (el) {
+                                        el.style.height = 'auto';
+                                        el.style.height = `${el.scrollHeight}px`;
+                                      }
+                                    }}
                                     value={call.discussion}
                                     onChange={(e) => updateAdminCall(call.id, { discussion: e.target.value })}
+                                    onInput={(e) => {
+                                      const target = e.target as HTMLTextAreaElement;
+                                      target.style.height = 'auto';
+                                      target.style.height = `${target.scrollHeight}px`;
+                                    }}
                                     placeholder="Enter discussion details..."
                                     style={{
                                       width: '100%',
-                                      height: '80px',
+                                      minHeight: '80px',
                                       padding: '8px 10px',
                                       backgroundColor: 'var(--background)',
                                       border: '1px solid var(--border)',
@@ -6595,7 +6610,8 @@ export const AdminCallsTable: React.FC = () => {
                                       color: 'var(--text-primary)',
                                       fontSize: '0.8rem',
                                       fontFamily: 'inherit',
-                                      resize: 'vertical',
+                                      resize: 'none',
+                                      overflowY: 'hidden',
                                       outline: 'none'
                                     }}
                                     onClick={(e) => e.stopPropagation()}
@@ -6630,7 +6646,8 @@ export const AdminCallsTable: React.FC = () => {
                                         module: '',
                                         uiux: '',
                                         finalRelease: '',
-                                        productDeadline: ''
+                                        productDeadline: '',
+                                        createdAt: new Date().toISOString()
                                       };
                                       addProductItem(newItem);
                                       setInlineCallRelatedValue('');
@@ -6851,7 +6868,8 @@ export const AdminCallsTable: React.FC = () => {
                                           module: '',
                                           uiux: '',
                                           finalRelease: '',
-                                          productDeadline: ''
+                                          productDeadline: '',
+                                          createdAt: new Date().toISOString()
                                         };
                                         addProductItem(newItem);
                                         setInlineCallRelatedValue('');
@@ -7832,12 +7850,23 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                 <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                   <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Discussion</label>
                                   <textarea
+                                    ref={(el) => {
+                                      if (el) {
+                                        el.style.height = 'auto';
+                                        el.style.height = `${el.scrollHeight}px`;
+                                      }
+                                    }}
                                     value={meeting.discussion}
                                     onChange={(e) => updateTarunSirMeeting(meeting.id, { discussion: e.target.value })}
+                                    onInput={(e) => {
+                                      const target = e.target as HTMLTextAreaElement;
+                                      target.style.height = 'auto';
+                                      target.style.height = `${target.scrollHeight}px`;
+                                    }}
                                     placeholder="Enter discussion details..."
                                     style={{
                                       width: '100%',
-                                      height: '80px',
+                                      minHeight: '80px',
                                       padding: '8px 10px',
                                       backgroundColor: 'var(--background)',
                                       border: '1px solid var(--border)',
@@ -7845,29 +7874,8 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                       color: 'var(--text-primary)',
                                       fontSize: '0.8rem',
                                       fontFamily: 'inherit',
-                                      resize: 'vertical',
-                                      outline: 'none'
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                  />
-                                </div>
-                                <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                  <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Action Items</label>
-                                  <textarea
-                                    value={meeting.actions}
-                                    onChange={(e) => updateTarunSirMeeting(meeting.id, { actions: e.target.value })}
-                                    placeholder="Enter action items/decisions..."
-                                    style={{
-                                      width: '100%',
-                                      height: '80px',
-                                      padding: '8px 10px',
-                                      backgroundColor: 'var(--background)',
-                                      border: '1px solid var(--border)',
-                                      borderRadius: '6px',
-                                      color: 'var(--text-primary)',
-                                      fontSize: '0.8rem',
-                                      fontFamily: 'inherit',
-                                      resize: 'vertical',
+                                      resize: 'none',
+                                      overflowY: 'hidden',
                                       outline: 'none'
                                     }}
                                     onClick={(e) => e.stopPropagation()}
@@ -7902,7 +7910,8 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                         module: '',
                                         uiux: '',
                                         finalRelease: '',
-                                        productDeadline: ''
+                                        productDeadline: '',
+                                        createdAt: new Date().toISOString()
                                       };
                                       addProductItem(newItem);
                                       setInlineMeetingRelatedValue('');
@@ -8128,7 +8137,8 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                           module: '',
                                           uiux: '',
                                           finalRelease: '',
-                                          productDeadline: ''
+                                          productDeadline: '',
+                                          createdAt: new Date().toISOString()
                                         };
                                         addProductItem(newItem);
                                         setInlineMeetingRelatedValue('');
@@ -9552,7 +9562,8 @@ export const ProductWiseSheet: React.FC = () => {
       product: activeProduct,
       uiux: '',
       finalRelease: '',
-      productDeadline: ''
+      productDeadline: '',
+      createdAt: new Date().toISOString()
     };
     
     addProductItem(newItem);
