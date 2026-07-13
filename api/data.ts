@@ -74,9 +74,26 @@ export default async function handler(req: any, res: any) {
       const keys = Object.keys(modelsMap);
 
       if (isAuthenticated) {
-        // Return everything for authenticated users
+        // Return everything for authenticated users, but strip passwords and mask ClickUp keys
         for (const key of keys) {
-          results[key] = await modelsMap[key].find({}).lean();
+          if (key === 'speakers') {
+            const rawSpeakers = await modelsMap[key].find({}).lean();
+            results[key] = rawSpeakers.map((s: any) => {
+              const copy = { ...s };
+              delete copy.password;
+              return copy;
+            });
+          } else if (key === 'settings') {
+            const rawSettings = await modelsMap[key].find({}).lean();
+            results[key] = rawSettings.map((s: any) => {
+              if (s.key === 'clickupApiKey') {
+                return { ...s, value: s.value ? '••••••••' : '' }; // Mask ClickUp API key
+              }
+              return s;
+            });
+          } else {
+            results[key] = await modelsMap[key].find({}).lean();
+          }
         }
       } else if (isFeedback) {
         // Return only what is needed for public feedback form
@@ -130,10 +147,24 @@ export default async function handler(req: any, res: any) {
 
     if (action === 'login') {
       try {
-        const { email } = data || {};
-        if (!email) {
-          return res.status(400).json({ success: false, error: 'Email is required for authentication.' });
+        const { credential } = data || {};
+        if (!credential) {
+          return res.status(400).json({ success: false, error: 'Credential token is required for authentication.' });
         }
+
+        // Verify token with Google Auth API
+        const tokeninfoResponse = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`);
+        if (!tokeninfoResponse.ok) {
+          return res.status(401).json({ success: false, error: 'Invalid Google identity token.' });
+        }
+
+        const payload = await tokeninfoResponse.json();
+        const email = payload.email;
+
+        if (!email) {
+          return res.status(400).json({ success: false, error: 'Google account email not found in token payload.' });
+        }
+
         const ConfigSpeaker = modelsMap['speakers'];
         const targetEmail = email.toLowerCase().trim();
         
@@ -166,6 +197,85 @@ export default async function handler(req: any, res: any) {
       }
     }
 
+    if (action === 'clickup-sync') {
+      try {
+        // Authenticate
+        const userId = req.headers['x-user-id'];
+        let isAuthenticated = false;
+        if (userId) {
+          const ConfigSpeaker = modelsMap['speakers'];
+          const speaker = await ConfigSpeaker.findOne({ id: userId }).lean();
+          if (speaker) {
+            isAuthenticated = true;
+          }
+        }
+        if (!isAuthenticated) {
+          return res.status(401).json({ success: false, error: 'Unauthorized ClickUp sync operation.' });
+        }
+
+        const { taskId } = data || {};
+        if (!taskId) {
+          return res.status(400).json({ success: false, error: 'taskId is required' });
+        }
+
+        // Fetch clickupApiKey from settings in DB
+        const GlobalSettings = modelsMap['settings'];
+        const clickupSetting = await GlobalSettings.findOne({ key: 'clickupApiKey' }).lean();
+        const apiKey = clickupSetting?.value || '';
+
+        if (!apiKey.trim()) {
+          return res.status(400).json({ success: false, error: 'ClickUp API Key is not configured in settings.' });
+        }
+
+        const clickupResponse = await fetch(`https://api.clickup.com/api/v2/task/${taskId}?include_subtasks=true`, {
+          method: 'GET',
+          headers: {
+            'Authorization': apiKey.trim(),
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (clickupResponse.ok) {
+          const clickupData = await clickupResponse.json();
+          if (clickupData && clickupData.status && clickupData.status.status) {
+            const assigneeName = clickupData.assignees && Array.isArray(clickupData.assignees)
+              ? clickupData.assignees.map((a: any) => a.username).join(', ')
+              : '';
+            return res.status(200).json({
+              success: true,
+              data: {
+                status: clickupData.status.status,
+                subtasksCount: clickupData.subtasks ? clickupData.subtasks.length : 0,
+                assignee: assigneeName
+              }
+            });
+          }
+        }
+
+        return res.status(clickupResponse.status).json({ success: false, error: `ClickUp API returned error status ${clickupResponse.status}` });
+      } catch (err: any) {
+        console.error('ClickUp sync proxy error:', err);
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+
+    // 1. Authorization check for write actions
+    const isPublicFeedbackSubmit = action === 'create' && type === 'feedbackSubmissions';
+    if (!isPublicFeedbackSubmit) {
+      const userId = req.headers['x-user-id'];
+      let isAuthenticated = false;
+      if (userId) {
+        const ConfigSpeaker = modelsMap['speakers'];
+        const speaker = await ConfigSpeaker.findOne({ id: userId }).lean();
+        if (speaker) {
+          isAuthenticated = true;
+        }
+      }
+      if (!isAuthenticated) {
+        return res.status(401).json({ success: false, error: 'Unauthorized write operation.' });
+      }
+    }
+
     const Model = modelsMap[type];
     if (!Model) {
       return res.status(400).json({ success: false, error: `Invalid entity type: ${type}` });
@@ -181,6 +291,15 @@ export default async function handler(req: any, res: any) {
       if (action === 'update') {
         if (!id) return res.status(400).json({ success: false, error: 'ID is required for update' });
         
+        // If updating clickupApiKey, check if it is masked
+        if (type === 'settings' && id === 'clickupApiKey') {
+          if (data && data.value === '••••••••') {
+            // Do not overwrite existing ClickUp API Key with masked symbols
+            const existingSetting = await Model.findOne({ key: id }).lean();
+            return res.status(200).json({ success: true, item: existingSetting });
+          }
+        }
+
         // Use key for settings, and id for all other tables
         const query = type === 'settings' ? { key: id } : { id };
         const updatedItem = await Model.findOneAndUpdate(query, data, { new: true, upsert: true });

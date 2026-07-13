@@ -42,23 +42,6 @@ import {
   CornerDownLeft
 } from 'lucide-react';
 
-const decodeGoogleJwt = (token: string) => {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      window.atob(base64)
-        .split('')
-        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    return JSON.parse(jsonPayload);
-  } catch (e) {
-    console.error('Error decoding JWT', e);
-    return null;
-  }
-};
-
 const LoginView: React.FC = () => {
   const { loginUserByEmail, googleClientId, isLoading } = useDashboard();
   const [error, setError] = useState<string | null>(null);
@@ -79,14 +62,13 @@ const LoginView: React.FC = () => {
             setIsLoggingIn(true);
             setError(null);
             try {
-              const payload = decodeGoogleJwt(response.credential);
-              if (payload && payload.email) {
-                const res = await loginUserByEmail(payload.email);
+              if (response.credential) {
+                const res = await loginUserByEmail(response.credential);
                 if (!res.success) {
                   setError(res.error || 'Access Denied');
                 }
               } else {
-                setError('Failed to retrieve email from Google Account.');
+                setError('Failed to retrieve credential from Google Account.');
               }
             } catch (err) {
               setError('Google login failed.');

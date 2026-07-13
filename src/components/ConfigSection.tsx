@@ -149,34 +149,23 @@ const SpeakersSection: React.FC = () => {
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editRole, setEditRole] = useState('');
-  const [editPassword, setEditPassword] = useState('');
   const [editCanEdit, setEditCanEdit] = useState(true);
   const [editIsAdmin, setEditIsAdmin] = useState(true);
 
   const [addName, setAddName] = useState('');
   const [addEmail, setAddEmail] = useState('');
   const [addRole, setAddRole] = useState('');
-  const [addPassword, setAddPassword] = useState('1234');
   const [addCanEdit, setAddCanEdit] = useState(true);
   const [addIsAdmin, setAddIsAdmin] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
 
-  // Visibility toggles for passwords
-  const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
-  const [showAddPassword, setShowAddPassword] = useState(false);
-
   const isCurrentUserAdmin = currentUser ? (currentUser.isAdmin !== false) : false;
-
-  const togglePasswordVisibility = (id: string) => {
-    setShowPasswordMap(prev => ({ ...prev, [id]: !prev[id] }));
-  };
 
   const startEdit = (s: ConfigSpeaker) => {
     setEditingId(s.id);
     setEditName(s.name);
     setEditEmail(s.email ?? '');
     setEditRole(s.role ?? '');
-    setEditPassword(s.password ?? '1234');
     setEditCanEdit(s.canEdit !== false);
     setEditIsAdmin(s.isAdmin !== false);
   };
@@ -187,7 +176,6 @@ const SpeakersSection: React.FC = () => {
       name: editName.trim(), 
       email: editEmail.trim(), 
       role: editRole.trim(), 
-      password: editPassword.trim(),
       canEdit: editCanEdit,
       isAdmin: editIsAdmin
     });
@@ -201,14 +189,12 @@ const SpeakersSection: React.FC = () => {
       name: addName.trim(), 
       email: addEmail.trim(), 
       role: addRole.trim(),
-      password: addPassword.trim() || '1234',
       canEdit: addCanEdit,
       isAdmin: addIsAdmin
     });
     setAddName('');
     setAddEmail('');
     setAddRole('');
-    setAddPassword('1234');
     setAddCanEdit(true);
     setAddIsAdmin(true);
     setShowAdd(false);
@@ -236,7 +222,6 @@ const SpeakersSection: React.FC = () => {
             <th>Name</th>
             <th>Email</th>
             <th>Role / Title</th>
-            <th style={{ width: 150 }}>Password</th>
             <th style={{ width: 90, textAlign: 'center' }}>Can Edit</th>
             <th style={{ width: 90, textAlign: 'center' }}>Admin</th>
             <th style={{ width: 72 }}>Actions</th>
@@ -245,7 +230,6 @@ const SpeakersSection: React.FC = () => {
         <tbody>
           {speakers.map(s => {
             const isSelf = currentUser && currentUser.id === s.id;
-            const canViewOrEditPassword = isCurrentUserAdmin || isSelf;
 
             return (
               <tr key={s.id}>
@@ -296,76 +280,6 @@ const SpeakersSection: React.FC = () => {
                     />
                   ) : (
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{s.role || '—'}</span>
-                  )}
-                </td>
-                <td>
-                  {editingId === s.id ? (
-                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                      <input
-                        type={showPasswordMap[s.id] ? 'text' : 'password'}
-                        className="config-input"
-                        style={{ paddingRight: '30px' }}
-                        value={editPassword}
-                        disabled={!canViewOrEditPassword}
-                        onChange={e => setEditPassword(e.target.value)}
-                        placeholder="Password"
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') saveEdit();
-                          if (e.key === 'Escape') setEditingId(null);
-                        }}
-                      />
-                      {canViewOrEditPassword && (
-                        <button
-                          type="button"
-                          onClick={() => togglePasswordVisibility(s.id)}
-                          style={{
-                            position: 'absolute',
-                            right: '8px',
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: 'var(--text-secondary)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            padding: 0,
-                          }}
-                        >
-                          {showPasswordMap[s.id] ? <EyeOff size={14} /> : <Eye size={14} />}
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{
-                        fontSize: '0.8rem',
-                        letterSpacing: (showPasswordMap[s.id] && canViewOrEditPassword) ? 'normal' : '0.15em',
-                        fontFamily: (showPasswordMap[s.id] && canViewOrEditPassword) ? 'Outfit, sans-serif' : 'monospace',
-                        color: (showPasswordMap[s.id] && canViewOrEditPassword) ? 'var(--text-primary)' : 'var(--text-muted)',
-                      }}>
-                        {(showPasswordMap[s.id] && canViewOrEditPassword) ? (s.password || '1234') : '••••••'}
-                      </span>
-                      {canViewOrEditPassword && (
-                        <button
-                          type="button"
-                          onClick={() => togglePasswordVisibility(s.id)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: 'var(--text-secondary)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            padding: '4px',
-                            borderRadius: '4px',
-                          }}
-                          title={showPasswordMap[s.id] ? 'Hide Password' : 'Show Password'}
-                          onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--background-alt)'; }}
-                          onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                        >
-                          {showPasswordMap[s.id] ? <EyeOff size={12} /> : <Eye size={12} />}
-                        </button>
-                      )}
-                    </div>
                   )}
                 </td>
                 <td style={{ textAlign: 'center' }}>
@@ -470,39 +384,6 @@ const SpeakersSection: React.FC = () => {
                     if (e.key === 'Escape') setShowAdd(false);
                   }}
                 />
-              </td>
-              <td>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                  <input
-                    type={showAddPassword ? 'text' : 'password'}
-                    className="config-input"
-                    style={{ paddingRight: '30px' }}
-                    value={addPassword}
-                    onChange={e => setAddPassword(e.target.value)}
-                    placeholder="Password (default 1234)"
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') handleAdd();
-                      if (e.key === 'Escape') setShowAdd(false);
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowAddPassword(!showAddPassword)}
-                    style={{
-                      position: 'absolute',
-                      right: '8px',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: 'var(--text-secondary)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: 0,
-                    }}
-                  >
-                    {showAddPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                  </button>
-                </div>
               </td>
               <td>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

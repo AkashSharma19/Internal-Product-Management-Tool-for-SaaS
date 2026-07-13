@@ -157,7 +157,7 @@ interface DashboardContextType {
   currentUser: ConfigSpeaker | null;
   canUserEdit: boolean;
   loginUser: (speakerId: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  loginUserByEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
+  loginUserByEmail: (credential: string) => Promise<{ success: boolean; error?: string }>;
   logoutUser: () => void;
 
   isLoading: boolean;
@@ -606,7 +606,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return { success: true };
   };
 
-  const loginUserByEmail = async (email: string): Promise<{ success: boolean; error?: string }> => {
+  const loginUserByEmail = async (credential: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const response = await fetch('/api/data', {
         method: 'POST',
@@ -617,7 +617,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           action: 'login',
           type: 'speakers',
           id: null,
-          data: { email }
+          data: { credential }
         })
       });
 
@@ -1534,28 +1534,28 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!clickupApiKey.trim()) return null;
 
     try {
-      const response = await fetch(`https://api.clickup.com/api/v2/task/${taskId}?include_subtasks=true`, {
-        method: 'GET',
+      const savedUserId = localStorage.getItem('logged-in-user-id') || '';
+      const response = await fetch('/api/data', {
+        method: 'POST',
         headers: {
-          'Authorization': clickupApiKey.trim(),
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+          'x-user-id': savedUserId
+        },
+        body: JSON.stringify({
+          action: 'clickup-sync',
+          type: 'settings',
+          id: null,
+          data: { taskId }
+        })
       });
       if (response.ok) {
-        const data = await response.json();
-        if (data && data.status && data.status.status) {
-          const assigneeName = data.assignees && Array.isArray(data.assignees)
-            ? data.assignees.map((a: any) => a.username).join(', ')
-            : '';
-          return {
-            status: data.status.status,
-            subtasksCount: data.subtasks ? data.subtasks.length : 0,
-            assignee: assigneeName
-          };
+        const resData = await response.json();
+        if (resData.success && resData.data) {
+          return resData.data;
         }
       }
     } catch (err) {
-      console.warn('ClickUp API call failed:', err);
+      console.warn('ClickUp API proxy call failed:', err);
     }
     return null;
   };
@@ -1586,24 +1586,28 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       const fetchPromises = uniqueTaskIds.map(async (taskId) => {
         try {
-          const response = await fetch(`https://api.clickup.com/api/v2/task/${taskId}?include_subtasks=true`, {
-            method: 'GET',
+          const savedUserId = localStorage.getItem('logged-in-user-id') || '';
+          const response = await fetch('/api/data', {
+            method: 'POST',
             headers: {
-              'Authorization': clickupApiKey.trim(),
-              'Content-Type': 'application/json'
-            }
+              'Content-Type': 'application/json',
+              'x-user-id': savedUserId
+            },
+            body: JSON.stringify({
+              action: 'clickup-sync',
+              type: 'settings',
+              id: null,
+              data: { taskId }
+            })
           });
           if (response.ok) {
-            const data = await response.json();
-            if (data && data.status && data.status.status) {
-              const assigneeName = data.assignees && Array.isArray(data.assignees)
-                ? data.assignees.map((a: any) => a.username).join(', ')
-                : '';
+            const resData = await response.json();
+            if (resData.success && resData.data) {
               return { 
                 taskId, 
-                status: data.status.status,
-                subtasksCount: data.subtasks ? data.subtasks.length : 0,
-                assignee: assigneeName
+                status: resData.data.status,
+                subtasksCount: resData.data.subtasksCount,
+                assignee: resData.data.assignee
               };
             }
           }
