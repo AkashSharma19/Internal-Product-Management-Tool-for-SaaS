@@ -271,7 +271,7 @@ const SpeakersSection: React.FC = () => {
                       className="config-input"
                       value={editEmail}
                       onChange={e => setEditEmail(e.target.value)}
-                      placeholder="Email address…"
+                      placeholder="Email(s) separated by comma…"
                       onKeyDown={e => {
                         if (e.key === 'Enter') saveEdit();
                         if (e.key === 'Escape') setEditingId(null);
@@ -452,7 +452,7 @@ const SpeakersSection: React.FC = () => {
                   className="config-input"
                   value={addEmail}
                   onChange={e => setAddEmail(e.target.value)}
-                  placeholder="Email address…"
+                  placeholder="Email(s) separated by comma…"
                   onKeyDown={e => {
                     if (e.key === 'Enter') handleAdd();
                     if (e.key === 'Escape') setShowAdd(false);

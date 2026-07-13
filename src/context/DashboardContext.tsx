@@ -607,7 +607,12 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const loginUserByEmail = async (email: string): Promise<{ success: boolean; error?: string }> => {
-    const speaker = speakers.find(s => s.email?.toLowerCase().trim() === email.toLowerCase().trim());
+    const targetEmail = email.toLowerCase().trim();
+    const speaker = speakers.find(s => {
+      if (!s.email) return false;
+      const emails = s.email.split(',').map(e => e.trim().toLowerCase());
+      return emails.includes(targetEmail);
+    });
     if (!speaker) {
       return { success: false, error: `Access Denied: Your Google email (${email}) is not registered in the POC Owners/Speakers configuration.` };
     }
