@@ -607,18 +607,37 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const loginUserByEmail = async (email: string): Promise<{ success: boolean; error?: string }> => {
-    const targetEmail = email.toLowerCase().trim();
-    const speaker = speakers.find(s => {
-      if (!s.email) return false;
-      const emails = s.email.split(',').map(e => e.trim().toLowerCase());
-      return emails.includes(targetEmail);
-    });
-    if (!speaker) {
-      return { success: false, error: `Access Denied: Your Google email (${email}) is not registered in the POC Owners/Speakers configuration.` };
+    try {
+      const response = await fetch('/api/data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'login',
+          type: 'speakers',
+          id: null,
+          data: { email }
+        })
+      });
+
+      const resData = await response.json();
+      if (!response.ok || !resData.success) {
+        return { success: false, error: resData.error || 'Authentication failed' };
+      }
+
+      const speaker = resData.user;
+      setCurrentUser(speaker);
+      localStorage.setItem('logged-in-user-id', speaker.id);
+
+      // Fetch the full authenticated dataset now that logged-in-user-id is saved
+      await refreshAllData();
+
+      return { success: true };
+    } catch (err: any) {
+      console.error('loginUserByEmail error:', err);
+      return { success: false, error: err.message || 'Network error during Google Sign-in verification.' };
     }
-    setCurrentUser(speaker);
-    localStorage.setItem('logged-in-user-id', speaker.id);
-    return { success: true };
   };
 
   const logoutUser = () => {
@@ -742,7 +761,30 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setSyncStatus('syncing');
     let updatedSheets = 0;
     try {
-      const response = await fetch('/api/data');
+      const searchParams = new URLSearchParams(window.location.search);
+      const feedbackId = searchParams.get('feedback');
+      const feedbackCategory = searchParams.get('category');
+      
+      let url = '/api/data';
+      const params = new URLSearchParams();
+      if (feedbackId) {
+        params.append('feedback', feedbackId);
+        if (feedbackCategory) {
+          params.append('category', feedbackCategory);
+        }
+      }
+      const queryString = params.toString();
+      if (queryString) {
+        url += `?${queryString}`;
+      }
+
+      const headers: Record<string, string> = {};
+      const savedUserId = localStorage.getItem('logged-in-user-id');
+      if (savedUserId) {
+        headers['x-user-id'] = savedUserId;
+      }
+
+      const response = await fetch(url, { headers });
       if (!response.ok) {
         setSyncStatus('error');
         return { success: false, updatedSheets: 0, error: 'Server returned an error' };
