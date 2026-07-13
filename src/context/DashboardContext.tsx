@@ -394,6 +394,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               uiuxCompleted: fallbackData.uiuxCompleted !== undefined ? fallbackData.uiuxCompleted : item.uiuxCompleted,
               deadlineCompleted: fallbackData.deadlineCompleted !== undefined ? fallbackData.deadlineCompleted : item.deadlineCompleted,
               finalReleaseCompleted: fallbackData.finalReleaseCompleted !== undefined ? fallbackData.finalReleaseCompleted : item.finalReleaseCompleted,
+              createdAt: fallbackData.createdAt !== undefined ? fallbackData.createdAt : item.createdAt,
+              clickupSubtasksCount: fallbackData.clickupSubtasksCount !== undefined ? fallbackData.clickupSubtasksCount : item.clickupSubtasksCount,
+              clickupAssignee: fallbackData.clickupAssignee !== undefined ? fallbackData.clickupAssignee : item.clickupAssignee,
             } as ProductItem;
           }
           return item;
@@ -437,7 +440,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         productDeadlineCompleted: fallbackData?.productDeadlineCompleted || false,
         uiuxCompleted: fallbackData?.uiuxCompleted || false,
         deadlineCompleted: fallbackData?.deadlineCompleted || false,
-        finalReleaseCompleted: fallbackData?.finalReleaseCompleted || false
+        finalReleaseCompleted: fallbackData?.finalReleaseCompleted || false,
+        createdAt: fallbackData?.createdAt || '',
+        clickupSubtasksCount: fallbackData?.clickupSubtasksCount,
+        clickupAssignee: fallbackData?.clickupAssignee || ''
       };
       
       setProductItems(prev => [...prev, newTempProduct]);
@@ -1038,7 +1044,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : p.productDeadlineCompleted,
               uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : p.uiuxCompleted,
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
-              finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted
+              finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted,
+              createdAt: updatedItem.createdAt || p.createdAt,
+              clickupSubtasksCount: updatedItem.clickupSubtasksCount !== undefined ? updatedItem.clickupSubtasksCount : p.clickupSubtasksCount,
+              clickupAssignee: updatedItem.clickupAssignee || p.clickupAssignee
             };
             persistChange('update', 'products', p.id, updatedP);
             return updatedP;
@@ -1113,7 +1122,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : p.productDeadlineCompleted,
               uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : p.uiuxCompleted,
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
-              finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted
+              finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted,
+              createdAt: updatedItem.createdAt || p.createdAt,
+              clickupSubtasksCount: updatedItem.clickupSubtasksCount !== undefined ? updatedItem.clickupSubtasksCount : p.clickupSubtasksCount,
+              clickupAssignee: updatedItem.clickupAssignee || p.clickupAssignee
             };
             persistChange('update', 'products', p.id, updatedP);
             return updatedP;
@@ -1215,7 +1227,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
               finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted,
               status: updatedItem.status as ProductItem['status'],
-              raisedByTarunSir: !!updatedItem.raisedByTarunSir
+              raisedByTarunSir: !!updatedItem.raisedByTarunSir,
+              createdAt: updatedItem.createdAt || p.createdAt,
+              clickupSubtasksCount: updatedItem.clickupSubtasksCount !== undefined ? updatedItem.clickupSubtasksCount : p.clickupSubtasksCount,
+              clickupAssignee: updatedItem.clickupAssignee || p.clickupAssignee
             };
             persistChange('update', 'products', p.id, updatedP);
             return updatedP;
@@ -1259,7 +1274,11 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
               finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted,
               status: updatedItem.status as ProductItem['status'],
-              raisedByTarunSir: !!updatedItem.raisedByTarunSir
+              raisedByTarunSir: !!updatedItem.raisedByTarunSir,
+              tarunSirApproval: updatedItem.tarunSirApproval !== undefined ? updatedItem.tarunSirApproval : p.tarunSirApproval,
+              createdAt: updatedItem.createdAt || p.createdAt,
+              clickupSubtasksCount: updatedItem.clickupSubtasksCount !== undefined ? updatedItem.clickupSubtasksCount : p.clickupSubtasksCount,
+              clickupAssignee: updatedItem.clickupAssignee || p.clickupAssignee
             };
             persistChange('update', 'products', p.id, updatedP);
             return updatedP;

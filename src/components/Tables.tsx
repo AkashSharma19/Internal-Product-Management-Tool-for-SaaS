@@ -10089,7 +10089,8 @@ export const IssuesTable: React.FC = () => {
       finalRelease: '',
       productDeadline: '',
       raisedByTarunSir: false,
-      tarunSirApproval: false
+      tarunSirApproval: false,
+      createdAt: new Date().toISOString()
     };
     addDailyIssue(newItem);
     setSearchQuery('');

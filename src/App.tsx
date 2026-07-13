@@ -1165,6 +1165,9 @@ const DashboardContent: React.FC = () => {
                 uiuxCompleted: !!foundIssue.uiuxCompleted,
                 deadlineCompleted: !!foundIssue.deadlineCompleted,
                 finalReleaseCompleted: !!foundIssue.finalReleaseCompleted,
+                createdAt: foundIssue.createdAt || '',
+                clickupSubtasksCount: foundIssue.clickupSubtasksCount,
+                clickupAssignee: foundIssue.clickupAssignee || '',
               };
 
               const handleUpdateIssue = (id: string, updated: Partial<ProductItem>) => {
@@ -1191,6 +1194,9 @@ const DashboardContent: React.FC = () => {
                 if (updated.uiuxCompleted !== undefined) updatedIssue.uiuxCompleted = updated.uiuxCompleted;
                 if (updated.deadlineCompleted !== undefined) updatedIssue.deadlineCompleted = updated.deadlineCompleted;
                 if (updated.finalReleaseCompleted !== undefined) updatedIssue.finalReleaseCompleted = updated.finalReleaseCompleted;
+                if (updated.createdAt !== undefined) updatedIssue.createdAt = updated.createdAt;
+                if (updated.clickupSubtasksCount !== undefined) updatedIssue.clickupSubtasksCount = updated.clickupSubtasksCount;
+                if (updated.clickupAssignee !== undefined) updatedIssue.clickupAssignee = updated.clickupAssignee;
                 
                 updateDailyIssue(id, updatedIssue);
               };
