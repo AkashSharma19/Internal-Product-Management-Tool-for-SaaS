@@ -157,6 +157,7 @@ interface DashboardContextType {
   currentUser: ConfigSpeaker | null;
   canUserEdit: boolean;
   loginUser: (speakerId: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  loginUserByEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
   logoutUser: () => void;
 
   isLoading: boolean;
@@ -602,6 +603,16 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     setCurrentUser(speaker);
     localStorage.setItem('logged-in-user-id', speakerId);
+    return { success: true };
+  };
+
+  const loginUserByEmail = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    const speaker = speakers.find(s => s.email?.toLowerCase().trim() === email.toLowerCase().trim());
+    if (!speaker) {
+      return { success: false, error: `Access Denied: Your Google email (${email}) is not registered in the POC Owners/Speakers configuration.` };
+    }
+    setCurrentUser(speaker);
+    localStorage.setItem('logged-in-user-id', speaker.id);
     return { success: true };
   };
 
@@ -1759,7 +1770,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       googleClientId, setGoogleClientId: updateGoogleClientId,
       requireGoogleLogin, setRequireGoogleLogin: updateRequireGoogleLogin,
       googleAllowedDomains, setGoogleAllowedDomains: updateGoogleAllowedDomains,
-      currentUser, canUserEdit, loginUser, logoutUser,
+      currentUser, canUserEdit, loginUser, loginUserByEmail, logoutUser,
       isLoading, syncStatus,
       confirm,
       alert,

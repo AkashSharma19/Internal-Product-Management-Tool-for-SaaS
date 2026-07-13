@@ -45,13 +45,84 @@ import {
   CornerDownLeft
 } from 'lucide-react';
 
+const decodeGoogleJwt = (token: string) => {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      window.atob(base64)
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    console.error('Error decoding JWT', e);
+    return null;
+  }
+};
+
 const LoginView: React.FC = () => {
-  const { speakers, loginUser, isLoading } = useDashboard();
+  const { speakers, loginUser, loginUserByEmail, googleClientId, isLoading } = useDashboard();
   const [selectedUser, setSelectedUser] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  useEffect(() => {
+    if (!googleClientId) return;
+
+    let isMounted = true;
+
+    const initializeGoogleBtn = () => {
+      const g = (window as any).google;
+      if (g?.accounts?.id) {
+        g.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: async (response: any) => {
+            if (!isMounted) return;
+            setIsLoggingIn(true);
+            setError(null);
+            try {
+              const payload = decodeGoogleJwt(response.credential);
+              if (payload && payload.email) {
+                const res = await loginUserByEmail(payload.email);
+                if (!res.success) {
+                  setError(res.error || 'Access Denied');
+                }
+              } else {
+                setError('Failed to retrieve email from Google Account.');
+              }
+            } catch (err) {
+              setError('Google login failed.');
+            } finally {
+              setIsLoggingIn(false);
+            }
+          }
+        });
+
+        const btnContainer = document.getElementById('google-signin-portal-btn-container');
+        if (btnContainer) {
+          g.accounts.id.renderButton(btnContainer, {
+            theme: 'outline',
+            size: 'large',
+            width: 320,
+            text: 'signin_with',
+            shape: 'rectangular'
+          });
+        }
+      } else {
+        setTimeout(initializeGoogleBtn, 300);
+      }
+    };
+
+    initializeGoogleBtn();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [googleClientId, loginUserByEmail]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -273,6 +344,31 @@ const LoginView: React.FC = () => {
             {isLoggingIn ? 'Verifying Credentials...' : 'Access Portal'}
           </button>
         </form>
+
+        {googleClientId && (
+          <div>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              margin: '0.25rem 0 1rem 0',
+              gap: '12px'
+            }}>
+              <div style={{ flex: 1, height: '1px', background: 'var(--border-light)' }}></div>
+              <span style={{
+                fontSize: '0.65rem',
+                color: 'var(--text-secondary)',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em'
+              }}>Or Sign In With</span>
+              <div style={{ flex: 1, height: '1px', background: 'var(--border-light)' }}></div>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+              <div id="google-signin-portal-btn-container" style={{ minHeight: '40px' }}></div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
