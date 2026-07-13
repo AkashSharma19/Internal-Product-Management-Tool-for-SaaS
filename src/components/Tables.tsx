@@ -9810,9 +9810,8 @@ export const ProductWiseSheet: React.FC = () => {
                 <table className="grid-table">
                   <thead>
                     <tr>
-                      <th className="sticky-header-col" onClick={() => handleSort('feature')} style={{ width: '280px', minWidth: '280px', maxWidth: '280px', cursor: 'pointer' }}>Feature {sortField === 'feature' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                      <th className="sticky-header-col" onClick={() => handleSort('feature')} style={{ width: '320px', minWidth: '320px', maxWidth: '320px', cursor: 'pointer' }}>Feature {sortField === 'feature' ? (sortAsc ? '▲' : '▼') : ''}</th>
                       <th onClick={() => handleSort('priority')} style={{ width: '80px', cursor: 'pointer' }}>Priority {sortField === 'priority' ? (sortAsc ? '▲' : '▼') : ''}</th>
-                      <th onClick={() => handleSort('sourceLabel')} style={{ width: '140px', cursor: 'pointer' }}>Source {sortField === 'sourceLabel' ? (sortAsc ? '▲' : '▼') : ''}</th>
                       <th onClick={() => handleSort('poc')} style={{ width: '120px', cursor: 'pointer' }}>POC Owner {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}</th>
                       <th onClick={() => handleSort('status')} style={{ width: '120px', cursor: 'pointer' }}>Status {sortField === 'status' ? (sortAsc ? '▲' : '▼') : ''}</th>
                       <th onClick={() => handleSort('clickupStatus')} style={{ width: '100px', cursor: 'pointer' }}>Clickup {sortField === 'clickupStatus' ? (sortAsc ? '▲' : '▼') : ''}</th>
@@ -9830,8 +9829,12 @@ export const ProductWiseSheet: React.FC = () => {
                           item.openPreview();
                         }
                       }} style={{ cursor: 'pointer' }}>
-                        <td className="sticky-col" style={{ fontWeight: 600, width: '280px', minWidth: '280px', maxWidth: '280px', whiteSpace: 'normal' }}>
+                        <td className="sticky-col" style={{ fontWeight: 600, width: '320px', minWidth: '320px', maxWidth: '320px', whiteSpace: 'normal' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', width: '100%' }}>
+                            {/* Source above feature name */}
+                            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>
+                              {item.sourceLabel}
+                            </span>
                             {editingFeatureId === item.id ? (
                               <input
                                 ref={editInputRef}
@@ -9906,9 +9909,7 @@ export const ProductWiseSheet: React.FC = () => {
                             </span>
                           ) : '—'}
                         </td>
-                        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                          {item.sourceLabel}
-                        </td>
+
                         <td>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
                             {item.poc ? (
