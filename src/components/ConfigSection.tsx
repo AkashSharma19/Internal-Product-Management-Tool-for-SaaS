@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import type { ConfigSpeaker, ConfigProductGroup, ConfigStatus, ConfigProgram, ConfigCohort, FeedbackFormField } from '../types';
-import { Plus, Trash2, Check, X, Pencil, Users, Layers, Tag, Settings, Key, Eye, EyeOff, RefreshCw, AlertCircle, ClipboardList, ChevronUp, ChevronDown, Shield } from 'lucide-react';
+import { Plus, Trash2, Check, X, Pencil, Users, Layers, Tag, Settings, Key, Eye, EyeOff, RefreshCw, AlertCircle, ClipboardList, ChevronUp, ChevronDown, Shield, Calendar, Copy, Link } from 'lucide-react';
 
 // ─── Colour palette ────────────────────────────────────────────────────────────
 const PALETTE = [
@@ -1875,7 +1875,196 @@ const FormSecuritySection: React.FC = () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT — tabbed layout
 // ═══════════════════════════════════════════════════════════════════════════════
-type ConfigTab = 'speakers' | 'groups' | 'statuses' | 'programs' | 'clickup' | 'forms' | 'security';
+// ═══════════════════════════════════════════════════════════════════════════════
+// SHARABLE CALENDAR SECTION
+// ═══════════════════════════════════════════════════════════════════════════════
+const CalendarConfigSection: React.FC = () => {
+  const { sharableCalendarSources, updateSharableCalendarSources, canUserEdit } = useDashboard();
+  const [sources, setSources] = useState<string[]>(() => {
+    return sharableCalendarSources ? sharableCalendarSources.split(',') : [];
+  });
+  const [isSaved, setIsSaved] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  React.useEffect(() => {
+    setSources(sharableCalendarSources ? sharableCalendarSources.split(',') : []);
+  }, [sharableCalendarSources]);
+
+  const toggleSource = (sourceId: string) => {
+    if (!canUserEdit) return;
+    setSources(prev => {
+      if (prev.includes(sourceId)) {
+        return prev.filter(s => s !== sourceId);
+      } else {
+        return [...prev, sourceId];
+      }
+    });
+  };
+
+  const handleSave = () => {
+    if (!canUserEdit) return;
+    updateSharableCalendarSources(sources.join(','));
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 3000);
+  };
+
+  const publicUrl = `${window.location.origin}/?public-calendar=true`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(publicUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const CALENDAR_SOURCES = [
+    { id: 'product',        label: 'Priority Requests',      description: 'Milestones like Specs, UI/UX, Dev, and Final Release deadlines' },
+    { id: 'projects',       label: 'Student Projects',       description: 'Milestones and specs deadlines for student projects' },
+    { id: 'meetings',       label: 'AMA & Meetings',         description: 'Scheduled AMA Sessions and Student Meetings deadlines' },
+    { id: 'admin',          label: 'Admin Calls',            description: 'Scheduled call dates and follow-up deadlines' },
+    { id: 'tarun-meetings', label: 'Tarun Sir Meetings',     description: 'Scheduled meeting dates' },
+    { id: 'content',        label: 'Content Pipeline',       description: 'Content publish dates and content dev deadlines' },
+    { id: 'issues',         label: 'Daily Issues Log',       description: 'Reported bugs and UX issues resolution deadlines' },
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1.5rem', overflowY: 'auto', flex: 1, minHeight: 0 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '2rem', alignItems: 'start' }}>
+        
+        {/* Sources Config Card */}
+        <SectionCard
+          icon={<Calendar size={16} />}
+          title="Sharable Calendar Sources"
+          subtitle="Choose which tabs' tasks are publicly visible"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+              Select the worksheets you want to include in the public calendar. Anyone with the public link will be able to view details for tasks from the selected tabs only. All other tabs will remain completely hidden.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.25rem' }}>
+              {CALENDAR_SOURCES.map(source => {
+                const isChecked = sources.includes(source.id);
+                return (
+                  <div
+                    key={source.id}
+                    onClick={() => toggleSource(source.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '12px',
+                      padding: '12px 16px',
+                      borderRadius: '12px',
+                      backgroundColor: isChecked ? 'var(--primary-glow)' : 'var(--background-alt)',
+                      border: isChecked ? '1px solid var(--primary-border)' : '1px solid var(--border-light)',
+                      cursor: canUserEdit ? 'pointer' : 'default',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => {}} // toggled by parent onClick
+                      disabled={!canUserEdit}
+                      style={{ marginTop: '3px', width: '16px', height: '16px', cursor: canUserEdit ? 'pointer' : 'default' }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        {source.label}
+                      </span>
+                      <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+                        {source.description}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Action Buttons */}
+            {canUserEdit && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className="btn btn-primary"
+                  style={{ padding: '8px 24px', borderRadius: '10px' }}
+                >
+                  Save Calendar Config
+                </button>
+                {isSaved && (
+                  <span style={{ color: 'var(--success)', fontSize: '0.8rem', fontWeight: 600, animation: 'fadeIn 0.2s' }}>
+                    ✓ Calendar sources saved to MongoDB
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </SectionCard>
+
+        {/* Sharable Link Card */}
+        <SectionCard
+          icon={<Link size={16} />}
+          title="Sharable Public URL"
+          subtitle="Generate and copy your read-only public link"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{ background: 'var(--background-alt)', padding: '12px 16px', borderRadius: '12px', borderLeft: '4px solid var(--primary)' }}>
+              <h4 style={{ margin: '0 0 4px 0', fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 700 }}>Zero Login Access</h4>
+              <p style={{ margin: 0, fontSize: '0.775rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                People visiting this link do not need a Google Account or registered email. They will receive a read-only calendar view.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
+              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Public Calendar URL
+              </label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  readOnly
+                  value={publicUrl}
+                  style={{
+                    flex: 1,
+                    backgroundColor: 'var(--background-alt)',
+                    border: '1px solid var(--border-light)',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    fontSize: '0.775rem',
+                    color: 'var(--text-secondary)',
+                    outline: 'none'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="btn btn-secondary"
+                  style={{ padding: '0 16px', display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '8px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                >
+                  <Copy size={13} /> {copied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ background: 'rgba(245, 158, 11, 0.08)', padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(245, 158, 11, 0.2)', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+              <AlertCircle size={16} color="#f59e0b" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.75rem', color: '#b45309' }}>
+                <span style={{ fontWeight: 700 }}>Security Note</span>
+                <span>ClickUp tasks and draft content links are accessible if task URLs exist. Ensure only appropriate tasks are published.</span>
+              </div>
+            </div>
+
+          </div>
+        </SectionCard>
+
+      </div>
+    </div>
+  );
+};
+
+
+type ConfigTab = 'speakers' | 'groups' | 'statuses' | 'programs' | 'clickup' | 'forms' | 'security' | 'calendar';
 
 const CONFIG_TABS: { id: ConfigTab; label: string; icon: React.ReactNode }[] = [
   { id: 'speakers', label: 'POC Owners / Speakers', icon: <Users size={15} /> },
@@ -1885,6 +2074,7 @@ const CONFIG_TABS: { id: ConfigTab; label: string; icon: React.ReactNode }[] = [
   { id: 'clickup',  label: 'ClickUp Integration',    icon: <Settings size={15} /> },
   { id: 'forms',    label: 'Form Builder',           icon: <ClipboardList size={15} /> },
   { id: 'security', label: 'Form Security',          icon: <Shield size={15} /> },
+  { id: 'calendar', label: 'Sharable Calendar',      icon: <Calendar size={15} /> },
 ];
 
 export const ConfigSection: React.FC = () => {
@@ -1953,6 +2143,7 @@ export const ConfigSection: React.FC = () => {
           {activeTab === 'clickup' && <ClickupSettingsSection />}
           {activeTab === 'forms' && <FormBuilderSection />}
           {activeTab === 'security' && <FormSecuritySection />}
+          {activeTab === 'calendar' && <CalendarConfigSection />}
         </div>
       </div>
     </div>

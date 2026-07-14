@@ -152,6 +152,8 @@ interface DashboardContextType {
   setRequireGoogleLogin: (val: boolean) => void;
   googleAllowedDomains: string;
   setGoogleAllowedDomains: (val: string) => void;
+  sharableCalendarSources: string;
+  updateSharableCalendarSources: (val: string) => void;
 
   // User Authentication
   currentUser: ConfigSpeaker | null;
@@ -571,6 +573,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return localStorage.getItem('config-google-allowed-domains') || '';
   });
 
+  const [sharableCalendarSources, setSharableCalendarSources] = useState<string>(() => {
+    return localStorage.getItem('config-sharable-calendar-sources') || 'product,projects,meetings,admin,tarun-meetings,content,issues';
+  });
+
   const [formConfigs, setFormConfigs] = useState<FeedbackFormConfig[]>(() => {
     const data = localStorage.getItem('config-form-configs');
     return data ? JSON.parse(data) : [];
@@ -727,6 +733,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     localStorage.setItem('config-google-allowed-domains', googleAllowedDomains);
   }, [googleAllowedDomains]);
 
+  useEffect(() => {
+    localStorage.setItem('config-sharable-calendar-sources', sharableCalendarSources);
+  }, [sharableCalendarSources]);
+
 
   // Helper to persist to API
   const [syncStatus, setSyncStatus] = useState<'syncing' | 'synced' | 'error'>('synced');
@@ -770,6 +780,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const searchParams = new URLSearchParams(window.location.search);
       const feedbackId = searchParams.get('feedback');
       const feedbackCategory = searchParams.get('category');
+      const isPublicCalendar = searchParams.get('public-calendar') === 'true';
       
       let url = '/api/data';
       const params = new URLSearchParams();
@@ -778,6 +789,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (feedbackCategory) {
           params.append('category', feedbackCategory);
         }
+      }
+      if (isPublicCalendar) {
+        params.append('public-calendar', 'true');
       }
       const queryString = params.toString();
       if (queryString) {
@@ -798,18 +812,18 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const resData = await response.json();
       if (resData.success && resData.data) {
         const db = resData.data;
-        if (db.products && db.products.length > 0)           { setProductItems(db.products);       updatedSheets++; }
-        if (db.plans && db.plans.length > 0)                 { setPlanItems(db.plans);             updatedSheets++; }
-        if (db.projects && db.projects.length > 0)           { setStudentProjects(db.projects);    updatedSheets++; }
-        if (db.amaSessions && db.amaSessions.length > 0)     { setAMASessions(db.amaSessions);     updatedSheets++; }
-        if (db.studentMeetings && db.studentMeetings.length > 0) { setStudentMeetings(db.studentMeetings); updatedSheets++; }
-        if (db.adminCalls && db.adminCalls.length > 0)       { setAdminCalls(db.adminCalls);       updatedSheets++; }
-        if (db.tarunSirMeetings && db.tarunSirMeetings.length > 0) { setTarunSirMeetings(db.tarunSirMeetings); updatedSheets++; }
-        if (db.contentItems && db.contentItems.length > 0)   { setContentItems(db.contentItems);   updatedSheets++; }
-        if (db.dailyIssues && db.dailyIssues.length > 0)     { setDailyIssues(db.dailyIssues);     updatedSheets++; }
-        if (db.featureAdoptions && db.featureAdoptions.length > 0) { setFeatureAdoptions(db.featureAdoptions); updatedSheets++; }
+        if (db.products !== undefined)                       { setProductItems(db.products);       updatedSheets++; }
+        if (db.plans !== undefined)                          { setPlanItems(db.plans);             updatedSheets++; }
+        if (db.projects !== undefined)                       { setStudentProjects(db.projects);    updatedSheets++; }
+        if (db.amaSessions !== undefined)                    { setAMASessions(db.amaSessions);     updatedSheets++; }
+        if (db.studentMeetings !== undefined)                { setStudentMeetings(db.studentMeetings); updatedSheets++; }
+        if (db.adminCalls !== undefined)                     { setAdminCalls(db.adminCalls);       updatedSheets++; }
+        if (db.tarunSirMeetings !== undefined)               { setTarunSirMeetings(db.tarunSirMeetings); updatedSheets++; }
+        if (db.contentItems !== undefined)                   { setContentItems(db.contentItems);   updatedSheets++; }
+        if (db.dailyIssues !== undefined)                    { setDailyIssues(db.dailyIssues);     updatedSheets++; }
+        if (db.featureAdoptions !== undefined)               { setFeatureAdoptions(db.featureAdoptions); updatedSheets++; }
 
-        if (db.speakers && db.speakers.length > 0) {
+        if (db.speakers !== undefined) {
           setSpeakers(db.speakers);
           const savedUserId = localStorage.getItem('logged-in-user-id');
           if (savedUserId) {
@@ -818,10 +832,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           }
           updatedSheets++;
         }
-        if (db.productGroups && db.productGroups.length > 0) { setProductGroups(db.productGroups); updatedSheets++; }
-        if (db.statuses && db.statuses.length > 0)           { setStatuses(db.statuses);           updatedSheets++; }
-        if (db.programs && db.programs.length > 0)           { setPrograms(db.programs);           updatedSheets++; }
-        if (db.cohorts && db.cohorts.length > 0)             { setCohorts(db.cohorts);             updatedSheets++; }
+        if (db.productGroups !== undefined)                  { setProductGroups(db.productGroups); updatedSheets++; }
+        if (db.statuses !== undefined)                       { setStatuses(db.statuses);           updatedSheets++; }
+        if (db.programs !== undefined)                       { setPrograms(db.programs);           updatedSheets++; }
+        if (db.cohorts !== undefined)                         { setCohorts(db.cohorts);             updatedSheets++; }
 
         if (db.formConfigs) { setFormConfigs(db.formConfigs); }
         if (db.feedbackSubmissions) { setFeedbackSubmissions(db.feedbackSubmissions); }
@@ -838,6 +852,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
           const gAllowedDomainsSetting = db.settings.find((s: any) => s.key === 'googleAllowedDomains');
           if (gAllowedDomainsSetting) setGoogleAllowedDomains(gAllowedDomainsSetting.value || '');
+
+          const calSourcesSetting = db.settings.find((s: any) => s.key === 'sharableCalendarSources');
+          if (calSourcesSetting) setSharableCalendarSources(calSourcesSetting.value || '');
         }
         setSyncStatus('synced');
         return { success: true, updatedSheets };
@@ -906,6 +923,11 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const updateGoogleAllowedDomains = (val: string) => {
     setGoogleAllowedDomains(val);
     persistChange('update', 'settings', 'googleAllowedDomains', { id: 'googleAllowedDomains', key: 'googleAllowedDomains', value: val });
+  };
+
+  const updateSharableCalendarSources = (val: string) => {
+    setSharableCalendarSources(val);
+    persistChange('update', 'settings', 'sharableCalendarSources', { id: 'sharableCalendarSources', key: 'sharableCalendarSources', value: val });
   };
 
   // Helper Updaters
@@ -1827,6 +1849,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       googleClientId, setGoogleClientId: updateGoogleClientId,
       requireGoogleLogin, setRequireGoogleLogin: updateRequireGoogleLogin,
       googleAllowedDomains, setGoogleAllowedDomains: updateGoogleAllowedDomains,
+      sharableCalendarSources, updateSharableCalendarSources,
       currentUser, canUserEdit, loginUser, loginUserByEmail, logoutUser,
       isLoading, syncStatus,
       confirm,
