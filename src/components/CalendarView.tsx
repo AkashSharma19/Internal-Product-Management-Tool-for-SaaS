@@ -657,25 +657,37 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
               display: 'flex',
               flexDirection: 'column',
               height: '100%',
+              width: '100%',
               background: 'var(--panel-bg)',
               borderRight: '1px solid var(--border-light)',
               borderLeft: 'none',
               borderTop: 'none',
               borderBottom: 'none',
               borderRadius: '0',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              padding: '0'
             }}>
-              <div className="calendar-sidebar-header" style={{ padding: '1.25rem' }}>
-                <h4 className="calendar-sidebar-title" style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)' }}>Tasks with No Date</h4>
-                <p className="calendar-sidebar-subtitle" style={{ margin: '2px 0 0 0', fontSize: '0.7rem', color: 'var(--text-muted)' }}>Visible release-date backlog</p>
+              <div className="calendar-sidebar-header" style={{
+                padding: '0.75rem 1.25rem',
+                background: 'var(--background-alt)',
+                borderBottom: '1px solid var(--border-light)',
+                height: '56px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                flexShrink: 0,
+                boxSizing: 'border-box'
+              }}>
+                <h4 className="calendar-sidebar-title" style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '-0.01em' }}>Tasks with No Date</h4>
+                <p className="calendar-sidebar-subtitle" style={{ margin: '2px 0 0 0', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Visible release-date backlog</p>
               </div>
-              <div style={{ flex: 1, overflowY: 'auto', borderTop: '1px solid var(--border-light)' }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
                 {undatedTasks.length === 0 ? (
                   <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
                     No undated backlog items.
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '1rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {undatedTasks.map(task => (
                       <div
                         key={task.id}
@@ -742,9 +754,15 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
             borderLeft: 'none',
             borderTop: 'none',
             borderBottom: 'none',
-            padding: '1.5rem 2rem'
+            padding: '0'
           } : undefined}>
-          <div className="calendar-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="calendar-header" style={isPublic ? {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            height: '56px',
+            boxSizing: 'border-box'
+          } : undefined}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <h3 className="calendar-title" style={{ margin: 0 }}>
                 <Calendar size={18} color="var(--primary)" />
@@ -887,9 +905,22 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
         <div className="calendar-sidebar-panel" style={isPublic ? {
           borderRadius: '0',
           border: 'none',
-          height: '100%'
+          height: '100%',
+          width: '100%',
+          padding: '0'
         } : undefined}>
-          <div className="calendar-sidebar-header">
+          <div className="calendar-sidebar-header" style={isPublic ? {
+            padding: '0.75rem 1.25rem',
+            background: 'var(--background-alt)',
+            borderBottom: '1px solid var(--border-light)',
+            height: '56px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            flexShrink: 0,
+            marginBottom: '0',
+            boxSizing: 'border-box'
+          } : undefined}>
             <h4 className="calendar-sidebar-title">Selected Date</h4>
             <p className="calendar-sidebar-subtitle">{selectedDateLabel}</p>
           </div>
@@ -897,7 +928,17 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
           <div
             key={selectedDateStr}
             className="calendar-sidebar-content-enter"
-            style={{ flex: 1, overflowY: 'auto', margin: '0 -1.25rem', borderTop: '1px solid var(--border-light)' }}
+            style={isPublic ? {
+              flex: 1,
+              overflowY: 'auto',
+              borderTop: 'none',
+              padding: '1rem'
+            } : {
+              flex: 1,
+              overflowY: 'auto',
+              margin: '0 -1.25rem',
+              borderTop: '1px solid var(--border-light)'
+            }}
           >
             {selectedDateEvents.length === 0 ? (
               <div className="calendar-sidebar-empty-state">
