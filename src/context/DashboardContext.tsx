@@ -734,11 +734,17 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const persistChange = async (action: 'create' | 'update' | 'delete' | 'batch-import', type: string, id: string | null, data: any) => {
     setSyncStatus('syncing');
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      const savedUserId = localStorage.getItem('logged-in-user-id');
+      if (savedUserId) {
+        headers['x-user-id'] = savedUserId;
+      }
+
       const response = await fetch('/api/data', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify({ action, type, id, data })
       });
       if (response.ok) {

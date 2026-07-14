@@ -44,6 +44,26 @@ import type {
   FeatureAdoption 
 } from '../types';
 
+const isTaskLinked = (notes: string | undefined, taskId?: string): boolean => {
+  if (!notes) return false;
+  if (notes.includes("Linked Task: true")) return true;
+  
+  const amaCount = (notes.match(/AMA Session ID:/g) || []).length;
+  const callCount = (notes.match(/Admin Call ID:/g) || []).length;
+  const meetingCount = (notes.match(/Tarun Sir Meeting ID:/g) || []).length;
+  const totalCount = amaCount + callCount + meetingCount;
+  
+  if (totalCount > 1) return true;
+  
+  if (totalCount === 1 && taskId) {
+    if (notes.includes("Admin Call ID:") && !taskId.startsWith("prod-call-") && !taskId.startsWith("prod-temp-")) return true;
+    if (notes.includes("AMA Session ID:") && !taskId.startsWith("prod-ama-") && !taskId.startsWith("prod-temp-")) return true;
+    if (notes.includes("Tarun Sir Meeting ID:") && !taskId.startsWith("prod-tarun-") && !taskId.startsWith("prod-temp-")) return true;
+  }
+  
+  return false;
+};
+
 // Global POC/Assignee color mapping and badge styling
 const getPOCBadgeStyle = (name: string) => {
   if (!name) return {};
@@ -1495,7 +1515,7 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({ value, onChange, produc
 };
 
 export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBack, onUpdate }) => {
-  const { studentProjects, speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser, productItems, setActiveSubtasksTaskLink } = useDashboard();
+  const { studentProjects, speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser, productItems, setActiveSubtasksTaskLink, setPreviewProductId, deleteProductItem } = useDashboard();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isEditingCreatedAt, setIsEditingCreatedAt] = useState(false);
@@ -1503,6 +1523,101 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const [isEditingUiuxDate, setIsEditingUiuxDate] = useState(false);
   const [isEditingDevDate, setIsEditingDevDate] = useState(false);
   const [isEditingReleaseDate, setIsEditingReleaseDate] = useState(false);
+
+
+
+  const [isLinkingSearchOpen, setIsLinkingSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const searchedTasks = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return productItems
+      .filter(p => p.id !== item.id && p.feature && p.feature.toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [searchQuery, productItems, item.id]);
+
+  const [featureText, setFeatureText] = useState(item.feature || '');
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    setFeatureText(item.feature || '');
+  }, [item.feature]);
+
+  const similarTasks = useMemo(() => {
+    const query = featureText.trim().toLowerCase();
+    if (query.length < 3) return [];
+    return productItems
+      .filter(p => p.id !== item.id && p.feature && p.feature.toLowerCase().includes(query))
+      .slice(0, 5);
+  }, [featureText, productItems, item.id]);
+
+  const sessionInfo = useMemo(() => {
+    const notesStr = item.notes || '';
+    const match = notesStr.match(/(AMA Session|Admin Call|Tarun Sir Meeting) ID:\s*([^\s|]+)/);
+    if (!match) return null;
+    return {
+      type: match[1],
+      id: match[2],
+      fullTag: `${match[1]} ID: ${match[2]}`
+    };
+  }, [item.notes]);
+
+  const handleLinkTask = (targetTask: ProductItem) => {
+    const existingNotes = targetTask.notes || '';
+    const newNotes = existingNotes 
+      ? `${existingNotes} | ${item.notes} | Linked Task: true` 
+      : `${item.notes} | Linked Task: true`;
+    
+    // Update target task notes
+    onUpdate(targetTask.id, { notes: newNotes });
+    // Switch preview to target task
+    setPreviewProductId(targetTask.id);
+    // Delete placeholder task
+    deleteProductItem(item.id);
+  };
+
+  const handleUnlinkSession = (linkType: string, linkId: string) => {
+    const notesStr = item.notes || '';
+    const chunks = notesStr.split(/\s*\|\s*/);
+    let filteredChunks: string[] = [];
+    let skipNextCohort = false;
+    
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      if (linkType === 'AMA & Meetings' && chunk.startsWith(`AMA Session ID: ${linkId}`)) {
+        skipNextCohort = true;
+        continue;
+      }
+      if (linkType === 'Admin Calls' && chunk.startsWith(`Admin Call ID: ${linkId}`)) {
+        skipNextCohort = true;
+        continue;
+      }
+      if (linkType === 'Tarun Sir Meetings' && chunk.startsWith(`Tarun Sir Meeting ID: ${linkId}`)) {
+        skipNextCohort = true;
+        continue;
+      }
+      
+      if (skipNextCohort && (chunk.startsWith('AMA Cohort:') || chunk.startsWith('Admin Call:') || chunk.startsWith('Meeting:'))) {
+        skipNextCohort = false;
+        continue;
+      }
+      
+      skipNextCohort = false;
+      filteredChunks.push(chunk);
+    }
+    
+    let updatedNotes = filteredChunks.join(' | ');
+    const hasAnySessionLeft = updatedNotes.includes("AMA Session ID:") || 
+                              updatedNotes.includes("Admin Call ID:") || 
+                              updatedNotes.includes("Tarun Sir Meeting ID:");
+    if (!hasAnySessionLeft) {
+      filteredChunks = filteredChunks.filter(c => c !== "Linked Task: true");
+      updatedNotes = filteredChunks.join(' | ');
+    }
+    
+    onUpdate(item.id, { notes: updatedNotes });
+  };
 
   const pocList = configSpeakers.map(s => s.name);
   const productList = productGroups.map(g => g.name);
@@ -1532,7 +1647,6 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const isProject = item.id.startsWith('proj-') || studentProjects.some(p => p.id === realProjectId);
 
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
-  const notesRef = useRef<HTMLTextAreaElement>(null);
 
   const productStatuses = configStatuses;
 
@@ -1542,11 +1656,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
       descriptionRef.current.style.height = 'auto';
       descriptionRef.current.style.height = `${descriptionRef.current.scrollHeight}px`;
     }
-    if (notesRef.current) {
-      notesRef.current.style.height = 'auto';
-      notesRef.current.style.height = `${notesRef.current.scrollHeight}px`;
-    }
-  }, [item.id, item.description, item.notes]);
+  }, [item.id, item.description]);
 
 
 
@@ -1678,20 +1788,350 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
       <div style={{ pointerEvents: canUserEdit ? 'auto' : 'none', opacity: canUserEdit ? 1 : 0.95 }}>
       {/* Task Title (Editable) */}
-      <div style={{ marginTop: '0.75rem' }}>
+      <div style={{ marginTop: '0.75rem', position: 'relative' }}>
         <input
           type="text"
           className="premium-title-input"
-          style={{ paddingLeft: 0, fontSize: '1.75rem', borderBottom: '2px solid transparent' }}
-          onBlur={(e) => {
-            if (e.target.value.trim() && e.target.value !== item.feature) {
-              handleFieldUpdate('feature', e.target.value.trim());
+          style={{ paddingLeft: 0, fontSize: '1.75rem', borderBottom: '2px solid transparent', width: '100%' }}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => {
+            setIsFocused(false);
+            if (featureText.trim() && featureText !== item.feature) {
+              handleFieldUpdate('feature', featureText.trim());
             }
           }}
-          defaultValue={item.feature}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.currentTarget.blur();
+            }
+          }}
+          value={featureText}
+          onChange={(e) => setFeatureText(e.target.value)}
           placeholder="Task name"
         />
+        {isFocused && similarTasks.length > 0 && (
+          <div style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            backgroundColor: 'var(--panel-bg)',
+            border: '1.5px solid var(--border)',
+            borderRadius: '8px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+            zIndex: 1000,
+            marginTop: '4px',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              padding: '6px 12px',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              color: 'var(--text-secondary)',
+              borderBottom: '1px solid var(--border)',
+              backgroundColor: 'var(--background-alt)'
+            }}>
+              Similar Tasks Found ({similarTasks.length})
+            </div>
+            {similarTasks.map(t => {
+              const isAlreadyLinked = sessionInfo && t.notes && t.notes.includes(sessionInfo.fullTag);
+              return (
+                <div 
+                  key={t.id}
+                  style={{
+                    padding: '8px 12px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    borderBottom: '1px solid var(--border)',
+                    transition: 'background-color 0.15s ease'
+                  }}
+                  className="similar-task-item"
+                >
+                  <div 
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // Prevents input from blurring
+                      setPreviewProductId(t.id);
+                    }}
+                    style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxWidth: '65%', cursor: 'pointer' }}
+                    title="Click to view task details"
+                  >
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {t.feature}
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      Product: {t.product || '—'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {t.status && (
+                      <span className={`badge badge-${t.status.toLowerCase().replace(/\s+/g, '-')}`} style={{ fontSize: '0.65rem' }}>
+                        {t.status}
+                      </span>
+                    )}
+                    {sessionInfo && (
+                      isAlreadyLinked ? (
+                        <span 
+                          style={{
+                            padding: '3px 8px',
+                            fontSize: '0.7rem',
+                            borderRadius: '4px',
+                            backgroundColor: 'var(--background-alt)',
+                            color: 'var(--text-muted)',
+                            border: '1px solid var(--border)',
+                            fontWeight: 600,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          🔗 Linked
+                        </span>
+                      ) : (
+                        <button
+                          onMouseDown={(e) => {
+                            e.preventDefault(); // Prevents input from blurring
+                            handleLinkTask(t);
+                          }}
+                          className="btn btn-primary"
+                          style={{
+                            padding: '3px 8px',
+                            fontSize: '0.7rem',
+                            borderRadius: '4px',
+                            fontWeight: 600,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          🔗 Link Task
+                        </button>
+                      )
+                    )}
+                    <button
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setPreviewProductId(t.id);
+                      }}
+                      className="btn btn-secondary"
+                      style={{
+                        padding: '3px 8px',
+                        fontSize: '0.7rem',
+                        borderRadius: '4px',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      View &rarr;
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
+
+      {/* Inline Search & Link Widget */}
+      {isLinkingSearchOpen ? (
+        <div style={{
+          marginTop: '0.75rem',
+          padding: '10px 14px',
+          borderRadius: '8px',
+          border: '1.5px dashed var(--primary-light)',
+          backgroundColor: 'var(--primary-glow)',
+          position: 'relative'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)' }}>
+              🔗 Search & Link Any Task
+            </span>
+            <button
+              onClick={() => {
+                setIsLinkingSearchOpen(false);
+                setSearchQuery('');
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                fontSize: '0.75rem',
+                fontWeight: 600
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+          <input
+            type="text"
+            className="premium-input"
+            style={{ width: '100%', padding: '6px 10px', fontSize: '0.8rem', borderRadius: '6px', border: '1px solid var(--border)', backgroundColor: 'var(--background)' }}
+            placeholder="Type task name to search all tasks..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            autoFocus
+          />
+          {searchQuery.trim().length >= 2 && (
+            <div style={{
+              marginTop: '6px',
+              backgroundColor: 'var(--panel-bg)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              maxHeight: '200px',
+              overflowY: 'auto'
+            }}>
+              {searchedTasks.length === 0 ? (
+                <div style={{ padding: '8px 12px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  No tasks found matching "{searchQuery}"
+                </div>
+              ) : (
+                searchedTasks.map(t => {
+                  const isAlreadyLinked = sessionInfo && t.notes && t.notes.includes(sessionInfo.fullTag);
+                  return (
+                    <div
+                      key={t.id}
+                      style={{
+                        padding: '6px 12px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        borderBottom: '1px solid var(--border-light)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxWidth: '70%' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                          {t.feature}
+                        </span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                          ID: #{t.id} | Product: {t.product || '—'}
+                        </span>
+                      </div>
+                      <div>
+                        {isAlreadyLinked ? (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>🔗 Linked</span>
+                        ) : (
+                          <button
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              handleLinkTask(t);
+                              setIsLinkingSearchOpen(false);
+                              setSearchQuery('');
+                            }}
+                            className="btn btn-primary"
+                            style={{ padding: '3px 8px', fontSize: '0.7rem', borderRadius: '4px', cursor: 'pointer' }}
+                          >
+                            Link
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => setIsLinkingSearchOpen(true)}
+            className="btn btn-secondary"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '0.7rem',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            🔗 Link to a Task with different name
+          </button>
+        </div>
+      )}
+
+      {/* Parse and display linked sessions if any */}
+      {(() => {
+        const notes = item.notes || '';
+        const links: { type: string; id: string }[] = [];
+        
+        // Find AMA Session IDs
+        const amaMatches = [...notes.matchAll(/AMA Session ID:\s*([^\s|]+)/g)];
+        amaMatches.forEach(m => links.push({ type: 'AMA & Meetings', id: m[1] }));
+        
+        // Find Admin Call IDs
+        const callMatches = [...notes.matchAll(/Admin Call ID:\s*([^\s|]+)/g)];
+        callMatches.forEach(m => links.push({ type: 'Admin Calls', id: m[1] }));
+        
+        // Find Tarun Sir Meeting IDs
+        const meetingMatches = [...notes.matchAll(/Tarun Sir Meeting ID:\s*([^\s|]+)/g)];
+        meetingMatches.forEach(m => links.push({ type: 'Tarun Sir Meetings', id: m[1] }));
+        
+        if (links.length > 0) {
+          return (
+            <div style={{ 
+              marginTop: '0.75rem', 
+              padding: '8px 12px', 
+              borderRadius: '6px', 
+              border: '1px solid var(--border-light)',
+              backgroundColor: 'var(--background-alt)',
+              display: 'flex', 
+              flexWrap: 'wrap', 
+              gap: '6px', 
+              alignItems: 'center' 
+            }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', marginRight: '4px' }}>Linked Sessions:</span>
+              {links.map((link, idx) => (
+                <span 
+                  key={idx}
+                  style={{
+                    backgroundColor: 'var(--primary-glow)',
+                    color: 'var(--primary)',
+                    border: '1px solid var(--primary-light)',
+                    borderRadius: '4px',
+                    padding: '2px 8px',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  🔗 {link.type} (ID: {link.id})
+                  {canUserEdit && (
+                    <button
+                      onClick={() => handleUnlinkSession(link.type, link.id)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--primary)',
+                        cursor: 'pointer',
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: 0.7,
+                        transition: 'opacity 0.15s ease'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                      onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+                      title={`Unlink from ${link.type}`}
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </span>
+              ))}
+            </div>
+          );
+        }
+        return null;
+      })()}
 
       {/* 3-COLUMN PROPERTIES GRID DASHBOARD */}
       <div className="premium-properties-dashboard">
@@ -2211,29 +2651,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
         />
       </div>
 
-      {/* Notes & Reference Links card */}
-      <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '1rem', marginTop: '1.25rem' }}>
-        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', borderBottom: '1px solid var(--border)', paddingBottom: '0.25rem', margin: '0 0 0.5rem 0' }}>
-          Notes & Reference Links
-        </p>
-        <textarea
-          ref={notesRef}
-          className="premium-textarea"
-          style={{ minHeight: '100px', overflowY: 'hidden', resize: 'none' }}
-          placeholder="Paste reference notes, Figma links, or release checklist here..."
-          onInput={(e) => {
-            const target = e.target as HTMLTextAreaElement;
-            target.style.height = 'auto';
-            target.style.height = `${target.scrollHeight}px`;
-          }}
-          onBlur={(e) => {
-            if (e.target.value !== item.notes) {
-              handleFieldUpdate('notes', e.target.value);
-            }
-          }}
-          defaultValue={item.notes}
-        />
-      </div>
+
 
       {isProject && (
         <>
@@ -2574,6 +2992,11 @@ export const ProductTable: React.FC = () => {
                         {item.tarunSirApproval && (
                           <span className="badge-verified" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', fontWeight: 650 }}>
                             <CheckCircle size={10} /> Verified
+                          </span>
+                        )}
+                        {isTaskLinked(item.notes, item.id) && (
+                          <span className="badge-linked" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px', backgroundColor: 'var(--primary-glow)', color: 'var(--primary)', border: '1px solid var(--primary-light)', fontWeight: 650 }}>
+                            <Link size={10} /> Linked
                           </span>
                         )}
                       </div>
@@ -5194,7 +5617,9 @@ export const StudentMeetingsTable: React.FC = () => {
                                     };
                                     addProductItem(newItem);
                                     setInlineRelatedFeatureValue('');
-                                    setEditingRelatedFeatureId(newItem.id);
+                                    setTimeout(() => {
+                                      setPreviewProductId(newItem.id);
+                                    }, 50);
                                   }}
                                   className="btn btn-secondary"
                                   style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
@@ -5279,6 +5704,11 @@ export const StudentMeetingsTable: React.FC = () => {
                                                 {feat.raisedByTarunSir && (
                                                   <span className="badge-super-priority" style={{ padding: '1px 4px', fontSize: '0.6rem', borderRadius: '3px', marginLeft: '6px' }}>
                                                     <Sparkles size={8} /> Super Priority
+                                                  </span>
+                                                )}
+                                                {isTaskLinked(feat.notes, feat.id) && (
+                                                  <span className="badge-linked" style={{ padding: '2px 6px', fontSize: '0.6rem', borderRadius: '3px', marginLeft: '6px', backgroundColor: 'var(--primary-glow)', color: 'var(--primary)', border: '1px solid var(--primary-light)', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 650 }}>
+                                                    <Link size={8} /> Linked
                                                   </span>
                                                 )}
                                               </>
@@ -5419,7 +5849,9 @@ export const StudentMeetingsTable: React.FC = () => {
                                       };
                                       addProductItem(newItem);
                                       setInlineRelatedFeatureValue('');
-                                      setEditingRelatedFeatureId(newItem.id);
+                                      setTimeout(() => {
+                                        setPreviewProductId(newItem.id);
+                                      }, 50);
                                     }}
                                     className="btn btn-secondary"
                                     style={{ padding: '4px 10px', fontSize: '0.75rem' }}
@@ -6651,7 +7083,9 @@ export const AdminCallsTable: React.FC = () => {
                                       };
                                       addProductItem(newItem);
                                       setInlineCallRelatedValue('');
-                                      setEditingCallRelatedId(newItem.id);
+                                      setTimeout(() => {
+                                        setPreviewProductId(newItem.id);
+                                      }, 50);
                                     }}
                                     className="btn btn-secondary"
                                     style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
@@ -6733,6 +7167,11 @@ export const AdminCallsTable: React.FC = () => {
                                                   {feat.raisedByTarunSir && (
                                                     <span className="badge-super-priority" style={{ padding: '1px 4px', fontSize: '0.6rem', borderRadius: '3px', marginLeft: '6px' }}>
                                                       <Sparkles size={8} /> Super Priority
+                                                    </span>
+                                                  )}
+                                                  {isTaskLinked(feat.notes, feat.id) && (
+                                                    <span className="badge-linked" style={{ padding: '2px 6px', fontSize: '0.6rem', borderRadius: '3px', marginLeft: '6px', backgroundColor: 'var(--primary-glow)', color: 'var(--primary)', border: '1px solid var(--primary-light)', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 650 }}>
+                                                      <Link size={8} /> Linked
                                                     </span>
                                                   )}
                                                 </>
@@ -6873,7 +7312,9 @@ export const AdminCallsTable: React.FC = () => {
                                         };
                                         addProductItem(newItem);
                                         setInlineCallRelatedValue('');
-                                        setEditingCallRelatedId(newItem.id);
+                                        setTimeout(() => {
+                                          setPreviewProductId(newItem.id);
+                                        }, 50);
                                       }}
                                       className="btn btn-secondary"
                                       style={{ padding: '4px 10px', fontSize: '0.75rem' }}
@@ -7915,7 +8356,9 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                       };
                                       addProductItem(newItem);
                                       setInlineMeetingRelatedValue('');
-                                      setEditingMeetingRelatedId(newItem.id);
+                                      setTimeout(() => {
+                                        setPreviewProductId(newItem.id);
+                                      }, 50);
                                     }}
                                     className="btn btn-secondary"
                                     style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
@@ -8002,6 +8445,11 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                                   {feat.tarunSirApproval && (
                                                     <span className="badge-verified" style={{ padding: '1px 4px', fontSize: '0.6rem', borderRadius: '3px', marginLeft: '6px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', fontWeight: 650 }}>
                                                       <CheckCircle size={8} /> Verified
+                                                    </span>
+                                                  )}
+                                                  {isTaskLinked(feat.notes, feat.id) && (
+                                                    <span className="badge-linked" style={{ padding: '2px 6px', fontSize: '0.6rem', borderRadius: '3px', marginLeft: '6px', backgroundColor: 'var(--primary-glow)', color: 'var(--primary)', border: '1px solid var(--primary-light)', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 650 }}>
+                                                      <Link size={8} /> Linked
                                                     </span>
                                                   )}
                                                 </>
@@ -8142,7 +8590,9 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                         };
                                         addProductItem(newItem);
                                         setInlineMeetingRelatedValue('');
-                                        setEditingMeetingRelatedId(newItem.id);
+                                        setTimeout(() => {
+                                          setPreviewProductId(newItem.id);
+                                        }, 50);
                                       }}
                                       className="btn btn-secondary"
                                       style={{ padding: '4px 10px', fontSize: '0.75rem' }}
@@ -10753,5 +11203,4 @@ export const AdoptionTable: React.FC = () => {
     </>
   );
 };
-
 

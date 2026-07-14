@@ -3877,3 +3877,12 @@ body.read-only-mode .btn:has(svg.lucide-plus) {
   opacity: 1;
   transform: translateY(-50%) translateX(0); /* Slide in to place */
 }
+
+/* Similar task suggestions list item hover styling */
+.similar-task-item {
+  background-color: var(--panel-bg);
+}
+.similar-task-item:hover {
+  background-color: var(--background-alt) !important;
+}
+
