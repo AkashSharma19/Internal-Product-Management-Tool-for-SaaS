@@ -75,10 +75,68 @@ export default async function handler(req: any, res: any) {
       const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
       const feedbackId = url.searchParams.get('feedback');
       const isFeedback = url.searchParams.get('public') === 'true' || !!feedbackId;
+      const isPublicCalendar = url.searchParams.get('public-calendar') === 'true';
 
       const keys = Object.keys(modelsMap);
 
-      if (isAuthenticated) {
+      if (isPublicCalendar) {
+        // Return only the configured calendar sources
+        const rawSettings = await modelsMap['settings'].find({}).lean();
+        const calSourcesSetting = rawSettings.find((s: any) => s.key === 'sharableCalendarSources');
+        const allowedSources = calSourcesSetting ? calSourcesSetting.value.split(',') : [];
+
+        for (const key of keys) {
+          if (key === 'settings') {
+            results[key] = rawSettings.map((s: any) => {
+              if (s.key === 'clickupApiKey') {
+                return { ...s, value: '' }; // Redact ClickUp API key
+              }
+              return s;
+            });
+          } else if (key === 'statuses' || key === 'productGroups') {
+            results[key] = await modelsMap[key].find({}).lean();
+          } else {
+            // Map models to sources
+            if (key === 'products') {
+              const queryParts = [];
+              if (allowedSources.includes('product')) {
+                results[key] = await modelsMap[key].find({}).lean();
+              } else {
+                if (allowedSources.includes('meetings')) {
+                  queryParts.push({ notes: { $regex: 'AMA Session ID:', $options: 'i' } });
+                }
+                if (allowedSources.includes('admin')) {
+                  queryParts.push({ notes: { $regex: 'Admin Call ID:', $options: 'i' } });
+                }
+                if (allowedSources.includes('tarun-meetings')) {
+                  queryParts.push({ notes: { $regex: 'Tarun Sir Meeting ID:', $options: 'i' } });
+                }
+
+                if (queryParts.length > 0) {
+                  results[key] = await modelsMap[key].find({ $or: queryParts }).lean();
+                } else {
+                  results[key] = [];
+                }
+              }
+            } else {
+              let isAllowed = false;
+              if (key === 'projects' && allowedSources.includes('projects')) isAllowed = true;
+              if (key === 'amaSessions' && allowedSources.includes('meetings')) isAllowed = true;
+              if (key === 'studentMeetings' && allowedSources.includes('meetings')) isAllowed = true;
+              if (key === 'adminCalls' && allowedSources.includes('admin')) isAllowed = true;
+              if (key === 'tarunSirMeetings' && allowedSources.includes('tarun-meetings')) isAllowed = true;
+              if (key === 'contentItems' && allowedSources.includes('content')) isAllowed = true;
+              if (key === 'dailyIssues' && allowedSources.includes('issues')) isAllowed = true;
+
+              if (isAllowed) {
+                results[key] = await modelsMap[key].find({}).lean();
+              } else {
+                results[key] = [];
+              }
+            }
+          }
+        }
+      } else if (isAuthenticated) {
         // Return everything for authenticated users, but strip passwords and mask ClickUp keys
         for (const key of keys) {
           if (key === 'speakers') {

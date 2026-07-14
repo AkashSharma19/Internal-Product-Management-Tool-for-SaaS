@@ -553,7 +553,8 @@ const DashboardContent: React.FC = () => {
     canUserEdit,
     alert,
     activeSubtasksTaskLink,
-    setActiveSubtasksTaskLink
+    setActiveSubtasksTaskLink,
+    isLoading
   } = useDashboard();
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [isRefreshingClickup, setIsRefreshingClickup] = useState(false);
@@ -651,9 +652,32 @@ const DashboardContent: React.FC = () => {
   const searchParams = new URLSearchParams(window.location.search);
   const feedbackId = searchParams.get('feedback');
   const feedbackCategory = searchParams.get('category');
+  const isPublicCalendar = searchParams.get('public-calendar') === 'true';
 
   if (feedbackId) {
     return <PublicFeedbackForm itemId={feedbackId} category={feedbackCategory} />;
+  }
+
+  if (isPublicCalendar) {
+    if (isLoading) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--background)', fontFamily: 'Outfit, sans-serif', color: 'var(--text-primary)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+            <RefreshCw size={28} className="animate-spin" style={{ color: 'var(--primary)' }} />
+            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Loading Calendar...</span>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="app-container" style={{ display: 'block', height: '100vh', overflow: 'hidden', padding: '0', background: 'var(--background)' }}>
+        <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <CalendarView isPublic={true} />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!currentUser) {
