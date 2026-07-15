@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import type { ConfigSpeaker, ConfigProductGroup, ConfigStatus, ConfigProgram, ConfigCohort, FeedbackFormField } from '../types';
-import { Plus, Trash2, Check, X, Pencil, Users, Layers, Tag, Key, Eye, EyeOff, RefreshCw, AlertCircle, ClipboardList, ChevronUp, ChevronDown, Shield, Calendar, Copy, Link } from 'lucide-react';
+import { Plus, Trash2, Check, X, Pencil, Users, Layers, Tag, Key, Eye, EyeOff, RefreshCw, AlertCircle, ClipboardList, ChevronUp, ChevronDown, Shield, Calendar, Copy, Link, Zap } from 'lucide-react';
 
 // ─── Colour palette ────────────────────────────────────────────────────────────
 const PALETTE = [
@@ -1094,10 +1094,46 @@ const ProgramsSection: React.FC = () => {
 // CLICKUP INTEGRATION SECTION
 // ═══════════════════════════════════════════════════════════════════════════════
 const ClickupSettingsSection: React.FC = () => {
-  const { clickupApiKey, setClickupApiKey, syncClickupTask, canUserEdit } = useDashboard();
+  const { clickupApiKey, setClickupApiKey, syncClickupTask, registerClickupWebhook, canUserEdit } = useDashboard();
   const [apiKeyInput, setApiKeyInput] = useState(clickupApiKey);
   const [showKey, setShowKey] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+
+  // Webhook states
+  const [isRegisteringWebhook, setIsRegisteringWebhook] = useState(false);
+  const [webhookResult, setWebhookResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+
+  const handleRegisterWebhook = async () => {
+    if (!canUserEdit || isRegisteringWebhook) return;
+    setIsRegisteringWebhook(true);
+    setWebhookResult(null);
+    try {
+      setClickupApiKey(apiKeyInput.trim());
+
+      const res = await registerClickupWebhook();
+      if (res.success) {
+        setWebhookResult({
+          success: true,
+          message: 'Webhook registered successfully! ClickUp status changes will now sync instantly.'
+        });
+      } else {
+        setWebhookResult({
+          success: false,
+          message: res.error || 'Failed to register webhook. Note: webhooks require a public URL (e.g. deployed site or ngrok proxy).'
+        });
+      }
+    } catch (err: any) {
+      setWebhookResult({
+        success: false,
+        message: err.message || 'An error occurred during webhook setup.'
+      });
+    } finally {
+      setIsRegisteringWebhook(false);
+    }
+  };
 
   // Sync local input with database value when loaded
   React.useEffect(() => {
@@ -1317,10 +1353,75 @@ const ClickupSettingsSection: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Real-time Webhooks */}
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem', marginTop: '0.5rem' }}>
+          <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+            Real-Time Sync (Webhooks)
+          </h4>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0 0 1rem 0' }}>
+            Register webhooks to receive real-time updates directly from ClickUp.
+          </p>
+
+          <button
+            onClick={handleRegisterWebhook}
+            disabled={!canUserEdit || isRegisteringWebhook || !apiKeyInput.trim()}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 16px',
+              background: webhookResult?.success ? '#10b981' : 'var(--background-alt)',
+              color: 'var(--text-primary)',
+              border: webhookResult?.success ? '1.5px solid #10b981' : '1.5px solid var(--border)',
+              borderRadius: '8px',
+              cursor: (canUserEdit && !isRegisteringWebhook && apiKeyInput.trim()) ? 'pointer' : 'default',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              transition: 'all 0.15s',
+              opacity: (!canUserEdit || isRegisteringWebhook || !apiKeyInput.trim()) ? 0.5 : 1,
+            }}
+          >
+            {isRegisteringWebhook ? (
+              <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />
+            ) : webhookResult?.success ? (
+              <Check size={14} style={{ color: '#fff' }} />
+            ) : (
+              <Zap size={14} />
+            )}
+            {isRegisteringWebhook ? 'Registering...' : webhookResult?.success ? 'Connected Successfully!' : 'Setup Webhook'}
+          </button>
+
+          {webhookResult && (
+            <div
+              style={{
+                marginTop: '1rem',
+                padding: '0.75rem 1rem',
+                borderRadius: '8px',
+                border: `1px solid ${webhookResult.success ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                background: webhookResult.success ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: '0.8rem',
+              }}
+            >
+              {webhookResult.success ? (
+                <Check size={16} style={{ color: '#10b981', flexShrink: 0 }} />
+              ) : (
+                <AlertCircle size={16} style={{ color: 'var(--danger)', flexShrink: 0 }} />
+              )}
+              <div style={{ color: webhookResult.success ? 'var(--text-primary)' : 'var(--danger)' }}>
+                {webhookResult.message}
+              </div>
+            </div>
+          )}
+        </div>
+
       </div>
     </SectionCard>
-    );
-  };
+  );
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // FORM BUILDER SECTION

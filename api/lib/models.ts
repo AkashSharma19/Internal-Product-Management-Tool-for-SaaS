@@ -124,7 +124,8 @@ const AdminCallSchema = new Schema({
   cohortTopic: { type: String, default: "" },
   discussion: { type: String, default: "" },
   actions: { type: String, default: "" },
-  status: { type: String, default: "Scheduled" }
+  status: { type: String, default: "Scheduled" },
+  program: { type: String, default: "" }
 }, { timestamps: true });
 
 // 6b. TarunSirMeeting
@@ -135,7 +136,8 @@ const TarunSirMeetingSchema = new Schema({
   cohortTopic: { type: String, default: "" },
   discussion: { type: String, default: "" },
   actions: { type: String, default: "" },
-  status: { type: String, default: "Scheduled" }
+  status: { type: String, default: "Scheduled" },
+  program: { type: String, default: "" }
 }, { timestamps: true });
 
 // 7. ContentItem

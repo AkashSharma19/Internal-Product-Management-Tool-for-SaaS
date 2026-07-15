@@ -122,6 +122,7 @@ export interface AdminCall {
   discussion: string;
   actions: string;
   status: 'Completed' | 'Pending Actions' | 'Scheduled';
+  program?: string;
 }
 
 export interface TarunSirMeeting {
@@ -132,6 +133,7 @@ export interface TarunSirMeeting {
   discussion: string;
   actions: string;
   status: 'Completed' | 'Pending Actions' | 'Scheduled';
+  program?: string;
 }
 
 export interface ContentItem {

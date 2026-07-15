@@ -1,3 +1,4 @@
+import https from 'https';
 import { connectToDatabase } from './lib/db.js';
 import {
   ProductItemModel,
@@ -290,16 +291,35 @@ export default async function handler(req: any, res: any) {
           return res.status(400).json({ success: false, error: 'ClickUp API Key is not configured in settings.' });
         }
 
-        const clickupResponse = await fetch(`https://api.clickup.com/api/v2/task/${taskId}?include_subtasks=true`, {
-          method: 'GET',
-          headers: {
-            'Authorization': apiKey.trim(),
-            'Content-Type': 'application/json'
-          }
+        const clickupData = await new Promise<any>((resolve, reject) => {
+          const url = `https://api.clickup.com/api/v2/task/${taskId}?include_subtasks=true`;
+          const options = {
+            headers: {
+              'Authorization': apiKey.trim(),
+              'Content-Type': 'application/json',
+              'Connection': 'close'
+            }
+          };
+          https.get(url, options, (clickupRes) => {
+            let dataStr = '';
+            clickupRes.on('data', (chunk) => {
+              dataStr += chunk;
+            });
+            clickupRes.on('end', () => {
+              try {
+                const parsed = JSON.parse(dataStr);
+                parsed.statusCode = clickupRes.statusCode;
+                resolve(parsed);
+              } catch (e) {
+                reject(e);
+              }
+            });
+          }).on('error', (err) => {
+            reject(err);
+          });
         });
 
-        if (clickupResponse.ok) {
-          const clickupData = await clickupResponse.json();
+        if (clickupData.statusCode >= 200 && clickupData.statusCode < 300) {
           if (clickupData && clickupData.status && clickupData.status.status) {
             const assigneeName = clickupData.assignees && Array.isArray(clickupData.assignees)
               ? clickupData.assignees.map((a: any) => a.username).join(', ')
@@ -315,9 +335,287 @@ export default async function handler(req: any, res: any) {
           }
         }
 
-        return res.status(clickupResponse.status).json({ success: false, error: `ClickUp API returned error status ${clickupResponse.status}` });
+        return res.status(clickupData.statusCode || 500).json({ success: false, error: clickupData.error || `ClickUp API returned error status ${clickupData.statusCode}` });
       } catch (err: any) {
         console.error('ClickUp sync proxy error:', err);
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+
+    if (action === 'clickup-bulk-sync') {
+      try {
+        const userId = req.headers['x-user-id'];
+        let isAuthenticated = false;
+        if (userId) {
+          const ConfigSpeaker = modelsMap['speakers'];
+          const speaker = await ConfigSpeaker.findOne({ id: userId }).lean();
+          if (speaker) {
+            isAuthenticated = true;
+          }
+        }
+        if (!isAuthenticated) {
+          return res.status(401).json({ success: false, error: 'Unauthorized.' });
+        }
+
+        const GlobalSettings = modelsMap['settings'];
+        const clickupSetting = await GlobalSettings.findOne({ key: 'clickupApiKey' }).lean();
+        const apiKey = clickupSetting?.value || '';
+        if (!apiKey.trim()) {
+          return res.status(400).json({ success: false, error: 'ClickUp API Key not configured.' });
+        }
+
+        const [products, projects, meetings, issues, plans] = await Promise.all([
+          modelsMap['products'].find({ taskLink: { $exists: true, $ne: "" } }).lean(),
+          modelsMap['projects'].find({ taskLink: { $exists: true, $ne: "" } }).lean(),
+          modelsMap['studentMeetings'].find({ taskLink: { $exists: true, $ne: "" } }).lean(),
+          modelsMap['dailyIssues'].find({ taskLink: { $exists: true, $ne: "" } }).lean(),
+          modelsMap['plans'].find({ link: { $exists: true, $ne: "" } }).lean()
+        ]);
+
+        const taskIds = new Set<string>();
+        const extractId = (url: string) => {
+          if (!url) return null;
+          const trimmed = url.trim();
+          const match = trimmed.match(/\/t\/(?:h\/)?(?:[a-zA-Z0-9\-]+\/)?([a-zA-Z0-9\-_]{7,12})/);
+          if (match) return match[1];
+          const endMatch = trimmed.match(/\/([a-zA-Z0-9\-_]{7,12})(?:\?|$)/);
+          if (endMatch) return endMatch[1];
+          return null;
+        };
+
+        [...products, ...projects, ...meetings, ...issues].forEach(item => {
+          const tid = extractId(item.taskLink);
+          if (tid) taskIds.add(tid);
+        });
+        plans.forEach(item => {
+          const tid = extractId(item.link);
+          if (tid) taskIds.add(tid);
+        });
+
+        const uniqueTaskIds = Array.from(taskIds);
+        if (uniqueTaskIds.length === 0) {
+          return res.status(200).json({ success: true, totalScanned: 0, updatedCount: 0 });
+        }
+
+        const fetchTaskDetails = async (taskId: string): Promise<any> => {
+          try {
+            return await new Promise<any>((resolve) => {
+              const url = `https://api.clickup.com/api/v2/task/${taskId}?include_subtasks=true`;
+              const options = {
+                headers: {
+                  'Authorization': apiKey.trim(),
+                  'Content-Type': 'application/json',
+                  'Connection': 'close'
+                }
+              };
+              https.get(url, options, (clickupRes) => {
+                let dataStr = '';
+                clickupRes.on('data', (chunk) => {
+                  dataStr += chunk;
+                });
+                clickupRes.on('end', () => {
+                  try {
+                    if (clickupRes.statusCode && clickupRes.statusCode >= 200 && clickupRes.statusCode < 300) {
+                      const clickupData = JSON.parse(dataStr);
+                      if (clickupData && clickupData.status && clickupData.status.status) {
+                        const assigneeName = clickupData.assignees && Array.isArray(clickupData.assignees)
+                          ? clickupData.assignees.map((a: any) => a.username).join(', ')
+                          : '';
+                        resolve({
+                          taskId,
+                          status: clickupData.status.status,
+                          subtasksCount: clickupData.subtasks ? clickupData.subtasks.length : 0,
+                          assignee: assigneeName
+                        });
+                        return;
+                      }
+                    }
+                  } catch (e) {}
+                  resolve(null);
+                });
+              }).on('error', () => {
+                resolve(null);
+              });
+            });
+          } catch (e) {
+            return null;
+          }
+        };
+
+        const batchSize = 10;
+        const results: any[] = [];
+        for (let i = 0; i < uniqueTaskIds.length; i += batchSize) {
+          const chunk = uniqueTaskIds.slice(i, i + batchSize);
+          const chunkResults = await Promise.all(chunk.map(fetchTaskDetails));
+          results.push(...chunkResults);
+          await new Promise(r => setTimeout(r, 50));
+        }
+
+        const validResults = results.filter(Boolean);
+        const statusMap = new Map<string, any>();
+        for (const r of validResults) {
+          statusMap.set(r.taskId, r);
+        }
+
+        const prepareBulkOps = (items: any[], isPlan: boolean) => {
+          const ops: any[] = [];
+          for (const item of items) {
+            const tid = extractId(isPlan ? item.link : item.taskLink);
+            if (tid && statusMap.has(tid)) {
+              const data = statusMap.get(tid);
+              if (item.clickupStatus !== data.status || item.clickupSubtasksCount !== data.subtasksCount || item.clickupAssignee !== data.assignee) {
+                ops.push({
+                  updateOne: {
+                    filter: { _id: item._id },
+                    update: {
+                      $set: {
+                        clickupStatus: data.status,
+                        clickupSubtasksCount: data.subtasksCount,
+                        clickupAssignee: data.assignee
+                      }
+                    }
+                  }
+                });
+              }
+            }
+          }
+          return ops;
+        };
+
+        const [productOps, projectOps, meetingOps, issueOps, planOps] = [
+          prepareBulkOps(products, false),
+          prepareBulkOps(projects, false),
+          prepareBulkOps(meetings, false),
+          prepareBulkOps(issues, false),
+          prepareBulkOps(plans, true)
+        ];
+
+        await Promise.all([
+          productOps.length > 0 ? modelsMap['products'].bulkWrite(productOps) : Promise.resolve(),
+          projectOps.length > 0 ? modelsMap['projects'].bulkWrite(projectOps) : Promise.resolve(),
+          meetingOps.length > 0 ? modelsMap['studentMeetings'].bulkWrite(meetingOps) : Promise.resolve(),
+          issueOps.length > 0 ? modelsMap['dailyIssues'].bulkWrite(issueOps) : Promise.resolve(),
+          planOps.length > 0 ? modelsMap['plans'].bulkWrite(planOps) : Promise.resolve()
+        ]);
+
+        const totalUpdated = productOps.length + projectOps.length + meetingOps.length + issueOps.length + planOps.length;
+        return res.status(200).json({ success: true, totalScanned: uniqueTaskIds.length, updatedCount: totalUpdated });
+      } catch (err: any) {
+        console.error('ClickUp bulk sync error:', err);
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+
+    if (action === 'clickup-register-webhook') {
+      try {
+        const userId = req.headers['x-user-id'];
+        let isAuthenticated = false;
+        if (userId) {
+          const ConfigSpeaker = modelsMap['speakers'];
+          const speaker = await ConfigSpeaker.findOne({ id: userId }).lean();
+          if (speaker) {
+            isAuthenticated = true;
+          }
+        }
+        if (!isAuthenticated) {
+          return res.status(401).json({ success: false, error: 'Unauthorized.' });
+        }
+
+        const GlobalSettings = modelsMap['settings'];
+        const clickupSetting = await GlobalSettings.findOne({ key: 'clickupApiKey' }).lean();
+        const apiKey = clickupSetting?.value || '';
+        if (!apiKey.trim()) {
+          return res.status(400).json({ success: false, error: 'ClickUp API Key not configured.' });
+        }
+
+        const teamsData = await new Promise<any>((resolve, reject) => {
+          const url = 'https://api.clickup.com/api/v2/team';
+          const options = {
+            headers: {
+              'Authorization': apiKey.trim(),
+              'Connection': 'close'
+            }
+          };
+          https.get(url, options, (teamRes) => {
+            let dataStr = '';
+            teamRes.on('data', (chunk) => {
+              dataStr += chunk;
+            });
+            teamRes.on('end', () => {
+              try {
+                resolve(JSON.parse(dataStr));
+              } catch (e) {
+                reject(e);
+              }
+            });
+          }).on('error', (err) => {
+            reject(err);
+          });
+        });
+
+        const teamId = teamsData?.teams?.[0]?.id;
+        if (!teamId) {
+          return res.status(400).json({ success: false, error: 'No ClickUp teams found for this API key.' });
+        }
+
+        const host = req.headers.host || '';
+        const protocol = req.headers['x-forwarded-proto'] || 'http';
+        const webhookUrl = `${protocol}://${host}/api/webhook`;
+
+        const registerData = JSON.stringify({
+          endpoint: webhookUrl,
+          events: [
+            "taskStatusUpdated",
+            "taskAssigneeUpdated",
+            "taskUpdated"
+          ]
+        });
+
+        const registerResult = await new Promise<any>((resolve, reject) => {
+          const parsedUrl = new URL(`https://api.clickup.com/api/v2/team/${teamId}/webhook`);
+          const options = {
+            hostname: parsedUrl.hostname,
+            path: parsedUrl.pathname + parsedUrl.search,
+            method: 'POST',
+            headers: {
+              'Authorization': apiKey.trim(),
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(registerData),
+              'Connection': 'close'
+            }
+          };
+          const clientReq = https.request(options, (registerRes) => {
+            let dataStr = '';
+            registerRes.on('data', (chunk) => {
+              dataStr += chunk;
+            });
+            registerRes.on('end', () => {
+              try {
+                const parsed = JSON.parse(dataStr);
+                parsed.statusCode = registerRes.statusCode;
+                resolve(parsed);
+              } catch (e) {
+                reject(e);
+              }
+            });
+          });
+          clientReq.on('error', (err) => {
+            reject(err);
+          });
+          clientReq.write(registerData);
+          clientReq.end();
+        });
+
+        if (registerResult.statusCode >= 200 && registerResult.statusCode < 300) {
+          return res.status(200).json({ success: true, webhook: registerResult });
+        }
+
+        return res.status(registerResult.statusCode || 400).json({ 
+          success: false, 
+          error: registerResult.err || registerResult.error || 'Failed to register webhook on ClickUp.' 
+        });
+      } catch (err: any) {
+        console.error('ClickUp webhook registration error:', err);
         return res.status(500).json({ success: false, error: err.message });
       }
     }

@@ -143,6 +143,7 @@ interface DashboardContextType {
   setClickupApiKey: (key: string) => void;
   syncClickupTask: (taskIdOrUrl: string) => Promise<{ status: string; subtasksCount: number; assignee: string } | null>;
   refreshAllClickupStatuses: () => Promise<{ success: boolean; totalScanned: number; updatedCount: number; error?: string }>;
+  registerClickupWebhook: () => Promise<{ success: boolean; error?: string }>;
   refreshAllData: () => Promise<{ success: boolean; updatedSheets: number; error?: string }>;
 
   // Google OAuth Settings
@@ -1593,231 +1594,66 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return { success: false, totalScanned: 0, updatedCount: 0, error: 'ClickUp API key is not configured' };
     }
 
-    let updatedCount = 0;
-    let totalScanned = 0;
-
     try {
-      const itemsToSync = [
-        ...productItems.map(item => ({ id: item.id, type: 'product', link: item.taskLink || '' })),
-        ...studentProjects.map(item => ({ id: item.id, type: 'project', link: item.taskLink || '' })),
-        ...studentMeetings.map(item => ({ id: item.id, type: 'meeting', link: item.taskLink || '' })),
-        ...dailyIssues.map(item => ({ id: item.id, type: 'issue', link: item.taskLink || '' })),
-        ...planItems.map(item => ({ id: item.id, type: 'plan', link: item.link || '' })),
-      ].filter(x => x.link && extractClickupTaskId(x.link));
+      const savedUserId = localStorage.getItem('logged-in-user-id') || '';
+      const response = await fetch('/api/data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': savedUserId
+        },
+        body: JSON.stringify({
+          action: 'clickup-bulk-sync',
+          type: 'settings',
+          id: null,
+          data: {}
+        })
+      });
 
-      const uniqueTaskIds = Array.from(new Set(itemsToSync.map(x => extractClickupTaskId(x.link) as string)));
-      totalScanned = uniqueTaskIds.length;
-
-      if (uniqueTaskIds.length === 0) {
-        return { success: true, totalScanned: 0, updatedCount: 0 };
+      if (!response.ok) {
+        return { success: false, totalScanned: 0, updatedCount: 0, error: 'Bulk sync failed on server' };
       }
 
-      const fetchPromises = uniqueTaskIds.map(async (taskId) => {
-        try {
-          const savedUserId = localStorage.getItem('logged-in-user-id') || '';
-          const response = await fetch('/api/data', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-user-id': savedUserId
-            },
-            body: JSON.stringify({
-              action: 'clickup-sync',
-              type: 'settings',
-              id: null,
-              data: { taskId }
-            })
-          });
-          if (response.ok) {
-            const resData = await response.json();
-            if (resData.success && resData.data) {
-              return { 
-                taskId, 
-                status: resData.data.status,
-                subtasksCount: resData.data.subtasksCount,
-                assignee: resData.data.assignee
-              };
-            }
-          }
-        } catch (e) {
-          console.warn(`Failed to fetch ClickUp status for task ${taskId}:`, e);
-        }
-        return null;
-      });
-
-      const results = await Promise.all(fetchPromises);
-      const statusMap: Record<string, { status: string; subtasksCount: number; assignee: string }> = {};
-      results.forEach(res => {
-        if (res) {
-          statusMap[res.taskId] = { 
-            status: res.status, 
-            subtasksCount: res.subtasksCount,
-            assignee: res.assignee
-          };
-        }
-      });
-
-      // Compute updated count accurately
-      productItems.forEach(item => {
-        const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
-        if (tId && statusMap[tId] && (
-          item.clickupStatus !== statusMap[tId].status || 
-          item.clickupSubtasksCount !== statusMap[tId].subtasksCount ||
-          item.clickupAssignee !== statusMap[tId].assignee
-        )) {
-          updatedCount++;
-        }
-      });
-      studentProjects.forEach(item => {
-        const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
-        if (tId && statusMap[tId] && (
-          item.clickupStatus !== statusMap[tId].status || 
-          item.clickupSubtasksCount !== statusMap[tId].subtasksCount ||
-          item.clickupAssignee !== statusMap[tId].assignee
-        )) {
-          updatedCount++;
-        }
-      });
-      studentMeetings.forEach(item => {
-        const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
-        if (tId && statusMap[tId] && (
-          item.clickupStatus !== statusMap[tId].status || 
-          item.clickupSubtasksCount !== statusMap[tId].subtasksCount ||
-          item.clickupAssignee !== statusMap[tId].assignee
-        )) {
-          updatedCount++;
-        }
-      });
-      dailyIssues.forEach(item => {
-        const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
-        if (tId && statusMap[tId] && (
-          item.clickupStatus !== statusMap[tId].status || 
-          item.clickupSubtasksCount !== statusMap[tId].subtasksCount ||
-          item.clickupAssignee !== statusMap[tId].assignee
-        )) {
-          updatedCount++;
-        }
-      });
-      planItems.forEach(item => {
-        const tId = item.link ? extractClickupTaskId(item.link) : null;
-        if (tId && statusMap[tId] && (
-          item.clickupStatus !== statusMap[tId].status || 
-          item.clickupSubtasksCount !== statusMap[tId].subtasksCount ||
-          item.clickupAssignee !== statusMap[tId].assignee
-        )) {
-          updatedCount++;
-        }
-      });
-
-      setProductItems(prev => {
-        return prev.map(item => {
-          const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
-          if (tId && statusMap[tId] && (
-            item.clickupStatus !== statusMap[tId].status || 
-            item.clickupSubtasksCount !== statusMap[tId].subtasksCount ||
-            item.clickupAssignee !== statusMap[tId].assignee
-          )) {
-            const updatedItem = { 
-              ...item, 
-              clickupStatus: statusMap[tId].status,
-              clickupSubtasksCount: statusMap[tId].subtasksCount,
-              clickupAssignee: statusMap[tId].assignee
-            };
-            persistChange('update', 'products', item.id, updatedItem);
-            return updatedItem;
-          }
-          return item;
-        });
-      });
-
-      setStudentProjects(prev => {
-        return prev.map(item => {
-          const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
-          if (tId && statusMap[tId] && (
-            item.clickupStatus !== statusMap[tId].status || 
-            item.clickupSubtasksCount !== statusMap[tId].subtasksCount ||
-            item.clickupAssignee !== statusMap[tId].assignee
-          )) {
-            const updatedItem = { 
-              ...item, 
-              clickupStatus: statusMap[tId].status,
-              clickupSubtasksCount: statusMap[tId].subtasksCount,
-              clickupAssignee: statusMap[tId].assignee
-            };
-            persistChange('update', 'projects', item.id, updatedItem);
-            return updatedItem;
-          }
-          return item;
-        });
-      });
-
-      setStudentMeetings(prev => {
-        return prev.map(item => {
-          const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
-          if (tId && statusMap[tId] && (
-            item.clickupStatus !== statusMap[tId].status || 
-            item.clickupSubtasksCount !== statusMap[tId].subtasksCount ||
-            item.clickupAssignee !== statusMap[tId].assignee
-          )) {
-            const updatedItem = { 
-              ...item, 
-              clickupStatus: statusMap[tId].status,
-              clickupSubtasksCount: statusMap[tId].subtasksCount,
-              clickupAssignee: statusMap[tId].assignee
-            };
-            persistChange('update', 'studentMeetings', item.id, updatedItem);
-            return updatedItem;
-          }
-          return item;
-        });
-      });
-
-      setDailyIssues(prev => {
-        return prev.map(item => {
-          const tId = item.taskLink ? extractClickupTaskId(item.taskLink) : null;
-          if (tId && statusMap[tId] && (
-            item.clickupStatus !== statusMap[tId].status || 
-            item.clickupSubtasksCount !== statusMap[tId].subtasksCount ||
-            item.clickupAssignee !== statusMap[tId].assignee
-          )) {
-            const updatedItem = { 
-              ...item, 
-              clickupStatus: statusMap[tId].status,
-              clickupSubtasksCount: statusMap[tId].subtasksCount,
-              clickupAssignee: statusMap[tId].assignee
-            };
-            persistChange('update', 'dailyIssues', item.id, updatedItem);
-            return updatedItem;
-          }
-          return item;
-        });
-      });
-
-      setPlanItems(prev => {
-        return prev.map(item => {
-          const tId = item.link ? extractClickupTaskId(item.link) : null;
-          if (tId && statusMap[tId] && (
-            item.clickupStatus !== statusMap[tId].status || 
-            item.clickupSubtasksCount !== statusMap[tId].subtasksCount ||
-            item.clickupAssignee !== statusMap[tId].assignee
-          )) {
-            const updatedItem = { 
-              ...item, 
-              clickupStatus: statusMap[tId].status,
-              clickupSubtasksCount: statusMap[tId].subtasksCount,
-              clickupAssignee: statusMap[tId].assignee
-            };
-            persistChange('update', 'plans', item.id, updatedItem);
-            return updatedItem;
-          }
-          return item;
-        });
-      });
-
-      return { success: true, totalScanned, updatedCount };
+      const resData = await response.json();
+      if (resData.success) {
+        await refreshAllData();
+        return { 
+          success: true, 
+          totalScanned: resData.totalScanned, 
+          updatedCount: resData.updatedCount 
+        };
+      }
+      return { success: false, totalScanned: 0, updatedCount: 0, error: resData.error || 'Sync failed' };
     } catch (error: any) {
       console.error('Refresh all ClickUp statuses failed:', error);
-      return { success: false, totalScanned, updatedCount, error: error.message || 'Unknown error' };
+      return { success: false, totalScanned: 0, updatedCount: 0, error: error.message || 'Unknown error' };
+    }
+  };
+
+  const registerClickupWebhook = async (): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const savedUserId = localStorage.getItem('logged-in-user-id') || '';
+      const response = await fetch('/api/data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': savedUserId
+        },
+        body: JSON.stringify({
+          action: 'clickup-register-webhook',
+          type: 'settings',
+          id: null,
+          data: {}
+        })
+      });
+      const resData = await response.json();
+      if (response.ok && resData.success) {
+        return { success: true };
+      }
+      return { success: false, error: resData.error || 'Webhook registration failed.' };
+    } catch (err: any) {
+      console.warn('ClickUp Webhook registration failed:', err);
+      return { success: false, error: err.message };
     }
   };
 
@@ -1845,6 +1681,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       cohorts, addCohort, updateCohort, deleteCohort,
       clickupApiKey, setClickupApiKey: updateClickupApiKey, syncClickupTask,
       refreshAllClickupStatuses,
+      registerClickupWebhook,
       refreshAllData,
       googleClientId, setGoogleClientId: updateGoogleClientId,
       requireGoogleLogin, setRequireGoogleLogin: updateRequireGoogleLogin,

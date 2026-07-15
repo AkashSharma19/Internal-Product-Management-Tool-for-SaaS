@@ -4675,7 +4675,8 @@ export const StudentMeetingsTable: React.FC = () => {
   const { 
     amaSessions, addAMASession, updateAMASession, deleteAMASession,
     productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
-    speakers: configSpeakers, statuses, currentUser, confirm
+    speakers: configSpeakers, statuses, currentUser, confirm,
+    programs
   } = useDashboard();
 
   // Derive speakers list from configuration context (live — updates when Config tab changes)
@@ -4688,9 +4689,13 @@ export const StudentMeetingsTable: React.FC = () => {
   const [drawerCategory, setDrawerCategory] = useState<'admin-calls' | 'ama-meetings' | 'student-projects' | null>(null);
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const [filterPrograms, setFilterPrograms] = useState<string[]>([]);
+  const [filterPocs, setFilterPocs] = useState<string[]>([]);
 
   useEffect(() => {
     setFilterStatuses([]);
+    setFilterPrograms([]);
+    setFilterPocs([]);
   }, [subTab]);
 
   // Sorting states
@@ -4867,6 +4872,16 @@ export const StudentMeetingsTable: React.FC = () => {
     if (!matchesSearch) return false;
     
     if (filterStatuses.length > 0 && !filterStatuses.includes(ama.status)) return false;
+
+    if (filterPrograms.length > 0) {
+      if (!ama.program || !filterPrograms.includes(ama.program)) return false;
+    }
+
+    if (filterPocs.length > 0) {
+      const related = getRelatedFeatures(ama);
+      const hasMatchingPoc = related.some(feat => filterPocs.includes(feat.poc));
+      if (!hasMatchingPoc) return false;
+    }
     
     if (filterSuperPriorityOnly) {
       const related = getRelatedFeatures(ama);
@@ -4915,8 +4930,15 @@ export const StudentMeetingsTable: React.FC = () => {
     
     if (filterStatuses.length > 0 && !filterStatuses.includes(item.status)) return false;
 
+    if (filterPocs.length > 0 && !filterPocs.includes(item.poc)) return false;
+
     // Check if the item matches any AMA session
     const matchesAma = amaSessions.some(ama => {
+      // Program filter check
+      if (filterPrograms.length > 0 && (!ama.program || !filterPrograms.includes(ama.program))) {
+        return false;
+      }
+
       // If it is a prod-ama- task, it must match the AMA Session ID exactly
       if (item.id.startsWith('prod-ama-')) {
         return item.notes && item.notes.includes(`AMA Session ID: ${ama.id}`);
@@ -5037,6 +5059,18 @@ export const StudentMeetingsTable: React.FC = () => {
               selectedValues={filterStatuses}
               onChange={setFilterStatuses}
               placeholder="Status"
+            />
+            <MultiSelectDropdown
+              options={programs.map(p => p.name)}
+              selectedValues={filterPrograms}
+              onChange={setFilterPrograms}
+              placeholder="Program"
+            />
+            <MultiSelectDropdown
+              options={speakersList}
+              selectedValues={filterPocs}
+              onChange={setFilterPocs}
+              placeholder="Feature POC"
             />
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', marginLeft: '0.5rem', whiteSpace: 'nowrap' }}>
               <input 
@@ -5243,17 +5277,31 @@ export const StudentMeetingsTable: React.FC = () => {
                                 {related.length > 0 && (() => {
                                   const doneCount = related.filter(feat => feat.finalReleaseCompleted || isCompletedStatus(feat.status)).length;
                                   const clickupCount = related.filter(feat => !!feat.taskLink).length;
+                                  const isAllDone = doneCount === related.length;
+                                  const isAllClickup = clickupCount === related.length;
                                   return (
-                                    <span className="badge" style={{ 
-                                      fontSize: '0.7rem', 
-                                      padding: '2px 6px', 
-                                      background: 'var(--primary-glow)', 
-                                      color: 'var(--primary)', 
-                                      border: '1px solid var(--primary-border)',
-                                      fontWeight: 500
-                                    }}>
-                                      {doneCount}/{related.length} {related.length === 1 ? 'feature' : 'features'}{clickupCount > 0 ? ` (${clickupCount} on ClickUp)` : ''}
-                                    </span>
+                                    <>
+                                      <span className="badge" style={{ 
+                                        fontSize: '0.7rem', 
+                                        padding: '2px 6px', 
+                                        background: isAllDone ? 'rgba(16, 185, 129, 0.08)' : 'var(--primary-glow)', 
+                                        color: isAllDone ? '#10b981' : 'var(--primary)', 
+                                        border: isAllDone ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--primary-border)',
+                                        fontWeight: 500
+                                      }}>
+                                        {doneCount}/{related.length} {related.length === 1 ? 'feature' : 'features'}
+                                      </span>
+                                      <span className="badge" style={{ 
+                                        fontSize: '0.7rem', 
+                                        padding: '2px 6px', 
+                                        background: isAllClickup ? 'rgba(16, 185, 129, 0.08)' : 'rgba(123, 97, 255, 0.08)', 
+                                        color: isAllClickup ? '#10b981' : '#7b61ff', 
+                                        border: isAllClickup ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(123, 97, 255, 0.25)',
+                                        fontWeight: 500
+                                      }}>
+                                        {clickupCount}/{related.length} on ClickUp
+                                      </span>
+                                    </>
                                   );
                                 })()}
                               </>
@@ -6399,7 +6447,8 @@ export const AdminCallsTable: React.FC = () => {
   const { 
     adminCalls, updateAdminCall, addAdminCall, deleteAdminCall, 
     productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
-    speakers: configSpeakers, statuses, currentUser, confirm
+    speakers: configSpeakers, statuses, currentUser, confirm,
+    programs
   } = useDashboard();
   
   const speakersList = configSpeakers.map(s => s.name);
@@ -6410,9 +6459,13 @@ export const AdminCallsTable: React.FC = () => {
   const [drawerCategory, setDrawerCategory] = useState<'admin-calls' | 'ama-meetings' | 'student-projects' | null>(null);
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const [filterPrograms, setFilterPrograms] = useState<string[]>([]);
+  const [filterPocs, setFilterPocs] = useState<string[]>([]);
 
   useEffect(() => {
     setFilterStatuses([]);
+    setFilterPrograms([]);
+    setFilterPocs([]);
   }, [subTab]);
 
   // Sorting states
@@ -6447,6 +6500,9 @@ export const AdminCallsTable: React.FC = () => {
 
   const [editingCallPocId, setEditingCallPocId] = useState<string | null>(null);
   const [inlineCallPocValue, setInlineCallPocValue] = useState('');
+
+  const [editingCallProgramId, setEditingCallProgramId] = useState<string | null>(null);
+  const [inlineCallProgramsValue, setInlineCallProgramsValue] = useState<string[]>([]);
 
   const [editingCallTopicId, setEditingCallTopicId] = useState<string | null>(null);
   const [inlineCallTopicValue, setInlineCallTopicValue] = useState('');
@@ -6541,6 +6597,17 @@ export const AdminCallsTable: React.FC = () => {
     if (!matchesSearch) return false;
     
     if (filterStatuses.length > 0 && !filterStatuses.includes(c.status)) return false;
+
+    if (filterPrograms.length > 0) {
+      const callPrograms = c.program ? c.program.split(',').map(p => p.trim()).filter(Boolean) : [];
+      if (!callPrograms.some(p => filterPrograms.includes(p))) return false;
+    }
+
+    if (filterPocs.length > 0) {
+      const related = getRelatedFeatures(c);
+      const hasMatchingPoc = related.some(feat => filterPocs.includes(feat.poc));
+      if (!hasMatchingPoc) return false;
+    }
     
     if (filterSuperPriorityOnly) {
       const related = getRelatedFeatures(c);
@@ -6582,7 +6649,8 @@ export const AdminCallsTable: React.FC = () => {
       cohortTopic: 'New Admin Call',
       discussion: '',
       actions: '',
-      status: 'Scheduled'
+      status: 'Scheduled',
+      program: ''
     };
     addAdminCall(newCall);
     setInlineCallTopicValue('New Admin Call');
@@ -6601,6 +6669,13 @@ export const AdminCallsTable: React.FC = () => {
     if (!matchesSuperPriority) return false;
     
     if (filterStatuses.length > 0 && !filterStatuses.includes(item.status)) return false;
+
+    if (filterPrograms.length > 0) {
+      const callPrograms = parent.program ? parent.program.split(',').map(p => p.trim()).filter(Boolean) : [];
+      if (!callPrograms.some(p => filterPrograms.includes(p))) return false;
+    }
+
+    if (filterPocs.length > 0 && !filterPocs.includes(item.poc)) return false;
 
     const matchesSearch = 
       item.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -6662,6 +6737,18 @@ export const AdminCallsTable: React.FC = () => {
               selectedValues={filterStatuses}
               onChange={setFilterStatuses}
               placeholder="Status"
+            />
+            <MultiSelectDropdown
+              options={programs.map(p => p.name)}
+              selectedValues={filterPrograms}
+              onChange={setFilterPrograms}
+              placeholder="Program"
+            />
+            <MultiSelectDropdown
+              options={speakersList}
+              selectedValues={filterPocs}
+              onChange={setFilterPocs}
+              placeholder="Feature POC"
             />
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', marginLeft: '0.5rem', whiteSpace: 'nowrap' }}>
               <input 
@@ -6741,6 +6828,7 @@ export const AdminCallsTable: React.FC = () => {
                 <tr>
                   <th onClick={() => handleCallSort('date')} style={{ width: '150px', cursor: 'pointer' }}>Call Date {callSortField === 'date' ? (callSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleCallSort('adminPoc')} style={{ width: '200px', cursor: 'pointer' }}>Admin / POC {callSortField === 'adminPoc' ? (callSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleCallSort('program')} style={{ width: '120px', cursor: 'pointer' }}>Program {callSortField === 'program' ? (callSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleCallSort('cohortTopic')} style={{ cursor: 'pointer' }}>Topic / Call Agenda {callSortField === 'cohortTopic' ? (callSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleCallSort('status')} style={{ width: '150px', cursor: 'pointer' }}>Status {callSortField === 'status' ? (callSortAsc ? '▲' : '▼') : ''}</th>
                   <th style={{ width: '120px' }}>Rating</th>
@@ -6837,6 +6925,119 @@ export const AdminCallsTable: React.FC = () => {
                           )}
                         </td>
                         <td
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingCallProgramId(call.id);
+                            const selected = call.program ? call.program.split(',').map(s => s.trim()).filter(Boolean) : [];
+                            setInlineCallProgramsValue(selected);
+                          }}
+                          style={{ position: 'relative', cursor: 'pointer' }}
+                          title="Click to edit Program"
+                        >
+                          {editingCallProgramId === call.id && (
+                            <div 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingCallProgramId(null);
+                              }}
+                              style={{
+                                position: 'fixed',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                zIndex: 99,
+                                background: 'transparent'
+                              }}
+                            />
+                          )}
+                          {editingCallProgramId === call.id ? (
+                            <div 
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                position: 'absolute',
+                                top: '100%',
+                                left: 0,
+                                zIndex: 100,
+                                backgroundColor: 'var(--panel-bg)',
+                                border: '1.5px solid var(--border)',
+                                borderRadius: '8px',
+                                padding: '8px',
+                                boxShadow: 'var(--shadow-lg)',
+                                minWidth: '160px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '6px',
+                              }}
+                            >
+                              {programs.length === 0 ? (
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', padding: '4px' }}>No programs configured</span>
+                              ) : (
+                                programs.map(p => {
+                                  const isChecked = inlineCallProgramsValue.includes(p.name);
+                                  return (
+                                    <label 
+                                      key={p.id} 
+                                      style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '8px', 
+                                        cursor: 'pointer',
+                                        fontSize: '0.8rem',
+                                        padding: '4px 6px',
+                                        borderRadius: '4px',
+                                        userSelect: 'none',
+                                        color: 'var(--text-primary)'
+                                      }}
+                                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--background-alt)'}
+                                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={(e) => {
+                                          let next;
+                                          if (e.target.checked) {
+                                            next = [...inlineCallProgramsValue, p.name];
+                                          } else {
+                                            next = inlineCallProgramsValue.filter(x => x !== p.name);
+                                          }
+                                          setInlineCallProgramsValue(next);
+                                          updateAdminCall(call.id, { program: next.join(', ') });
+                                        }}
+                                        style={{ cursor: 'pointer' }}
+                                      />
+                                      <span>{p.name}</span>
+                                    </label>
+                                  );
+                                })
+                              )}
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border)', paddingTop: '6px', marginTop: '4px' }}>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingCallProgramId(null);
+                                  }}
+                                  style={{
+                                    padding: '2px 8px',
+                                    fontSize: '0.75rem',
+                                    backgroundColor: 'var(--primary)',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontWeight: 500
+                                  }}
+                                >
+                                  Done
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <span style={{ fontWeight: 600 }}>{call.program || '—'}</span>
+                          )}
+                        </td>
+                        <td
                           onDoubleClick={(e) => {
                             e.stopPropagation();
                             setEditingCallTopicId(call.id);
@@ -6888,17 +7089,31 @@ export const AdminCallsTable: React.FC = () => {
                                 {related.length > 0 && (() => {
                                   const doneCount = related.filter(feat => feat.finalReleaseCompleted || isCompletedStatus(feat.status)).length;
                                   const clickupCount = related.filter(feat => !!feat.taskLink).length;
+                                  const isAllDone = doneCount === related.length;
+                                  const isAllClickup = clickupCount === related.length;
                                   return (
-                                    <span className="badge" style={{ 
-                                      fontSize: '0.7rem', 
-                                      padding: '2px 6px', 
-                                      background: 'var(--primary-glow)', 
-                                      color: 'var(--primary)', 
-                                      border: '1px solid var(--primary-border)',
-                                      fontWeight: 500
-                                    }}>
-                                      {doneCount}/{related.length} {related.length === 1 ? 'feature' : 'features'}{clickupCount > 0 ? ` (${clickupCount} on ClickUp)` : ''}
-                                    </span>
+                                    <>
+                                      <span className="badge" style={{ 
+                                        fontSize: '0.7rem', 
+                                        padding: '2px 6px', 
+                                        background: isAllDone ? 'rgba(16, 185, 129, 0.08)' : 'var(--primary-glow)', 
+                                        color: isAllDone ? '#10b981' : 'var(--primary)', 
+                                        border: isAllDone ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--primary-border)',
+                                        fontWeight: 500
+                                      }}>
+                                        {doneCount}/{related.length} {related.length === 1 ? 'feature' : 'features'}
+                                      </span>
+                                      <span className="badge" style={{ 
+                                        fontSize: '0.7rem', 
+                                        padding: '2px 6px', 
+                                        background: isAllClickup ? 'rgba(16, 185, 129, 0.08)' : 'rgba(123, 97, 255, 0.08)', 
+                                        color: isAllClickup ? '#10b981' : '#7b61ff', 
+                                        border: isAllClickup ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(123, 97, 255, 0.25)',
+                                        fontWeight: 500
+                                      }}>
+                                        {clickupCount}/{related.length} on ClickUp
+                                      </span>
+                                    </>
                                   );
                                 })()}
                               </>
@@ -7010,7 +7225,7 @@ export const AdminCallsTable: React.FC = () => {
                       {/* Accordion Expansion */}
                       {isExpanded && (
                         <tr style={{ background: 'var(--background)' }}>
-                          <td colSpan={6} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
+                          <td colSpan={7} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
                             <div style={{
                               background: 'var(--panel-bg)',
                               border: '1px solid var(--border)',
@@ -7720,7 +7935,8 @@ export const TarunSirMeetingsTable: React.FC = () => {
   const { 
     tarunSirMeetings, updateTarunSirMeeting, addTarunSirMeeting, deleteTarunSirMeeting, 
     productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
-    speakers: configSpeakers, statuses, currentUser, confirm
+    speakers: configSpeakers, statuses, currentUser, confirm,
+    programs
   } = useDashboard();
   
   const speakersList = configSpeakers.map(s => s.name);
@@ -7728,9 +7944,13 @@ export const TarunSirMeetingsTable: React.FC = () => {
   const [subTab, setSubTab] = useState<'schedule' | 'feedback'>('schedule');
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const [filterPrograms, setFilterPrograms] = useState<string[]>([]);
+  const [filterPocs, setFilterPocs] = useState<string[]>([]);
 
   useEffect(() => {
     setFilterStatuses([]);
+    setFilterPrograms([]);
+    setFilterPocs([]);
   }, [subTab]);
 
   // Sorting states
@@ -7769,6 +7989,9 @@ export const TarunSirMeetingsTable: React.FC = () => {
   const [editingMeetingTopicId, setEditingMeetingTopicId] = useState<string | null>(null);
   const [inlineMeetingTopicValue, setInlineMeetingTopicValue] = useState('');
   const editMeetingTopicInputRef = useRef<HTMLInputElement>(null);
+
+  const [editingMeetingProgramId, setEditingMeetingProgramId] = useState<string | null>(null);
+  const [inlineMeetingProgramsValue, setInlineMeetingProgramsValue] = useState<string[]>([]);
 
   const [expandedMeetingId, setExpandedMeetingId] = useState<string | null>(null);
 
@@ -7842,7 +8065,8 @@ export const TarunSirMeetingsTable: React.FC = () => {
       cohortTopic: 'New Meeting Topic',
       discussion: '',
       actions: '',
-      status: 'Scheduled'
+      status: 'Scheduled',
+      program: ''
     };
     addTarunSirMeeting(newMeeting);
     setExpandedMeetingId(newMeeting.id);
@@ -7878,6 +8102,13 @@ export const TarunSirMeetingsTable: React.FC = () => {
     if (!matchesSuperPriority) return false;
     
     if (filterStatuses.length > 0 && !filterStatuses.includes(item.status)) return false;
+
+    if (filterPrograms.length > 0) {
+      const meetingPrograms = parent.program ? parent.program.split(',').map(p => p.trim()).filter(Boolean) : [];
+      if (!meetingPrograms.some(p => filterPrograms.includes(p))) return false;
+    }
+
+    if (filterPocs.length > 0 && !filterPocs.includes(item.poc)) return false;
 
     const matchesSearch = 
       item.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -7926,6 +8157,18 @@ export const TarunSirMeetingsTable: React.FC = () => {
   // Filter meetings
   const filteredMeetings = tarunSirMeetings.filter(meeting => {
     if (filterStatuses.length > 0 && !filterStatuses.includes(meeting.status)) return false;
+
+    if (filterPrograms.length > 0) {
+      const meetingPrograms = meeting.program ? meeting.program.split(',').map(p => p.trim()).filter(Boolean) : [];
+      if (!meetingPrograms.some(p => filterPrograms.includes(p))) return false;
+    }
+
+    if (filterPocs.length > 0) {
+      const related = getRelatedFeatures(meeting);
+      const hasMatchingPoc = related.some(feat => filterPocs.includes(feat.poc));
+      if (!hasMatchingPoc) return false;
+    }
+
     const matchesSearch = 
       meeting.cohortTopic.toLowerCase().includes(searchQuery.toLowerCase()) ||
       meeting.adminPoc.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -7973,6 +8216,18 @@ export const TarunSirMeetingsTable: React.FC = () => {
               selectedValues={filterStatuses}
               onChange={setFilterStatuses}
               placeholder="Status"
+            />
+            <MultiSelectDropdown
+              options={programs.map(p => p.name)}
+              selectedValues={filterPrograms}
+              onChange={setFilterPrograms}
+              placeholder="Program"
+            />
+            <MultiSelectDropdown
+              options={speakersList}
+              selectedValues={filterPocs}
+              onChange={setFilterPocs}
+              placeholder="Feature POC"
             />
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', marginLeft: '0.5rem', whiteSpace: 'nowrap' }}>
               <input 
@@ -8052,6 +8307,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                 <tr>
                   <th onClick={() => handleMeetingSort('date')} style={{ width: '150px', cursor: 'pointer' }}>Meeting Date {meetingSortField === 'date' ? (meetingSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleMeetingSort('adminPoc')} style={{ width: '200px', cursor: 'pointer' }}>Admin / POC {meetingSortField === 'adminPoc' ? (meetingSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleMeetingSort('program')} style={{ width: '120px', cursor: 'pointer' }}>Program {meetingSortField === 'program' ? (meetingSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleMeetingSort('cohortTopic')} style={{ cursor: 'pointer' }}>Topic / Meeting Agenda {meetingSortField === 'cohortTopic' ? (meetingSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleMeetingSort('status')} style={{ width: '150px', cursor: 'pointer' }}>Status {meetingSortField === 'status' ? (meetingSortAsc ? '▲' : '▼') : ''}</th>
                   <th style={{ width: '40px' }}></th>
@@ -8147,6 +8403,119 @@ export const TarunSirMeetingsTable: React.FC = () => {
                           )}
                         </td>
                         <td
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingMeetingProgramId(meeting.id);
+                            const selected = meeting.program ? meeting.program.split(',').map(s => s.trim()).filter(Boolean) : [];
+                            setInlineMeetingProgramsValue(selected);
+                          }}
+                          style={{ position: 'relative', cursor: 'pointer' }}
+                          title="Click to edit Program"
+                        >
+                          {editingMeetingProgramId === meeting.id && (
+                            <div 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingMeetingProgramId(null);
+                              }}
+                              style={{
+                                position: 'fixed',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                zIndex: 99,
+                                background: 'transparent'
+                              }}
+                            />
+                          )}
+                          {editingMeetingProgramId === meeting.id ? (
+                            <div 
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                position: 'absolute',
+                                top: '100%',
+                                left: 0,
+                                zIndex: 100,
+                                backgroundColor: 'var(--panel-bg)',
+                                border: '1.5px solid var(--border)',
+                                borderRadius: '8px',
+                                padding: '8px',
+                                boxShadow: 'var(--shadow-lg)',
+                                minWidth: '160px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '6px',
+                              }}
+                            >
+                              {programs.length === 0 ? (
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', padding: '4px' }}>No programs configured</span>
+                              ) : (
+                                programs.map(p => {
+                                  const isChecked = inlineMeetingProgramsValue.includes(p.name);
+                                  return (
+                                    <label 
+                                      key={p.id} 
+                                      style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '8px', 
+                                        cursor: 'pointer',
+                                        fontSize: '0.8rem',
+                                        padding: '4px 6px',
+                                        borderRadius: '4px',
+                                        userSelect: 'none',
+                                        color: 'var(--text-primary)'
+                                      }}
+                                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--background-alt)'}
+                                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={(e) => {
+                                          let next;
+                                          if (e.target.checked) {
+                                            next = [...inlineMeetingProgramsValue, p.name];
+                                          } else {
+                                            next = inlineMeetingProgramsValue.filter(x => x !== p.name);
+                                          }
+                                          setInlineMeetingProgramsValue(next);
+                                          updateTarunSirMeeting(meeting.id, { program: next.join(', ') });
+                                        }}
+                                        style={{ cursor: 'pointer' }}
+                                      />
+                                      <span>{p.name}</span>
+                                    </label>
+                                  );
+                                })
+                              )}
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border)', paddingTop: '6px', marginTop: '4px' }}>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingMeetingProgramId(null);
+                                  }}
+                                  style={{
+                                    padding: '2px 8px',
+                                    fontSize: '0.75rem',
+                                    backgroundColor: 'var(--primary)',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontWeight: 500
+                                  }}
+                                >
+                                  Done
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <span style={{ fontWeight: 600 }}>{meeting.program || '—'}</span>
+                          )}
+                        </td>
+                        <td
                           onDoubleClick={(e) => {
                             e.stopPropagation();
                             setEditingMeetingTopicId(meeting.id);
@@ -8197,17 +8566,31 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                 {related.length > 0 && (() => {
                                   const doneCount = related.filter(feat => feat.finalReleaseCompleted || isCompletedStatus(feat.status)).length;
                                   const clickupCount = related.filter(feat => !!feat.taskLink).length;
+                                  const isAllDone = doneCount === related.length;
+                                  const isAllClickup = clickupCount === related.length;
                                   return (
-                                    <span className="badge" style={{ 
-                                      fontSize: '0.7rem', 
-                                      padding: '2px 6px', 
-                                      background: 'var(--primary-glow)', 
-                                      color: 'var(--primary)', 
-                                      border: '1px solid var(--primary-border)',
-                                      fontWeight: 500
-                                    }}>
-                                      {doneCount}/{related.length} {related.length === 1 ? 'feature' : 'features'}{clickupCount > 0 ? ` (${clickupCount} on ClickUp)` : ''}
-                                    </span>
+                                    <>
+                                      <span className="badge" style={{ 
+                                        fontSize: '0.7rem', 
+                                        padding: '2px 6px', 
+                                        background: isAllDone ? 'rgba(16, 185, 129, 0.08)' : 'var(--primary-glow)', 
+                                        color: isAllDone ? '#10b981' : 'var(--primary)', 
+                                        border: isAllDone ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid var(--primary-border)',
+                                        fontWeight: 500
+                                      }}>
+                                        {doneCount}/{related.length} {related.length === 1 ? 'feature' : 'features'}
+                                      </span>
+                                      <span className="badge" style={{ 
+                                        fontSize: '0.7rem', 
+                                        padding: '2px 6px', 
+                                        background: isAllClickup ? 'rgba(16, 185, 129, 0.08)' : 'rgba(123, 97, 255, 0.08)', 
+                                        color: isAllClickup ? '#10b981' : '#7b61ff', 
+                                        border: isAllClickup ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(123, 97, 255, 0.25)',
+                                        fontWeight: 500
+                                      }}>
+                                        {clickupCount}/{related.length} on ClickUp
+                                      </span>
+                                    </>
                                   );
                                 })()}
                               </>
@@ -8287,7 +8670,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                       {/* Accordion Expansion */}
                       {isExpanded && (
                         <tr style={{ background: 'var(--background)' }}>
-                          <td colSpan={5} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
+                          <td colSpan={6} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
                             <div style={{
                               background: 'var(--panel-bg)',
                               border: '1px solid var(--border)',
