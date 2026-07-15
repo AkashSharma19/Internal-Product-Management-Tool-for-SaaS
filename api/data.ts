@@ -515,7 +515,6 @@ export default async function handler(req: any, res: any) {
           const speaker = await ConfigSpeaker.findOne({ id: userId }).lean();
           if (speaker) isAuthenticated = true;
         }
-        // Allow localhost for local dev
         const host = req.headers.host || '';
         const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
         if (isLocalhost) isAuthenticated = true;
@@ -553,11 +552,12 @@ export default async function handler(req: any, res: any) {
               serverRes.on('data', (chunk) => { dataStr += chunk; });
               serverRes.on('end', () => {
                 try {
-                  const parsed = JSON.parse(dataStr);
+                  const text = dataStr.trim();
+                  const parsed = text ? JSON.parse(text) : {};
                   parsed._statusCode = serverRes.statusCode;
                   resolve(parsed);
                 } catch (e) {
-                  reject(new Error(`Failed to parse ClickUp response: ${dataStr.slice(0, 200)}`));
+                  resolve({ _statusCode: serverRes.statusCode, _raw: dataStr.slice(0, 200) });
                 }
               });
             });
@@ -571,26 +571,29 @@ export default async function handler(req: any, res: any) {
         const teamsData = await makeRequest('https://api.clickup.com/api/v2/team');
         const teamId = teamsData?.teams?.[0]?.id;
         if (!teamId) {
-          return res.status(200).json({ success: false, error: 'No ClickUp workspace/team found for this API key. Please verify your key is correct.' });
+          return res.status(200).json({ success: false, error: 'No ClickUp workspace found for this API key. Please verify your key.' });
         }
 
-        // Step 2: Build the webhook URL for this deployment
+        // Step 2: Build the webhook target URL
         const protocol = req.headers['x-forwarded-proto'] || (isLocalhost ? 'http' : 'https');
         const webhookUrl = `${protocol}://${host}/api/webhook`;
         console.log('[Webhook Register] Target URL:', webhookUrl);
 
-        // Step 3: Check if webhook already exists for this URL
+        // Step 3: List all existing webhooks and delete any pointing to our endpoint
+        // (could be stale/deactivated ones that prevent ClickUp from calling us)
         const existingWebhooks = await makeRequest(`https://api.clickup.com/api/v2/team/${teamId}/webhook`);
-        const alreadyExists = existingWebhooks?.webhooks?.some(
-          (w: any) => w.endpoint === webhookUrl && w.status === 'active'
-        );
+        const allWebhooks: any[] = existingWebhooks?.webhooks || [];
+        console.log('[Webhook Register] Existing webhooks:', allWebhooks.map((w: any) => `${w.id} ${w.endpoint} [${w.status}]`).join(', ') || 'none');
 
-        if (alreadyExists) {
-          console.log('[Webhook Register] Webhook already exists for', webhookUrl);
-          return res.status(200).json({ success: true, alreadyExisted: true });
+        // Delete any webhook pointing to our endpoint (regardless of status)
+        for (const w of allWebhooks) {
+          if (w.endpoint && w.endpoint.includes('/api/webhook') && w.endpoint.includes(host.split(':')[0])) {
+            const deleteResult = await makeRequest(`https://api.clickup.com/api/v2/webhook/${w.id}`, 'DELETE');
+            console.log(`[Webhook Register] Deleted old webhook ${w.id} (${w.endpoint}):`, deleteResult._statusCode);
+          }
         }
 
-        // Step 4: Register the webhook
+        // Step 4: Register a fresh webhook
         const registerBody = JSON.stringify({
           endpoint: webhookUrl,
           events: ['taskStatusUpdated', 'taskAssigneeUpdated', 'taskUpdated']
@@ -602,21 +605,21 @@ export default async function handler(req: any, res: any) {
           registerBody
         );
 
-        console.log('[Webhook Register] ClickUp response status:', registerResult._statusCode, JSON.stringify(registerResult).slice(0, 300));
+        console.log('[Webhook Register] Registration result:', registerResult._statusCode, JSON.stringify(registerResult).slice(0, 400));
 
         if (registerResult._statusCode >= 200 && registerResult._statusCode < 300) {
-          return res.status(200).json({ success: true, webhook: registerResult });
+          return res.status(200).json({ success: true, webhookId: registerResult.id, webhookUrl });
         }
 
-        // Always return 200 from our API with a clear error message
-        const errMsg = registerResult?.err || registerResult?.error || `ClickUp returned ${registerResult._statusCode}`;
-        return res.status(200).json({ success: false, error: `ClickUp registration failed: ${errMsg}` });
+        const errMsg = registerResult?.err || registerResult?.error || registerResult?._raw || `ClickUp returned status ${registerResult._statusCode}`;
+        return res.status(200).json({ success: false, error: `Registration failed: ${errMsg}` });
 
       } catch (err: any) {
         console.error('ClickUp webhook registration error:', err.message);
         return res.status(200).json({ success: false, error: err.message });
       }
     }
+
 
     if (action === 'clickup-check-webhook') {
       try {
