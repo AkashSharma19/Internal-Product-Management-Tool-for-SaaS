@@ -5240,18 +5240,21 @@ export const StudentMeetingsTable: React.FC = () => {
                               <>
                                 <span>{ama.topic || <span style={{ color: 'var(--text-muted)' }}>— (No topic)</span>}</span>
 
-                                {related.length > 0 && (
-                                  <span className="badge" style={{ 
-                                    fontSize: '0.7rem', 
-                                    padding: '2px 6px', 
-                                    background: 'var(--primary-glow)', 
-                                    color: 'var(--primary)', 
-                                    border: '1px solid var(--primary-border)',
-                                    fontWeight: 500
-                                  }}>
-                                    {related.length} {related.length === 1 ? 'feature' : 'features'}
-                                  </span>
-                                )}
+                                {related.length > 0 && (() => {
+                                  const doneCount = related.filter(feat => feat.finalReleaseCompleted || isCompletedStatus(feat.status)).length;
+                                  return (
+                                    <span className="badge" style={{ 
+                                      fontSize: '0.7rem', 
+                                      padding: '2px 6px', 
+                                      background: 'var(--primary-glow)', 
+                                      color: 'var(--primary)', 
+                                      border: '1px solid var(--primary-border)',
+                                      fontWeight: 500
+                                    }}>
+                                      {doneCount}/{related.length} {related.length === 1 ? 'feature' : 'features'}
+                                    </span>
+                                  );
+                                })()}
                               </>
                             )}
                           </div>
@@ -6507,6 +6510,27 @@ export const AdminCallsTable: React.FC = () => {
     }
   }, [editingFeedbackTopicId]);
 
+  const getRelatedFeatures = (call: AdminCall) => {
+    const matchesId = productItems.filter(item => 
+      !item.id.startsWith('prod-temp-') && 
+      item.notes && 
+      item.notes.includes(`Admin Call ID: ${call.id}`)
+    );
+    return filterSuperPriorityOnly ? matchesId.filter(feat => feat.raisedByTarunSir) : matchesId;
+  };
+
+  const getParentCall = (item: ProductItem): AdminCall | undefined => {
+    if (item.notes && item.notes.includes('Admin Call ID:')) {
+      const match = item.notes.match(/Admin Call ID:\s*([^\s,;\]]+)/);
+      if (match && match[1]) {
+        return adminCalls.find(call => call.id === match[1]);
+      }
+    }
+    // AMA features (prod-ama-) should never be matched to an Admin Call
+    if (item.id.startsWith('prod-ama-')) return undefined;
+    return undefined;
+  };
+
   const filtered = adminCalls.filter(c => {
     const matchesSearch = 
       c.adminPoc.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -6563,27 +6587,6 @@ export const AdminCallsTable: React.FC = () => {
     setInlineCallTopicValue('New Admin Call');
     setEditingCallTopicId(newCall.id);
     setExpandedCallId(newCall.id);
-  };
-
-  const getRelatedFeatures = (call: AdminCall) => {
-    const matchesId = productItems.filter(item => 
-      !item.id.startsWith('prod-temp-') && 
-      item.notes && 
-      item.notes.includes(`Admin Call ID: ${call.id}`)
-    );
-    return filterSuperPriorityOnly ? matchesId.filter(feat => feat.raisedByTarunSir) : matchesId;
-  };
-
-  const getParentCall = (item: ProductItem): AdminCall | undefined => {
-    if (item.notes && item.notes.includes('Admin Call ID:')) {
-      const match = item.notes.match(/Admin Call ID:\s*([^\s,;\]]+)/);
-      if (match && match[1]) {
-        return adminCalls.find(call => call.id === match[1]);
-      }
-    }
-    // AMA features (prod-ama-) should never be matched to an Admin Call
-    if (item.id.startsWith('prod-ama-')) return undefined;
-    return undefined;
   };
 
   const filteredFeedbackFeatures = productItems.filter(item => {
@@ -6881,18 +6884,21 @@ export const AdminCallsTable: React.FC = () => {
                               <>
                                 <span>{call.cohortTopic || <span style={{ color: 'var(--text-muted)' }}>— (No topic)</span>}</span>
 
-                                {related.length > 0 && (
-                                  <span className="badge" style={{ 
-                                    fontSize: '0.7rem', 
-                                    padding: '2px 6px', 
-                                    background: 'var(--primary-glow)', 
-                                    color: 'var(--primary)', 
-                                    border: '1px solid var(--primary-border)',
-                                    fontWeight: 500
-                                  }}>
-                                    {related.length} {related.length === 1 ? 'feature' : 'features'}
-                                  </span>
-                                )}
+                                {related.length > 0 && (() => {
+                                  const doneCount = related.filter(feat => feat.finalReleaseCompleted || isCompletedStatus(feat.status)).length;
+                                  return (
+                                    <span className="badge" style={{ 
+                                      fontSize: '0.7rem', 
+                                      padding: '2px 6px', 
+                                      background: 'var(--primary-glow)', 
+                                      color: 'var(--primary)', 
+                                      border: '1px solid var(--primary-border)',
+                                      fontWeight: 500
+                                    }}>
+                                      {doneCount}/{related.length} {related.length === 1 ? 'feature' : 'features'}
+                                    </span>
+                                  );
+                                })()}
                               </>
                             )}
                           </div>
@@ -8186,18 +8192,21 @@ export const TarunSirMeetingsTable: React.FC = () => {
                             ) : (
                               <>
                                 <span>{meeting.cohortTopic || <span style={{ color: 'var(--text-muted)' }}>— (No topic)</span>}</span>
-                                {related.length > 0 && (
-                                  <span className="badge" style={{ 
-                                    fontSize: '0.7rem', 
-                                    padding: '2px 6px', 
-                                    background: 'var(--primary-glow)', 
-                                    color: 'var(--primary)', 
-                                    border: '1px solid var(--primary-border)',
-                                    fontWeight: 500
-                                  }}>
-                                    {related.length} {related.length === 1 ? 'feature' : 'features'}
-                                  </span>
-                                )}
+                                {related.length > 0 && (() => {
+                                  const doneCount = related.filter(feat => feat.finalReleaseCompleted || isCompletedStatus(feat.status)).length;
+                                  return (
+                                    <span className="badge" style={{ 
+                                      fontSize: '0.7rem', 
+                                      padding: '2px 6px', 
+                                      background: 'var(--primary-glow)', 
+                                      color: 'var(--primary)', 
+                                      border: '1px solid var(--primary-border)',
+                                      fontWeight: 500
+                                    }}>
+                                      {doneCount}/{related.length} {related.length === 1 ? 'feature' : 'features'}
+                                    </span>
+                                  );
+                                })()}
                               </>
                             )}
                           </div>

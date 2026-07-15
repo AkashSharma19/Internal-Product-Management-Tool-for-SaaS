@@ -2064,16 +2064,76 @@ const CalendarConfigSection: React.FC = () => {
 };
 
 
-type ConfigTab = 'speakers' | 'groups' | 'statuses' | 'programs' | 'clickup' | 'forms' | 'security' | 'calendar';
+const IntegrationsSection: React.FC = () => {
+  const [subTab, setSubTab] = useState<'clickup' | 'security'>('clickup');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Sub-tab Navigation */}
+      <div style={{ 
+        display: 'flex', 
+        borderBottom: '1px solid var(--border)', 
+        padding: '0.25rem 2rem 0 2rem', 
+        background: 'var(--panel-bg)', 
+        gap: '1.5rem' 
+      }}>
+        <button
+          onClick={() => setSubTab('clickup')}
+          style={{
+            padding: '0.75rem 0.5rem',
+            border: 'none',
+            background: 'none',
+            borderBottom: subTab === 'clickup' ? '2px solid var(--primary)' : '2px solid transparent',
+            color: subTab === 'clickup' ? 'var(--text-primary)' : 'var(--text-muted)',
+            fontWeight: 600,
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            outline: 'none'
+          }}
+        >
+          ClickUp Integration
+        </button>
+        <button
+          onClick={() => setSubTab('security')}
+          style={{
+            padding: '0.75rem 0.5rem',
+            border: 'none',
+            background: 'none',
+            borderBottom: subTab === 'security' ? '2px solid var(--primary)' : '2px solid transparent',
+            color: subTab === 'security' ? 'var(--text-primary)' : 'var(--text-muted)',
+            fontWeight: 600,
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            outline: 'none'
+          }}
+        >
+          Form Security
+        </button>
+      </div>
+
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {subTab === 'clickup' ? (
+          <ClickupSettingsSection />
+        ) : (
+          <FormSecuritySection />
+        )}
+      </div>
+    </div>
+  );
+};
+
+
+type ConfigTab = 'speakers' | 'groups' | 'statuses' | 'programs' | 'integrations' | 'forms' | 'calendar';
 
 const CONFIG_TABS: { id: ConfigTab; label: string; icon: React.ReactNode }[] = [
   { id: 'speakers', label: 'POC Owners / Speakers', icon: <Users size={15} /> },
   { id: 'groups',   label: 'Product Groups',         icon: <Layers size={15} /> },
   { id: 'statuses', label: 'Statuses',               icon: <Tag size={15} /> },
   { id: 'programs', label: 'Programs & Cohorts',     icon: <Layers size={15} /> },
-  { id: 'clickup',  label: 'ClickUp Integration',    icon: <Settings size={15} /> },
+  { id: 'integrations', label: 'Integrations',       icon: <Link size={15} /> },
   { id: 'forms',    label: 'Form Builder',           icon: <ClipboardList size={15} /> },
-  { id: 'security', label: 'Form Security',          icon: <Shield size={15} /> },
   { id: 'calendar', label: 'Sharable Calendar',      icon: <Calendar size={15} /> },
 ];
 
@@ -2140,9 +2200,8 @@ export const ConfigSection: React.FC = () => {
           {activeTab === 'groups' && <ProductGroupsSection />}
           {activeTab === 'statuses' && <StatusesSection />}
           {activeTab === 'programs' && <ProgramsSection />}
-          {activeTab === 'clickup' && <ClickupSettingsSection />}
+          {activeTab === 'integrations' && <IntegrationsSection />}
           {activeTab === 'forms' && <FormBuilderSection />}
-          {activeTab === 'security' && <FormSecuritySection />}
           {activeTab === 'calendar' && <CalendarConfigSection />}
         </div>
       </div>
