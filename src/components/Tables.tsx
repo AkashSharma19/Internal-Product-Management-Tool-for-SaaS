@@ -5242,6 +5242,7 @@ export const StudentMeetingsTable: React.FC = () => {
 
                                 {related.length > 0 && (() => {
                                   const doneCount = related.filter(feat => feat.finalReleaseCompleted || isCompletedStatus(feat.status)).length;
+                                  const clickupCount = related.filter(feat => !!feat.taskLink).length;
                                   return (
                                     <span className="badge" style={{ 
                                       fontSize: '0.7rem', 
@@ -5251,7 +5252,7 @@ export const StudentMeetingsTable: React.FC = () => {
                                       border: '1px solid var(--primary-border)',
                                       fontWeight: 500
                                     }}>
-                                      {doneCount}/{related.length} {related.length === 1 ? 'feature' : 'features'}
+                                      {doneCount}/{related.length} {related.length === 1 ? 'feature' : 'features'}{clickupCount > 0 ? ` (${clickupCount} on ClickUp)` : ''}
                                     </span>
                                   );
                                 })()}
@@ -6886,6 +6887,7 @@ export const AdminCallsTable: React.FC = () => {
 
                                 {related.length > 0 && (() => {
                                   const doneCount = related.filter(feat => feat.finalReleaseCompleted || isCompletedStatus(feat.status)).length;
+                                  const clickupCount = related.filter(feat => !!feat.taskLink).length;
                                   return (
                                     <span className="badge" style={{ 
                                       fontSize: '0.7rem', 
@@ -6895,7 +6897,7 @@ export const AdminCallsTable: React.FC = () => {
                                       border: '1px solid var(--primary-border)',
                                       fontWeight: 500
                                     }}>
-                                      {doneCount}/{related.length} {related.length === 1 ? 'feature' : 'features'}
+                                      {doneCount}/{related.length} {related.length === 1 ? 'feature' : 'features'}{clickupCount > 0 ? ` (${clickupCount} on ClickUp)` : ''}
                                     </span>
                                   );
                                 })()}
@@ -8194,6 +8196,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                 <span>{meeting.cohortTopic || <span style={{ color: 'var(--text-muted)' }}>— (No topic)</span>}</span>
                                 {related.length > 0 && (() => {
                                   const doneCount = related.filter(feat => feat.finalReleaseCompleted || isCompletedStatus(feat.status)).length;
+                                  const clickupCount = related.filter(feat => !!feat.taskLink).length;
                                   return (
                                     <span className="badge" style={{ 
                                       fontSize: '0.7rem', 
@@ -8203,7 +8206,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                       border: '1px solid var(--primary-border)',
                                       fontWeight: 500
                                     }}>
-                                      {doneCount}/{related.length} {related.length === 1 ? 'feature' : 'features'}
+                                      {doneCount}/{related.length} {related.length === 1 ? 'feature' : 'features'}{clickupCount > 0 ? ` (${clickupCount} on ClickUp)` : ''}
                                     </span>
                                   );
                                 })()}
