@@ -7,7 +7,19 @@ import {
   PlanItemModel
 } from './lib/models.js';
 
+// In-memory store of the last received payload for debugging
+let lastReceivedPayload: { time: string; payload: any } | null = null;
+
 export default async function handler(req: any, res: any) {
+  // GET: return info about the last payload received — useful for debugging
+  if (req.method === 'GET') {
+    return res.status(200).json({
+      active: true,
+      message: 'ClickUp webhook endpoint is active.',
+      lastReceived: lastReceivedPayload
+    });
+  }
+
   if (req.method !== 'POST') {
     return res.status(200).json({ success: true, message: 'Webhook endpoint is active.' });
   }
@@ -17,7 +29,9 @@ export default async function handler(req: any, res: any) {
 
     const payload = req.body || {};
 
-    console.log('[Webhook] Received event:', JSON.stringify(payload).slice(0, 500));
+    // Store for debugging (visible via GET /api/webhook)
+    lastReceivedPayload = { time: new Date().toISOString(), payload };
+    console.log('[Webhook] Received event:', JSON.stringify(payload).slice(0, 1000));
 
     // ClickUp sends a handshake to verify the webhook when registering
     if (payload.event === 'webhook_handshake') {
