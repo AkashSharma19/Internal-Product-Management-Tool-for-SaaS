@@ -1094,12 +1094,13 @@ const ProgramsSection: React.FC = () => {
 // CLICKUP INTEGRATION SECTION
 // ═══════════════════════════════════════════════════════════════════════════════
 const ClickupSettingsSection: React.FC = () => {
-  const { clickupApiKey, setClickupApiKey, syncClickupTask, registerClickupWebhook, canUserEdit } = useDashboard();
+  const { clickupApiKey, setClickupApiKey, syncClickupTask, registerClickupWebhook, checkClickupWebhookStatus, canUserEdit } = useDashboard();
   const [apiKeyInput, setApiKeyInput] = useState(clickupApiKey);
   const [showKey, setShowKey] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
   // Webhook states
+  const [webhookStatus, setWebhookStatus] = useState<'loading' | 'registered' | 'unregistered'>('loading');
   const [isRegisteringWebhook, setIsRegisteringWebhook] = useState(false);
   const [webhookResult, setWebhookResult] = useState<{
     success: boolean;
@@ -1115,6 +1116,7 @@ const ClickupSettingsSection: React.FC = () => {
 
       const res = await registerClickupWebhook();
       if (res.success) {
+        setWebhookStatus('registered');
         setWebhookResult({
           success: true,
           message: 'Webhook registered successfully! ClickUp status changes will now sync instantly.'
@@ -1134,6 +1136,27 @@ const ClickupSettingsSection: React.FC = () => {
       setIsRegisteringWebhook(false);
     }
   };
+
+  React.useEffect(() => {
+    const fetchWebhookStatus = async () => {
+      if (!clickupApiKey.trim()) {
+        setWebhookStatus('unregistered');
+        return;
+      }
+      setWebhookStatus('loading');
+      try {
+        const res = await checkClickupWebhookStatus();
+        if (res.success && res.registered) {
+          setWebhookStatus('registered');
+        } else {
+          setWebhookStatus('unregistered');
+        }
+      } catch (e) {
+        setWebhookStatus('unregistered');
+      }
+    };
+    fetchWebhookStatus();
+  }, [clickupApiKey]);
 
   // Sync local input with database value when loaded
   React.useEffect(() => {
@@ -1363,34 +1386,42 @@ const ClickupSettingsSection: React.FC = () => {
             Register webhooks to receive real-time updates directly from ClickUp.
           </p>
 
-          <button
-            onClick={handleRegisterWebhook}
-            disabled={!canUserEdit || isRegisteringWebhook || !apiKeyInput.trim()}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 16px',
-              background: webhookResult?.success ? '#10b981' : 'var(--background-alt)',
-              color: 'var(--text-primary)',
-              border: webhookResult?.success ? '1.5px solid #10b981' : '1.5px solid var(--border)',
-              borderRadius: '8px',
-              cursor: (canUserEdit && !isRegisteringWebhook && apiKeyInput.trim()) ? 'pointer' : 'default',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              transition: 'all 0.15s',
-              opacity: (!canUserEdit || isRegisteringWebhook || !apiKeyInput.trim()) ? 0.5 : 1,
-            }}
-          >
-            {isRegisteringWebhook ? (
-              <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />
-            ) : webhookResult?.success ? (
-              <Check size={14} style={{ color: '#fff' }} />
-            ) : (
-              <Zap size={14} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button
+              onClick={handleRegisterWebhook}
+              disabled={!canUserEdit || isRegisteringWebhook || webhookStatus === 'loading' || !apiKeyInput.trim() || webhookStatus === 'registered'}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                background: webhookStatus === 'registered' ? '#10b981' : 'var(--background-alt)',
+                color: webhookStatus === 'registered' ? '#fff' : 'var(--text-primary)',
+                border: webhookStatus === 'registered' ? '1.5px solid #10b981' : '1.5px solid var(--border)',
+                borderRadius: '8px',
+                cursor: (canUserEdit && !isRegisteringWebhook && webhookStatus !== 'loading' && apiKeyInput.trim() && webhookStatus !== 'registered') ? 'pointer' : 'default',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                transition: 'all 0.15s',
+                opacity: (!canUserEdit || isRegisteringWebhook || webhookStatus === 'loading' || !apiKeyInput.trim() || webhookStatus === 'registered') ? 0.8 : 1,
+              }}
+            >
+              {isRegisteringWebhook || webhookStatus === 'loading' ? (
+                <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />
+              ) : webhookStatus === 'registered' ? (
+                <Check size={14} />
+              ) : (
+                <Zap size={14} />
+              )}
+              {isRegisteringWebhook ? 'Registering...' : webhookStatus === 'loading' ? 'Checking Status...' : webhookStatus === 'registered' ? 'Connected Successfully!' : 'Setup Webhook'}
+            </button>
+
+            {webhookStatus === 'registered' && (
+              <span style={{ fontSize: '0.75rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                <Check size={14} /> Active
+              </span>
             )}
-            {isRegisteringWebhook ? 'Registering...' : webhookResult?.success ? 'Connected Successfully!' : 'Setup Webhook'}
-          </button>
+          </div>
 
           {webhookResult && (
             <div

@@ -144,6 +144,7 @@ interface DashboardContextType {
   syncClickupTask: (taskIdOrUrl: string) => Promise<{ status: string; subtasksCount: number; assignee: string } | null>;
   refreshAllClickupStatuses: () => Promise<{ success: boolean; totalScanned: number; updatedCount: number; error?: string }>;
   registerClickupWebhook: () => Promise<{ success: boolean; error?: string }>;
+  checkClickupWebhookStatus: () => Promise<{ success: boolean; registered: boolean; error?: string }>;
   refreshAllData: () => Promise<{ success: boolean; updatedSheets: number; error?: string }>;
 
   // Google OAuth Settings
@@ -1657,6 +1658,33 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  const checkClickupWebhookStatus = async (): Promise<{ success: boolean; registered: boolean; error?: string }> => {
+    try {
+      const savedUserId = localStorage.getItem('logged-in-user-id') || '';
+      const response = await fetch('/api/data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': savedUserId
+        },
+        body: JSON.stringify({
+          action: 'clickup-check-webhook',
+          type: 'settings',
+          id: null,
+          data: {}
+        })
+      });
+      const resData = await response.json();
+      if (response.ok && resData.success) {
+        return { success: true, registered: resData.registered };
+      }
+      return { success: false, registered: false, error: resData.error || 'Check failed.' };
+    } catch (err: any) {
+      console.warn('ClickUp Webhook check failed:', err);
+      return { success: false, registered: false, error: err.message };
+    }
+  };
+
   return (
     <DashboardContext.Provider value={{
       activeTab, setActiveTab,
@@ -1682,6 +1710,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       clickupApiKey, setClickupApiKey: updateClickupApiKey, syncClickupTask,
       refreshAllClickupStatuses,
       registerClickupWebhook,
+      checkClickupWebhookStatus,
       refreshAllData,
       googleClientId, setGoogleClientId: updateGoogleClientId,
       requireGoogleLogin, setRequireGoogleLogin: updateRequireGoogleLogin,

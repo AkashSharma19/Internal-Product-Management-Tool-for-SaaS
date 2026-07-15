@@ -383,11 +383,11 @@ export default async function handler(req: any, res: any) {
           return null;
         };
 
-        [...products, ...projects, ...meetings, ...issues].forEach(item => {
+        [...products, ...projects, ...meetings, ...issues].forEach((item: any) => {
           const tid = extractId(item.taskLink);
           if (tid) taskIds.add(tid);
         });
-        plans.forEach(item => {
+        plans.forEach((item: any) => {
           const tid = extractId(item.link);
           if (tid) taskIds.add(tid);
         });
@@ -616,6 +616,98 @@ export default async function handler(req: any, res: any) {
         });
       } catch (err: any) {
         console.error('ClickUp webhook registration error:', err);
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+
+    if (action === 'clickup-check-webhook') {
+      try {
+        const userId = req.headers['x-user-id'];
+        let isAuthenticated = false;
+        if (userId) {
+          const ConfigSpeaker = modelsMap['speakers'];
+          const speaker = await ConfigSpeaker.findOne({ id: userId }).lean();
+          if (speaker) {
+            isAuthenticated = true;
+          }
+        }
+        if (!isAuthenticated) {
+          return res.status(401).json({ success: false, error: 'Unauthorized.' });
+        }
+
+        const GlobalSettings = modelsMap['settings'];
+        const clickupSetting = await GlobalSettings.findOne({ key: 'clickupApiKey' }).lean();
+        const apiKey = clickupSetting?.value || '';
+        if (!apiKey.trim()) {
+          return res.status(200).json({ success: true, registered: false });
+        }
+
+        const teamsData = await new Promise<any>((resolve, reject) => {
+          const url = 'https://api.clickup.com/api/v2/team';
+          const options = {
+            headers: {
+              'Authorization': apiKey.trim(),
+              'Connection': 'close'
+            }
+          };
+          https.get(url, options, (teamRes) => {
+            let dataStr = '';
+            teamRes.on('data', (chunk) => {
+              dataStr += chunk;
+            });
+            teamRes.on('end', () => {
+              try {
+                resolve(JSON.parse(dataStr));
+              } catch (e) {
+                reject(e);
+              }
+            });
+          }).on('error', (err) => {
+            reject(err);
+          });
+        });
+
+        const teamId = teamsData?.teams?.[0]?.id;
+        if (!teamId) {
+          return res.status(200).json({ success: true, registered: false });
+        }
+
+        const webhooksData = await new Promise<any>((resolve, reject) => {
+          const url = `https://api.clickup.com/api/v2/team/${teamId}/webhook`;
+          const options = {
+            headers: {
+              'Authorization': apiKey.trim(),
+              'Connection': 'close'
+            }
+          };
+          https.get(url, options, (webhookRes) => {
+            let dataStr = '';
+            webhookRes.on('data', (chunk) => {
+              dataStr += chunk;
+            });
+            webhookRes.on('end', () => {
+              try {
+                resolve(JSON.parse(dataStr));
+              } catch (e) {
+                reject(e);
+              }
+            });
+          }).on('error', (err) => {
+            reject(err);
+          });
+        });
+
+        const host = req.headers.host || '';
+        const protocol = req.headers['x-forwarded-proto'] || 'http';
+        const currentWebhookUrl = `${protocol}://${host}/api/webhook`;
+
+        const hasWebhook = webhooksData?.webhooks?.some((w: any) => 
+          w.endpoint === currentWebhookUrl && w.status === 'active'
+        ) || false;
+
+        return res.status(200).json({ success: true, registered: hasWebhook });
+      } catch (err: any) {
+        console.error('ClickUp webhook check error:', err);
         return res.status(500).json({ success: false, error: err.message });
       }
     }
