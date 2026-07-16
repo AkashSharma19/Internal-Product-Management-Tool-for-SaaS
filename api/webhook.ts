@@ -4,20 +4,31 @@ import {
   StudentProjectModel,
   StudentMeetingModel,
   DailyIssueModel,
-  PlanItemModel
+  PlanItemModel,
+  GlobalSettingsModel
 } from './lib/models.js';
 
-// In-memory store of the last received payload for debugging
-let lastReceivedPayload: { time: string; payload: any } | null = null;
-
 export default async function handler(req: any, res: any) {
-  // GET: return info about the last payload received — useful for debugging
+  // GET: return info about the last payload received — reads from MongoDB so it works across serverless instances
   if (req.method === 'GET') {
-    return res.status(200).json({
-      active: true,
-      message: 'ClickUp webhook endpoint is active.',
-      lastReceived: lastReceivedPayload
-    });
+    try {
+      await connectToDatabase();
+      const lastEventSetting = await GlobalSettingsModel.findOne({ key: '_webhookLastEvent' }).lean() as any;
+      return res.status(200).json({
+        active: true,
+        message: 'ClickUp webhook endpoint is active.',
+        lastReceived: lastEventSetting?.value
+          ? JSON.parse(lastEventSetting.value)
+          : null
+      });
+    } catch (err: any) {
+      return res.status(200).json({
+        active: true,
+        message: 'ClickUp webhook endpoint is active (DB read error).',
+        lastReceived: null,
+        error: err.message
+      });
+    }
   }
 
   if (req.method !== 'POST') {
@@ -29,12 +40,18 @@ export default async function handler(req: any, res: any) {
 
     const payload = req.body || {};
 
-    // Store for debugging (visible via GET /api/webhook)
-    lastReceivedPayload = { time: new Date().toISOString(), payload };
+    // Persist for debugging — visible via GET /api/webhook even across serverless cold starts
+    const debugEntry = { time: new Date().toISOString(), event: payload.event, task_id: payload.task_id, payload };
+    await GlobalSettingsModel.updateOne(
+      { key: '_webhookLastEvent' },
+      { $set: { key: '_webhookLastEvent', value: JSON.stringify(debugEntry) } },
+      { upsert: true }
+    );
     console.log('[Webhook] Received event:', JSON.stringify(payload).slice(0, 1000));
 
     // ClickUp sends a handshake to verify the webhook when registering
     if (payload.event === 'webhook_handshake') {
+      console.log('[Webhook] Handshake acknowledged.');
       return res.status(200).json({ success: true });
     }
 
@@ -80,7 +97,10 @@ export default async function handler(req: any, res: any) {
 
     console.log(`[Webhook] Updating task ${taskId} with:`, updatePayload);
 
-    // Match the task ID inside link fields using a case-insensitive regex
+    // Match the task ID inside link fields — ClickUp task IDs appear both as
+    // standalone strings and embedded inside full URLs like
+    // https://app.clickup.com/t/abc123  or  https://app.clickup.com/t/h/abc123/taskname
+    // We match any record whose taskLink field contains the task ID string.
     const regexFilter = { $regex: taskId, $options: 'i' };
 
     const updateResults = await Promise.all([
@@ -95,6 +115,12 @@ export default async function handler(req: any, res: any) {
     const modifiedCount = updateResults.reduce((acc: number, curr: any) => acc + (curr.modifiedCount || 0), 0);
 
     console.log(`[Webhook] Task ${taskId} — Matched: ${matchedCount}, Updated: ${modifiedCount}`);
+
+    // Also update the debug entry with result info
+    await GlobalSettingsModel.updateOne(
+      { key: '_webhookLastEvent' },
+      { $set: { value: JSON.stringify({ ...debugEntry, matchedCount, modifiedCount, updatePayload }) } }
+    );
 
     return res.status(200).json({ success: true, taskId, matchedCount, modifiedCount });
 
