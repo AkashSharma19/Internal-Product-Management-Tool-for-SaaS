@@ -329,7 +329,8 @@ export default async function handler(req: any, res: any) {
               data: {
                 status: clickupData.status.status,
                 subtasksCount: clickupData.subtasks ? clickupData.subtasks.length : 0,
-                assignee: assigneeName
+                assignee: assigneeName,
+                subtasks: clickupData.subtasks || []
               }
             });
           }

@@ -31,10 +31,10 @@ export interface ProductItem {
 export interface PlanItem {
   id: string;
   month: string; // e.g. 'May 2026'
-  category: 'Development' | 'UI/UX' | 'Product';
+  category: 'Development' | 'UI/UX' | 'Product' | 'Release';
   task: string;
   link: string;
-  status: 'testing' | 'development' | 'closed' | 'tested' | 'open' | 'in design' | 'Done';
+  status: 'testing' | 'development' | 'closed' | 'tested' | 'open' | 'in design' | 'Done' | 'released';
   completed?: boolean;
   clickupStatus?: string;
   clickupSubtasksCount?: number;

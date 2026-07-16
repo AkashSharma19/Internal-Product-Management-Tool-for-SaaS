@@ -29,7 +29,8 @@ import {
   Search,
   Plus,
   Layers,
-  ClipboardList
+  ClipboardList,
+  Rocket
 } from 'lucide-react';
 import type { 
   ProductItem, 
@@ -666,22 +667,29 @@ export const ClickupSubtasksModal: React.FC<ClickupSubtasksModalProps> = ({ task
         return;
       }
       try {
-        const response = await fetch(`https://api.clickup.com/api/v2/task/${taskId}?include_subtasks=true`, {
-          method: 'GET',
+        const savedUserId = localStorage.getItem('logged-in-user-id') || '';
+        const response = await fetch('/api/data', {
+          method: 'POST',
           headers: {
-            'Authorization': clickupApiKey.trim(),
-            'Content-Type': 'application/json'
-          }
+            'Content-Type': 'application/json',
+            'x-user-id': savedUserId
+          },
+          body: JSON.stringify({
+            action: 'clickup-sync',
+            type: 'settings',
+            id: null,
+            data: { taskId }
+          })
         });
         if (response.ok) {
-          const data = await response.json();
-          if (data && data.subtasks) {
-            setSubtasks(data.subtasks);
+          const resData = await response.json();
+          if (resData.success && resData.data && resData.data.subtasks) {
+            setSubtasks(resData.data.subtasks);
           } else {
             setSubtasks([]);
           }
         } else {
-          setError('Could not fetch task details from ClickUp API');
+          setError('Could not fetch task details from ClickUp API via backend proxy');
         }
       } catch (err: any) {
         setError(err.message || 'Error fetching subtasks');
@@ -2230,30 +2238,25 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                 <RefreshCw size={13} /> ClickUp Status
               </span>
               <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <input
-                  type="text"
+                <span
                   className="premium-clickup-badge"
                   style={{ 
                     borderColor: getClickupStatusColor(item.clickupStatus), 
                     color: getClickupStatusColor(item.clickupStatus),
-                    paddingRight: isSyncing ? '18px' : '6px',
                     fontSize: '0.675rem',
                     padding: '3px 8px',
-                    width: '100px',
+                    width: 'auto',
+                    minWidth: '70px',
                     textAlign: 'center',
                     fontWeight: 700,
                     borderRadius: '6px',
-                    backgroundColor: 'var(--background)'
+                    backgroundColor: 'var(--background)',
+                    border: '1px solid',
+                    display: 'inline-block'
                   }}
-                  placeholder="Status"
-                  onBlur={(e) => {
-                    const val = e.target.value.trim();
-                    if (val !== item.clickupStatus) {
-                      handleFieldUpdate('clickupStatus', val);
-                    }
-                  }}
-                  defaultValue={item.clickupStatus || ''}
-                />
+                >
+                  {item.clickupStatus || 'None'}
+                </span>
                 {item.clickupSubtasksCount !== undefined && item.clickupSubtasksCount > 0 && (
                   <span 
                     onClick={() => setActiveSubtasksTaskLink(item.taskLink)}
@@ -2285,6 +2288,35 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                   <span style={{ color: 'var(--danger)', display: 'inline-flex', alignItems: 'center', cursor: 'help' }} title={syncError}>
                     <AlertCircle size={11} />
                   </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ClickUp Assignee */}
+          {item.taskLink && (
+            <div className="property-row-flat">
+              <span className="premium-property-label">
+                <User size={13} /> ClickUp Assignee
+              </span>
+              <div className="premium-property-value">
+                {item.clickupAssignee ? (
+                  <div className="cu-tooltip-container" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    <span style={{ 
+                      fontSize: '0.8rem', 
+                      fontWeight: 500,
+                      color: 'var(--text-primary)',
+                      borderBottom: '1px dashed var(--text-muted)',
+                      cursor: 'help'
+                    }}>
+                      {formatClickupAssignee(item.clickupAssignee)}
+                    </span>
+                    <span className="cu-tooltip-text" style={{ left: 'auto', right: '105%', transform: 'translateY(-50%) translateX(4px)' }}>
+                      {item.clickupAssignee.split(',').map(s => s.trim()).join('\n')}
+                    </span>
+                  </div>
+                ) : (
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Unassigned</span>
                 )}
               </div>
             </div>
@@ -3203,6 +3235,7 @@ const PlanDetailModal: React.FC<PlanDetailModalProps> = ({ item, onClose, onUpda
                 <option value="Development">Development</option>
                 <option value="UI/UX">UI/UX</option>
                 <option value="Product">Product</option>
+                <option value="Release">Release</option>
               </select>
             </div>
 
@@ -3217,6 +3250,7 @@ const PlanDetailModal: React.FC<PlanDetailModalProps> = ({ item, onClose, onUpda
                 <option value="open">Product</option>
                 <option value="in design">In Design</option>
                 <option value="development">Development</option>
+                <option value="released">Released</option>
                 <option value="closed">Closed</option>
                 <option value="Done">Done</option>
               </select>
@@ -3277,6 +3311,7 @@ const PlanDetailModal: React.FC<PlanDetailModalProps> = ({ item, onClose, onUpda
               <div>
                 <span className={`badge ${
                   item.status === 'Done' ? 'status-done' :
+                  item.status === 'released' ? 'status-released' :
                   item.status === 'development' ? 'clickup-development' :
                   item.status === 'closed' ? 'clickup-closed' : 'clickup-open'
                 }`}>
@@ -3441,7 +3476,7 @@ export const PlanTable: React.FC = () => {
     id: string;
     title: string;
     source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA & Meetings' | 'Admin Calls' | 'Tarun Sir Meetings' | 'Product Breakdown';
-    column: 'product' | 'design' | 'dev';
+    column: 'product' | 'design' | 'dev' | 'release';
     priority?: string;
     poc?: string;
     status?: string;
@@ -3506,6 +3541,20 @@ export const PlanTable: React.FC = () => {
           status: item.status,
           date: item.deadline,
           dateLabel: 'Dev',
+          rawItem: item
+        });
+      }
+      if (dateInSelectedMonth(item.finalRelease)) {
+        autoItems.push({
+          id: `auto-prod-release-${item.id}`,
+          title: item.feature,
+          source: itemSource,
+          column: 'release',
+          priority: item.priority,
+          poc: item.poc,
+          status: item.status,
+          date: item.finalRelease,
+          dateLabel: 'Release',
           rawItem: item
         });
       }
@@ -3711,7 +3760,8 @@ export const PlanTable: React.FC = () => {
     const statusMap: Record<string, string> = {
       product: 'open',
       design: 'in design',
-      dev: 'development'
+      dev: 'development',
+      release: 'released'
     };
     if (statusMap[targetColId]) updatePlanItem(itemId, { status: statusMap[targetColId] as any });
   };
@@ -3719,7 +3769,8 @@ export const PlanTable: React.FC = () => {
   const COLUMNS = [
     { id: 'product', title: 'Product Specs', statuses: ['open'], headerClass: 'product', icon: <Inbox size={14} style={{ color: 'var(--text-muted)' }} /> },
     { id: 'design', title: 'UI/UX Design', statuses: ['in design'], headerClass: 'design', icon: <Palette size={14} style={{ color: 'var(--primary)' }} /> },
-    { id: 'dev', title: 'Development', statuses: ['development', 'testing', 'tested'], headerClass: 'dev', icon: <Code size={14} style={{ color: 'var(--info)' }} /> }
+    { id: 'dev', title: 'Development', statuses: ['development', 'testing', 'tested'], headerClass: 'dev', icon: <Code size={14} style={{ color: 'var(--info)' }} /> },
+    { id: 'release', title: 'Release', statuses: ['released', 'closed', 'Done'], headerClass: 'release', icon: <Rocket size={14} style={{ color: 'hsl(142,65%,38%)' }} /> }
   ];
 
   // Source badge colour map
@@ -3781,6 +3832,11 @@ export const PlanTable: React.FC = () => {
                   ? (!!matchedProduct.deadlineCompleted || matchedProduct.status === 'Completed' || matchedProduct.clickupStatus?.toLowerCase() === 'closed')
                   : false;
                 return isDevCompleted || a.status === 'Completed' || a.status === 'Delivered';
+              } else if (a.column === 'release') {
+                const isReleased = matchedProduct
+                  ? (!!matchedProduct.finalReleaseCompleted || matchedProduct.status === 'Completed')
+                  : false;
+                return isReleased || a.status === 'Completed' || a.status === 'Delivered';
               }
               return false;
             };
