@@ -6,8 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:server": "tsc -p tsconfig.server.json",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "node server-dist/server/server.js",
+    "docker:build": "docker build -t 770014814665.dkr.ecr.ap-south-1.amazonaws.com/akash_ipmt:latest ."
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.5",
