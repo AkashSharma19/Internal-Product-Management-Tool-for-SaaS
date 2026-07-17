@@ -637,7 +637,17 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [previewProductId, markTaskAsRead]);
 
-  const [currentUser, setCurrentUser] = useState<ConfigSpeaker | null>(null);
+  const [currentUser, setCurrentUser] = useState<ConfigSpeaker | null>(() => {
+    const savedUserData = localStorage.getItem('logged-in-user-data');
+    if (savedUserData) {
+      try {
+        return JSON.parse(savedUserData);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
   const canUserEdit = currentUser ? (currentUser.canEdit !== false) : true;
 
   const loginUser = async (speakerId: string, password: string): Promise<{ success: boolean; error?: string }> => {
@@ -651,6 +661,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     setCurrentUser(speaker);
     localStorage.setItem('logged-in-user-id', speakerId);
+    localStorage.setItem('logged-in-user-data', JSON.stringify(speaker));
     return { success: true };
   };
 
@@ -677,6 +688,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const speaker = resData.user;
       setCurrentUser(speaker);
       localStorage.setItem('logged-in-user-id', speaker.id);
+      localStorage.setItem('logged-in-user-data', JSON.stringify(speaker));
 
       // Fetch the full authenticated dataset now that logged-in-user-id is saved
       await refreshAllData();
@@ -691,6 +703,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const logoutUser = () => {
     setCurrentUser(null);
     localStorage.removeItem('logged-in-user-id');
+    localStorage.removeItem('logged-in-user-data');
   };
 
 
@@ -870,8 +883,30 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           setSpeakers(db.speakers);
           const savedUserId = localStorage.getItem('logged-in-user-id');
           if (savedUserId) {
-            const matchedUser = db.speakers.find((s: any) => s.id === savedUserId);
-            if (matchedUser) setCurrentUser(matchedUser);
+            if (savedUserId.startsWith('guest-')) {
+              const savedUserData = localStorage.getItem('logged-in-user-data');
+              if (savedUserData) {
+                try {
+                  setCurrentUser(JSON.parse(savedUserData));
+                } catch (e) {
+                  // Fallback
+                  const email = savedUserId.replace('guest-', '');
+                  setCurrentUser({
+                    id: savedUserId,
+                    name: email.split('@')[0],
+                    email,
+                    role: 'Guest',
+                    isGuest: true
+                  } as any);
+                }
+              }
+            } else {
+              const matchedUser = db.speakers.find((s: any) => s.id === savedUserId);
+              if (matchedUser) {
+                setCurrentUser(matchedUser);
+                localStorage.setItem('logged-in-user-data', JSON.stringify(matchedUser));
+              }
+            }
           }
           updatedSheets++;
         }
