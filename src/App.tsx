@@ -11,6 +11,7 @@ import {
   ContentTable,
   ProductWiseSheet,
   IssuesTable,
+  FeatureRequestsTable,
   AdoptionTable,
   ProductDetailView,
   ClickupSubtasksModal
@@ -39,7 +40,10 @@ import {
   LogOut,
   RefreshCw,
   Search,
-  CornerDownLeft
+  CornerDownLeft,
+  PlusCircle,
+  CheckCircle,
+  Lightbulb
 } from 'lucide-react';
 
 const LoginView: React.FC = () => {
@@ -549,6 +553,11 @@ const DashboardContent: React.FC = () => {
     refreshAllData,
     dailyIssues,
     updateDailyIssue,
+    addDailyIssue,
+    productGroups,
+    programs,
+    googleClientId,
+    loginUserByEmail,
     previousTab,
     canUserEdit,
     alert,
@@ -560,6 +569,145 @@ const DashboardContent: React.FC = () => {
   const [isRefreshingClickup, setIsRefreshingClickup] = useState(false);
   const [isRefreshingData, setIsRefreshingData] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  // Public Login & Feature Request Modal state
+  const [isPublicLoginModalOpen, setIsPublicLoginModalOpen] = useState(false);
+  const [isRaiseRequestModalOpen, setIsRaiseRequestModalOpen] = useState(false);
+  const [requestProduct, setRequestProduct] = useState('');
+  const [requestProgram, setRequestProgram] = useState('');
+  const [requestTaskName, setRequestTaskName] = useState('');
+  const [requestDescription, setRequestDescription] = useState('');
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+  const [requestError, setRequestError] = useState<string | null>(null);
+  const [requestSuccess, setRequestSuccess] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  // Auto-close login modal and open raise-request modal when user signs in
+  useEffect(() => {
+    if (currentUser && isPublicLoginModalOpen) {
+      setIsPublicLoginModalOpen(false);
+      setRequestError(null);
+      setRequestSuccess(false);
+      setRequestTaskName('');
+      setRequestDescription('');
+      setRequestProduct('');
+      setRequestProgram('');
+      setIsRaiseRequestModalOpen(true);
+    }
+  }, [currentUser, isPublicLoginModalOpen]);
+
+  // Public Calendar Google Login Effect
+  useEffect(() => {
+    if (!isPublicLoginModalOpen || !googleClientId) return;
+
+    let isMounted = true;
+    const initializeGoogleBtn = () => {
+      const g = (window as any).google;
+      if (g?.accounts?.id) {
+        g.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: async (response: any) => {
+            if (!isMounted) return;
+            try {
+              if (response.credential) {
+                const res = await loginUserByEmail(response.credential);
+                if (res.success) {
+                  setIsPublicLoginModalOpen(false);
+                } else {
+                  setLoginError(res.error || 'Access Denied');
+                }
+              } else {
+                setLoginError('Failed to retrieve credential.');
+              }
+            } catch (err) {
+              setLoginError('Google login failed.');
+            }
+          }
+        });
+
+        const btnContainer = document.getElementById('google-signin-public-btn-container');
+        if (btnContainer) {
+          g.accounts.id.renderButton(btnContainer, {
+            theme: 'outline',
+            size: 'large',
+            width: 280,
+            text: 'signin_with',
+            shape: 'rectangular'
+          });
+        }
+      } else {
+        setTimeout(initializeGoogleBtn, 300);
+      }
+    };
+
+    initializeGoogleBtn();
+    return () => {
+      isMounted = false;
+    };
+  }, [isPublicLoginModalOpen, googleClientId, loginUserByEmail]);
+
+  const handleOpenRaiseRequestModal = () => {
+    if (!currentUser) {
+      setLoginError(null);
+      setIsPublicLoginModalOpen(true);
+    } else {
+      setRequestError(null);
+      setRequestSuccess(false);
+      setRequestTaskName('');
+      setRequestDescription('');
+      setRequestProduct('');
+      setRequestProgram('');
+      setIsRaiseRequestModalOpen(true);
+    }
+  };
+
+  const handleSubmitFeatureRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requestProduct || !requestTaskName.trim() || !requestDescription.trim()) {
+      setRequestError('Please fill in all required fields.');
+      return;
+    }
+
+    const selectedProduct = requestProduct;
+
+    setIsSubmittingRequest(true);
+    setRequestError(null);
+
+    try {
+      const newId = String(Math.max(...dailyIssues.map(i => parseInt(i.id) || 0), 0) + 1);
+      const newRequest: DailyIssue = {
+        id: newId,
+        cohort: requestProgram,
+        product: selectedProduct,
+        module: requestTaskName.trim(),
+        type: 'Feature Gap',
+        issues: requestDescription.trim(),
+        contact: currentUser ? `${currentUser.name} (${currentUser.email})` : '',
+        priority: '',
+        poc: 'Akash Sharma',
+        status: '',
+        clickupStatus: '',
+        taskLink: '',
+        blocker: '',
+        deadline: '',
+        notes: `Raised by guest request from public calendar.`,
+        uiux: '',
+        finalRelease: '',
+        productDeadline: '',
+        raisedByTarunSir: false,
+        tarunSirApproval: false,
+        createdAt: new Date().toISOString()
+      };
+
+      await addDailyIssue(newRequest);
+      setRequestSuccess(true);
+    } catch (err: any) {
+      console.error('Submit feature request error:', err);
+      setRequestError(err.message || 'Failed to submit request. Please try again.');
+    } finally {
+      setIsSubmittingRequest(false);
+    }
+  };
 
   // Manage body class for global read-only selectors
   useEffect(() => {
@@ -672,10 +820,275 @@ const DashboardContent: React.FC = () => {
     return (
       <div className="app-container" style={{ display: 'block', height: '100vh', overflow: 'hidden', padding: '0', background: 'var(--background)' }}>
         <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ flex: 1, minHeight: 0 }}>
+          <header className="public-calendar-header" style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '0.75rem 1.5rem', background: 'var(--panel-bg)', borderBottom: '1px solid var(--border)',
+            fontFamily: 'Outfit, sans-serif', height: '56px', boxSizing: 'border-box'
+          }}>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
+              <span style={{ display: 'inline-flex', padding: '4px', borderRadius: '6px', background: 'var(--primary-glow)', color: 'var(--primary)' }}>
+                <CalendarDays size={18} />
+              </span>
+              Masters Union Product Roadmap
+            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <button
+                onClick={handleOpenRaiseRequestModal}
+                className="btn btn-primary"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                  padding: '6px 12px', fontSize: '0.82rem', fontWeight: 600, borderRadius: '8px', cursor: 'pointer'
+                }}
+              >
+                <PlusCircle size={15} />
+                Raise Feature Request
+              </button>
+
+              {currentUser ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div 
+                    title={currentUser.email}
+                    style={{
+                      width: '32px', height: '32px', borderRadius: '50%',
+                      background: ({'Akash': '#7c3aed', 'Akash Sharma': '#7c3aed', 'Anushka': '#db2777', 'Nikhil': '#0284c7', 'Nikhil Jain': '#059669'} as Record<string,string>)[currentUser.name] || '#6b7280',
+                      color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '0.85rem', fontWeight: 700, border: '2px solid var(--border)'
+                    }}
+                  >
+                    {(() => { const p = currentUser.name?.trim().split(/\s+/) || []; return p.length >= 2 ? (p[0][0]+p[1][0]).toUpperCase() : (currentUser.name || 'U').slice(0,2).toUpperCase(); })()}
+                  </div>
+                  <button
+                    onClick={logoutUser}
+                    style={{
+                      background: 'none', border: 'none', color: 'var(--text-secondary)',
+                      fontSize: '0.78rem', fontWeight: 500, cursor: 'pointer', padding: '4px 8px'
+                    }}
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsPublicLoginModalOpen(true)}
+                  className="btn btn-secondary"
+                  style={{
+                    padding: '6px 12px', fontSize: '0.82rem', fontWeight: 600, borderRadius: '8px', cursor: 'pointer'
+                  }}
+                >
+                  Sign In
+                </button>
+              )}
+            </div>
+          </header>
+          <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
             <CalendarView isPublic={true} />
           </div>
         </div>
+
+        {isPublicLoginModalOpen && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999,
+            fontFamily: 'Outfit, sans-serif'
+          }}>
+            <div style={{
+              background: 'var(--panel-bg)', border: '1px solid var(--border)',
+              borderRadius: '16px', padding: '2rem', width: '360px', maxWidth: '90%',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
+              position: 'relative'
+            }}>
+              <button 
+                onClick={() => setIsPublicLoginModalOpen(false)}
+                style={{
+                  position: 'absolute', top: '12px', right: '12px', background: 'none',
+                  border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.25rem', lineHeight: 1
+                }}
+              >
+                &times;
+              </button>
+              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  Sign In Required
+                </h3>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  You must be signed in with your Google account to raise a feature request.
+                </p>
+              </div>
+
+              {loginError && (
+                <div style={{
+                  padding: '10px 12px', backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                  border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444',
+                  borderRadius: '8px', fontSize: '0.8rem', fontWeight: 550, marginBottom: '1.5rem',
+                  lineHeight: 1.35
+                }}>
+                  {loginError}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}>
+                <div id="google-signin-public-btn-container"></div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isRaiseRequestModalOpen && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999,
+            fontFamily: 'Outfit, sans-serif'
+          }}>
+            <div style={{
+              background: 'var(--panel-bg)', border: '1px solid var(--border)',
+              borderRadius: '16px', padding: '2rem', width: '480px', maxWidth: '90%',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
+              position: 'relative'
+            }}>
+              <button 
+                onClick={() => setIsRaiseRequestModalOpen(false)}
+                style={{
+                  position: 'absolute', top: '12px', right: '12px', background: 'none',
+                  border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.25rem', lineHeight: 1
+                }}
+              >
+                &times;
+              </button>
+              
+              <div style={{ marginBottom: '1.5rem' }}>
+                <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  Raise Feature Request
+                </h3>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  Suggest a new task or enhancement for the roadmap.
+                </p>
+              </div>
+
+              {requestSuccess ? (
+                <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+                  <div style={{ color: '#10b981', marginBottom: '1rem' }}>
+                    <CheckCircle size={48} style={{ margin: '0 auto' }} />
+                  </div>
+                  <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)' }}>Request Submitted Successfully!</h4>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+                    Your request has been logged under "Requested Features".
+                  </p>
+                  <button
+                    onClick={() => setIsRaiseRequestModalOpen(false)}
+                    className="btn btn-primary"
+                    style={{ padding: '8px 16px', borderRadius: '8px' }}
+                  >
+                    Close
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmitFeatureRequest} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                  {requestError && (
+                    <div style={{
+                      padding: '10px 12px', backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                      border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444',
+                      borderRadius: '8px', fontSize: '0.8rem', fontWeight: 550, lineHeight: 1.35
+                    }}>
+                      {requestError}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      Program *
+                    </label>
+                    <select
+                      className="config-select"
+                      value={requestProgram}
+                      onChange={(e) => setRequestProgram(e.target.value)}
+                      required
+                      style={{ width: '100%', height: '36px' }}
+                    >
+                      <option value="">Select a Program...</option>
+                      {programs.map(pg => (
+                        <option key={pg.id} value={pg.name}>{pg.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      Product Group *
+                    </label>
+                    <select
+                      className="config-select"
+                      value={requestProduct}
+                      onChange={(e) => setRequestProduct(e.target.value)}
+                      required
+                      style={{ width: '100%', height: '36px' }}
+                    >
+                      <option value="">Select a Product Group...</option>
+                      {productGroups.map(pg => (
+                        <option key={pg.id} value={pg.name}>{pg.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      Task Name *
+                    </label>
+                    <input
+                      type="text"
+                      className="config-input"
+                      placeholder="e.g. Implement Google Calendar Sync"
+                      value={requestTaskName}
+                      onChange={(e) => setRequestTaskName(e.target.value)}
+                      required
+                      style={{ height: '36px' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      Description *
+                    </label>
+                    <textarea
+                      className="config-input"
+                      placeholder="Please provide details about this request..."
+                      value={requestDescription}
+                      onChange={(e) => setRequestDescription(e.target.value)}
+                      required
+                      style={{ minHeight: '100px', resize: 'vertical', padding: '8px 12px' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => setIsRaiseRequestModalOpen(false)}
+                      className="btn btn-secondary"
+                      style={{ padding: '8px 16px', borderRadius: '8px', height: '36px' }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmittingRequest}
+                      className="btn btn-primary"
+                      style={{ padding: '8px 16px', borderRadius: '8px', height: '36px', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                    >
+                      {isSubmittingRequest ? (
+                        <>
+                          <RefreshCw size={14} className="animate-spin" />
+                          Submitting...
+                        </>
+                      ) : 'Submit Request'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -732,6 +1145,7 @@ const DashboardContent: React.FC = () => {
         { id: 'admin', label: 'Admin Calls', icon: <PhoneCall size={18} /> },
         { id: 'content', label: 'Content Pipeline', icon: <BookOpen size={18} /> },
         { id: 'issues', label: 'Daily Issues Log', icon: <AlertTriangle size={18} /> },
+        { id: 'feature-requests', label: 'Requested Features', icon: <Lightbulb size={18} /> },
       ]
     },
     {
@@ -767,6 +1181,8 @@ const DashboardContent: React.FC = () => {
         return <ProductWiseSheet />;
       case 'issues':
         return <IssuesTable />;
+      case 'feature-requests':
+        return <FeatureRequestsTable />;
       case 'adoption':
         return <AdoptionTable />;
       case 'config':
@@ -1092,7 +1508,7 @@ const DashboardContent: React.FC = () => {
         <div key={activeTab} className="content-area animate-fade-in">
           {renderActiveView()}
           {previewProductId && (() => {
-            if (activeTab === 'issues') {
+            if (activeTab === 'issues' || activeTab === 'feature-requests' || activeTab === 'plan') {
               const foundIssue = dailyIssues.find(i => i.id === previewProductId);
               if (!foundIssue) return null;
               

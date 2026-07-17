@@ -231,6 +231,7 @@ export const DashboardOverview: React.FC = () => {
       'Product Breakdown': 'product-breakdown',
       'Admin Calls': 'admin-calls',
       'Daily Issues Log': 'daily-issues',
+      'Requested Features': 'priority-requests',
     };
     return map[source] || '';
   };
@@ -353,21 +354,34 @@ export const DashboardOverview: React.FC = () => {
       addDate(c.id, 'Content Pipeline', c.module, 'Final Release', c.finalRelease, !!c.finalReleaseCompleted || !!matchedProduct?.finalReleaseCompleted || isOverallCompleted, c.poc || '', c.priority, undefined, c.status, c);
     });
 
-    // 5. DailyIssues (Daily Issues Log)
-    dailyIssues.forEach(i => {
-      const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-      const matchedProduct = productItems.find(item => {
-        const cleanFeature = clean(item.feature);
-        const cleanCohort = clean(i.cohort);
-        return cleanFeature === cleanCohort || item.id === `prod-temp-${i.id}`;
-      });
-      const isOverallCompleted = isSameStatus(i.status, 'Completed');
+    // 5. DailyIssues — regular issues only (Daily Issues Log)
+    dailyIssues
+      .filter(i => i.type !== 'Feature Gap' && i.type !== 'Enhancement')
+      .forEach(i => {
+        const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const matchedProduct = productItems.find(item => {
+          const cleanFeature = clean(item.feature);
+          const cleanCohort = clean(i.cohort);
+          return cleanFeature === cleanCohort || item.id === `prod-temp-${i.id}`;
+        });
+        const isOverallCompleted = isSameStatus(i.status, 'Completed');
 
-      addDate(i.id, 'Daily Issues Log', i.cohort, 'Specs', i.productDeadline, !!i.productDeadlineCompleted || !!matchedProduct?.productDeadlineCompleted || isOverallCompleted, i.poc || '', i.priority, i.taskLink, i.status, i);
-      addDate(i.id, 'Daily Issues Log', i.cohort, 'UI/UX', i.uiux, !!i.uiuxCompleted || !!matchedProduct?.uiuxCompleted || isOverallCompleted, i.poc || '', i.priority, i.taskLink, i.status, i);
-      addDate(i.id, 'Daily Issues Log', i.cohort, 'Dev', i.deadline, !!i.deadlineCompleted || !!matchedProduct?.deadlineCompleted || isOverallCompleted, i.poc || '', i.priority, i.taskLink, i.status, i);
-      addDate(i.id, 'Daily Issues Log', i.cohort, 'Final Release', i.finalRelease, !!i.finalReleaseCompleted || !!matchedProduct?.finalReleaseCompleted || isOverallCompleted, i.poc || '', i.priority, i.taskLink, i.status, i);
-    });
+        addDate(i.id, 'Daily Issues Log', i.cohort, 'Specs', i.productDeadline, !!i.productDeadlineCompleted || !!matchedProduct?.productDeadlineCompleted || isOverallCompleted, i.poc || '', i.priority, i.taskLink, i.status, i);
+        addDate(i.id, 'Daily Issues Log', i.cohort, 'UI/UX', i.uiux, !!i.uiuxCompleted || !!matchedProduct?.uiuxCompleted || isOverallCompleted, i.poc || '', i.priority, i.taskLink, i.status, i);
+        addDate(i.id, 'Daily Issues Log', i.cohort, 'Dev', i.deadline, !!i.deadlineCompleted || !!matchedProduct?.deadlineCompleted || isOverallCompleted, i.poc || '', i.priority, i.taskLink, i.status, i);
+        addDate(i.id, 'Daily Issues Log', i.cohort, 'Final Release', i.finalRelease, !!i.finalReleaseCompleted || !!matchedProduct?.finalReleaseCompleted || isOverallCompleted, i.poc || '', i.priority, i.taskLink, i.status, i);
+      });
+
+    // 5b. Feature Requests (Feature Gap / Enhancement)
+    dailyIssues
+      .filter(i => i.type === 'Feature Gap' || i.type === 'Enhancement')
+      .forEach(i => {
+        const isOverallCompleted = isSameStatus(i.status, 'Completed');
+        addDate(i.id, 'Requested Features' as any, i.module || `Request #${i.id}`, 'Specs', i.productDeadline, !!i.productDeadlineCompleted || isOverallCompleted, i.poc || i.contact || '', i.priority, i.taskLink, i.status, i);
+        addDate(i.id, 'Requested Features' as any, i.module || `Request #${i.id}`, 'UI/UX', i.uiux, !!i.uiuxCompleted || isOverallCompleted, i.poc || i.contact || '', i.priority, i.taskLink, i.status, i);
+        addDate(i.id, 'Requested Features' as any, i.module || `Request #${i.id}`, 'Dev', i.deadline, !!i.deadlineCompleted || isOverallCompleted, i.poc || i.contact || '', i.priority, i.taskLink, i.status, i);
+        addDate(i.id, 'Requested Features' as any, i.module || `Request #${i.id}`, 'Final Release', i.finalRelease, !!i.finalReleaseCompleted || isOverallCompleted, i.poc || i.contact || '', i.priority, i.taskLink, i.status, i);
+      });
 
     // 6. AMASessions (AMA & Meetings)
     amaSessions.forEach(ama => {
@@ -409,6 +423,8 @@ export const DashboardOverview: React.FC = () => {
       tab = 'content';
     } else if (item.source === 'Daily Issues Log') {
       tab = 'issues';
+    } else if (item.source === 'Requested Features') {
+      tab = 'feature-requests';
     }
 
     setPreviousTab(activeTab);
@@ -448,7 +464,7 @@ export const DashboardOverview: React.FC = () => {
           status: item.rawItem.status as any, 
           notes: item.rawItem.subject 
         });
-      } else if (item.source === 'Daily Issues Log') {
+      } else if (item.source === 'Daily Issues Log' || item.source === 'Requested Features') {
         setPreviewProductId(item.rawId);
       }
     }, 50);

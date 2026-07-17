@@ -3381,6 +3381,7 @@ export const PlanTable: React.FC = () => {
   const {
     planItems, updatePlanItem, addPlanItem, deletePlanItem,
     productItems, studentProjects, contentItems, studentMeetings,
+    dailyIssues, setPreviewProductId,
     openPreviewForFeature, canUserEdit, confirm
   } = useDashboard();
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
@@ -3475,7 +3476,7 @@ export const PlanTable: React.FC = () => {
   interface AutoItem {
     id: string;
     title: string;
-    source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA & Meetings' | 'Admin Calls' | 'Tarun Sir Meetings' | 'Product Breakdown';
+    source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA & Meetings' | 'Admin Calls' | 'Tarun Sir Meetings' | 'Product Breakdown' | 'Feature Requests';
     column: 'product' | 'design' | 'dev' | 'release';
     priority?: string;
     poc?: string;
@@ -3699,6 +3700,70 @@ export const PlanTable: React.FC = () => {
         });
       }
     });
+
+    // Feature Requests (from dailyIssues)
+    dailyIssues.forEach(item => {
+      if (item.type !== 'Feature Gap' && item.type !== 'Enhancement') return;
+      if (item.status === 'Completed') return;
+      
+      const itemSource = 'Feature Requests';
+      if (dateInSelectedMonth(item.productDeadline)) {
+        autoItems.push({
+          id: `auto-req-specs-${item.id}`,
+          title: item.module || `Request #${item.id}`,
+          source: itemSource,
+          column: 'product',
+          priority: item.priority,
+          poc: item.poc || item.contact || '',
+          status: item.status,
+          date: item.productDeadline!,
+          dateLabel: 'Specs',
+          rawItem: item
+        });
+      }
+      if (dateInSelectedMonth(item.uiux)) {
+        autoItems.push({
+          id: `auto-req-uiux-${item.id}`,
+          title: item.module || `Request #${item.id}`,
+          source: itemSource,
+          column: 'design',
+          priority: item.priority,
+          poc: item.poc || item.contact || '',
+          status: item.status,
+          date: item.uiux!,
+          dateLabel: 'UI/UX',
+          rawItem: item
+        });
+      }
+      if (dateInSelectedMonth(item.deadline)) {
+        autoItems.push({
+          id: `auto-req-dev-${item.id}`,
+          title: item.module || `Request #${item.id}`,
+          source: itemSource,
+          column: 'dev',
+          priority: item.priority,
+          poc: item.poc || item.contact || '',
+          status: item.status,
+          date: item.deadline!,
+          dateLabel: 'Dev',
+          rawItem: item
+        });
+      }
+      if (dateInSelectedMonth(item.finalRelease)) {
+        autoItems.push({
+          id: `auto-req-release-${item.id}`,
+          title: item.module || `Request #${item.id}`,
+          source: itemSource,
+          column: 'release',
+          priority: item.priority,
+          poc: item.poc || item.contact || '',
+          status: item.status,
+          date: item.finalRelease!,
+          dateLabel: 'Release',
+          rawItem: item
+        });
+      }
+    });
   }
 
   // Sort auto items by date
@@ -3780,6 +3845,7 @@ export const PlanTable: React.FC = () => {
     'Content Pipeline':  { bg: 'hsla(38,90%,50%,0.12)',  color: 'hsl(38,85%,38%)' },
     'AMA & Meetings':    { bg: 'hsla(142,70%,45%,0.12)', color: 'hsl(142,65%,32%)' },
     'Product Breakdown': { bg: 'hsla(271,80%,60%,0.12)', color: 'hsl(271,70%,50%)' },
+    'Feature Requests':  { bg: 'hsla(325,80%,60%,0.12)', color: 'hsl(325,70%,50%)' },
   };
 
   return (
@@ -3816,6 +3882,22 @@ export const PlanTable: React.FC = () => {
         <div className="kanban-board-container">
           {COLUMNS.map(col => {
             const getAutoItemCompleted = (a: any) => {
+              const isFeatureRequest = a.rawItem && (a.rawItem.type === 'Feature Gap' || a.rawItem.type === 'Enhancement');
+              
+              if (isFeatureRequest) {
+                const isOverallCompleted = a.rawItem.status === 'Completed';
+                if (a.column === 'product') {
+                  return !!a.rawItem.productDeadlineCompleted || isOverallCompleted;
+                } else if (a.column === 'design') {
+                  return !!a.rawItem.uiuxCompleted || isOverallCompleted;
+                } else if (a.column === 'dev') {
+                  return !!a.rawItem.deadlineCompleted || isOverallCompleted;
+                } else if (a.column === 'release') {
+                  return !!a.rawItem.finalReleaseCompleted || isOverallCompleted;
+                }
+                return false;
+              }
+
               const matchedProduct = findMatchingProductItem(a.title);
               if (a.column === 'product') {
                 const isProductCompleted = matchedProduct
@@ -3862,6 +3944,7 @@ export const PlanTable: React.FC = () => {
             combinedItems.sort((a, b) => (a.isCompleted ? 1 : 0) - (b.isCompleted ? 1 : 0));
 
             const totalCount = combinedItems.length;
+            const completedCount = combinedItems.filter(item => item.isCompleted).length;
 
             return (
               <div
@@ -3876,7 +3959,7 @@ export const PlanTable: React.FC = () => {
                     {col.icon}
                     <span>{col.title}</span>
                   </div>
-                  <span className="kanban-card-count">{totalCount}</span>
+                  <span className="kanban-card-count">{completedCount}/{totalCount}</span>
                 </div>
 
                 <div className="kanban-column-body">
@@ -3885,7 +3968,8 @@ export const PlanTable: React.FC = () => {
                       const a = item.data;
                       const clr = sourceColors[a.source] || { bg: 'var(--panel-bg)', color: 'var(--text-secondary)' };
                       const isCompleted = item.isCompleted;
-                      const matchedProduct = findMatchingProductItem(a.title);
+                      const isFeatureRequest = a.rawItem && (a.rawItem.type === 'Feature Gap' || a.rawItem.type === 'Enhancement');
+                      const matchedProduct = isFeatureRequest ? null : findMatchingProductItem(a.title);
 
                       return (
                         <div
@@ -3896,11 +3980,17 @@ export const PlanTable: React.FC = () => {
                             cursor: 'pointer',
                             opacity: 1
                           }}
-                          onClick={() => openPreviewForFeature(a.title, {
-                            status: a.status as any,
-                            priority: a.priority as any,
-                            poc: a.poc,
-                          })}
+                          onClick={() => {
+                            if (a.rawItem && (a.rawItem.type === 'Feature Gap' || a.rawItem.type === 'Enhancement')) {
+                              setPreviewProductId(a.rawItem.id);
+                            } else {
+                              openPreviewForFeature(a.title, {
+                                status: a.status as any,
+                                priority: a.priority as any,
+                                poc: a.poc,
+                              });
+                            }
+                          }}
                         >
                           <div className="kanban-card-title" style={{ fontSize: '0.8rem', lineHeight: 1.35 }}>
                             {a.title}
@@ -7570,12 +7660,12 @@ export const AdminCallsTable: React.FC = () => {
                                         e.stopPropagation();
                                         const newItem: ProductItem = {
                                           id: `prod-call-${Date.now()}`,
-                                          feature: '',
+                                          feature: 'New Feature Request',
                                           description: '',
                                           tarunSirApproval: false,
                                           raisedByTarunSir: false,
-                                          priority: '',
-                                          poc: 'Akash',
+                                          priority: 'P2',
+                                          poc: currentUser?.name || 'Akash Sharma',
                                           status: '',
                                           clickupStatus: '',
                                           taskLink: '',
@@ -8117,7 +8207,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
     const newMeeting: TarunSirMeeting = {
       id: `meeting-${Date.now()}`,
       date: new Date().toISOString().split('T')[0],
-      adminPoc: currentUser?.name || (speakersList.length > 0 ? speakersList[0] : 'Akash'),
+      adminPoc: currentUser?.name || (speakersList.length > 0 ? speakersList[0] : 'Akash Sharma'),
       cohortTopic: 'New Meeting Topic',
       discussion: '',
       actions: '',
@@ -10200,8 +10290,8 @@ export const ProductWiseSheet: React.FC = () => {
       isSpecial ? (!item.product || item.product.trim() === '') : item.product === prodName
     ).length;
     
-    const countIssues = dailyIssues.filter(item => 
-      isSpecial ? (!item.product || item.product.trim() === '') : item.product === prodName
+    const countIssues = dailyIssues.filter(item =>
+      (isSpecial ? (!item.product || item.product.trim() === '') : item.product === prodName)
     ).length;
     
     return countProductItems + countProjects + countContent + countMeetings + countIssues;
@@ -10391,6 +10481,7 @@ export const ProductWiseSheet: React.FC = () => {
         canDelete: false
       })),
     ...dailyIssues
+      .filter(item => item.type !== 'Feature Gap' && item.type !== 'Enhancement')
       .filter(item => isNoGroupTab ? (!item.product || item.product.trim() === '') : item.product === activeProduct)
       .map(item => ({
         id: `breakdown-issue-${item.id}`,
@@ -10424,6 +10515,48 @@ export const ProductWiseSheet: React.FC = () => {
           module: item.module,
           notes: item.cohort,
           clickupStatus: item.type,
+          productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatus(item.status),
+          uiuxCompleted: item.uiuxCompleted || isCompletedStatus(item.status),
+          deadlineCompleted: item.deadlineCompleted || isCompletedStatus(item.status),
+          finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatus(item.status),
+        }),
+        canDelete: false
+      })),
+    ...dailyIssues
+      .filter(item => item.type === 'Feature Gap' || item.type === 'Enhancement')
+      .filter(item => isNoGroupTab ? (!item.product || item.product.trim() === '') : item.product === activeProduct)
+      .map(item => ({
+        id: `breakdown-request-${item.id}`,
+        feature: item.module || `Request #${item.id}`,
+        description: item.issues || '',
+        tarunSirApproval: item.tarunSirApproval || false,
+        raisedByTarunSir: item.raisedByTarunSir || false,
+        priority: (item.priority || '') as ProductItem['priority'],
+        poc: item.poc || '',
+        status: (item.status || '') as ProductItem['status'],
+        clickupStatus: item.clickupStatus || '',
+        taskLink: item.taskLink || '',
+        blocker: item.blocker || '',
+        deadline: item.deadline || '',
+        notes: item.notes || item.issues || '',
+        product: item.product || '',
+        module: item.module || '',
+        type: item.type || 'Feature Gap',
+        uiux: item.uiux || '',
+        finalRelease: item.finalRelease || '',
+        productDeadline: item.productDeadline || '',
+        productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatus(item.status),
+        uiuxCompleted: item.uiuxCompleted || isCompletedStatus(item.status),
+        deadlineCompleted: item.deadlineCompleted || isCompletedStatus(item.status),
+        finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatus(item.status),
+        sourceLabel: 'Feature Request',
+        sourceId: item.id,
+        openPreview: () => openPreviewForFeature(item.module || `Request #${item.id}`, {
+          description: item.issues,
+          product: item.product,
+          module: item.module,
+          notes: item.notes,
+          clickupStatus: item.clickupStatus,
           productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatus(item.status),
           uiuxCompleted: item.uiuxCompleted || isCompletedStatus(item.status),
           deadlineCompleted: item.deadlineCompleted || isCompletedStatus(item.status),
@@ -11039,13 +11172,115 @@ export const IssuesTable: React.FC = () => {
     );
   };
 
+
+  const renderRow = (item: DailyIssue) => {
+    return (
+      <tr 
+        key={item.id} 
+        onClick={() => setPreviewProductId(item.id)} 
+        style={{ cursor: 'pointer' }}
+      >
+        <td
+          className="sticky-col"
+          style={{ fontWeight: 600, width: '280px', minWidth: '280px', maxWidth: '280px', whiteSpace: 'normal' }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
+                {item.module || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
+              </span>
+              {item.raisedByTarunSir && (
+                <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                  <Star size={10} fill="currentColor" /> Super Priority
+                </span>
+              )}
+              {item.tarunSirApproval && (
+                <span className="badge-verified" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', fontWeight: 650 }}>
+                  <CheckCircle size={10} /> Verified
+                </span>
+              )}
+            </div>
+          </div>
+        </td>
+        <td>
+          {item.product || '—'}
+        </td>
+        <td>
+          {item.priority ? (
+            <span className={`badge badge-${item.priority.toLowerCase()}`}>{item.priority}</span>
+          ) : '—'}
+        </td>
+        <td style={{ fontWeight: 500 }}>{renderTextCell(item, 'poc', item.contact || '—')}</td>
+        <td>
+          {item.status ? (() => {
+            const matched = statuses.find(s => s.label === item.status);
+            if (matched) {
+              return (
+                <span className="badge" style={{
+                  backgroundColor: `${matched.color}14`,
+                  color: matched.color,
+                  borderColor: `${matched.color}33`,
+                  borderStyle: 'solid',
+                  borderWidth: '1px'
+                }}>
+                  {item.status}
+                </span>
+              );
+            }
+            return (
+              <span className={`badge ${
+                item.status === 'On Hold' ? 'status-hold' :
+                item.status === 'In Progress' ? 'status-progress' :
+                item.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
+              }`}>
+                {item.status}
+              </span>
+            );
+          })() : '—'}
+        </td>
+        <td>
+          {item.clickupStatus ? (
+            <span style={getClickupBadgeStyle(item.clickupStatus)}>
+              {item.clickupStatus}{item.clickupSubtasksCount ? ` (${item.clickupSubtasksCount})` : ""}
+            </span>
+          ) : '—'}
+        </td>
+        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+          {renderDateCell(item, 'productDeadline')}
+        </td>
+        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+          {renderDateCell(item, 'uiux', 'productDeadline')}
+        </td>
+        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+          {renderDateCell(item, 'deadline', 'uiux')}
+        </td>
+        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+          {renderDateCell(item, 'finalRelease', 'deadline')}
+        </td>
+        <td>
+          <button 
+            onClick={async (e) => {
+              e.stopPropagation();
+              if (await confirm("Are you sure you want to delete this daily issue?", "Delete Daily Issue")) {
+                deleteDailyIssue(item.id);
+              }
+            }} 
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
+          >
+            <Trash2 size={14} />
+          </button>
+        </td>
+      </tr>
+    );
+  };
+
   return (
     <TabContainer
       title="Daily Issues Log"
       searchQuery={searchQuery}
       setSearchQuery={setSearchQuery}
       onAddClick={handleAddNew}
-      addLabel="Add Feature"
+      addLabel="Add Issue"
       filterComponent={
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <select className="filter-select" value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)}>
@@ -11093,104 +11328,211 @@ export const IssuesTable: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {filtered.map(item => (
-              <tr 
-                key={item.id} 
-                onClick={() => setPreviewProductId(item.id)} 
-                style={{ cursor: 'pointer' }}
-              >
-                <td
-                  className="sticky-col"
-                  style={{ fontWeight: 600, width: '280px', minWidth: '280px', maxWidth: '280px', whiteSpace: 'normal' }}
-                >
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', width: '100%' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
-                        {item.module || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
-                      </span>
-                      {item.raisedByTarunSir && (
-                        <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                          <Star size={10} fill="currentColor" /> Super Priority
-                        </span>
-                      )}
-                      {item.tarunSirApproval && (
-                        <span className="badge-verified" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', fontWeight: 650 }}>
-                          <CheckCircle size={10} /> Verified
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  {item.product || '—'}
-                </td>
-                <td>
-                  {item.priority ? (
-                    <span className={`badge badge-${item.priority.toLowerCase()}`}>{item.priority}</span>
-                  ) : '—'}
-                </td>
-                <td style={{ fontWeight: 500 }}>{renderTextCell(item, 'poc', item.contact || '—')}</td>
-                <td>
-                  {item.status ? (() => {
-                    const matched = statuses.find(s => s.label === item.status);
-                    if (matched) {
-                      return (
-                        <span className="badge" style={{
-                          backgroundColor: `${matched.color}14`,
-                          color: matched.color,
-                          borderColor: `${matched.color}33`,
-                          borderStyle: 'solid',
-                          borderWidth: '1px'
-                        }}>
-                          {item.status}
-                        </span>
-                      );
-                    }
-                    return (
-                      <span className={`badge ${
-                        item.status === 'On Hold' ? 'status-hold' :
-                        item.status === 'In Progress' ? 'status-progress' :
-                        item.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
-                      }`}>
-                        {item.status}
-                      </span>
-                    );
-                  })() : '—'}
-                </td>
-                <td>
-                  {item.clickupStatus ? (
-                    <span style={getClickupBadgeStyle(item.clickupStatus)}>
-                      {item.clickupStatus}{item.clickupSubtasksCount ? ` (${item.clickupSubtasksCount})` : ""}
-                    </span>
-                  ) : '—'}
-                </td>
-                <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  {renderDateCell(item, 'productDeadline')}
-                </td>
-                <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                  {renderDateCell(item, 'uiux', 'productDeadline')}
-                </td>
-                <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                  {renderDateCell(item, 'deadline', 'uiux')}
-                </td>
-                <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                  {renderDateCell(item, 'finalRelease', 'deadline')}
-                </td>
-                <td>
-                  <button 
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      if (await confirm("Are you sure you want to delete this daily issue?", "Delete Daily Issue")) {
-                        deleteDailyIssue(item.id);
-                      }
-                    }} 
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
-                  >
-                    <Trash2 size={14} />
-                  </button>
+            {filtered.filter(item => item.type !== 'Feature Gap' && item.type !== 'Enhancement').length === 0 ? (
+              <tr>
+                <td colSpan={11} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                  No active issues logged.
                 </td>
               </tr>
-            ))}
+            ) : (
+              filtered.filter(item => item.type !== 'Feature Gap' && item.type !== 'Enhancement').map(item => renderRow(item))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </TabContainer>
+  );
+};
+
+
+export const FeatureRequestsTable: React.FC = () => {
+  const { dailyIssues, deleteDailyIssue, statuses, setPreviewProductId, confirm } = useDashboard();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterProduct, setFilterProduct] = useState('All');
+  const [sortField, setSortField] = useState<keyof DailyIssue | null>(null);
+  const [sortAsc, setSortAsc] = useState(true);
+
+  const handleSort = (field: keyof DailyIssue) => {
+    if (sortField === field) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+  };
+
+  const allProducts = Array.from(new Set(dailyIssues.map(i => i.product).filter(Boolean)));
+
+  const filtered = dailyIssues.filter(item =>
+    item.type === 'Feature Gap' || item.type === 'Enhancement'
+  ).filter(item => {
+    const matchSearch =
+      (item.module || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.issues || item.notes || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.product || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.poc || item.contact || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchProduct = filterProduct === 'All' || item.product === filterProduct;
+    return matchSearch && matchProduct;
+  });
+
+  filtered.sort((a, b) => {
+    const aComp = !!a.finalReleaseCompleted;
+    const bComp = !!b.finalReleaseCompleted;
+    if (aComp !== bComp) return aComp ? 1 : -1;
+    if (sortField) {
+      const valA = String(a[sortField] || '').toLowerCase();
+      const valB = String(b[sortField] || '').toLowerCase();
+      return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+    }
+    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+  });
+
+  const renderDateCell = (item: DailyIssue, field: keyof DailyIssue, previousField?: keyof DailyIssue) => {
+    const value = String(item[field] || '');
+    const completedField = `${String(field)}Completed` as keyof DailyIssue;
+    const completed = Boolean(item[completedField]);
+    return (
+      <>
+        {previousField && <DateDiffBadge prevDate={String(item[previousField] || '')} currentDate={value} />}
+        <span style={getDateSpanStyle(value, completed)}>
+          {value ? formatDateToUserPattern(value) : '—'}
+        </span>
+      </>
+    );
+  };
+
+  return (
+    <TabContainer
+      title="Requested Features"
+      searchQuery={searchQuery}
+      setSearchQuery={setSearchQuery}
+      filterComponent={
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <select className="filter-select" value={filterProduct} onChange={e => setFilterProduct(e.target.value)}>
+            <option value="All">All Products</option>
+            {allProducts.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
+      }
+    >
+      <div className="table-responsive">
+        <table className="grid-table">
+          <thead>
+            <tr>
+              <th className="sticky-header-col" onClick={() => handleSort('module')} style={{ width: '320px', minWidth: '320px', maxWidth: '320px', cursor: 'pointer' }}>Feature {sortField === 'module' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('cohort')} style={{ width: '120px', cursor: 'pointer' }}>Program {sortField === 'cohort' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('priority')} style={{ width: '80px', cursor: 'pointer' }}>Priority {sortField === 'priority' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('poc')} style={{ width: '120px', cursor: 'pointer' }}>Raised By {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th style={{ width: '120px' }}>POC Owner</th>
+              <th onClick={() => handleSort('status')} style={{ width: '120px', cursor: 'pointer' }}>Status {sortField === 'status' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('clickupStatus')} style={{ width: '100px', cursor: 'pointer' }}>Clickup {sortField === 'clickupStatus' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('productDeadline')} style={{ width: '120px', cursor: 'pointer' }}>Specs Date {sortField === 'productDeadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('uiux')} style={{ width: '120px', cursor: 'pointer' }}>UI/UX Date {sortField === 'uiux' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('deadline')} style={{ width: '120px', cursor: 'pointer' }}>Dev Date {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th onClick={() => handleSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>Release Date {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}</th>
+              <th style={{ width: '40px' }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={12} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                  No feature requests yet. Requests submitted via the public calendar will appear here.
+                </td>
+              </tr>
+            ) : (
+              filtered.map(item => {
+                const statusMatch = statuses.find(s => s.label === item.status);
+                return (
+                  <tr key={item.id} onClick={() => setPreviewProductId(item.id)} style={{ cursor: 'pointer' }}>
+                    <td className="sticky-col" style={{ fontWeight: 600, width: '320px', minWidth: '320px', maxWidth: '320px', whiteSpace: 'normal' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          {item.product || 'No Product Group'}
+                        </span>
+                        <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.3' }}>
+                          {item.module || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
+                        </span>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)', background: 'var(--bg-secondary)', padding: '1px 6px', borderRadius: '4px', alignSelf: 'flex-start', marginTop: '2px' }}>
+                          {item.type === 'Feature Gap' ? '✦ Feature Gap' : '✦ Enhancement'}
+                        </span>
+                      </div>
+                    </td>
+                    <td>{item.cohort || '—'}</td>
+                    <td>
+                      {item.priority ? (
+                        <span className={`badge badge-${item.priority.toLowerCase()}`}>{item.priority}</span>
+                      ) : '—'}
+                    </td>
+                    <td>
+                      {(item.contact || item.poc) ? (
+                        <span style={getPOCBadgeStyle(item.contact || item.poc || '')}>
+                          {item.contact || item.poc}
+                        </span>
+                      ) : '—'}
+                    </td>
+                    <td>
+                      {item.poc ? (
+                        <span style={getPOCBadgeStyle(item.poc)}>
+                          {item.poc}
+                        </span>
+                      ) : '—'}
+                    </td>
+                    <td>
+                      {item.status ? (
+                        statusMatch ? (
+                          <span className="badge" style={{
+                            backgroundColor: `${statusMatch.color}14`,
+                            color: statusMatch.color,
+                            borderColor: `${statusMatch.color}33`,
+                            borderStyle: 'solid',
+                            borderWidth: '1px'
+                          }}>{item.status}</span>
+                        ) : (
+                          <span className={`badge ${
+                            item.status === 'On Hold' ? 'status-hold' :
+                            item.status === 'In Progress' ? 'status-progress' :
+                            item.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
+                          }`}>{item.status}</span>
+                        )
+                      ) : <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Pending Review</span>}
+                    </td>
+                    <td>
+                      {item.clickupStatus ? (
+                        <span style={getClickupBadgeStyle(item.clickupStatus)}>
+                          {item.clickupStatus}
+                        </span>
+                      ) : '—'}
+                    </td>
+                    <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      {renderDateCell(item, 'productDeadline')}
+                    </td>
+                    <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                      {renderDateCell(item, 'uiux', 'productDeadline')}
+                    </td>
+                    <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                      {renderDateCell(item, 'deadline', 'uiux')}
+                    </td>
+                    <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                      {renderDateCell(item, 'finalRelease', 'deadline')}
+                    </td>
+                    <td>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (await confirm('Delete this feature request?', 'Delete Request')) {
+                            deleteDailyIssue(item.id);
+                          }
+                        }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>

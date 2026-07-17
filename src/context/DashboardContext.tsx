@@ -795,6 +795,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (isPublicCalendar) {
         params.append('public-calendar', 'true');
       }
+      params.append('_t', Date.now().toString());
       const queryString = params.toString();
       if (queryString) {
         url += `?${queryString}`;

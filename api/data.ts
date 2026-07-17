@@ -94,7 +94,7 @@ export default async function handler(req: any, res: any) {
               }
               return s;
             });
-          } else if (key === 'statuses' || key === 'productGroups') {
+          } else if (key === 'statuses' || key === 'productGroups' || key === 'programs' || key === 'cohorts') {
             results[key] = await modelsMap[key].find({}).lean();
           } else {
             // Map models to sources
@@ -241,9 +241,34 @@ export default async function handler(req: any, res: any) {
         });
 
         if (!speaker) {
+          // Check if this is a valid domain login from the allowed domains settings
+          const GlobalSettings = modelsMap['settings'];
+          const allowedDomainsSetting = await GlobalSettings.findOne({ key: 'googleAllowedDomains' }).lean() as any;
+          const allowedDomains = allowedDomainsSetting?.value
+            ? allowedDomainsSetting.value.split(',').map((d: any) => d.trim().toLowerCase()).filter(Boolean)
+            : [];
+          
+          const emailDomain = targetEmail.split('@')[1];
+          const isDomainAllowed = allowedDomains.length === 0 || allowedDomains.includes(emailDomain);
+          
+          if (isDomainAllowed) {
+            // Return a virtual guest speaker object
+            const guestUser = {
+              id: `guest-${targetEmail}`,
+              name: payload.name || targetEmail.split('@')[0],
+              email: targetEmail,
+              role: 'Guest',
+              isGuest: true
+            };
+            return res.status(200).json({
+              success: true,
+              user: guestUser
+            });
+          }
+
           return res.status(401).json({ 
             success: false, 
-            error: `Access Denied: Your Google email (${email}) is not registered in the POC Owners/Speakers configuration.` 
+            error: `Access Denied: Your Google email (${email}) is not authorized.` 
           });
         }
 
@@ -741,17 +766,40 @@ export default async function handler(req: any, res: any) {
         isAuthenticated = true;
         console.log(`[AUTH DEBUG] Authenticated via localhost bypass.`);
       } else if (userId) {
-        const ConfigSpeaker = modelsMap['speakers'];
-        const speaker = await ConfigSpeaker.findOne({ id: userId }).lean();
-        console.log(`[AUTH DEBUG] Found speaker for id ${userId}: ${speaker ? JSON.stringify(speaker) : 'null'}`);
-        if (speaker) {
-          isAuthenticated = true;
+        if (String(userId).startsWith('guest-')) {
+          const targetEmail = String(userId).replace('guest-', '');
+          const GlobalSettings = modelsMap['settings'];
+          const allowedDomainsSetting = await GlobalSettings.findOne({ key: 'googleAllowedDomains' }).lean() as any;
+          const allowedDomains = allowedDomainsSetting?.value
+            ? allowedDomainsSetting.value.split(',').map((d: any) => d.trim().toLowerCase()).filter(Boolean)
+            : [];
+          
+          const emailDomain = targetEmail.split('@')[1];
+          const isDomainAllowed = allowedDomains.length === 0 || allowedDomains.includes(emailDomain);
+          if (isDomainAllowed) {
+            isAuthenticated = true;
+          }
+        } else {
+          const ConfigSpeaker = modelsMap['speakers'];
+          const speaker = await ConfigSpeaker.findOne({ id: userId }).lean();
+          console.log(`[AUTH DEBUG] Found speaker for id ${userId}: ${speaker ? JSON.stringify(speaker) : 'null'}`);
+          if (speaker) {
+            isAuthenticated = true;
+          }
         }
       } else {
         console.log(`[AUTH DEBUG] No userId header present in request headers: ${JSON.stringify(req.headers)}`);
       }
       if (!isAuthenticated) {
         return res.status(401).json({ success: false, error: 'Unauthorized write operation.' });
+      }
+
+      // Restrict guest users to ONLY raising feature requests (create dailyIssues)
+      if (userId && String(userId).startsWith('guest-')) {
+        const isGuestAllowed = action === 'create' && type === 'dailyIssues';
+        if (!isGuestAllowed) {
+          return res.status(401).json({ success: false, error: 'Unauthorized write operation for Guest users.' });
+        }
       }
     }
 

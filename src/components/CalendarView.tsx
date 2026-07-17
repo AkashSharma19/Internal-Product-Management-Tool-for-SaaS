@@ -228,10 +228,17 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
       addEvent(item.id, 'Content Pipeline', item.module, 'Dev', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc, item.priority, item.draftLink, item, 'content');
     });
 
-    // 7. Daily Issues Log
+    // 7. Daily Issues Log & Feature Requests
     dailyIssues.forEach(item => {
       const isOverallCompleted = isCompletedStatus(item.status);
-      addEvent(item.id, 'Daily Issues Log', item.module || `Issue #${item.id}`, 'Deadline', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'issues');
+      if (item.type === 'Feature Gap' || item.type === 'Enhancement') {
+        addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Specs', item.productDeadline, !!item.productDeadlineCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
+        addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'UI/UX', item.uiux, !!item.uiuxCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
+        addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Dev', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
+        addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Final Release', item.finalRelease, !!item.finalReleaseCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
+      } else {
+        addEvent(item.id, 'Daily Issues Log', item.module || `Issue #${item.id}`, 'Deadline', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'issues');
+      }
     });
 
     return list;
@@ -398,19 +405,36 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
 
     if (allowed.includes('issues')) {
       dailyIssues.forEach(item => {
-        const hasDate = !!parseDateToYYYYMMDD(item.deadline);
-        if (!hasDate) {
-          const isCompleted = !!item.deadlineCompleted || isCompletedStatus(item.status);
-          list.push({
-            id: item.id,
-            title: item.module || `Issue #${item.id}`,
-            source: 'Daily Issues Log',
-            poc: item.poc || '',
-            priority: item.priority,
-            status: item.status,
-            taskLink: item.taskLink,
-            isCompleted
-          });
+        if (item.type === 'Feature Gap' || item.type === 'Enhancement') {
+          const hasDate = !!parseDateToYYYYMMDD(item.finalRelease);
+          if (!hasDate) {
+            const isCompleted = !!item.finalReleaseCompleted || isCompletedStatus(item.status);
+            list.push({
+              id: item.id,
+              title: item.module || `Request #${item.id}`,
+              source: 'Priority Requests',
+              poc: item.poc || item.contact || '',
+              priority: item.priority,
+              status: item.status,
+              taskLink: item.taskLink,
+              isCompleted
+            });
+          }
+        } else {
+          const hasDate = !!parseDateToYYYYMMDD(item.deadline);
+          if (!hasDate) {
+            const isCompleted = !!item.deadlineCompleted || isCompletedStatus(item.status);
+            list.push({
+              id: item.id,
+              title: item.module || `Issue #${item.id}`,
+              source: 'Daily Issues Log',
+              poc: item.poc || '',
+              priority: item.priority,
+              status: item.status,
+              taskLink: item.taskLink,
+              isCompleted
+            });
+          }
         }
       });
     }
