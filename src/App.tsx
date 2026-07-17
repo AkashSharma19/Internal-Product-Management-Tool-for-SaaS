@@ -597,20 +597,15 @@ const DashboardContent: React.FC = () => {
   const [requestSuccess, setRequestSuccess] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
+  const [loginSuccessUser, setLoginSuccessUser] = useState<{ name: string; email: string } | null>(null);
+  // Ref keeps the latest loginUserByEmail without being a reactive dependency
+  const loginUserByEmailRef = useRef(loginUserByEmail);
+  useEffect(() => { loginUserByEmailRef.current = loginUserByEmail; }, [loginUserByEmail]);
+  // Ref for the success→form transition timer so effect cleanup can't cancel it
+  const loginTransitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auto-close login modal and open raise-request modal when user signs in
-  useEffect(() => {
-    if (currentUser && isPublicLoginModalOpen) {
-      setIsPublicLoginModalOpen(false);
-      setRequestError(null);
-      setRequestSuccess(false);
-      setRequestTaskName('');
-      setRequestDescription('');
-      setRequestProduct('');
-      setRequestProgram('');
-      setIsRaiseRequestModalOpen(true);
-    }
-  }, [currentUser, isPublicLoginModalOpen]);
+  // NOTE: transition from login modal → raise-request modal is handled inside the Google callback
+  // with a 2-second success-screen delay, so no competing useEffect needed here.
 
   // Public Calendar Google Login Effect
   useEffect(() => {
@@ -628,9 +623,24 @@ const DashboardContent: React.FC = () => {
             setLoginError(null);
             try {
               if (response.credential) {
-                const res = await loginUserByEmail(response.credential);
+                const res = await loginUserByEmailRef.current(response.credential);
                 if (res.success) {
-                  setIsPublicLoginModalOpen(false);
+                  // Decode the JWT to grab name/email for the success screen
+                  try {
+                    const payload = JSON.parse(atob(response.credential.split('.')[1]));
+                    setLoginSuccessUser({ name: payload.name || payload.email || 'User', email: payload.email || '' });
+                  } catch {
+                    setLoginSuccessUser({ name: 'User', email: '' });
+                  }
+                  setIsGoogleSigningIn(false);
+                  // Use a ref-tracked timer so effect re-runs can't cancel it
+                  if (loginTransitionTimerRef.current) clearTimeout(loginTransitionTimerRef.current);
+                  loginTransitionTimerRef.current = setTimeout(() => {
+                    loginTransitionTimerRef.current = null;
+                    setLoginSuccessUser(null);
+                    setIsPublicLoginModalOpen(false);
+                  }, 1200);
+                  return;
                 } else {
                   setLoginError(res.error || 'Access Denied');
                 }
@@ -664,7 +674,7 @@ const DashboardContent: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [isPublicLoginModalOpen, googleClientId, loginUserByEmail]);
+  }, [isPublicLoginModalOpen, googleClientId]);
 
   const handleOpenRaiseRequestModal = () => {
     if (!currentUser) {
@@ -908,71 +918,132 @@ const DashboardContent: React.FC = () => {
         {isPublicLoginModalOpen && (
           <div style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)',
+            backgroundColor: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(8px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999,
-            fontFamily: 'Outfit, sans-serif'
+            fontFamily: 'Outfit, sans-serif',
+            animation: 'fadeIn 0.25s ease'
           }}>
             <div style={{
               background: 'var(--panel-bg)', border: '1px solid var(--border)',
-              borderRadius: '16px', padding: '2rem', width: '360px', maxWidth: '90%',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
-              position: 'relative'
+              borderRadius: '20px', padding: '2.25rem', width: '380px', maxWidth: '92vw',
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+              position: 'relative',
+              animation: 'slideUp 0.3s cubic-bezier(0.16,1,0.3,1)'
             }}>
-              <button 
-                onClick={() => setIsPublicLoginModalOpen(false)}
-                style={{
-                  position: 'absolute', top: '12px', right: '12px', background: 'none',
-                  border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.25rem', lineHeight: 1
-                }}
-              >
-                &times;
-              </button>
-              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-                <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                  Sign In Required
-                </h3>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                  You must be signed in with your Google account to raise a feature request.
-                </p>
-              </div>
-
-              {loginError && (
-                <div style={{
-                  padding: '10px 12px', backgroundColor: 'rgba(239, 68, 68, 0.08)',
-                  border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444',
-                  borderRadius: '8px', fontSize: '0.8rem', fontWeight: 550, marginBottom: '1.5rem',
-                  lineHeight: 1.35
-                }}>
-                  {loginError}
-                </div>
+              {/* Close button — hidden during loading/success states */}
+              {!isGoogleSigningIn && !loginSuccessUser && (
+                <button
+                  onClick={() => { setIsPublicLoginModalOpen(false); setLoginError(null); }}
+                  style={{
+                    position: 'absolute', top: '14px', right: '14px', background: 'none',
+                    border: 'none', color: 'var(--text-secondary)', cursor: 'pointer',
+                    fontSize: '1.2rem', lineHeight: 1, padding: '4px', borderRadius: '6px'
+                  }}
+                >&times;</button>
               )}
 
-              {isGoogleSigningIn ? (
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '1rem',
-                  padding: '1.5rem 0',
-                  color: 'var(--text-secondary)'
-                }}>
-                  <div style={{
-                    width: '44px',
-                    height: '44px',
-                    border: '3px solid var(--border)',
-                    borderTop: '3px solid var(--primary)',
-                    borderRadius: '50%',
-                    animation: 'spin 0.8s linear infinite'
-                  }} />
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>Signing you in…</p>
-                    <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Verifying your Google account</p>
+              {/* ── SUCCESS STATE ── */}
+              {loginSuccessUser ? (
+                <div style={{ textAlign: 'center', padding: '0.5rem 0 0.25rem' }}>
+                  {/* Animated success ring */}
+                  <div style={{ position: 'relative', width: '80px', height: '80px', margin: '0 auto 1.25rem' }}>
+                    <div style={{
+                      position: 'absolute', inset: 0,
+                      borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #10b981, #059669)',
+                      boxShadow: '0 0 0 0 rgba(16,185,129,0.4)',
+                      animation: 'successPulse 1.4s ease-out infinite'
+                    }} />
+                    <div style={{
+                      position: 'absolute', inset: '6px',
+                      borderRadius: '50%',
+                      background: 'var(--panel-bg)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+                        <path d="M5 13l4 4L19 7" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                          style={{ strokeDasharray: 30, strokeDashoffset: 0, animation: 'drawCheck 0.4s ease forwards' }} />
+                      </svg>
+                    </div>
                   </div>
+
+                  <p style={{ margin: '0 0 0.25rem', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#10b981' }}>Signed In Successfully</p>
+                  <h3 style={{ margin: '0 0 0.35rem', fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)' }}>Welcome, {loginSuccessUser.name.split(' ')[0]}! 👋</h3>
+                  <p style={{ margin: '0 0 1.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{loginSuccessUser.email}</p>
+
+                  {/* Progress bar */}
+                  <div style={{
+                    height: '4px', borderRadius: '4px',
+                    background: 'var(--border)',
+                    overflow: 'hidden',
+                    margin: '0 0 0.75rem'
+                  }}>
+                    <div style={{
+                      height: '100%',
+                      background: 'linear-gradient(90deg, #10b981, #059669)',
+                      borderRadius: '4px',
+                      animation: 'progressFill 1.1s linear forwards'
+                    }} />
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 500 }}>You're all set! ✓</p>
+                </div>
+              ) : isGoogleSigningIn ? (
+              /* ── LOADING STATE ── */
+                <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
+                  {/* Google-branded spinner */}
+                  <div style={{ position: 'relative', width: '56px', height: '56px', margin: '0 auto 1.25rem' }}>
+                    <div style={{
+                      width: '56px', height: '56px',
+                      border: '3px solid var(--border)',
+                      borderTopColor: '#4285F4',
+                      borderRightColor: '#EA4335',
+                      borderBottomColor: '#FBBC05',
+                      borderLeftColor: '#34A853',
+                      borderRadius: '50%',
+                      animation: 'spin 0.9s linear infinite'
+                    }} />
+                  </div>
+                  <p style={{ margin: '0 0 4px', fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Signing you in…</p>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Verifying your Google account</p>
                 </div>
               ) : (
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}>
-                  <div id="google-signin-public-btn-container"></div>
-                </div>
+              /* ── DEFAULT STATE ── */
+                <>
+                  <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                    {/* Google G logo */}
+                    <div style={{
+                      width: '52px', height: '52px', borderRadius: '50%',
+                      background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      margin: '0 auto 1rem'
+                    }}>
+                      <svg width="26" height="26" viewBox="0 0 24 24">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                      </svg>
+                    </div>
+                    <h3 style={{ margin: '0 0 0.4rem 0', fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)' }}>Sign In Required</h3>
+                    <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>Sign in with your Google account to raise a feature request or post comments.</p>
+                  </div>
+
+                  {loginError && (
+                    <div style={{
+                      padding: '10px 12px', backgroundColor: 'rgba(239,68,68,0.08)',
+                      border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444',
+                      borderRadius: '8px', fontSize: '0.8rem', fontWeight: 550, marginBottom: '1.25rem',
+                      lineHeight: 1.35, display: 'flex', gap: '6px', alignItems: 'flex-start'
+                    }}>
+                      <span>⚠️</span><span>{loginError}</span>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <div id="google-signin-public-btn-container"></div>
+                  </div>
+                  <p style={{ marginTop: '1rem', fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center' }}>By signing in you agree to let us use your name and email for identification only.</p>
+                </>
               )}
             </div>
           </div>

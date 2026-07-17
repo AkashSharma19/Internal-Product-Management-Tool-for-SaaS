@@ -98,6 +98,14 @@ export default async function handler(req: any, res: any) {
             });
           } else if (key === 'statuses' || key === 'productGroups' || key === 'programs' || key === 'cohorts' || key === 'comments') {
             results[key] = await modelsMap[key].find({}).lean();
+          } else if (key === 'speakers') {
+            // Return speakers (without passwords) so the frontend can restore guest sessions on refresh
+            const rawSpeakers = await modelsMap[key].find({}).lean();
+            results[key] = rawSpeakers.map((s: any) => {
+              const copy = { ...s };
+              delete copy.password;
+              return copy;
+            });
           } else {
             // Map models to sources
             if (key === 'products') {
