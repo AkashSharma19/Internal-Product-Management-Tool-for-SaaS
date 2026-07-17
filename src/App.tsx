@@ -596,6 +596,7 @@ const DashboardContent: React.FC = () => {
   const [requestError, setRequestError] = useState<string | null>(null);
   const [requestSuccess, setRequestSuccess] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
 
   // Auto-close login modal and open raise-request modal when user signs in
   useEffect(() => {
@@ -623,6 +624,8 @@ const DashboardContent: React.FC = () => {
           client_id: googleClientId,
           callback: async (response: any) => {
             if (!isMounted) return;
+            setIsGoogleSigningIn(true);
+            setLoginError(null);
             try {
               if (response.credential) {
                 const res = await loginUserByEmail(response.credential);
@@ -636,6 +639,8 @@ const DashboardContent: React.FC = () => {
               }
             } catch (err) {
               setLoginError('Google login failed.');
+            } finally {
+              if (isMounted) setIsGoogleSigningIn(false);
             }
           }
         });
@@ -942,9 +947,33 @@ const DashboardContent: React.FC = () => {
                 </div>
               )}
 
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}>
-                <div id="google-signin-public-btn-container"></div>
-              </div>
+              {isGoogleSigningIn ? (
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '1rem',
+                  padding: '1.5rem 0',
+                  color: 'var(--text-secondary)'
+                }}>
+                  <div style={{
+                    width: '44px',
+                    height: '44px',
+                    border: '3px solid var(--border)',
+                    borderTop: '3px solid var(--primary)',
+                    borderRadius: '50%',
+                    animation: 'spin 0.8s linear infinite'
+                  }} />
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>Signing you in…</p>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Verifying your Google account</p>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}>
+                  <div id="google-signin-public-btn-container"></div>
+                </div>
+              )}
             </div>
           </div>
         )}
