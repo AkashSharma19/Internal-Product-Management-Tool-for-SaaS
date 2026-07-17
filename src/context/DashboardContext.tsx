@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { AlertCircle, CheckCircle, Info } from 'lucide-react';
 import type { 
   ProductItem, 
@@ -189,6 +189,12 @@ interface DashboardContextType {
   setFeedbackSubmissions: React.Dispatch<React.SetStateAction<FeedbackSubmission[]>>;
   addFeedbackSubmission: (submission: Omit<FeedbackSubmission, 'id'>) => Promise<FeedbackSubmission>;
   deleteFeedbackSubmission: (id: string) => Promise<void>;
+
+  // Comments
+  comments: any[];
+  addComment: (itemId: string, content: string) => Promise<{ success: boolean; comment?: any; error?: string }>;
+  lastOpenedMap: Record<string, number>;
+  markTaskAsRead: (itemId: string) => void;
 }
 
 
@@ -597,6 +603,40 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     localStorage.setItem('data-feedback-submissions', JSON.stringify(feedbackSubmissions));
   }, [feedbackSubmissions]);
 
+  const [comments, setComments] = useState<any[]>(() => {
+    const data = localStorage.getItem('data-comments');
+    return data ? JSON.parse(data) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('data-comments', JSON.stringify(comments));
+  }, [comments]);
+
+  const [lastOpenedMap, setLastOpenedMap] = useState<Record<string, number>>(() => {
+    try {
+      const data = localStorage.getItem('task-last-opened-times');
+      return data ? JSON.parse(data) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const markTaskAsRead = useCallback((itemId: string) => {
+    setLastOpenedMap(prev => {
+      const updated = { ...prev, [itemId]: Date.now() };
+      localStorage.setItem('task-last-opened-times', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (previewProductId) {
+      const baseId = previewProductId.replace('prod-temp-', '');
+      markTaskAsRead(baseId);
+      markTaskAsRead(previewProductId);
+    }
+  }, [previewProductId, markTaskAsRead]);
+
   const [currentUser, setCurrentUser] = useState<ConfigSpeaker | null>(null);
   const canUserEdit = currentUser ? (currentUser.canEdit !== false) : true;
 
@@ -839,6 +879,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (db.statuses !== undefined)                       { setStatuses(db.statuses);           updatedSheets++; }
         if (db.programs !== undefined)                       { setPrograms(db.programs);           updatedSheets++; }
         if (db.cohorts !== undefined)                         { setCohorts(db.cohorts);             updatedSheets++; }
+        if (db.comments !== undefined)                        { setComments(db.comments);           updatedSheets++; }
 
         if (db.formConfigs) { setFormConfigs(db.formConfigs); }
         if (db.feedbackSubmissions) { setFeedbackSubmissions(db.feedbackSubmissions); }
@@ -1686,8 +1727,29 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  const addComment = async (itemId: string, content: string) => {
+    if (!currentUser) return { success: false, error: 'User must be signed in to comment' };
+    
+    const newComment = {
+      id: `comment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      itemId,
+      authorName: currentUser.name || currentUser.email || 'Guest',
+      authorEmail: currentUser.email || '',
+      content: content.trim()
+    };
+    
+    // Save to server
+    await persistChange('create', 'comments', newComment.id, newComment);
+    
+    // Update local state immediately
+    setComments(prev => [...prev, newComment]);
+    
+    return { success: true, comment: newComment };
+  };
+
   return (
     <DashboardContext.Provider value={{
+      comments, addComment, lastOpenedMap, markTaskAsRead,
       activeTab, setActiveTab,
       productItems, setProductItems, updateProductItem, addProductItem, deleteProductItem,
       planItems, setPlanItems, updatePlanItem, addPlanItem, deletePlanItem,

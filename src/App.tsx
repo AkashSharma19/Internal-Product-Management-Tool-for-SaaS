@@ -563,12 +563,27 @@ const DashboardContent: React.FC = () => {
     alert,
     activeSubtasksTaskLink,
     setActiveSubtasksTaskLink,
-    isLoading
+    isLoading,
+    comments,
+    lastOpenedMap
   } = useDashboard();
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [isRefreshingClickup, setIsRefreshingClickup] = useState(false);
   const [isRefreshingData, setIsRefreshingData] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  const unreadCommentsCount = useMemo(() => {
+    const featureRequestIds = dailyIssues
+      .filter(item => item.type === 'Feature Gap' || item.type === 'Enhancement')
+      .map(item => item.id);
+
+    return comments.filter((c: any) => {
+      if (!featureRequestIds.includes(c.itemId)) return false;
+      const lastOpened = lastOpenedMap[c.itemId];
+      if (!lastOpened) return true;
+      return new Date(c.createdAt).getTime() > lastOpened;
+    }).length;
+  }, [comments, dailyIssues, lastOpenedMap]);
 
   // Public Login & Feature Request Modal state
   const [isPublicLoginModalOpen, setIsPublicLoginModalOpen] = useState(false);
@@ -1234,11 +1249,12 @@ const DashboardContent: React.FC = () => {
                 <div style={{ borderTop: '1px solid var(--border-light)', margin: '0.35rem 0.5rem', marginBottom: '0.5rem' }} />
               )}
               {group.items.map(item => (
-                <button
+                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
                   className={`menu-item ${activeTab === item.id ? 'active' : ''}`}
                   style={{ 
+                    position: 'relative',
                     width: '100%', 
                     border: 'none',
                     display: 'flex',
@@ -1254,6 +1270,38 @@ const DashboardContent: React.FC = () => {
                 >
                   {item.icon}
                   {!isCollapsed && <span className="menu-item-text">{item.label}</span>}
+                  {item.id === 'feature-requests' && unreadCommentsCount > 0 && (
+                    <span style={isCollapsed ? {
+                      position: 'absolute',
+                      top: '2px',
+                      right: '2px',
+                      backgroundColor: 'var(--danger, #ef4444)',
+                      color: 'white',
+                      fontSize: '0.55rem',
+                      fontWeight: 900,
+                      borderRadius: '50%',
+                      width: '12px',
+                      height: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    } : {
+                      marginLeft: 'auto',
+                      backgroundColor: 'var(--danger, #ef4444)',
+                      color: 'white',
+                      fontSize: '0.65rem',
+                      fontWeight: 800,
+                      borderRadius: '10px',
+                      padding: '1px 6px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minWidth: '14px',
+                      height: '14px'
+                    }}>
+                      {unreadCommentsCount}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>

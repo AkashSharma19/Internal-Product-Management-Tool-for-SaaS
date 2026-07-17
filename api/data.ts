@@ -18,7 +18,8 @@ import {
   ConfigCohortModel,
   GlobalSettingsModel,
   FeedbackFormConfigModel,
-  FeedbackSubmissionModel
+  FeedbackSubmissionModel,
+  CommentModel
 } from './lib/models.js';
 
 const modelsMap: Record<string, any> = {
@@ -39,7 +40,8 @@ const modelsMap: Record<string, any> = {
   cohorts: ConfigCohortModel,
   settings: GlobalSettingsModel,
   formConfigs: FeedbackFormConfigModel,
-  feedbackSubmissions: FeedbackSubmissionModel
+  feedbackSubmissions: FeedbackSubmissionModel,
+  comments: CommentModel
 };
 
 export default async function handler(req: any, res: any) {
@@ -94,7 +96,7 @@ export default async function handler(req: any, res: any) {
               }
               return s;
             });
-          } else if (key === 'statuses' || key === 'productGroups' || key === 'programs' || key === 'cohorts') {
+          } else if (key === 'statuses' || key === 'productGroups' || key === 'programs' || key === 'cohorts' || key === 'comments') {
             results[key] = await modelsMap[key].find({}).lean();
           } else {
             // Map models to sources
@@ -794,9 +796,9 @@ export default async function handler(req: any, res: any) {
         return res.status(401).json({ success: false, error: 'Unauthorized write operation.' });
       }
 
-      // Restrict guest users to ONLY raising feature requests (create dailyIssues)
+      // Restrict guest users to ONLY raising feature requests (create dailyIssues) or commenting (create comments)
       if (userId && String(userId).startsWith('guest-')) {
-        const isGuestAllowed = action === 'create' && type === 'dailyIssues';
+        const isGuestAllowed = action === 'create' && (type === 'dailyIssues' || type === 'comments');
         if (!isGuestAllowed) {
           return res.status(401).json({ success: false, error: 'Unauthorized write operation for Guest users.' });
         }

@@ -28,9 +28,10 @@ import {
   RefreshCw,
   Search,
   Plus,
+  Rocket,
+  MessageSquare,
   Layers,
-  ClipboardList,
-  Rocket
+  ClipboardList
 } from 'lucide-react';
 import type { 
   ProductItem, 
@@ -515,7 +516,7 @@ const FeedbackDrawer: React.FC<{
   );
 };
 
-const getClickupBadgeStyle = (status: string) => {
+export const getClickupBadgeStyle = (status: string) => {
   if (!status) return {};
   
   const cleanStatus = status.trim().toLowerCase();
@@ -1523,7 +1524,7 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({ value, onChange, produc
 };
 
 export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBack, onUpdate }) => {
-  const { studentProjects, speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser, productItems, setActiveSubtasksTaskLink, setPreviewProductId, deleteProductItem } = useDashboard();
+  const { studentProjects, speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser, productItems, setActiveSubtasksTaskLink, setPreviewProductId, deleteProductItem, comments, addComment } = useDashboard();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isEditingCreatedAt, setIsEditingCreatedAt] = useState(false);
@@ -1531,6 +1532,28 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const [isEditingUiuxDate, setIsEditingUiuxDate] = useState(false);
   const [isEditingDevDate, setIsEditingDevDate] = useState(false);
   const [isEditingReleaseDate, setIsEditingReleaseDate] = useState(false);
+
+  const [newCommentText, setNewCommentText] = useState('');
+  const [isPostingComment, setIsPostingComment] = useState(false);
+  const [commentError, setCommentError] = useState('');
+
+  const handlePostComment = async () => {
+    if (!newCommentText.trim()) return;
+    setIsPostingComment(true);
+    setCommentError('');
+    try {
+      const res = await addComment(item.id, newCommentText);
+      if (res.success) {
+        setNewCommentText('');
+      } else {
+        setCommentError(res.error || 'Failed to post comment');
+      }
+    } catch (err: any) {
+      setCommentError(err.message || 'Failed to post comment');
+    } finally {
+      setIsPostingComment(false);
+    }
+  };
 
 
 
@@ -2692,6 +2715,105 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
         </>
       )}
 
+      {/* Comments / Discussion Section */}
+      <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '1.5rem 0' }} />
+      <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <h4 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Discussion ({(() => {
+            const taskComments = comments.filter((c: any) => c.itemId === item.id);
+            return taskComments.length;
+          })()})
+        </h4>
+
+        {/* Comments list */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '300px', overflowY: 'auto' }}>
+          {(() => {
+            const taskComments = comments.filter((c: any) => c.itemId === item.id);
+            return taskComments.length === 0 ? (
+              <div style={{
+                padding: '1.5rem',
+                background: 'var(--background-alt)',
+                borderRadius: '8px',
+                border: '1px dashed var(--border-light)',
+                color: 'var(--text-muted)',
+                fontSize: '0.775rem',
+                textAlign: 'center'
+              }}>
+                No comments yet on this task.
+              </div>
+            ) : (
+              taskComments.map((comment: any) => (
+                <div 
+                  key={comment.id}
+                  style={{
+                    background: 'var(--background-alt)',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border-light)',
+                    fontSize: '0.8rem',
+                    lineHeight: 1.4
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '0.725rem' }}>
+                    <span style={{ fontWeight: 800, color: 'var(--primary)' }}>
+                      {comment.authorName} ({comment.authorEmail})
+                    </span>
+                    <span style={{ color: 'var(--text-muted)' }}>
+                      {new Date(comment.createdAt).toLocaleDateString('default', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <div style={{ color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
+                    {comment.content}
+                  </div>
+                </div>
+              ))
+            );
+          })()}
+        </div>
+
+        {/* Add comment textarea */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '0.5rem' }}>
+          <textarea
+            placeholder="Post a reply or add notes to this conversation..."
+            value={newCommentText}
+            onChange={(e) => setNewCommentText(e.target.value)}
+            rows={2}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              fontSize: '0.8rem',
+              borderRadius: '8px',
+              background: 'var(--background-alt)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-primary)',
+              resize: 'none',
+              fontFamily: 'inherit',
+              boxSizing: 'border-box'
+            }}
+          />
+          {commentError && (
+            <span style={{ fontSize: '0.725rem', color: 'var(--danger, #ef4444)' }}>
+              {commentError}
+            </span>
+          )}
+          <button
+            onClick={handlePostComment}
+            disabled={isPostingComment || !newCommentText.trim()}
+            className="btn btn-primary"
+            style={{
+              alignSelf: 'flex-end',
+              padding: '8px 16px',
+              fontSize: '0.775rem',
+              fontWeight: 700,
+              borderRadius: '8px',
+              cursor: 'pointer'
+            }}
+          >
+            {isPostingComment ? 'Posting...' : 'Post Reply'}
+          </button>
+        </div>
+      </div>
+
       </div>
     </div>
   );
@@ -3382,7 +3504,7 @@ export const PlanTable: React.FC = () => {
     planItems, updatePlanItem, addPlanItem, deletePlanItem,
     productItems, studentProjects, contentItems, studentMeetings,
     dailyIssues, setPreviewProductId,
-    openPreviewForFeature, canUserEdit, confirm
+    openPreviewForFeature, canUserEdit, confirm, comments, lastOpenedMap
   } = useDashboard();
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const now = new Date();
@@ -3971,6 +4093,17 @@ export const PlanTable: React.FC = () => {
                       const isFeatureRequest = a.rawItem && (a.rawItem.type === 'Feature Gap' || a.rawItem.type === 'Enhancement');
                       const matchedProduct = isFeatureRequest ? null : findMatchingProductItem(a.title);
 
+                      const baseId = a.rawItem?.id || matchedProduct?.id;
+                      let unreadCount = 0;
+                      if (baseId) {
+                        const itemComments = comments.filter((c: any) => c.itemId === baseId);
+                        const lastOpened = lastOpenedMap[baseId];
+                        unreadCount = itemComments.filter((c: any) => {
+                          if (!lastOpened) return true;
+                          return new Date(c.createdAt).getTime() > lastOpened;
+                        }).length;
+                      }
+
                       return (
                         <div
                           key={a.id}
@@ -3992,8 +4125,30 @@ export const PlanTable: React.FC = () => {
                             }
                           }}
                         >
-                          <div className="kanban-card-title" style={{ fontSize: '0.8rem', lineHeight: 1.35 }}>
-                            {a.title}
+                          <div className="kanban-card-title" style={{ fontSize: '0.8rem', lineHeight: 1.35, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                            <span>{a.title}</span>
+                            {unreadCount > 0 && (
+                              <span 
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  backgroundColor: 'var(--danger-bg, rgba(239, 68, 68, 0.12))',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  color: 'var(--danger, #ef4444)',
+                                  fontSize: '0.625rem',
+                                  fontWeight: 800,
+                                  padding: '1.5px 5px',
+                                  borderRadius: '6px',
+                                  lineHeight: 1,
+                                  flexShrink: 0
+                                }}
+                                title={`${unreadCount} unread comments`}
+                              >
+                                <MessageSquare size={9} fill="var(--danger, #ef4444)" />
+                                {unreadCount}
+                              </span>
+                            )}
                           </div>
                           <div className="kanban-card-footer" style={{ marginTop: '0.5rem' }}>
                             <div className="kanban-card-tags" style={{ gap: '0.3rem', flexWrap: 'wrap' }}>
@@ -4073,6 +4228,18 @@ export const PlanTable: React.FC = () => {
                     } else {
                       const manualItem = item.data;
                       const isCompleted = item.isCompleted;
+                      const matchedProduct = findMatchingProductItem(manualItem.task);
+                      const baseId = matchedProduct?.id;
+                      let unreadCount = 0;
+                      if (baseId) {
+                        const itemComments = comments.filter((c: any) => c.itemId === baseId);
+                        const lastOpened = lastOpenedMap[baseId];
+                        unreadCount = itemComments.filter((c: any) => {
+                          if (!lastOpened) return true;
+                          return new Date(c.createdAt).getTime() > lastOpened;
+                        }).length;
+                      }
+
                       return (
                         <div
                           key={manualItem.id}
@@ -4081,7 +4248,31 @@ export const PlanTable: React.FC = () => {
                           onDragStart={(e) => handleDragStart(e, manualItem.id)}
                           onClick={() => openPreviewForFeature(manualItem.task, { status: manualItem.status as any, clickupStatus: manualItem.status, taskLink: manualItem.link })}
                         >
-                          <div className="kanban-card-title">{manualItem.task}</div>
+                          <div className="kanban-card-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                            <span>{manualItem.task}</span>
+                            {unreadCount > 0 && (
+                              <span 
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  backgroundColor: 'var(--danger-bg, rgba(239, 68, 68, 0.12))',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  color: 'var(--danger, #ef4444)',
+                                  fontSize: '0.625rem',
+                                  fontWeight: 800,
+                                  padding: '1.5px 5px',
+                                  borderRadius: '6px',
+                                  lineHeight: 1,
+                                  flexShrink: 0
+                                }}
+                                title={`${unreadCount} unread comments`}
+                              >
+                                <MessageSquare size={9} fill="var(--danger, #ef4444)" />
+                                {unreadCount}
+                              </span>
+                            )}
+                          </div>
 
                           <div className="kanban-card-footer">
                             <div className="kanban-card-tags">
@@ -10263,7 +10454,9 @@ export const ProductWiseSheet: React.FC = () => {
     speakers,
     currentUser,
     confirm,
-    alert
+    alert,
+    comments,
+    lastOpenedMap
   } = useDashboard();
   const products = productGroups.map(g => g.name);
   const NO_GROUP_TAB = 'No Product Group Assigned';
@@ -10869,7 +11062,7 @@ export const ProductWiseSheet: React.FC = () => {
                             <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>
                               {item.sourceLabel}
                             </span>
-                            {editingFeatureId === item.id ? (
+                            {editingFeatureId === item.id ?
                               <input
                                 ref={editInputRef}
                                 type="text"
@@ -10908,20 +11101,55 @@ export const ProductWiseSheet: React.FC = () => {
                                   boxShadow: '0 0 0 2px var(--primary-glow)'
                                 }}
                               />
-                            ) : (
-                              <span 
-                                onDoubleClick={(e) => {
-                                  if (item.canDelete) {
-                                    e.stopPropagation();
-                                    setEditingFeatureId(item.id);
-                                    setInlineEditValue(item.feature || '');
-                                  }
-                                }}
-                                style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}
-                              >
-                                {item.feature || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
-                              </span>
-                            )}
+                            : (() => {
+                              const baseId = item.sourceId || item.id;
+                              const itemComments = comments.filter((c: any) => c.itemId === baseId);
+                              const lastOpened = lastOpenedMap[baseId];
+                              const unreadCount = itemComments.filter((c: any) => {
+                                if (!lastOpened) return true;
+                                return new Date(c.createdAt).getTime() > lastOpened;
+                              }).length;
+
+                              return (
+                                <span 
+                                  onDoubleClick={(e) => {
+                                    if (item.canDelete) {
+                                      e.stopPropagation();
+                                      setEditingFeatureId(item.id);
+                                      setInlineEditValue(item.feature || '');
+                                    }
+                                  }}
+                                  style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', lineHeight: '1.3' }}
+                                >
+                                  <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {item.feature || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
+                                  </span>
+                                  {unreadCount > 0 && (
+                                    <span 
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '3px',
+                                        backgroundColor: 'var(--danger-bg, rgba(239, 68, 68, 0.12))',
+                                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                                        color: 'var(--danger, #ef4444)',
+                                        fontSize: '0.625rem',
+                                        fontWeight: 800,
+                                        padding: '1.5px 5px',
+                                        borderRadius: '6px',
+                                        lineHeight: 1,
+                                        flexShrink: 0
+                                      }}
+                                      title={`${unreadCount} unread comments`}
+                                    >
+                                      <MessageSquare size={9} fill="var(--danger, #ef4444)" />
+                                      {unreadCount}
+                                    </span>
+                                  )}
+                                </span>
+                              );
+                            })()
+                            }
                             <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
                               {item.raisedByTarunSir && (
                                 <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
@@ -11346,7 +11574,7 @@ export const IssuesTable: React.FC = () => {
 
 
 export const FeatureRequestsTable: React.FC = () => {
-  const { dailyIssues, deleteDailyIssue, statuses, setPreviewProductId, confirm } = useDashboard();
+  const { dailyIssues, deleteDailyIssue, statuses, setPreviewProductId, confirm, comments, lastOpenedMap } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterProduct, setFilterProduct] = useState('All');
   const [sortField, setSortField] = useState<keyof DailyIssue | null>(null);
@@ -11443,6 +11671,13 @@ export const FeatureRequestsTable: React.FC = () => {
             ) : (
               filtered.map(item => {
                 const statusMatch = statuses.find(s => s.label === item.status);
+                const itemComments = comments.filter((c: any) => c.itemId === item.id);
+                const lastOpened = lastOpenedMap[item.id];
+                const unreadCount = itemComments.filter((c: any) => {
+                  if (!lastOpened) return true;
+                  return new Date(c.createdAt).getTime() > lastOpened;
+                }).length;
+
                 return (
                   <tr key={item.id} onClick={() => setPreviewProductId(item.id)} style={{ cursor: 'pointer' }}>
                     <td className="sticky-col" style={{ fontWeight: 600, width: '320px', minWidth: '320px', maxWidth: '320px', whiteSpace: 'normal' }}>
@@ -11450,9 +11685,33 @@ export const FeatureRequestsTable: React.FC = () => {
                         <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                           {item.product || 'No Product Group'}
                         </span>
-                        <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.3' }}>
-                          {item.module || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', lineHeight: '1.3' }}>
+                          <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                            {item.module || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
+                          </span>
+                          {unreadCount > 0 && (
+                            <span 
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                backgroundColor: 'var(--danger-bg, rgba(239, 68, 68, 0.12))',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                color: 'var(--danger, #ef4444)',
+                                fontSize: '0.65rem',
+                                fontWeight: 800,
+                                padding: '2px 6px',
+                                borderRadius: '8px',
+                                lineHeight: 1,
+                                flexShrink: 0
+                              }}
+                              title={`${unreadCount} unread comments`}
+                            >
+                              <MessageSquare size={10} fill="var(--danger, #ef4444)" />
+                              {unreadCount}
+                            </span>
+                          )}
+                        </div>
                         <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)', background: 'var(--bg-secondary)', padding: '1px 6px', borderRadius: '4px', alignSelf: 'flex-start', marginTop: '2px' }}>
                           {item.type === 'Feature Gap' ? '✦ Feature Gap' : '✦ Enhancement'}
                         </span>

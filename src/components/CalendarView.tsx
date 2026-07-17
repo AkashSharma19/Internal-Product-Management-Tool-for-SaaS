@@ -5,8 +5,10 @@ import {
   ChevronRight, 
   Clock, 
   Calendar,
-  Search
+  Search,
+  X
 } from 'lucide-react';
+import { getClickupBadgeStyle } from './Tables';
 import type { ProductItem } from '../types';
 
 // Safe local-timezone date string: avoids UTC shift from .toISOString()
@@ -93,6 +95,58 @@ const isLinkedToMeetingOrCall = (notes: string | undefined) => {
   return notes.includes('AMA Session ID:') || notes.includes('Admin Call ID:') || notes.includes('Tarun Sir Meeting ID:');
 };
 
+const formatReleaseDate = (rawDate: string | undefined) => {
+  if (!rawDate) return 'No date set';
+  const d = new Date(rawDate);
+  if (isNaN(d.getTime())) return rawDate;
+  return d.toLocaleDateString('default', { day: 'numeric', month: 'long', year: 'numeric' });
+};
+
+const formatCommentDate = (dateStr: string) => {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString('default', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+};
+
+const cleanDescriptionText = (desc: string): string => {
+  if (!desc) return '';
+  
+  let cleaned = desc;
+  
+  // Replace Admin Call ID pattern
+  cleaned = cleaned.replace(/Admin Call ID:\s*[^\r\n|]+\s*\|\s*Admin Call:\s*([^\r\n]+)/gi, 'Linked to Admin Call: $1');
+  
+  // Replace AMA Session ID pattern
+  cleaned = cleaned.replace(/AMA Session ID:\s*[^\r\n|]+\s*\|\s*(AMA Topic|AMA Session):\s*([^\r\n]+)/gi, 'Linked to AMA Session: $2');
+  
+  // Replace Tarun Sir Meeting ID pattern
+  cleaned = cleaned.replace(/Tarun Sir Meeting ID:\s*[^\r\n|]+\s*\|\s*Tarun Sir Meeting:\s*([^\r\n]+)/gi, 'Linked to Tarun Sir Meeting: $1');
+  
+  // Strip any raw leftover ID lines if they didn't match the full pattern above
+  cleaned = cleaned.replace(/(Admin Call ID|AMA Session ID|Tarun Sir Meeting ID):\s*[^\r\n]+/gi, '');
+  
+  return cleaned.trim();
+};
+
+const getEventDetails = (evt: CalendarEvent) => {
+  const item = evt.rawItem || {};
+  const name = evt.title || item.feature || item.module || item.title || item.cohortTopic || 'Unnamed Task';
+  
+  const rawDescription = item.description || item.issues || item.notes || item.topic || item.cohortTopic || item.discussion || '';
+  const description = cleanDescriptionText(rawDescription);
+  
+  // Format release/target date
+  const rawDate = item.finalRelease || item.date || item.publishDate || item.deadline || evt.dateStr;
+  const releaseDate = formatReleaseDate(rawDate);
+  
+  const manualStatus = evt.status || item.status || 'Active';
+  const clickupStatus = item.clickupStatus || '';
+  const pocOwner = evt.poc || item.poc || item.contact || item.speaker || item.adminPoc || 'Unassigned';
+  const link = evt.taskLink || item.taskLink || item.link || '';
+
+  return { name, description, releaseDate, manualStatus, clickupStatus, pocOwner, link };
+};
+
 export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = false }) => {
   const {
     productItems,
@@ -108,7 +162,10 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
     openPreviewForFeature,
     activeTab,
     setPreviousTab,
-    sharableCalendarSources
+    sharableCalendarSources,
+    currentUser,
+    comments,
+    addComment
   } = useDashboard();
 
   const [currentMonth, setCurrentMonth] = useState<Date>(() => new Date());
@@ -117,6 +174,10 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
   });
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPublicEvent, setSelectedPublicEvent] = useState<CalendarEvent | null>(null);
+  const [newCommentText, setNewCommentText] = useState('');
+  const [isPostingComment, setIsPostingComment] = useState(false);
+  const [commentError, setCommentError] = useState('');
 
   // 1. Collect and parse events from all worksheets
   const allEvents = useMemo<CalendarEvent[]>(() => {
@@ -245,9 +306,10 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
   }, [productItems, studentProjects, amaSessions, studentMeetings, adminCalls, tarunSirMeetings, contentItems, dailyIssues, isPublic]);
 
   // 1b. Collect tasks with no date (Only calculated for public view)
+  // 1b. Collect tasks with no date (Only calculated for public view)
   const undatedTasks = useMemo(() => {
     if (!isPublic) return [];
-    const list: { id: string; title: string; source: string; poc: string; priority?: string; status?: string; taskLink?: string; isCompleted: boolean }[] = [];
+    const list: { id: string; title: string; source: string; poc: string; priority?: string; status?: string; taskLink?: string; isCompleted: boolean; rawItem?: any }[] = [];
     const allowed = sharableCalendarSources ? sharableCalendarSources.split(',') : [];
 
     if (allowed.includes('product')) {
@@ -265,7 +327,8 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
             priority: item.priority,
             status: item.status,
             taskLink: item.taskLink,
-            isCompleted
+            isCompleted,
+            rawItem: item
           });
         }
       });
@@ -284,7 +347,8 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
             priority: item.priority,
             status: item.status,
             taskLink: item.taskLink,
-            isCompleted
+            isCompleted,
+            rawItem: item
           });
         }
       });
@@ -309,7 +373,8 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
               priority: task.priority,
               status: task.status,
               taskLink: task.taskLink,
-              isCompleted
+              isCompleted,
+              rawItem: task
             });
           }
         });
@@ -326,7 +391,8 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
             priority: item.priority,
             status: item.status,
             taskLink: item.taskLink,
-            isCompleted
+            isCompleted,
+            rawItem: item
           });
         }
       });
@@ -351,7 +417,8 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
               priority: task.priority,
               status: task.status,
               taskLink: task.taskLink,
-              isCompleted
+              isCompleted,
+              rawItem: task
             });
           }
         });
@@ -377,7 +444,8 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
               priority: task.priority,
               status: task.status,
               taskLink: task.taskLink,
-              isCompleted
+              isCompleted,
+              rawItem: task
             });
           }
         });
@@ -397,7 +465,8 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
             priority: item.priority,
             status: item.status,
             taskLink: item.draftLink,
-            isCompleted
+            isCompleted,
+            rawItem: item
           });
         }
       });
@@ -417,7 +486,8 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
               priority: item.priority,
               status: item.status,
               taskLink: item.taskLink,
-              isCompleted
+              isCompleted,
+              rawItem: item
             });
           }
         } else {
@@ -432,7 +502,8 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
               priority: item.priority,
               status: item.status,
               taskLink: item.taskLink,
-              isCompleted
+              isCompleted,
+              rawItem: item
             });
           }
         }
@@ -551,12 +622,28 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
     setSelectedDateStr(toLocalDateStr(new Date()));
   };
 
+  const handlePostComment = async (itemId: string) => {
+    if (!newCommentText.trim()) return;
+    setIsPostingComment(true);
+    setCommentError('');
+    try {
+      const res = await addComment(itemId, newCommentText);
+      if (res.success) {
+        setNewCommentText('');
+      } else {
+        setCommentError(res.error || 'Failed to post comment');
+      }
+    } catch (err: any) {
+      setCommentError(err.message || 'Failed to post comment');
+    } finally {
+      setIsPostingComment(false);
+    }
+  };
+
   // Event item selector (opens task drawer)
   const handleEventClick = (evt: CalendarEvent) => {
     if (isPublic) {
-      if (evt.taskLink) {
-        window.open(evt.taskLink, '_blank');
-      }
+      setSelectedPublicEvent(evt);
       return;
     }
     setPreviousTab(activeTab);
@@ -716,30 +803,38 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
                       <div
                         key={task.id}
                         onClick={() => {
-                          if (task.taskLink) {
-                            window.open(task.taskLink, '_blank');
-                          }
+                          const dummyEvent: CalendarEvent = {
+                            id: task.id,
+                            source: task.source as any,
+                            title: task.title,
+                            stage: 'Final Release',
+                            dateStr: '',
+                            poc: task.poc,
+                            priority: task.priority,
+                            status: task.status,
+                            taskLink: task.taskLink,
+                            rawItem: task.rawItem || task,
+                            tab: '',
+                            isCompleted: task.isCompleted
+                          };
+                          handleEventClick(dummyEvent);
                         }}
                         style={{
                           padding: '10px 12px',
                           borderRadius: '8px',
                           backgroundColor: task.isCompleted ? 'rgba(16, 185, 129, 0.04)' : 'var(--background-alt)',
                           border: task.isCompleted ? '1px solid var(--success, #10b981)' : '1px solid var(--border-light)',
-                          cursor: task.taskLink ? 'pointer' : 'default',
+                          cursor: 'pointer',
                           transition: 'transform 0.15s, background-color 0.15s',
                           opacity: task.isCompleted ? 0.75 : 1
                         }}
                         onMouseEnter={e => {
-                          if (task.taskLink) {
-                            e.currentTarget.style.transform = 'translateY(-1px)';
-                            e.currentTarget.style.backgroundColor = task.isCompleted ? 'rgba(16, 185, 129, 0.08)' : 'var(--surface-elevated)';
-                          }
+                          e.currentTarget.style.transform = 'translateY(-1px)';
+                          e.currentTarget.style.backgroundColor = task.isCompleted ? 'rgba(16, 185, 129, 0.08)' : 'var(--surface-elevated)';
                         }}
                         onMouseLeave={e => {
-                          if (task.taskLink) {
-                            e.currentTarget.style.transform = 'none';
-                            e.currentTarget.style.backgroundColor = task.isCompleted ? 'rgba(16, 185, 129, 0.04)' : 'var(--background-alt)';
-                          }
+                          e.currentTarget.style.transform = 'none';
+                          e.currentTarget.style.backgroundColor = task.isCompleted ? 'rgba(16, 185, 129, 0.04)' : 'var(--background-alt)';
                         }}
                       >
                         <div style={{ fontWeight: 700, fontSize: '0.775rem', color: 'var(--text-primary)', lineHeight: 1.3, marginBottom: '4px' }}>
@@ -891,8 +986,12 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
                                 <div
                                   key={evt.id}
                                   className={`calendar-mini-event-badge ${getEventClass(evt)}`}
-                                  style={{ opacity: evt.isCompleted ? 0.6 : 1 }}
+                                  style={{ opacity: evt.isCompleted ? 0.6 : 1, cursor: 'pointer' }}
                                   title={`[${getStageLabel(evt.stage)}] ${evt.title}${evt.isCompleted ? ' ✓' : ''}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEventClick(evt);
+                                  }}
                                 >
                                   <span style={{
                                     display: 'inline-block',
@@ -988,7 +1087,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
                       key={evt.id} 
                       onClick={() => handleEventClick(evt)}
                       style={{ 
-                        cursor: isPublic && !evt.taskLink ? 'default' : 'pointer', 
+                        cursor: 'pointer', 
                         opacity: evt.isCompleted ? 0.75 : 1,
                         background: evt.isCompleted ? 'rgba(16, 185, 129, 0.04)' : 'transparent'
                       }}
@@ -1051,6 +1150,281 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
           </div>
         </div>
         </div>
+        
+        {selectedPublicEvent && (() => {
+          const details = getEventDetails(selectedPublicEvent);
+          const baseId = selectedPublicEvent.rawItem?.id || selectedPublicEvent.id.split('-')[0];
+          const taskComments = comments.filter((c: any) => c.itemId === baseId);
+
+          return (
+            <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999,
+              fontFamily: 'Outfit, sans-serif'
+            }}>
+              <div style={{
+                background: 'var(--panel-bg)', border: '1px solid var(--border)',
+                borderRadius: '16px', padding: '2rem', width: '780px', maxWidth: '95%',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
+                position: 'relative', display: 'flex', flexDirection: 'column', gap: '1.25rem'
+              }}>
+                <button 
+                  onClick={() => {
+                    setSelectedPublicEvent(null);
+                    setCommentError('');
+                    setNewCommentText('');
+                  }}
+                  style={{
+                    position: 'absolute', top: '16px', right: '16px', background: 'none',
+                    border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '1.25rem', lineHeight: 1,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', borderRadius: '50%'
+                  }}
+                  title="Close"
+                >
+                  <X size={18} />
+                </button>
+
+                <div>
+                  <span style={{
+                    fontSize: '0.65rem', fontWeight: 850, textTransform: 'uppercase',
+                    letterSpacing: '0.05em', color: 'var(--primary)', background: 'var(--primary-glow)',
+                    padding: '3px 8px', borderRadius: '6px', display: 'inline-block', marginBottom: '0.5rem'
+                  }}>
+                    {selectedPublicEvent.source}
+                  </span>
+                  <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.3 }}>
+                    {details.name}
+                  </h3>
+                </div>
+
+                {/* Two-Column Grid */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1.2fr 1fr',
+                  gap: '1.75rem',
+                  borderTop: '1px solid var(--border-light)',
+                  paddingTop: '1.25rem'
+                }}>
+                  {/* Left Column: Details */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    <div>
+                      <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                        Description / Notes
+                      </h4>
+                      <p style={{
+                        margin: 0, fontSize: '0.85rem', color: 'var(--text-primary)',
+                        lineHeight: 1.5, background: 'var(--background-alt)', padding: '0.75rem 1rem',
+                        borderRadius: '8px', border: '1px solid var(--border-light)', whiteSpace: 'pre-wrap',
+                        maxHeight: '130px', overflowY: 'auto'
+                      }}>
+                        {details.description || 'No description provided.'}
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div>
+                        <h4 style={{ margin: '0 0 0.4rem 0', fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                          Release Date
+                        </h4>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {details.releaseDate}
+                        </span>
+                      </div>
+
+                      <div>
+                        <h4 style={{ margin: '0 0 0.4rem 0', fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                          POC Owner
+                        </h4>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {details.pocOwner}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', borderTop: '1px solid var(--border-light)', paddingTop: '1rem' }}>
+                      <div>
+                        <h4 style={{ margin: '0 0 0.4rem 0', fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                          Status (POC)
+                        </h4>
+                        <span className={`badge badge-${details.manualStatus ? details.manualStatus.toLowerCase().replace(/\s+/g, '-') : 'default'}`} style={{
+                          padding: '4px 10px', fontSize: '0.725rem', fontWeight: 700
+                        }}>
+                          {details.manualStatus || 'Active'}
+                        </span>
+                      </div>
+
+                      <div>
+                        <h4 style={{ margin: '0 0 0.4rem 0', fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                          ClickUp Status
+                        </h4>
+                        {details.clickupStatus ? (
+                          <span style={{
+                            ...getClickupBadgeStyle(details.clickupStatus),
+                            padding: '4px 10px', fontSize: '0.725rem', fontWeight: 750, textTransform: 'uppercase', borderRadius: '4px'
+                          }}>
+                            {details.clickupStatus}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '0.825rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                            No ClickUp task linked
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {details.link && (
+                      <div style={{ display: 'flex', justifyContent: 'flex-start', borderTop: '1px solid var(--border-light)', paddingTop: '1rem' }}>
+                        <a
+                          href={details.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-primary"
+                          style={{
+                            padding: '8px 16px', fontSize: '0.825rem', fontWeight: 600, borderRadius: '8px',
+                            display: 'inline-flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none'
+                          }}
+                        >
+                          Open ClickUp Task
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Column: Comments/Discussion */}
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '360px',
+                    borderLeft: '1px solid var(--border-light)',
+                    paddingLeft: '1.75rem',
+                    boxSizing: 'border-box'
+                  }}>
+                    <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '0.875rem', fontWeight: 800, color: 'var(--text-secondary)' }}>
+                      Discussion ({taskComments.length})
+                    </h4>
+
+                    {/* Comments list */}
+                    <div style={{
+                      flex: 1,
+                      overflowY: 'auto',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.75rem',
+                      marginBottom: '0.75rem',
+                      paddingRight: '6px'
+                    }}>
+                      {taskComments.length === 0 ? (
+                        <div style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          height: '100%',
+                          color: 'var(--text-muted)',
+                          fontSize: '0.75rem',
+                          textAlign: 'center',
+                          padding: '1.5rem',
+                          background: 'var(--background-alt)',
+                          borderRadius: '8px',
+                          border: '1px dashed var(--border-light)',
+                          boxSizing: 'border-box'
+                        }}>
+                          No comments yet.<br/>Be the first to share your thoughts!
+                        </div>
+                      ) : (
+                        taskComments.map((comment: any) => (
+                          <div 
+                            key={comment.id}
+                            style={{
+                              background: 'var(--background-alt)',
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              border: '1px solid var(--border-light)',
+                              fontSize: '0.8rem',
+                              lineHeight: 1.4
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '0.725rem' }}>
+                              <span style={{ fontWeight: 800, color: 'var(--primary)' }}>
+                                {comment.authorName}
+                              </span>
+                              <span style={{ color: 'var(--text-muted)' }}>
+                                {formatCommentDate(comment.createdAt || new Date().toISOString())}
+                              </span>
+                            </div>
+                            <div style={{ color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
+                              {comment.content}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Add Comment input */}
+                    {currentUser ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <textarea
+                          placeholder="Write a comment..."
+                          value={newCommentText}
+                          onChange={(e) => setNewCommentText(e.target.value)}
+                          rows={2}
+                          style={{
+                            width: '100%',
+                            padding: '8px 10px',
+                            fontSize: '0.8rem',
+                            borderRadius: '8px',
+                            background: 'var(--background-alt)',
+                            border: '1px solid var(--border)',
+                            color: 'var(--text-primary)',
+                            resize: 'none',
+                            fontFamily: 'inherit',
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                        {commentError && (
+                          <span style={{ fontSize: '0.7rem', color: 'var(--danger, #ef4444)' }}>
+                            {commentError}
+                          </span>
+                        )}
+                        <button
+                          onClick={() => handlePostComment(baseId)}
+                          disabled={isPostingComment || !newCommentText.trim()}
+                          className="btn btn-primary"
+                          style={{
+                            alignSelf: 'flex-end',
+                            padding: '6px 12px',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          {isPostingComment ? 'Posting...' : 'Post Comment'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{
+                        padding: '10px 12px',
+                        background: 'var(--primary-glow)',
+                        borderRadius: '8px',
+                        fontSize: '0.75rem',
+                        color: 'var(--text-secondary)',
+                        textAlign: 'center',
+                        lineHeight: 1.4
+                      }}>
+                        Sign in to leave a comment.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

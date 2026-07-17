@@ -310,3 +310,13 @@ const FeedbackSubmissionSchema = new Schema({
 export const FeedbackFormConfigModel = mongoose.models.FeedbackFormConfig || mongoose.model('FeedbackFormConfig', FeedbackFormConfigSchema);
 export const FeedbackSubmissionModel = mongoose.models.FeedbackSubmission || mongoose.model('FeedbackSubmission', FeedbackSubmissionSchema);
 
+const CommentSchema = new Schema({
+  id: { type: String, required: true, unique: true },
+  itemId: { type: String, required: true }, // refers to productItem ID or dailyIssue ID
+  authorName: { type: String, required: true },
+  authorEmail: { type: String, required: true },
+  content: { type: String, required: true }
+}, { timestamps: true });
+
+export const CommentModel = mongoose.models.Comment || mongoose.model('Comment', CommentSchema);
+
