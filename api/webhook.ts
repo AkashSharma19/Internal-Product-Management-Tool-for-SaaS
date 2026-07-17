@@ -9,34 +9,56 @@ import {
   GlobalSettingsModel
 } from './lib/models.js';
 
-// In-memory store of the last received payload for debugging
-let lastReceivedPayload: { time: string; payload: any } | null = null;
-
 export default async function handler(req: any, res: any) {
-  // GET: return info about the last payload received — useful for debugging
+  // GET: return info about the last payload received — reads from MongoDB so it works across serverless instances
   if (req.method === 'GET') {
-    return res.status(200).json({
-      active: true,
-      message: 'ClickUp webhook endpoint is active.',
-      lastReceived: lastReceivedPayload
-    });
+    try {
+      await connectToDatabase();
+      const lastEventSetting = await GlobalSettingsModel.findOne({ key: '_webhookLastEvent' }).lean() as any;
+      return res.status(200).json({
+        active: true,
+        message: 'ClickUp webhook endpoint is active.',
+        lastReceived: lastEventSetting?.value
+          ? JSON.parse(lastEventSetting.value)
+          : null
+      });
+    } catch (err: any) {
+      return res.status(200).json({
+        active: true,
+        message: 'ClickUp webhook endpoint is active (DB read error).',
+        lastReceived: null,
+        error: err.message
+      });
+    }
   }
 
   if (req.method !== 'POST') {
     return res.status(200).json({ success: true, message: 'Webhook endpoint is active.' });
   }
 
+  // Debug entry payload
+  let debugEntry: any = { time: new Date().toISOString() };
+
   try {
     await connectToDatabase();
 
     const payload = req.body || {};
+    debugEntry.event = payload.event;
+    debugEntry.task_id = payload.task_id;
+    debugEntry.payload = payload;
 
-    // Store for debugging (visible via GET /api/webhook)
-    lastReceivedPayload = { time: new Date().toISOString(), payload };
+    // Persist for debugging — visible via GET /api/webhook even across serverless cold starts
+    await GlobalSettingsModel.updateOne(
+      { key: '_webhookLastEvent' },
+      { $set: { key: '_webhookLastEvent', value: JSON.stringify(debugEntry) } },
+      { upsert: true }
+    );
+
     console.log('[Webhook] Received event:', JSON.stringify(payload).slice(0, 1000));
 
     // ClickUp sends a handshake to verify the webhook when registering
     if (payload.event === 'webhook_handshake') {
+      console.log('[Webhook] Handshake acknowledged.');
       return res.status(200).json({ success: true });
     }
 
@@ -154,11 +176,29 @@ export default async function handler(req: any, res: any) {
 
     console.log(`[Webhook] Task ${taskId} updates applied. Matched: ${matchedCount}, Updated: ${modifiedCount}`);
 
+    // Update debug log with results
+    debugEntry.matchedCount = matchedCount;
+    debugEntry.modifiedCount = modifiedCount;
+    debugEntry.updatePayload = updatePayload;
+    debugEntry.apiFetchSuccess = apiFetchSuccess;
+    
+    await GlobalSettingsModel.updateOne(
+      { key: '_webhookLastEvent' },
+      { $set: { value: JSON.stringify(debugEntry) } }
+    );
+
     return res.status(200).json({ success: true, taskId, matchedCount, modifiedCount });
 
   } catch (err: any) {
     console.error('[Webhook] Error:', err.message, err.stack);
     // Always return 200 so ClickUp doesn't deactivate the webhook on failures
+    try {
+      debugEntry.error = err.message;
+      await GlobalSettingsModel.updateOne(
+        { key: '_webhookLastEvent' },
+        { $set: { value: JSON.stringify(debugEntry) } }
+      );
+    } catch (e) {}
     return res.status(200).json({ success: false, error: err.message });
   }
 }
