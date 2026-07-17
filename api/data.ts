@@ -568,52 +568,58 @@ export default async function handler(req: any, res: any) {
           });
         };
 
-        // Step 1: Get team ID
+        // Step 1: Get all team IDs
         const teamsData = await makeRequest('https://api.clickup.com/api/v2/team');
-        const teamId = teamsData?.teams?.[0]?.id;
-        if (!teamId) {
+        const teams = teamsData?.teams || [];
+        if (teams.length === 0) {
           return res.status(200).json({ success: false, error: 'No ClickUp workspace found for this API key. Please verify your key.' });
         }
 
-        // Step 2: Build the webhook target URL
         const protocol = req.headers['x-forwarded-proto'] || (isLocalhost ? 'http' : 'https');
         const webhookUrl = `${protocol}://${host}/api/webhook`;
         console.log('[Webhook Register] Target URL:', webhookUrl);
 
-        // Step 3: List all existing webhooks and delete any pointing to our endpoint
-        // (could be stale/deactivated ones that prevent ClickUp from calling us)
-        const existingWebhooks = await makeRequest(`https://api.clickup.com/api/v2/team/${teamId}/webhook`);
-        const allWebhooks: any[] = existingWebhooks?.webhooks || [];
-        console.log('[Webhook Register] Existing webhooks:', allWebhooks.map((w: any) => `${w.id} ${w.endpoint} [${w.status}]`).join(', ') || 'none');
+        const registeredWebhooks = [];
 
-        // Delete any webhook pointing to our endpoint (regardless of status)
-        for (const w of allWebhooks) {
-          if (w.endpoint && w.endpoint.includes('/api/webhook') && w.endpoint.includes(host.split(':')[0])) {
-            const deleteResult = await makeRequest(`https://api.clickup.com/api/v2/webhook/${w.id}`, 'DELETE');
-            console.log(`[Webhook Register] Deleted old webhook ${w.id} (${w.endpoint}):`, deleteResult._statusCode);
+        // Loop through all teams and register webhooks
+        for (const team of teams) {
+          const teamId = team.id;
+          console.log(`[Webhook Register] Processing team ${team.name} (${teamId})`);
+
+          // List and delete existing webhooks pointing to our endpoint
+          const existingWebhooks = await makeRequest(`https://api.clickup.com/api/v2/team/${teamId}/webhook`);
+          const allWebhooks: any[] = existingWebhooks?.webhooks || [];
+          
+          for (const w of allWebhooks) {
+            if (w.endpoint && w.endpoint.includes('/api/webhook') && w.endpoint.includes(host.split(':')[0])) {
+              const deleteResult = await makeRequest(`https://api.clickup.com/api/v2/webhook/${w.id}`, 'DELETE');
+              console.log(`[Webhook Register] Deleted old webhook ${w.id} (${w.endpoint}) on team ${teamId}:`, deleteResult._statusCode);
+            }
+          }
+
+          // Register a fresh webhook
+          const registerBody = JSON.stringify({
+            endpoint: webhookUrl,
+            events: ['taskStatusUpdated', 'taskAssigneeUpdated', 'taskUpdated']
+          });
+
+          const registerResult = await makeRequest(
+            `https://api.clickup.com/api/v2/team/${teamId}/webhook`,
+            'POST',
+            registerBody
+          );
+
+          console.log(`[Webhook Register] Registration result for team ${teamId}:`, registerResult._statusCode);
+
+          if (registerResult._statusCode >= 200 && registerResult._statusCode < 300) {
+            registeredWebhooks.push({ teamId, webhookId: registerResult.id });
+          } else {
+            const errMsg = registerResult?.err || registerResult?.error || registerResult?._raw || `ClickUp returned status ${registerResult._statusCode}`;
+            return res.status(200).json({ success: false, error: `Registration failed on workspace "${team.name}": ${errMsg}` });
           }
         }
 
-        // Step 4: Register a fresh webhook
-        const registerBody = JSON.stringify({
-          endpoint: webhookUrl,
-          events: ['taskStatusUpdated', 'taskAssigneeUpdated', 'taskUpdated']
-        });
-
-        const registerResult = await makeRequest(
-          `https://api.clickup.com/api/v2/team/${teamId}/webhook`,
-          'POST',
-          registerBody
-        );
-
-        console.log('[Webhook Register] Registration result:', registerResult._statusCode, JSON.stringify(registerResult).slice(0, 400));
-
-        if (registerResult._statusCode >= 200 && registerResult._statusCode < 300) {
-          return res.status(200).json({ success: true, webhookId: registerResult.id, webhookUrl });
-        }
-
-        const errMsg = registerResult?.err || registerResult?.error || registerResult?._raw || `ClickUp returned status ${registerResult._statusCode}`;
-        return res.status(200).json({ success: false, error: `Registration failed: ${errMsg}` });
+        return res.status(200).json({ success: true, registeredWebhooks, webhookUrl });
 
       } catch (err: any) {
         console.error('ClickUp webhook registration error:', err.message);
@@ -654,9 +660,7 @@ export default async function handler(req: any, res: any) {
           };
           https.get(url, options, (teamRes) => {
             let dataStr = '';
-            teamRes.on('data', (chunk) => {
-              dataStr += chunk;
-            });
+            teamRes.on('data', (chunk) => { dataStr += chunk; });
             teamRes.on('end', () => {
               try {
                 resolve(JSON.parse(dataStr));
@@ -669,45 +673,55 @@ export default async function handler(req: any, res: any) {
           });
         });
 
-        const teamId = teamsData?.teams?.[0]?.id;
-        if (!teamId) {
+        const teams = teamsData?.teams || [];
+        if (teams.length === 0) {
           return res.status(200).json({ success: true, registered: false });
         }
-
-        const webhooksData = await new Promise<any>((resolve, reject) => {
-          const url = `https://api.clickup.com/api/v2/team/${teamId}/webhook`;
-          const options = {
-            headers: {
-              'Authorization': apiKey.trim(),
-              'Connection': 'close'
-            }
-          };
-          https.get(url, options, (webhookRes) => {
-            let dataStr = '';
-            webhookRes.on('data', (chunk) => {
-              dataStr += chunk;
-            });
-            webhookRes.on('end', () => {
-              try {
-                resolve(JSON.parse(dataStr));
-              } catch (e) {
-                reject(e);
-              }
-            });
-          }).on('error', (err) => {
-            reject(err);
-          });
-        });
 
         const host = req.headers.host || '';
         const protocol = req.headers['x-forwarded-proto'] || 'http';
         const currentWebhookUrl = `${protocol}://${host}/api/webhook`;
 
-        const hasWebhook = webhooksData?.webhooks?.some((w: any) => 
-          w.endpoint === currentWebhookUrl && w.status === 'active'
-        ) || false;
+        let allRegistered = true;
 
-        return res.status(200).json({ success: true, registered: hasWebhook });
+        for (const team of teams) {
+          const teamId = team.id;
+          const webhooksData = await new Promise<any>((resolve, reject) => {
+            const url = `https://api.clickup.com/api/v2/team/${teamId}/webhook`;
+            const options = {
+              headers: {
+                'Authorization': apiKey.trim(),
+                'Connection': 'close'
+              }
+            };
+            https.get(url, options, (webhookRes) => {
+              let dataStr = '';
+              webhookRes.on('data', (chunk) => {
+                dataStr += chunk;
+              });
+              webhookRes.on('end', () => {
+                try {
+                  resolve(JSON.parse(dataStr));
+                } catch (e) {
+                  reject(e);
+                }
+              });
+            }).on('error', (err) => {
+              reject(err);
+            });
+          });
+
+          const hasWebhook = webhooksData?.webhooks?.some((w: any) => 
+            w.endpoint === currentWebhookUrl && w.status === 'active'
+          ) || false;
+
+          if (!hasWebhook) {
+            allRegistered = false;
+            break;
+          }
+        }
+
+        return res.status(200).json({ success: true, registered: allRegistered });
       } catch (err: any) {
         console.error('ClickUp webhook check error:', err);
         return res.status(500).json({ success: false, error: err.message });
