@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import { TabContainer } from './TabContainer';
-import { Video, PhoneCall, Crown, AlertTriangle, Calendar, ExternalLink, CheckCircle, ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import { Video, PhoneCall, Crown, ExternalLink, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import type { AMASession, AdminCall, TarunSirMeeting, ProductItem } from '../types';
 
 const isSameStatus = (statusA?: string, statusB?: string): boolean => {
@@ -188,12 +188,14 @@ export const DashboardOverview: React.FC = () => {
     return true;
   };
 
+
+
   interface DashboardDateItem {
     id: string;
     rawId: string;
     source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA & Meetings' | 'Admin Calls' | 'Tarun Sir Meetings' | 'Daily Issues Log' | 'Product Breakdown';
     title: string;
-    stage: 'Specs' | 'UI/UX' | 'Dev' | 'Final Release' | 'AMA Date' | 'Call Date' | 'Meeting Date' | 'Target Date';
+    stage: 'Specs' | 'UI/UX' | 'Dev' | 'Final Release' | 'AMA Date' | 'Call Date' | 'Meeting Date' | 'Target Date' | 'Publish Date' | 'Deadline';
     dateStr: string;
     dateObj: Date;
     poc: string;
@@ -203,24 +205,7 @@ export const DashboardOverview: React.FC = () => {
     rawItem?: any;
   }
 
-  const getRelativeDateString = (date: Date): { text: string; type: 'overdue' | 'today' | 'upcoming' } => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const target = new Date(date);
-    target.setHours(0, 0, 0, 0);
-    
-    const diffTime = target.getTime() - today.getTime();
-    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-    
-    if (diffDays < 0) {
-      const days = Math.abs(diffDays);
-      return { text: `${days} day${days > 1 ? 's' : ''} overdue`, type: 'overdue' };
-    } else if (diffDays === 0) {
-      return { text: 'Today', type: 'today' };
-    } else {
-      return { text: `In ${diffDays} day${diffDays > 1 ? 's' : ''}`, type: 'upcoming' };
-    }
-  };
+
 
   const getSourceClass = (source: string) => {
     const map: Record<string, string> = {
@@ -236,176 +221,7 @@ export const DashboardOverview: React.FC = () => {
     return map[source] || '';
   };
 
-  const collectAllDates = (): DashboardDateItem[] => {
-    const list: DashboardDateItem[] = [];
 
-    const addDate = (
-      id: string,
-      source: DashboardDateItem['source'],
-      title: string,
-      stage: DashboardDateItem['stage'],
-      dateStr: string | undefined,
-      isCompleted: boolean,
-      poc: string,
-      priority?: string,
-      taskLink?: string,
-      status: string = '',
-      rawItem?: any
-    ) => {
-      if (!dateStr || dateStr.trim() === '') return;
-      const parsed = parseDate(dateStr);
-      if (!parsed || isCompleted) return;
-      
-      // Apply date range filter
-      if (!isWithinDateRange(dateStr)) return;
-
-      // Apply search query filter
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const matchesSearch = 
-          title.toLowerCase().includes(query) || 
-          poc.toLowerCase().includes(query) || 
-          stage.toLowerCase().includes(query) || 
-          source.toLowerCase().includes(query) ||
-          (priority && priority.toLowerCase().includes(query));
-        if (!matchesSearch) return;
-      }
-      
-      list.push({
-        id: `${id}-${stage}`,
-        rawId: id,
-        source,
-        title,
-        stage,
-        dateStr,
-        dateObj: parsed,
-        poc,
-        priority,
-        taskLink,
-        status,
-        rawItem
-      });
-    };
-
-    // 1. ProductItems (Priority Requests / Breakdown / AMA)
-    productItems.forEach(item => {
-      if (item.id.startsWith('prod-temp-')) return;
-      const isRelatedFeature = item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-');
-      const isBreakdown = item.id.startsWith('prod-breakdown-');
-      const itemSource = isRelatedFeature 
-        ? 'AMA & Meetings' 
-        : isBreakdown 
-          ? 'Product Breakdown' 
-          : 'Priority Requests';
-          
-      const isOverallCompleted = isSameStatus(item.status, 'Completed');
-      
-      addDate(item.id, itemSource as any, item.feature, 'Specs', item.productDeadline, !!item.productDeadlineCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item.status, item);
-      addDate(item.id, itemSource as any, item.feature, 'UI/UX', item.uiux, !!item.uiuxCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item.status, item);
-      addDate(item.id, itemSource as any, item.feature, 'Dev', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item.status, item);
-      addDate(item.id, itemSource as any, item.feature, 'Final Release', item.finalRelease, !!item.finalReleaseCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item.status, item);
-    });
-
-    // 2. StudentProjects
-    studentProjects.forEach(p => {
-      const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-      const matchedProduct = productItems.find(item => {
-        const cleanFeature = clean(item.feature);
-        const cleanTitle = clean(p.title);
-        return cleanFeature === cleanTitle || item.id === `prod-temp-${p.id}`;
-      });
-      const isOverallCompleted = isSameStatus(p.status, 'Completed');
-
-      addDate(p.id, 'Student Projects', p.title, 'Specs', p.productDeadline, !!p.productDeadlineCompleted || !!matchedProduct?.productDeadlineCompleted || isOverallCompleted, p.poc || '', p.priority, p.taskLink, p.status, p);
-      addDate(p.id, 'Student Projects', p.title, 'UI/UX', p.uiux, !!p.uiuxCompleted || !!matchedProduct?.uiuxCompleted || isOverallCompleted, p.poc || '', p.priority, p.taskLink, p.status, p);
-      addDate(p.id, 'Student Projects', p.title, 'Dev', p.deadline, !!p.deadlineCompleted || !!matchedProduct?.deadlineCompleted || isOverallCompleted, p.poc || '', p.priority, p.taskLink, p.status, p);
-      addDate(p.id, 'Student Projects', p.title, 'Final Release', p.finalRelease, !!p.finalReleaseCompleted || !!matchedProduct?.finalReleaseCompleted || isOverallCompleted, p.poc || '', p.priority, p.taskLink, p.status, p);
-    });
-
-    // 3. StudentMeetings (AMA & Meetings)
-    studentMeetings.forEach(m => {
-      const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-      const matchedProduct = productItems.find(item => {
-        const cleanFeature = clean(item.feature);
-        const cleanCohort = clean(m.cohort);
-        return cleanFeature === cleanCohort || item.id === `prod-temp-${m.id}`;
-      });
-      const isOverallCompleted = isSameStatus(m.status, 'Completed');
-
-      addDate(m.id, 'AMA & Meetings', m.cohort, 'Specs', m.productDeadline, !!m.productDeadlineCompleted || !!matchedProduct?.productDeadlineCompleted || isOverallCompleted, m.poc || '', m.priority, m.taskLink, m.status, m);
-      addDate(m.id, 'AMA & Meetings', m.cohort, 'UI/UX', m.uiux, !!m.uiuxCompleted || !!matchedProduct?.uiuxCompleted || isOverallCompleted, m.poc || '', m.priority, m.taskLink, m.status, m);
-      addDate(m.id, 'AMA & Meetings', m.cohort, 'Dev', m.deadline, !!m.deadlineCompleted || !!matchedProduct?.deadlineCompleted || isOverallCompleted, m.poc || '', m.priority, m.taskLink, m.status, m);
-      addDate(m.id, 'AMA & Meetings', m.cohort, 'Final Release', m.finalRelease, !!m.finalReleaseCompleted || !!matchedProduct?.finalReleaseCompleted || isOverallCompleted, m.poc || '', m.priority, m.taskLink, m.status, m);
-    });
-
-    // 4. ContentItems (Content Pipeline)
-    contentItems.forEach(c => {
-      const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-      const matchedProduct = productItems.find(item => {
-        const cleanFeature = clean(item.feature);
-        const cleanModule = clean(c.module);
-        return cleanFeature === cleanModule || item.id === `prod-temp-${c.id}`;
-      });
-      const isOverallCompleted = isSameStatus(c.status, 'Completed') || isSameStatus(c.status, 'Published');
-
-      addDate(c.id, 'Content Pipeline', c.module, 'Specs', c.productDeadline, !!c.productDeadlineCompleted || !!matchedProduct?.productDeadlineCompleted || isOverallCompleted, c.poc || '', c.priority, undefined, c.status, c);
-      addDate(c.id, 'Content Pipeline', c.module, 'UI/UX', c.uiux, !!c.uiuxCompleted || !!matchedProduct?.uiuxCompleted || isOverallCompleted, c.poc || '', c.priority, undefined, c.status, c);
-      addDate(c.id, 'Content Pipeline', c.module, 'Dev', c.deadline, !!c.deadlineCompleted || !!matchedProduct?.deadlineCompleted || isOverallCompleted, c.poc || '', c.priority, undefined, c.status, c);
-      addDate(c.id, 'Content Pipeline', c.module, 'Final Release', c.finalRelease, !!c.finalReleaseCompleted || !!matchedProduct?.finalReleaseCompleted || isOverallCompleted, c.poc || '', c.priority, undefined, c.status, c);
-    });
-
-    // 5. DailyIssues — regular issues only (Daily Issues Log)
-    dailyIssues
-      .filter(i => i.type !== 'Feature Gap' && i.type !== 'Enhancement')
-      .forEach(i => {
-        const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-        const matchedProduct = productItems.find(item => {
-          const cleanFeature = clean(item.feature);
-          const cleanCohort = clean(i.cohort);
-          return cleanFeature === cleanCohort || item.id === `prod-temp-${i.id}`;
-        });
-        const isOverallCompleted = isSameStatus(i.status, 'Completed');
-
-        addDate(i.id, 'Daily Issues Log', i.cohort, 'Specs', i.productDeadline, !!i.productDeadlineCompleted || !!matchedProduct?.productDeadlineCompleted || isOverallCompleted, i.poc || '', i.priority, i.taskLink, i.status, i);
-        addDate(i.id, 'Daily Issues Log', i.cohort, 'UI/UX', i.uiux, !!i.uiuxCompleted || !!matchedProduct?.uiuxCompleted || isOverallCompleted, i.poc || '', i.priority, i.taskLink, i.status, i);
-        addDate(i.id, 'Daily Issues Log', i.cohort, 'Dev', i.deadline, !!i.deadlineCompleted || !!matchedProduct?.deadlineCompleted || isOverallCompleted, i.poc || '', i.priority, i.taskLink, i.status, i);
-        addDate(i.id, 'Daily Issues Log', i.cohort, 'Final Release', i.finalRelease, !!i.finalReleaseCompleted || !!matchedProduct?.finalReleaseCompleted || isOverallCompleted, i.poc || '', i.priority, i.taskLink, i.status, i);
-      });
-
-    // 5b. Feature Requests (Feature Gap / Enhancement)
-    dailyIssues
-      .filter(i => i.type === 'Feature Gap' || i.type === 'Enhancement')
-      .forEach(i => {
-        const isOverallCompleted = isSameStatus(i.status, 'Completed');
-        addDate(i.id, 'Requested Features' as any, i.module || `Request #${i.id}`, 'Specs', i.productDeadline, !!i.productDeadlineCompleted || isOverallCompleted, i.poc || i.contact || '', i.priority, i.taskLink, i.status, i);
-        addDate(i.id, 'Requested Features' as any, i.module || `Request #${i.id}`, 'UI/UX', i.uiux, !!i.uiuxCompleted || isOverallCompleted, i.poc || i.contact || '', i.priority, i.taskLink, i.status, i);
-        addDate(i.id, 'Requested Features' as any, i.module || `Request #${i.id}`, 'Dev', i.deadline, !!i.deadlineCompleted || isOverallCompleted, i.poc || i.contact || '', i.priority, i.taskLink, i.status, i);
-        addDate(i.id, 'Requested Features' as any, i.module || `Request #${i.id}`, 'Final Release', i.finalRelease, !!i.finalReleaseCompleted || isOverallCompleted, i.poc || i.contact || '', i.priority, i.taskLink, i.status, i);
-      });
-
-    // 6. AMASessions (AMA & Meetings)
-    amaSessions.forEach(ama => {
-      if (ama.status === 'Scheduled') {
-        addDate(ama.id, 'AMA & Meetings', `${ama.cohort} - ${ama.topic}`, 'AMA Date', ama.date, false, ama.speaker, undefined, ama.link, ama.status, ama);
-      }
-    });
-
-    // 7. AdminCalls (Admin Calls)
-    adminCalls.forEach(call => {
-      if (call.status === 'Scheduled' || call.status === 'Pending Actions') {
-        addDate(call.id, 'Admin Calls', call.cohortTopic, 'Call Date', call.date, false, call.adminPoc, undefined, undefined, call.status, call);
-      }
-    });
-
-    // 7b. Tarun Sir Meetings
-    tarunSirMeetings.forEach(meeting => {
-      if (meeting.status === 'Scheduled' || meeting.status === 'Pending Actions') {
-        addDate(meeting.id, 'Tarun Sir Meetings', meeting.cohortTopic, 'Meeting Date', meeting.date, false, meeting.adminPoc, undefined, undefined, meeting.status, meeting);
-      }
-    });
-
-    return list;
-  };
 
   const handleMilestoneClick = (item: DashboardDateItem) => {
     let tab = 'dashboard';
@@ -892,17 +708,7 @@ export const DashboardOverview: React.FC = () => {
       callCount: filteredTarunSirMeetings.length,
     }
   ];
-  const allDateItems = collectAllDates();
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
 
-  const overdueItems = allDateItems
-    .filter(item => item.dateObj < todayStart)
-    .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
-
-  const upcomingItems = allDateItems
-    .filter(item => item.dateObj >= todayStart)
-    .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
 
   const getCategoryRating = (cat: 'admin-calls' | 'ama-meetings' | 'student-projects') => {
     const config = formConfigs.find(c => c.category === cat);
@@ -2159,192 +1965,7 @@ export const DashboardOverview: React.FC = () => {
           </div>
         </div>
 
-        {/* Overdue & Upcoming Dates Sections */}
-        <div className="dashboard-date-grid">
-          
-          {/* Overdue Dates Card */}
-          <div className="dashboard-date-card">
-            <div className="dashboard-date-card-header">
-              <h4 className="dashboard-date-card-title">
-                <AlertTriangle size={18} style={{ color: 'var(--danger)' }} />
-                <span>Overdue Milestones</span>
-              </h4>
-              <span className="dashboard-date-count-badge overdue">
-                {overdueItems.length} overdue
-              </span>
-            </div>
 
-            <div className="dashboard-date-list">
-              {overdueItems.length === 0 ? (
-                <div style={{
-                  padding: '2rem',
-                  textAlign: 'center',
-                  color: 'var(--text-muted)',
-                  fontSize: '0.9rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '0.5rem'
-                }}>
-                  <CheckCircle size={28} style={{ color: 'var(--success)' }} />
-                  <span>All caught up! No overdue milestones.</span>
-                </div>
-              ) : (
-                overdueItems.map(item => {
-                  const relative = getRelativeDateString(item.dateObj);
-                  return (
-                    <div key={item.id} className="dashboard-date-item" onClick={() => handleMilestoneClick(item)}>
-                      <div className="dashboard-date-item-left">
-                        <div className="dashboard-date-item-title" title={item.title}>
-                          {item.title}
-                        </div>
-                        <div className="dashboard-date-item-meta">
-                          <span className={`dashboard-date-badge-source ${getSourceClass(item.source)}`}>
-                            {item.source}
-                          </span>
-                          <span className="dashboard-date-badge-stage">
-                            {item.stage}
-                          </span>
-                          {item.priority && (
-                            <span className={`badge badge-${item.priority.toLowerCase()}`} style={{ fontSize: '0.6rem', padding: '1px 5px' }}>
-                              {item.priority}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="dashboard-date-item-right">
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                          <span className="dashboard-date-relative overdue">
-                            {relative.text}
-                          </span>
-                          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-                            Due: {item.dateStr}
-                          </span>
-                        </div>
-                        
-                        {item.poc && (
-                          <div 
-                            className="dashboard-date-poc-avatar" 
-                            style={{ backgroundColor: getAssigneeColor(item.poc) }}
-                            title={`POC: ${item.poc}`}
-                          >
-                            {getInitials(item.poc)}
-                          </div>
-                        )}
-
-                        {item.taskLink && (
-                          <a 
-                            href={item.taskLink} 
-                            target="_blank" 
-                            rel="noreferrer" 
-                            style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)' }}
-                            title="Open ClickUp Task"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <ExternalLink size={12} />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          {/* Upcoming Dates Card */}
-          <div className="dashboard-date-card">
-            <div className="dashboard-date-card-header">
-              <h4 className="dashboard-date-card-title">
-                <Calendar size={18} style={{ color: 'var(--primary)' }} />
-                <span>Upcoming Milestones</span>
-              </h4>
-              <span className="dashboard-date-count-badge upcoming">
-                {upcomingItems.length} upcoming
-              </span>
-            </div>
-
-            <div className="dashboard-date-list">
-              {upcomingItems.length === 0 ? (
-                <div style={{
-                  padding: '2rem',
-                  textAlign: 'center',
-                  color: 'var(--text-muted)',
-                  fontSize: '0.9rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '0.5rem'
-                }}>
-                  <Calendar size={28} style={{ color: 'var(--text-muted)' }} />
-                  <span>No upcoming milestones scheduled.</span>
-                </div>
-              ) : (
-                upcomingItems.map(item => {
-                  const relative = getRelativeDateString(item.dateObj);
-                  return (
-                    <div key={item.id} className="dashboard-date-item" onClick={() => handleMilestoneClick(item)}>
-                      <div className="dashboard-date-item-left">
-                        <div className="dashboard-date-item-title" title={item.title}>
-                          {item.title}
-                        </div>
-                        <div className="dashboard-date-item-meta">
-                          <span className={`dashboard-date-badge-source ${getSourceClass(item.source)}`}>
-                            {item.source}
-                          </span>
-                          <span className="dashboard-date-badge-stage">
-                            {item.stage}
-                          </span>
-                          {item.priority && (
-                            <span className={`badge badge-${item.priority.toLowerCase()}`} style={{ fontSize: '0.6rem', padding: '1px 5px' }}>
-                              {item.priority}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="dashboard-date-item-right">
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                          <span className={`dashboard-date-relative ${relative.type}`}>
-                            {relative.text}
-                          </span>
-                          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-                            Due: {item.dateStr}
-                          </span>
-                        </div>
-
-                        {item.poc && (
-                          <div 
-                            className="dashboard-date-poc-avatar" 
-                            style={{ backgroundColor: getAssigneeColor(item.poc) }}
-                            title={`POC: ${item.poc}`}
-                          >
-                            {getInitials(item.poc)}
-                          </div>
-                        )}
-
-                        {item.taskLink && (
-                          <a 
-                            href={item.taskLink} 
-                            target="_blank" 
-                            rel="noreferrer" 
-                            style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)' }}
-                            title="Open ClickUp Task"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <ExternalLink size={12} />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-        </div>
 
       </div>
 
