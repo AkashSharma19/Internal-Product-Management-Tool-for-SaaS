@@ -1,53 +1,111 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import { TabContainer } from './TabContainer';
-import { Video, PhoneCall, Crown, ExternalLink, ChevronLeft, ChevronRight, Star } from 'lucide-react';
-import type { AMASession, AdminCall, TarunSirMeeting, ProductItem } from '../types';
+import { Video, PhoneCall, Crown, ExternalLink, ChevronLeft, ChevronRight, Star, RefreshCw } from 'lucide-react';
+const isSameStatus = (s1: string | undefined, s2: string | undefined) => {
+  if (!s1 || !s2) return false;
+  return s1.toLowerCase().trim() === s2.toLowerCase().trim();
+};
 
-const isSameStatus = (statusA?: string, statusB?: string): boolean => {
-  if (!statusA || !statusB) return (statusA || '').trim() === (statusB || '').trim();
-  const cleanA = statusA.toLowerCase().trim();
-  const cleanB = statusB.toLowerCase().trim();
-  if (cleanA === cleanB) return true;
+const DashboardSkeleton = () => {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1rem', width: '100%', boxSizing: 'border-box' }}>
+      {/* Skeleton Metrics Strip */}
+      <div style={{ display: 'flex', gap: '1rem', overflowX: 'hidden', paddingBottom: '1rem', borderBottom: '1px solid var(--border-light)' }}>
+        {[1, 2, 3, 4, 5, 6].map(i => (
+          <div key={i} className="animate-pulse" style={{
+            flex: '1 0 160px',
+            height: '84px',
+            backgroundColor: 'var(--background-alt)',
+            borderRadius: '12px',
+            border: '1px solid var(--border-light)',
+            padding: '1rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.5rem'
+          }}>
+            <div style={{ width: '40%', height: '12px', backgroundColor: 'var(--border-light)', borderRadius: '4px' }} />
+            <div style={{ width: '80%', height: '24px', backgroundColor: 'var(--border-light)', borderRadius: '6px' }} />
+          </div>
+        ))}
+      </div>
 
-  const completedGroup = ['completed', 'delivered', 'done', 'closed', 'tested', 'used'];
-  const onHoldGroup = ['cancelled', 'canceled', 'on hold', 'not used'];
-  const inProgressGroup = ['in-progress', 'in progress', 'development', 'testing'];
-  const ongoingGroup = ['ongoing'];
+      {/* Two Column Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1.2fr', gap: '1.5rem' }}>
+        {/* Left Column Skeletons: Tables */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {[1, 2].map(i => (
+            <div key={i} className="animate-pulse" style={{
+              backgroundColor: 'var(--panel-bg)',
+              borderRadius: '12px',
+              border: '1px solid var(--border-light)',
+              padding: '1.25rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem'
+            }}>
+              <div style={{ width: '25%', height: '20px', backgroundColor: 'var(--border-light)', borderRadius: '4px' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ width: '100%', height: '32px', backgroundColor: 'var(--border-light)', borderRadius: '6px' }} />
+                {[1, 2, 3].map(j => (
+                  <div key={j} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <div style={{ flex: 2, height: '16px', backgroundColor: 'var(--border-light)', borderRadius: '4px' }} />
+                    <div style={{ flex: 1, height: '16px', backgroundColor: 'var(--border-light)', borderRadius: '4px' }} />
+                    <div style={{ flex: 1, height: '16px', backgroundColor: 'var(--border-light)', borderRadius: '4px' }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
 
-  if (completedGroup.includes(cleanA) && completedGroup.includes(cleanB)) return true;
-  if (onHoldGroup.includes(cleanA) && onHoldGroup.includes(cleanB)) return true;
-  if (inProgressGroup.includes(cleanA) && inProgressGroup.includes(cleanB)) return true;
-  if (ongoingGroup.includes(cleanA) && ongoingGroup.includes(cleanB)) return true;
-
-  return false;
+        {/* Right Column Skeletons */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {[1, 2].map(i => (
+            <div key={i} className="animate-pulse" style={{
+              backgroundColor: 'var(--panel-bg)',
+              borderRadius: '12px',
+              border: '1px solid var(--border-light)',
+              padding: '1.25rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem'
+            }}>
+              <div style={{ width: '40%', height: '20px', backgroundColor: 'var(--border-light)', borderRadius: '4px' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {[1, 2, 3, 4].map(j => (
+                  <div key={j} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ width: '50%', height: '16px', backgroundColor: 'var(--border-light)', borderRadius: '4px' }} />
+                    <div style={{ width: '20%', height: '16px', backgroundColor: 'var(--border-light)', borderRadius: '4px' }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export const DashboardOverview: React.FC = () => {
   const { 
-    productItems, 
-    speakers, 
-    statuses: configStatuses, 
-    amaSessions, 
-    adminCalls, 
-    tarunSirMeetings,
-    productGroups,
-    studentProjects,
-    contentItems,
-    dailyIssues,
-    studentMeetings,
-    formConfigs,
-    feedbackSubmissions,
     setActiveTab,
     setPreviewProductId,
-    openPreviewForFeature,
-    activeTab,
-    setPreviousTab,
     tabScrollPositions,
-    setTabScrollPosition
+    setTabScrollPosition,
+    statuses: configStatuses,
+    
+    // Scalable additions
+    dashboardCounts,
+    isLoadingCounts,
+    fetchDashboardCounts,
+    fetchDashboardList
   } = useDashboard();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [popupData, setPopupData] = useState<{ title: string; tasks: any[] } | null>(null);
+  const [isPopupLoading, setIsPopupLoading] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);
@@ -94,474 +152,74 @@ export const DashboardOverview: React.FC = () => {
   const [customEndDate, setCustomEndDate] = useState('');
   const [statusType, setStatusType] = useState<'my' | 'clickup'>('my');
 
-  // 1. Date range filter parsing helper
-  const parseDate = (dateStr: string): Date | null => {
-    if (!dateStr) return null;
-    const cleaned = dateStr.trim();
-    // Check YYYY-MM-DD
-    if (/^\d{4}-\d{2}-\d{2}/.test(cleaned)) {
-      const d = new Date(cleaned.slice(0, 10));
-      return isNaN(d.getTime()) ? null : d;
+  // Trigger counts load when filters change
+  useEffect(() => {
+    fetchDashboardCounts(dateRangeType, customStartDate, customEndDate, statusType);
+  }, [dateRangeType, customStartDate, customEndDate, statusType]);
+
+  // Dynamic popup loader
+  const openPopupList = async (title: string, filters: {
+    source?: string;
+    poc?: string;
+    status?: string;
+    statusType?: string;
+    productGroup?: string;
+    meetingCategory?: string;
+  }) => {
+    setPopupData({ title, tasks: [] });
+    setIsPopupLoading(true);
+    try {
+      const tasks = await fetchDashboardList(
+        filters.source || '',
+        filters.poc || '',
+        filters.status || '',
+        filters.statusType || statusType,
+        filters.productGroup || '',
+        filters.meetingCategory || '',
+        dateRangeType,
+        customStartDate,
+        customEndDate
+      );
+      setPopupData({ title, tasks });
+    } catch (e) {
+      console.error('Failed to load popup list:', e);
+    } finally {
+      setIsPopupLoading(false);
     }
-    // Check DD-MM-YYYY
-    if (/^\d{2}-\d{2}-\d{4}/.test(cleaned)) {
-      const [dVal, mVal, yVal] = cleaned.slice(0, 10).split('-');
-      const d = new Date(`${yVal}-${mVal}-${dVal}`);
-      return isNaN(d.getTime()) ? null : d;
-    }
-    // Check text pattern (e.g. "12 May 2026")
-    const parts = cleaned.split(/\s+/);
-    if (parts.length >= 3) {
-      const day = parts[0];
-      const monthStr = parts[1].toLowerCase().slice(0, 3);
-      const year = parts[2];
-      const months: Record<string, string> = {
-        jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
-        jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
-      };
-      const month = months[monthStr];
-      if (month && /^\d+$/.test(day) && /^\d{4}/.test(year)) {
-        const d = new Date(`${year.slice(0, 4)}-${month}-${day.padStart(2, '0')}`);
-        return isNaN(d.getTime()) ? null : d;
-      }
-    }
-    // Fallback to standard JS parsing
-    const d = new Date(cleaned);
-    return isNaN(d.getTime()) ? null : d;
-  };
-
-  // Determine active start/end dates
-  const getFilterDates = (): { start: Date | null; end: Date | null } => {
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-    
-    let start: Date | null = null;
-    let end: Date | null = null;
-
-    if (dateRangeType === 'all') {
-      return { start, end };
-    }
-
-    if (dateRangeType === '7days') {
-      start = new Date();
-      start.setDate(today.getDate() - 7);
-      start.setHours(0, 0, 0, 0);
-      end = today;
-    } else if (dateRangeType === '1month') {
-      start = new Date();
-      start.setMonth(today.getMonth() - 1);
-      start.setHours(0, 0, 0, 0);
-      end = today;
-    } else if (dateRangeType === '3months') {
-      start = new Date();
-      start.setMonth(today.getMonth() - 3);
-      start.setHours(0, 0, 0, 0);
-      end = today;
-    } else if (dateRangeType === '1year') {
-      start = new Date();
-      start.setFullYear(today.getFullYear() - 1);
-      start.setHours(0, 0, 0, 0);
-      end = today;
-    } else if (dateRangeType === 'custom') {
-      if (customStartDate) {
-        start = new Date(customStartDate);
-        start.setHours(0, 0, 0, 0);
-      }
-      if (customEndDate) {
-        end = new Date(customEndDate);
-        end.setHours(23, 59, 59, 999);
-      }
-    }
-
-    return { start, end };
-  };
-
-  const { start: filterStart, end: filterEnd } = getFilterDates();
-
-  const isWithinDateRange = (dateStr: string): boolean => {
-    if (!filterStart && !filterEnd) return true;
-    const parsed = parseDate(dateStr);
-    if (!parsed) return false;
-    
-    if (filterStart && parsed < filterStart) return false;
-    if (filterEnd && parsed > filterEnd) return false;
-    return true;
-  };
-
-
-
-  interface DashboardDateItem {
-    id: string;
-    rawId: string;
-    source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA & Meetings' | 'Admin Calls' | 'Tarun Sir Meetings' | 'Daily Issues Log' | 'Product Breakdown';
-    title: string;
-    stage: 'Specs' | 'UI/UX' | 'Dev' | 'Final Release' | 'AMA Date' | 'Call Date' | 'Meeting Date' | 'Target Date' | 'Publish Date' | 'Deadline';
-    dateStr: string;
-    dateObj: Date;
-    poc: string;
-    priority?: string;
-    taskLink?: string;
-    status: string;
-    rawItem?: any;
-  }
-
-
-
-  const getSourceClass = (source: string) => {
-    const map: Record<string, string> = {
-      'Priority Requests': 'priority-requests',
-      'Student Projects': 'student-projects',
-      'Content Pipeline': 'content-pipeline',
-      'AMA & Meetings': 'ama-meetings',
-      'Product Breakdown': 'product-breakdown',
-      'Admin Calls': 'admin-calls',
-      'Daily Issues Log': 'daily-issues',
-      'Requested Features': 'priority-requests',
-    };
-    return map[source] || '';
-  };
-
-
-
-  const handleMilestoneClick = (item: DashboardDateItem) => {
-    let tab = 'dashboard';
-    if (item.source === 'Priority Requests' || item.source === 'Product Breakdown') {
-      tab = 'product';
-    } else if (item.source === 'Student Projects') {
-      tab = 'projects';
-    } else if (item.source === 'AMA & Meetings') {
-      tab = 'meetings';
-    } else if (item.source === 'Admin Calls') {
-      tab = 'admin';
-    } else if (item.source === 'Tarun Sir Meetings') {
-      tab = 'tarun-meetings';
-    } else if (item.source === 'Content Pipeline') {
-      tab = 'content';
-    } else if (item.source === 'Daily Issues Log') {
-      tab = 'issues';
-    } else if (item.source === 'Requested Features') {
-      tab = 'feature-requests';
-    }
-
-    setPreviousTab(activeTab);
-    setActiveTab(tab);
-    
-    setTimeout(() => {
-      if (item.source === 'Priority Requests' || item.source === 'Product Breakdown') {
-        setPreviewProductId(item.rawId);
-      } else if (item.source === 'Student Projects') {
-        openPreviewForFeature(item.title, item.rawItem as Partial<ProductItem>);
-      } else if (item.source === 'AMA & Meetings') {
-        if (item.stage === 'AMA Date') {
-          openPreviewForFeature(item.rawItem.topic || item.title, { 
-            notes: item.rawItem.cohort, 
-            taskLink: item.rawItem.link, 
-            status: item.rawItem.status as any 
-          });
-        } else {
-          openPreviewForFeature(item.title, item.rawItem as Partial<ProductItem>);
-        }
-      } else if (item.source === 'Admin Calls') {
-        openPreviewForFeature(item.title, { 
-          notes: item.rawItem.discussion, 
-          description: item.rawItem.actions, 
-          status: item.rawItem.status as any 
-        });
-      } else if (item.source === 'Tarun Sir Meetings') {
-        openPreviewForFeature(item.title, { 
-          notes: item.rawItem.discussion, 
-          description: item.rawItem.actions, 
-          status: item.rawItem.status as any 
-        });
-      } else if (item.source === 'Content Pipeline') {
-        openPreviewForFeature(item.title, { 
-          type: item.rawItem.type, 
-          poc: item.rawItem.poc, 
-          status: item.rawItem.status as any, 
-          notes: item.rawItem.subject 
-        });
-      } else if (item.source === 'Daily Issues Log' || item.source === 'Requested Features') {
-        setPreviewProductId(item.rawId);
-      }
-    }, 50);
   };
 
   const handlePopupTaskClick = (task: any) => {
-    const dateItem: DashboardDateItem = {
-      id: task.id,
-      rawId: task.id,
-      source: task.source,
-      title: task.feature || task.title,
-      stage: task.stage || 'Dev',
-      dateStr: task.date || '',
-      dateObj: new Date(),
-      poc: task.poc || '',
-      status: task.status || '',
-      rawItem: task.rawItem
-    };
-    handleMilestoneClick(dateItem);
-  };
-
-  // 2. Map and consolidate all tasks across different lists to avoid double-counting
-  const toProductStatus = (status?: string): string => {
-    if (!status) return '';
-    const cleanStatus = status.toLowerCase();
-    if (['completed', 'delivered', 'done', 'closed', 'tested', 'used'].includes(cleanStatus)) return 'Completed';
-    if (['cancelled', 'canceled', 'on hold', 'not used'].includes(cleanStatus)) return 'On Hold';
-    if (['in-progress', 'in progress', 'development', 'testing'].includes(cleanStatus)) return 'In Progress';
-    if (cleanStatus === 'ongoing') return 'Ongoing';
-    return status;
-  };
-
-  const mainProductTasks = productItems
-    .filter(item => {
-      if (item.id.startsWith('prod-temp-')) return false;
-      
-      // Filter out orphaned AMA features
-      if (item.id.startsWith('prod-ama-')) {
-        if (item.notes && item.notes.includes('AMA Session ID:')) {
-          const match = item.notes.match(/AMA Session ID:\s*([^\s,;\]]+)/);
-          if (match && match[1]) {
-            const parentExists = amaSessions.some(ama => ama.id === match[1]);
-            if (!parentExists) return false;
-          } else {
-            return false;
-          }
-        } else {
-          return false;
-        }
-      }
-      
-      // Filter out orphaned Admin Call features
-      if (item.id.startsWith('prod-call-')) {
-        if (item.notes && item.notes.includes('Admin Call ID:')) {
-          const match = item.notes.match(/Admin Call ID:\s*([^\s,;\]]+)/);
-          if (match && match[1]) {
-            const parentExists = adminCalls.some(call => call.id === match[1]);
-            if (!parentExists) return false;
-          } else {
-            return false;
-          }
-        } else {
-          return false;
-        }
-      }
-
-      // Filter out orphaned Tarun Sir Meeting features
-      if (item.id.startsWith('prod-tarun-')) {
-        if (item.notes && item.notes.includes('Tarun Sir Meeting ID:')) {
-          const match = item.notes.match(/Tarun Sir Meeting ID:\s*([^\s,;\]]+)/);
-          if (match && match[1]) {
-            const parentExists = tarunSirMeetings.some(call => call.id === match[1]);
-            if (!parentExists) return false;
-          } else {
-            return false;
-          }
-        } else {
-          return false;
-        }
-      }
-      
-      return true;
-    })
-    .map(item => {
-      const isRelatedFeature = item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-');
-      const isBreakdown = item.id.startsWith('prod-breakdown-');
-      const itemSource = isRelatedFeature 
-        ? 'AMA & Meetings' 
-        : isBreakdown 
-          ? 'Product Breakdown' 
-          : 'Priority Requests';
-      return {
-        id: item.id,
-        poc: item.poc || '',
-        product: item.product || '',
-        status: toProductStatus(item.status),
-        clickupStatus: item.clickupStatus || '',
-        taskLink: item.taskLink || '',
-        date: item.deadline || item.productDeadline || '',
-        feature: item.feature || '',
-        description: item.description || '',
-        notes: item.notes || '',
-        module: item.module || '',
-        source: itemSource as any,
-        rawItem: item
-      };
-    });
-
-  const projectTasks = studentProjects.map(item => ({
-    id: item.id,
-    poc: item.poc || '',
-    product: item.product || '',
-    status: toProductStatus(item.status),
-    clickupStatus: item.clickupStatus || '',
-    taskLink: item.taskLink || '',
-    date: item.deadline || item.productDeadline || item.completeInfoDate || '',
-    feature: item.title || '',
-    description: item.description || '',
-    notes: item.thingsWeBuild || '',
-    module: item.module || '',
-    source: 'Student Projects' as const,
-    rawItem: item
-  }));
-
-  const contentTasks = contentItems.map(item => ({
-    id: item.id,
-    poc: item.poc || '',
-    product: item.product || '',
-    status: toProductStatus(item.status),
-    clickupStatus: item.clickupStatus || '',
-    taskLink: item.draftLink || '',
-    date: item.deadline || item.productDeadline || item.publishDate || '',
-    feature: item.module || '',
-    description: `Content topic: ${item.module}. Subject: ${item.subject || ''}. Type: ${item.type}.`,
-    notes: item.subject || '',
-    module: item.module || '',
-    source: 'Content Pipeline' as const,
-    rawItem: item
-  }));
-
-  const issueTasks = dailyIssues.map(item => ({
-    id: item.id,
-    poc: item.poc || item.contact || '',
-    product: item.product || '',
-    status: toProductStatus(item.status),
-    clickupStatus: item.clickupStatus || '',
-    taskLink: item.taskLink || '',
-    date: item.deadline || item.productDeadline || '',
-    feature: item.module || `Issue #${item.id}`,
-    description: item.issues || '',
-    notes: item.notes || item.issues || '',
-    module: item.module || '',
-    source: 'Daily Issues Log' as const,
-    rawItem: item
-  }));
-
-  const meetingTasks = studentMeetings.map(item => ({
-    id: item.id,
-    poc: item.poc || '',
-    product: item.product || '',
-    status: toProductStatus(item.status),
-    clickupStatus: item.clickupStatus || '',
-    taskLink: item.taskLink || '',
-    date: item.deadline || item.productDeadline || item.date || '',
-    feature: item.cohort || '',
-    description: item.summary || '',
-    notes: item.notes || item.summary || '',
-    module: item.module || '',
-    source: 'AMA & Meetings' as const,
-    rawItem: item
-  }));
-
-  const allUnifiedTasks = [
-    ...mainProductTasks,
-    ...projectTasks,
-    ...contentTasks,
-    ...issueTasks,
-    ...meetingTasks
-  ];
-
-  const validItems = allUnifiedTasks.filter(item => isWithinDateRange(item.date));
-
-  // Get active statuses for product scope
-  const productStatuses = configStatuses.filter(s => s.scope === 'product' || s.scope === 'all');
-
-  // Determine active columns depending on selected statusType
-  const activeStatuses = statusType === 'my'
-    ? productStatuses.map(s => ({ id: s.id, label: s.label, color: s.color }))
-    : (() => {
-        // Dynamically collect unique clickup statuses from validItems
-        const unique = Array.from(new Set(validItems.map(item => item.clickupStatus).filter(s => s && s.trim() !== '')));
-        
-        // Let's sort them nicely so closed/done/completed are at the end, and todo/open are at the start
-        const orderWeight = (status: string) => {
-          const s = status.toLowerCase();
-          if (s === 'open' || s === 'todo' || s === 'to do' || s === 'backlog') return 1;
-          if (s === 'closed' || s === 'done' || s === 'completed' || s === 'delivered') return 9;
-          if (s === 'testing' || s === 'review') return 5;
-          return 3; // default for In Progress, development, etc.
-        };
-        unique.sort((a, b) => orderWeight(a) - orderWeight(b) || a.localeCompare(b));
-
-        const getClickupColor = (status: string) => {
-          const s = status.toLowerCase();
-          if (s === 'closed' || s === 'done' || s === 'completed' || s === 'delivered') return '#10b981';
-          if (s === 'open' || s === 'todo' || s === 'to do' || s === 'backlog') return '#6b7280';
-          if (s === 'in progress' || s === 'active' || s === 'development') return '#3b82f6';
-          return '#8b5cf6';
-        };
-
-        return unique.map((status, idx) => ({
-          id: `clickup-${idx}`,
-          label: status,
-          color: getClickupColor(status)
-        }));
-      })();
-
-  // 3. Identify all unique POC names (from config speakers & actual data items)
-  const configuredSpeakers = speakers.map(s => s.name);
-  const dataPocs = Array.from(new Set(validItems.map(item => item.poc).filter(p => p && p.trim() !== '')));
-  const allPocs = [...Array.from(new Set([...configuredSpeakers, ...dataPocs])), 'No POC Assigned'];
-
-  // 4. Compute counts for each POC
-  const computedRows = allPocs.map(poc => {
-    const pocItems = poc === 'No POC Assigned'
-      ? validItems.filter(item => !item.poc || item.poc.trim() === '')
-      : validItems.filter(item => item.poc === poc);
-    
-    const statusCounts: Record<string, number> = {};
-    activeStatuses.forEach(status => {
-      if (statusType === 'my') {
-        statusCounts[status.label] = pocItems.filter(item => isSameStatus(item.status, status.label)).length;
-      } else {
-        statusCounts[status.label] = pocItems.filter(item => (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()).length;
-      }
-    });
-
-    const noStatus = statusType === 'my'
-      ? pocItems.filter(item => !item.status || item.status.trim() === '' || !activeStatuses.some(status => isSameStatus(item.status, status.label))).length
-      : pocItems.filter(item => !item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(status => (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim())).length;
-    const total = pocItems.length;
-    const clickupCount = pocItems.filter(item => item.taskLink && item.taskLink.trim() !== '').length;
-
-    return {
-      poc,
-      statusCounts,
-      noStatus,
-      total,
-      clickupCount,
-    };
-  });
-
-  // Filter rows based on search query matching POC name
-  const filteredRows = computedRows.filter(row => {
-    if (searchQuery.trim() !== '') {
-      return row.poc.toLowerCase().includes(searchQuery.toLowerCase());
-    }
-    return true;
-  });
-
-  const finalRows = [...filteredRows];
-
-  // 5. Calculate overall totals for the bottom summary row
-  const overallTotal = validItems.length;
-  const overallClickup = validItems.filter(item => item.taskLink && item.taskLink.trim() !== '').length;
-  
-  const overallStatusTotals: Record<string, number> = {};
-  activeStatuses.forEach(status => {
-    if (statusType === 'my') {
-      overallStatusTotals[status.label] = validItems.filter(item => isSameStatus(item.status, status.label)).length;
+    if (task.source === 'Student Projects') {
+      setActiveTab('projects');
+      setPreviewProductId(task.id);
+    } else if (task.source === 'Content Pipeline') {
+      setActiveTab('content');
+      setPreviewProductId(task.id);
+    } else if (task.source === 'Daily Issues Log') {
+      setActiveTab(task.type === 'Feature Gap' || task.type === 'Enhancement' ? 'feature-requests' : 'issues');
+      setPreviewProductId(task.id);
+    } else if (task.source === 'AMA & Meetings') {
+      setActiveTab('meetings');
+      setPreviewProductId(task.id);
     } else {
-      overallStatusTotals[status.label] = validItems.filter(item => (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()).length;
+      setActiveTab('product');
+      setPreviewProductId(task.id);
     }
-  });
+  };
 
-  const overallNoStatus = statusType === 'my'
-    ? validItems.filter(item => !item.status || item.status.trim() === '' || !activeStatuses.some(status => isSameStatus(item.status, status.label))).length
-    : validItems.filter(item => !item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(status => (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim())).length;
-  const clickupCoverage = overallTotal > 0 ? Math.round((overallClickup / overallTotal) * 100) : 0;
+  if (!dashboardCounts && isLoadingCounts) {
+    return (
+      <TabContainer
+        title="Dashboard"
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        searchPlaceholder="Search POC..."
+      >
+        <DashboardSkeleton />
+      </TabContainer>
+    );
+  }
 
-  // Helper styles matching user initials
   const getAssigneeColor = (name: string) => {
     const colors: Record<string, string> = {
       'Akash': '#7c3aed',
@@ -584,156 +242,48 @@ export const DashboardOverview: React.FC = () => {
     return name.slice(0, 2).toUpperCase();
   };
 
-  // 5.5 Product Groups Calculations
-  const configuredProductGroups = productGroups.map(g => g.name);
-  const dataProductGroups = Array.from(new Set(validItems.map(item => item.product).filter(p => p && p.trim() !== '')));
-  const allProductGroups = [...Array.from(new Set([...configuredProductGroups, ...dataProductGroups])), 'No Product Group Assigned'];
+  const getSourceClass = (source: string) => {
+    const map: Record<string, string> = {
+      'Priority Requests': 'priority-requests',
+      'Student Projects': 'student-projects',
+      'Content Pipeline': 'content-pipeline',
+      'AMA & Meetings': 'ama-meetings',
+      'Product Breakdown': 'product-breakdown',
+      'Admin Calls': 'admin-calls',
+      'Daily Issues Log': 'daily-issues',
+      'Requested Features': 'priority-requests',
+    };
+    return map[source] || '';
+  };
 
-  const productGroupRows = allProductGroups.map(prodGroup => {
-    const prodItems = prodGroup === 'No Product Group Assigned'
-      ? validItems.filter(item => !item.product || item.product.trim() === '')
-      : validItems.filter(item => item.product === prodGroup);
+  const activeStatuses = dashboardCounts?.activeStatuses || [];
+  const rows = dashboardCounts?.rows || [];
+  const filteredRows = rows.filter((row: any) => {
+    if (searchQuery.trim() !== '') {
+      return row.poc.toLowerCase().includes(searchQuery.toLowerCase());
+    }
+    return true;
+  });
+  const finalRows = [...filteredRows];
+  const productGroupRows = dashboardCounts?.productGroupRows || [];
+  const overallTotal = dashboardCounts?.overallTotal || 0;
+  const overallClickup = dashboardCounts?.overallClickup || 0;
+  const overallStatusTotals = dashboardCounts?.overallStatusTotals || {};
+  const overallNoStatus = dashboardCounts?.overallNoStatus || 0;
+  const clickupCoverage = overallTotal > 0 ? Math.round((overallClickup / overallTotal) * 100) : 0;
 
-    const statusCounts: Record<string, number> = {};
-    activeStatuses.forEach(status => {
-      if (statusType === 'my') {
-        statusCounts[status.label] = prodItems.filter(item => isSameStatus(item.status, status.label)).length;
-      } else {
-        statusCounts[status.label] = prodItems.filter(item => (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()).length;
-      }
-    });
-
-    const noStatus = statusType === 'my'
-      ? prodItems.filter(item => !item.status || item.status.trim() === '' || !activeStatuses.some(status => isSameStatus(item.status, status.label))).length
-      : prodItems.filter(item => !item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(status => (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim())).length;
-    const total = prodItems.length;
-    const clickupCount = prodItems.filter(item => item.taskLink && item.taskLink.trim() !== '').length;
-
-    // Get color for the product group
-    const matchedGroup = productGroups.find(g => g.name === prodGroup);
-    const color = matchedGroup ? matchedGroup.color : '#6b7280';
-
+  const consolidatedMeetingRows = (dashboardCounts?.meetingRows || []).map((row: any) => {
+    let icon = <Video size={14} style={{ color: 'var(--primary)' }} />;
+    if (row.category === 'Admin Meetings') {
+      icon = <PhoneCall size={14} style={{ color: 'var(--info)' }} />;
+    } else if (row.category === 'Tarun Sir Meetings') {
+      icon = <Crown size={14} style={{ color: 'var(--success)' }} />;
+    }
     return {
-      productGroup: prodGroup,
-      color,
-      statusCounts,
-      noStatus,
-      total,
-      clickupCount,
+      ...row,
+      icon
     };
   });
-
-  // 6. Meetings & AMA Sessions Calculations
-  const filteredAmaSessions = amaSessions.filter(ama => isWithinDateRange(ama.date));
-  const filteredAdminCalls = adminCalls.filter(call => isWithinDateRange(call.date));
-  const filteredTarunSirMeetings = tarunSirMeetings.filter(call => isWithinDateRange(call.date));
-
-  const getAmaRelatedFeatures = (ama: AMASession) => {
-    return validItems.filter(item => 
-      item.notes && 
-      item.notes.includes(`AMA Session ID: ${ama.id}`)
-    );
-  };
-
-  const getAdminCallRelatedFeatures = (call: AdminCall) => {
-    return validItems.filter(item => 
-      item.notes && 
-      item.notes.includes(`Admin Call ID: ${call.id}`)
-    );
-  };
-
-  const getTarunSirMeetingRelatedFeatures = (call: TarunSirMeeting) => {
-    return validItems.filter(item => 
-      item.notes && 
-      item.notes.includes(`Tarun Sir Meeting ID: ${call.id}`)
-    );
-  };
-
-  // Get all unique related features for filtered AMAs
-  const allAmaFeatures: any[] = [];
-  filteredAmaSessions.forEach(ama => {
-    const feats = getAmaRelatedFeatures(ama);
-    feats.forEach(f => {
-      if (!allAmaFeatures.some(x => x.id === f.id)) {
-        allAmaFeatures.push(f);
-      }
-    });
-  });
-
-  // Get all unique related features for filtered Admin Calls
-  const allAdminFeatures: any[] = [];
-  filteredAdminCalls.forEach(call => {
-    const feats = getAdminCallRelatedFeatures(call);
-    feats.forEach(f => {
-      if (!allAdminFeatures.some(x => x.id === f.id)) {
-        allAdminFeatures.push(f);
-      }
-    });
-  });
-
-  // Get all unique related features for filtered Tarun Sir Meetings
-  const allTarunFeatures: any[] = [];
-  filteredTarunSirMeetings.forEach(call => {
-    const feats = getTarunSirMeetingRelatedFeatures(call);
-    feats.forEach(f => {
-      if (!allTarunFeatures.some(x => x.id === f.id)) {
-        allTarunFeatures.push(f);
-      }
-    });
-  });
-
-  const meetingRows = [
-    {
-      category: 'AMA Sessions',
-      formCategory: 'ama-meetings' as const,
-      icon: <Video size={14} style={{ color: 'var(--primary)' }} />,
-      features: allAmaFeatures,
-      clickupCount: allAmaFeatures.filter(item => item.taskLink && item.taskLink.trim() !== '').length,
-      callCount: filteredAmaSessions.length,
-    },
-    {
-      category: 'Admin Meetings',
-      formCategory: 'admin-calls' as const,
-      icon: <PhoneCall size={14} style={{ color: 'var(--info)' }} />,
-      features: allAdminFeatures,
-      clickupCount: allAdminFeatures.filter(item => item.taskLink && item.taskLink.trim() !== '').length,
-      callCount: filteredAdminCalls.length,
-    },
-    {
-      category: 'Tarun Sir Meetings',
-      formCategory: null,
-      icon: <Crown size={14} style={{ color: 'var(--success)' }} />,
-      features: allTarunFeatures,
-      clickupCount: allTarunFeatures.filter(item => item.taskLink && item.taskLink.trim() !== '').length,
-      callCount: filteredTarunSirMeetings.length,
-    }
-  ];
-
-
-  const getCategoryRating = (cat: 'admin-calls' | 'ama-meetings' | 'student-projects') => {
-    const config = formConfigs.find(c => c.category === cat);
-    if (!config || !config.enabled) return null;
-    
-    const submissions = feedbackSubmissions.filter(sub => sub.category === cat);
-    if (submissions.length === 0) return null;
-    
-    const ratingFields = config.fields.filter(f => f.type === 'rating');
-    if (ratingFields.length === 0) return null;
-    
-    const scores: number[] = [];
-    submissions.forEach(sub => {
-      ratingFields.forEach(field => {
-        const score = Number(sub.answers[field.id]);
-        if (!isNaN(score) && score > 0) {
-          scores.push(score);
-        }
-      });
-    });
-    
-    if (scores.length === 0) return null;
-    const avg = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
-    return { avg, count: submissions.length };
-  };
 
   return (
     <TabContainer
@@ -743,8 +293,6 @@ export const DashboardOverview: React.FC = () => {
       searchPlaceholder="Search POC..."
       filterComponent={
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          
-          {/* Presets dropdown */}
           <select 
             className="filter-select"
             value={dateRangeType}
@@ -769,7 +317,6 @@ export const DashboardOverview: React.FC = () => {
             <option value="custom">Custom Range...</option>
           </select>
 
-          {/* Custom Date Inputs */}
           {dateRangeType === 'custom' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', animation: 'fadeIn 0.2s ease' }}>
               <input 
@@ -806,7 +353,6 @@ export const DashboardOverview: React.FC = () => {
             </div>
           )}
 
-          {/* Status switcher segment control */}
           <div style={{
             display: 'inline-flex',
             backgroundColor: 'var(--background-alt)',
@@ -865,11 +411,16 @@ export const DashboardOverview: React.FC = () => {
         </div>
       }
     >
-      <div 
-        ref={scrollRef} 
-        onScroll={handleScroll} 
-        style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}
-      >
+      <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        {!dashboardCounts && isLoadingCounts ? (
+          <DashboardSkeleton />
+        ) : (
+          <>
+            <div 
+              ref={scrollRef} 
+              onScroll={handleScroll} 
+              style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}
+            >
         
         {/* Status Metrics Strip — flat, arrow-scrollable, no scrollbar */}
         <div style={{
@@ -949,22 +500,13 @@ export const DashboardOverview: React.FC = () => {
               msOverflowStyle: 'none',
             }}
           >
-
-
-            {activeStatuses.map(status => {
+             {activeStatuses.map((status: any) => {
               const count = overallStatusTotals[status.label] || 0;
               return (
                 <div 
                   key={status.id}
                   className="dashboard-clickable-number"
-                  onClick={() => setPopupData({
-                    title: `${status.label} Tasks`,
-                    tasks: validItems.filter(item => 
-                      statusType === 'my' 
-                        ? isSameStatus(item.status, status.label) 
-                        : (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()
-                    )
-                  })}
+                  onClick={() => openPopupList(`${status.label} Tasks`, { status: status.label, statusType })}
                   style={{
                     flex: '1 1 0px',
                     minWidth: '140px',
@@ -1009,14 +551,10 @@ export const DashboardOverview: React.FC = () => {
             {/* No Status Cell */}
             <div 
               className="dashboard-clickable-number"
-              onClick={() => setPopupData({
-                title: statusType === 'my' ? 'No Status Tasks' : 'No ClickUp Status Tasks',
-                tasks: validItems.filter(item => 
-                  statusType === 'my'
-                    ? (!item.status || item.status.trim() === '' || !activeStatuses.some(s => isSameStatus(item.status, s.label)))
-                    : (!item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(s => (item.clickupStatus || '').toLowerCase().trim() === s.label.toLowerCase().trim()))
-                )
-              })}
+              onClick={() => openPopupList(
+                statusType === 'my' ? 'No Status Tasks' : 'No ClickUp Status Tasks',
+                { status: statusType === 'my' ? 'No Status' : 'No ClickUp Status', statusType }
+              )}
               style={{
                 flex: '1 1 0px',
                 minWidth: '140px',
@@ -1072,7 +610,7 @@ export const DashboardOverview: React.FC = () => {
               <thead>
                 <tr>
                   <th style={{ width: '220px', textAlign: 'left', padding: '10px' }}>POC</th>
-                  {activeStatuses.map(status => (
+                  {activeStatuses.map((status: any) => (
                     <th key={status.id} style={{ textAlign: 'center', padding: '10px' }}>
                       <span style={{
                         display: 'inline-flex',
@@ -1132,23 +670,13 @@ export const DashboardOverview: React.FC = () => {
                         </div>
                       </td>
                       
-                      {activeStatuses.map(status => {
+                      {activeStatuses.map((status: any) => {
                         const count = row.statusCounts[status.label] || 0;
-                        const rowTasks = row.poc === 'No POC Assigned'
-                          ? validItems.filter(item => !item.poc || item.poc.trim() === '')
-                          : validItems.filter(item => item.poc === row.poc);
                         return (
                           <td 
                             key={status.id} 
                             className="dashboard-clickable-number"
-                            onClick={() => setPopupData({
-                              title: `${status.label} Tasks for ${row.poc}`,
-                              tasks: rowTasks.filter(item => 
-                                statusType === 'my' 
-                                  ? isSameStatus(item.status, status.label) 
-                                  : (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()
-                              )
-                            })}
+                            onClick={() => openPopupList(`${status.label} Tasks for ${row.poc}`, { poc: row.poc, status: status.label })}
                             style={{ textAlign: 'center', fontWeight: count > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
                           >
                             <span style={{ 
@@ -1163,19 +691,10 @@ export const DashboardOverview: React.FC = () => {
 
                       <td 
                         className="dashboard-clickable-number"
-                        onClick={() => {
-                          const rowTasks = row.poc === 'No POC Assigned'
-                            ? validItems.filter(item => !item.poc || item.poc.trim() === '')
-                            : validItems.filter(item => item.poc === row.poc);
-                          setPopupData({
-                            title: statusType === 'my' ? `No Status Tasks for ${row.poc}` : `No ClickUp Status Tasks for ${row.poc}`,
-                            tasks: rowTasks.filter(item => 
-                              statusType === 'my'
-                                ? (!item.status || item.status.trim() === '' || !activeStatuses.some(s => isSameStatus(item.status, s.label)))
-                                : (!item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(s => (item.clickupStatus || '').toLowerCase().trim() === s.label.toLowerCase().trim()))
-                            )
-                          });
-                        }}
+                        onClick={() => openPopupList(
+                          statusType === 'my' ? `No Status Tasks for ${row.poc}` : `No ClickUp Status Tasks for ${row.poc}`,
+                          { poc: row.poc, status: statusType === 'my' ? 'No Status' : 'No ClickUp Status', statusType }
+                        )}
                         style={{ textAlign: 'center', fontWeight: row.noStatus > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
                       >
                         <span style={{ 
@@ -1186,19 +705,9 @@ export const DashboardOverview: React.FC = () => {
                         </span>
                       </td>
 
-
-
                       <td 
                         className="dashboard-clickable-number"
-                        onClick={() => {
-                          const rowTasks = row.poc === 'No POC Assigned'
-                            ? validItems.filter(item => !item.poc || item.poc.trim() === '')
-                            : validItems.filter(item => item.poc === row.poc);
-                          setPopupData({
-                            title: `ClickUp Tasks for ${row.poc}`,
-                            tasks: rowTasks.filter(item => item.taskLink && item.taskLink.trim() !== '')
-                          });
-                        }}
+                        onClick={() => openPopupList(`ClickUp Tasks for ${row.poc}`, { poc: row.poc, status: 'ClickUp Linked' })}
                         style={{ textAlign: 'center', fontWeight: 600, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
                       >
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -1245,18 +754,11 @@ export const DashboardOverview: React.FC = () => {
               <tfoot style={{ borderTop: '2px solid var(--border-light)', backgroundColor: 'var(--background-alt)' }}>
                 <tr style={{ fontWeight: 700 }}>
                   <td style={{ padding: '12px 10px' }}>Overall Totals</td>
-                  {activeStatuses.map(status => (
+                  {activeStatuses.map((status: any) => (
                     <td 
                       key={status.id} 
                       className="dashboard-clickable-number"
-                      onClick={() => setPopupData({
-                        title: `All ${status.label} Tasks`,
-                        tasks: validItems.filter(item => 
-                          statusType === 'my' 
-                            ? isSameStatus(item.status, status.label) 
-                            : (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()
-                        )
-                      })}
+                      onClick={() => openPopupList(`All ${status.label} Tasks`, { status: status.label, statusType })}
                       style={{ textAlign: 'center', color: 'var(--text-primary)', padding: '12px 10px', cursor: 'pointer' }}
                     >
                       {overallStatusTotals[status.label] || 0}
@@ -1264,14 +766,10 @@ export const DashboardOverview: React.FC = () => {
                   ))}
                   <td 
                     className="dashboard-clickable-number"
-                    onClick={() => setPopupData({
-                      title: statusType === 'my' ? 'All No Status Tasks' : 'All No ClickUp Status Tasks',
-                      tasks: validItems.filter(item => 
-                        statusType === 'my'
-                          ? (!item.status || item.status.trim() === '' || !activeStatuses.some(s => isSameStatus(item.status, s.label)))
-                          : (!item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(s => (item.clickupStatus || '').toLowerCase().trim() === s.label.toLowerCase().trim()))
-                      )
-                    })}
+                    onClick={() => openPopupList(
+                      statusType === 'my' ? 'All No Status Tasks' : 'All No ClickUp Status Tasks',
+                      { status: statusType === 'my' ? 'No Status' : 'No ClickUp Status', statusType }
+                    )}
                     style={{ textAlign: 'center', color: 'var(--text-primary)', padding: '12px 10px', cursor: 'pointer' }}
                   >
                     {overallNoStatus}
@@ -1279,10 +777,7 @@ export const DashboardOverview: React.FC = () => {
 
                   <td 
                     className="dashboard-clickable-number"
-                    onClick={() => setPopupData({
-                      title: 'All ClickUp Linked Tasks',
-                      tasks: validItems.filter(item => item.taskLink && item.taskLink.trim() !== '')
-                    })}
+                    onClick={() => openPopupList('All ClickUp Linked Tasks', { status: 'ClickUp Linked' })}
                     style={{ textAlign: 'center', color: 'var(--info)', fontSize: '0.95rem', padding: '12px 10px', cursor: 'pointer' }}
                   >
                     {overallClickup} <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)' }}>/ {overallTotal}</span>
@@ -1332,7 +827,7 @@ export const DashboardOverview: React.FC = () => {
               <thead>
                 <tr>
                   <th style={{ width: '220px', textAlign: 'left', padding: '10px' }}>Product Group</th>
-                  {activeStatuses.map(status => (
+                  {activeStatuses.map((status: any) => (
                     <th key={status.id} style={{ textAlign: 'center', padding: '10px' }}>
                       <span style={{
                         display: 'inline-flex',
@@ -1370,7 +865,7 @@ export const DashboardOverview: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {productGroupRows.map(row => {
+                {productGroupRows.map((row: any) => {
                   const coveragePercent = row.total > 0 ? Math.round((row.clickupCount / row.total) * 100) : 0;
                   
                   return (
@@ -1393,25 +888,13 @@ export const DashboardOverview: React.FC = () => {
                         </div>
                       </td>
                       
-                      {activeStatuses.map(status => {
+                      {activeStatuses.map((status: any) => {
                         const count = row.statusCounts[status.label] || 0;
                         return (
                           <td 
                             key={status.id} 
                             className="dashboard-clickable-number"
-                            onClick={() => {
-                              const prodItems = row.productGroup === 'No Product Group Assigned'
-                                ? validItems.filter(item => !item.product || item.product.trim() === '')
-                                : validItems.filter(item => item.product === row.productGroup);
-                              setPopupData({
-                                title: `${status.label} Tasks for ${row.productGroup}`,
-                                tasks: prodItems.filter(item => 
-                                  statusType === 'my' 
-                                    ? isSameStatus(item.status, status.label) 
-                                    : (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()
-                                )
-                              });
-                            }}
+                            onClick={() => openPopupList(`${status.label} Tasks for ${row.productGroup}`, { productGroup: row.productGroup, status: status.label })}
                             style={{ textAlign: 'center', fontWeight: count > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
                           >
                             <span style={{ 
@@ -1426,19 +909,10 @@ export const DashboardOverview: React.FC = () => {
 
                       <td 
                         className="dashboard-clickable-number"
-                        onClick={() => {
-                          const prodItems = row.productGroup === 'No Product Group Assigned'
-                            ? validItems.filter(item => !item.product || item.product.trim() === '')
-                            : validItems.filter(item => item.product === row.productGroup);
-                          setPopupData({
-                            title: statusType === 'my' ? `No Status Tasks for ${row.productGroup}` : `No ClickUp Status Tasks for ${row.productGroup}`,
-                            tasks: prodItems.filter(item => 
-                              statusType === 'my'
-                                ? (!item.status || item.status.trim() === '' || !activeStatuses.some(s => isSameStatus(item.status, s.label)))
-                                : (!item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(s => (item.clickupStatus || '').toLowerCase().trim() === s.label.toLowerCase().trim()))
-                            )
-                          });
-                        }}
+                        onClick={() => openPopupList(
+                          statusType === 'my' ? `No Status Tasks for ${row.productGroup}` : `No ClickUp Status Tasks for ${row.productGroup}`,
+                          { productGroup: row.productGroup, status: statusType === 'my' ? 'No Status' : 'No ClickUp Status', statusType }
+                        )}
                         style={{ textAlign: 'center', fontWeight: row.noStatus > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
                       >
                         <span style={{ 
@@ -1449,19 +923,9 @@ export const DashboardOverview: React.FC = () => {
                         </span>
                       </td>
 
-
-
                       <td 
                         className="dashboard-clickable-number"
-                        onClick={() => {
-                          const prodItems = row.productGroup === 'No Product Group Assigned'
-                            ? validItems.filter(item => !item.product || item.product.trim() === '')
-                            : validItems.filter(item => item.product === row.productGroup);
-                          setPopupData({
-                            title: `ClickUp Tasks for ${row.productGroup}`,
-                            tasks: prodItems.filter(item => item.taskLink && item.taskLink.trim() !== '')
-                          });
-                        }}
+                        onClick={() => openPopupList(`ClickUp Tasks for ${row.productGroup}`, { productGroup: row.productGroup, status: 'ClickUp Linked' })}
                         style={{ textAlign: 'center', fontWeight: 600, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
                       >
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -1508,18 +972,11 @@ export const DashboardOverview: React.FC = () => {
               <tfoot style={{ borderTop: '2px solid var(--border-light)', backgroundColor: 'var(--background-alt)' }}>
                 <tr style={{ fontWeight: 700 }}>
                   <td style={{ padding: '12px 10px' }}>Overall Totals</td>
-                  {activeStatuses.map(status => (
+                  {activeStatuses.map((status: any) => (
                     <td 
                       key={status.id} 
                       className="dashboard-clickable-number"
-                      onClick={() => setPopupData({
-                        title: `All ${status.label} Tasks`,
-                        tasks: validItems.filter(item => 
-                          statusType === 'my' 
-                            ? isSameStatus(item.status, status.label) 
-                            : (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()
-                        )
-                      })}
+                      onClick={() => openPopupList(`All ${status.label} Tasks`, { status: status.label, statusType })}
                       style={{ textAlign: 'center', color: 'var(--text-primary)', padding: '12px 10px', cursor: 'pointer' }}
                     >
                       {overallStatusTotals[status.label] || 0}
@@ -1527,14 +984,10 @@ export const DashboardOverview: React.FC = () => {
                   ))}
                   <td 
                     className="dashboard-clickable-number"
-                    onClick={() => setPopupData({
-                      title: statusType === 'my' ? 'All No Status Tasks' : 'All No ClickUp Status Tasks',
-                      tasks: validItems.filter(item => 
-                        statusType === 'my'
-                          ? (!item.status || item.status.trim() === '' || !activeStatuses.some(s => isSameStatus(item.status, s.label)))
-                          : (!item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(s => (item.clickupStatus || '').toLowerCase().trim() === s.label.toLowerCase().trim()))
-                      )
-                    })}
+                    onClick={() => openPopupList(
+                      statusType === 'my' ? 'All No Status Tasks' : 'All No ClickUp Status Tasks',
+                      { status: statusType === 'my' ? 'No Status' : 'No ClickUp Status', statusType }
+                    )}
                     style={{ textAlign: 'center', color: 'var(--text-primary)', padding: '12px 10px', cursor: 'pointer' }}
                   >
                     {overallNoStatus}
@@ -1542,10 +995,7 @@ export const DashboardOverview: React.FC = () => {
 
                   <td 
                     className="dashboard-clickable-number"
-                    onClick={() => setPopupData({
-                      title: 'All ClickUp Linked Tasks',
-                      tasks: validItems.filter(item => item.taskLink && item.taskLink.trim() !== '')
-                    })}
+                    onClick={() => openPopupList('All ClickUp Linked Tasks', { status: 'ClickUp Linked' })}
                     style={{ textAlign: 'center', color: 'var(--info)', fontSize: '0.95rem', padding: '12px 10px', cursor: 'pointer' }}
                   >
                     {overallClickup} <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)' }}>/ {overallTotal}</span>
@@ -1596,7 +1046,7 @@ export const DashboardOverview: React.FC = () => {
                 <tr>
                   <th style={{ width: '250px', textAlign: 'left', padding: '10px' }}>Category</th>
                   <th style={{ textAlign: 'center', width: '130px', fontWeight: 700, padding: '10px' }}>Average Rating</th>
-                  {activeStatuses.map(status => (
+                  {activeStatuses.map((status: any) => (
                     <th key={status.id} style={{ textAlign: 'center', padding: '10px' }}>
                       <span style={{
                         display: 'inline-flex',
@@ -1634,58 +1084,14 @@ export const DashboardOverview: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {meetingRows.map(row => {
-                  const coveragePercent = row.features.length > 0 ? Math.round((row.clickupCount / row.features.length) * 100) : 0;
+                {consolidatedMeetingRows.map((row: any) => {
+                  const coveragePercent = row.featuresCount > 0 ? Math.round((row.clickupCount / row.featuresCount) * 100) : 0;
+                  
                   return (
                     <tr key={row.category} style={{ transition: 'background-color 0.2s' }}>
                       <td 
                         className="dashboard-clickable-number"
-                        onClick={() => {
-                          const calls = row.category === 'AMA Sessions' 
-                            ? filteredAmaSessions.map(ama => ({
-                                id: ama.id,
-                                feature: `${ama.cohort} - ${ama.topic}`,
-                                date: ama.date,
-                                status: ama.status,
-                                poc: ama.speaker,
-                                taskLink: ama.link,
-                                description: '',
-                                source: 'AMA & Meetings',
-                                rawItem: ama,
-                                stage: 'AMA Date'
-                              }))
-                            : row.category === 'Admin Meetings'
-                              ? filteredAdminCalls.map(call => ({
-                                  id: call.id,
-                                  feature: call.cohortTopic,
-                                  date: call.date,
-                                  status: call.status,
-                                  poc: call.adminPoc,
-                                  taskLink: '',
-                                  description: call.discussion,
-                                  notes: call.actions,
-                                  source: 'Admin Calls',
-                                  rawItem: call,
-                                  stage: 'Call Date'
-                                }))
-                              : filteredTarunSirMeetings.map(call => ({
-                                  id: call.id,
-                                  feature: call.cohortTopic,
-                                  date: call.date,
-                                  status: call.status,
-                                  poc: call.adminPoc,
-                                  taskLink: '',
-                                  description: call.discussion,
-                                  notes: call.actions,
-                                  source: 'Tarun Sir Meetings',
-                                  rawItem: call,
-                                  stage: 'Meeting Date'
-                                }));
-                          setPopupData({
-                            title: `${row.category} (Calls)`,
-                            tasks: calls
-                          });
-                        }}
+                        onClick={() => openPopupList(`${row.category} (Calls)`, { source: row.category })}
                         style={{ fontWeight: 600, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1703,8 +1109,7 @@ export const DashboardOverview: React.FC = () => {
                       </td>
                       <td style={{ textAlign: 'center', padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
                         {(() => {
-                          if (!row.formCategory) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
-                          const ratingData = getCategoryRating(row.formCategory);
+                          const ratingData = row.rating;
                           if (!ratingData) return <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontStyle: 'italic' }}>No ratings</span>;
                           return (
                             <span style={{ 
@@ -1727,22 +1132,13 @@ export const DashboardOverview: React.FC = () => {
                         })()}
                       </td>
                       
-                      {activeStatuses.map(status => {
-                        const count = statusType === 'my'
-                          ? row.features.filter(item => isSameStatus(item.status, status.label)).length
-                          : row.features.filter(item => (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()).length;
+                      {activeStatuses.map((status: any) => {
+                        const count = row.statusCounts[status.label] || 0;
                         return (
                           <td 
                             key={status.id} 
                             className="dashboard-clickable-number"
-                            onClick={() => setPopupData({
-                              title: `${status.label} Features for ${row.category}`,
-                              tasks: row.features.filter(item => 
-                                statusType === 'my' 
-                                  ? isSameStatus(item.status, status.label) 
-                                  : (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()
-                              )
-                            })}
+                            onClick={() => openPopupList(`${status.label} Features for ${row.category}`, { meetingCategory: row.category, status: status.label })}
                             style={{ textAlign: 'center', fontWeight: count > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
                           >
                             <span style={{ 
@@ -1757,70 +1153,30 @@ export const DashboardOverview: React.FC = () => {
 
                       <td 
                         className="dashboard-clickable-number"
-                        onClick={() => setPopupData({
-                          title: statusType === 'my' ? `No Status Features for ${row.category}` : `No ClickUp Status Features for ${row.category}`,
-                          tasks: row.features.filter(item => {
-                            const val = statusType === 'my' ? item.status : item.clickupStatus;
-                            if (statusType === 'my') {
-                              return !val || val.trim() === '' || !activeStatuses.some(s => isSameStatus(val, s.label));
-                            } else {
-                              return !val || val.trim() === '' || !activeStatuses.some(s => val.toLowerCase().trim() === s.label.toLowerCase().trim());
-                            }
-                          })
-                        })}
-                        style={{ textAlign: 'center', fontWeight: row.features.filter(item => {
-                          const val = statusType === 'my' ? item.status : item.clickupStatus;
-                          if (statusType === 'my') {
-                            return !val || val.trim() === '' || !activeStatuses.some(status => isSameStatus(val, status.label));
-                          } else {
-                            return !val || val.trim() === '' || !activeStatuses.some(status => val.toLowerCase().trim() === status.label.toLowerCase().trim());
-                          }
-                        }).length > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
+                        onClick={() => openPopupList(
+                          statusType === 'my' ? `No Status Features for ${row.category}` : `No ClickUp Status Features for ${row.category}`,
+                          { meetingCategory: row.category, status: statusType === 'my' ? 'No Status' : 'No ClickUp Status', statusType }
+                        )}
+                        style={{ textAlign: 'center', fontWeight: row.noStatus > 0 ? 600 : 400, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
                       >
                         <span style={{ 
-                          color: row.features.filter(item => {
-                            const val = statusType === 'my' ? item.status : item.clickupStatus;
-                            if (statusType === 'my') {
-                              return !val || val.trim() === '' || !activeStatuses.some(status => isSameStatus(val, status.label));
-                            } else {
-                              return !val || val.trim() === '' || !activeStatuses.some(status => val.toLowerCase().trim() === status.label.toLowerCase().trim());
-                            }
-                          }).length > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
-                          opacity: row.features.filter(item => {
-                            const val = statusType === 'my' ? item.status : item.clickupStatus;
-                            if (statusType === 'my') {
-                              return !val || val.trim() === '' || !activeStatuses.some(status => isSameStatus(val, status.label));
-                            } else {
-                              return !val || val.trim() === '' || !activeStatuses.some(status => val.toLowerCase().trim() === status.label.toLowerCase().trim());
-                            }
-                          }).length > 0 ? 1 : 0.45 
+                          color: row.noStatus > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
+                          opacity: row.noStatus > 0 ? 1 : 0.45 
                         }}>
-                          {row.features.filter(item => {
-                            const val = statusType === 'my' ? item.status : item.clickupStatus;
-                            if (statusType === 'my') {
-                              return !val || val.trim() === '' || !activeStatuses.some(status => isSameStatus(val, status.label));
-                            } else {
-                              return !val || val.trim() === '' || !activeStatuses.some(status => val.toLowerCase().trim() === status.label.toLowerCase().trim());
-                            }
-                          }).length}
+                          {row.noStatus}
                         </span>
                       </td>
 
-
-
                       <td 
                         className="dashboard-clickable-number"
-                        onClick={() => setPopupData({
-                          title: `ClickUp Linked Features for ${row.category}`,
-                          tasks: row.features.filter(item => item.taskLink && item.taskLink.trim() !== '')
-                        })}
+                        onClick={() => openPopupList(`ClickUp Linked Features for ${row.category}`, { meetingCategory: row.category, status: 'ClickUp Linked' })}
                         style={{ textAlign: 'center', fontWeight: 600, padding: '12px 10px', borderTop: '1px solid var(--border-light)', cursor: 'pointer' }}
                       >
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           <span style={{ color: row.clickupCount > 0 ? 'var(--info)' : 'var(--text-muted)' }}>
                             {row.clickupCount}
                           </span>
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>/ {row.features.length}</span>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>/ {row.featuresCount}</span>
                         </div>
                       </td>
 
@@ -1861,25 +1217,13 @@ export const DashboardOverview: React.FC = () => {
                 <tr style={{ fontWeight: 700 }}>
                   <td style={{ padding: '12px 10px' }}>Overall Totals</td>
                   <td style={{ padding: '12px 10px' }} />
-                  {activeStatuses.map(status => {
-                    const allMeetingFeatures = meetingRows.flatMap(r => r.features);
-                    const count = allMeetingFeatures.filter(item =>
-                      statusType === 'my'
-                        ? isSameStatus(item.status, status.label)
-                        : (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()
-                    ).length;
+                  {activeStatuses.map((status: any) => {
+                    const count = consolidatedMeetingRows.reduce((sum: number, r: any) => sum + (r.statusCounts[status.label] || 0), 0);
                     return (
                       <td
                         key={status.id}
                         className="dashboard-clickable-number"
-                        onClick={() => setPopupData({
-                          title: `All ${status.label} Features (Meetings)`,
-                          tasks: meetingRows.flatMap(r => r.features).filter(item =>
-                            statusType === 'my'
-                              ? isSameStatus(item.status, status.label)
-                              : (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim()
-                          )
-                        })}
+                        onClick={() => openPopupList(`All ${status.label} Features (Meetings)`, { meetingCategory: 'all', status: status.label, statusType })}
                         style={{ textAlign: 'center', color: 'var(--text-primary)', padding: '12px 10px', cursor: 'pointer' }}
                       >
                         {count}
@@ -1888,44 +1232,23 @@ export const DashboardOverview: React.FC = () => {
                   })}
                   <td
                     className="dashboard-clickable-number"
-                    onClick={() => setPopupData({
-                      title: statusType === 'my' ? 'All No Status Features (Meetings)' : 'All No ClickUp Status Features (Meetings)',
-                      tasks: meetingRows.flatMap(r => r.features).filter(item => {
-                        const val = statusType === 'my' ? item.status : item.clickupStatus;
-                        if (statusType === 'my') {
-                          return !val || val.trim() === '' || !activeStatuses.some(s => isSameStatus(val, s.label));
-                        } else {
-                          return !val || val.trim() === '' || !activeStatuses.some(s => (val || '').toLowerCase().trim() === s.label.toLowerCase().trim());
-                        }
-                      })
-                    })}
+                    onClick={() => openPopupList(
+                      statusType === 'my' ? 'All No Status Features (Meetings)' : 'All No ClickUp Status Features (Meetings)',
+                      { meetingCategory: 'all', status: statusType === 'my' ? 'No Status' : 'No ClickUp Status', statusType }
+                    )}
                     style={{ textAlign: 'center', color: 'var(--text-primary)', padding: '12px 10px', cursor: 'pointer' }}
                   >
-                    {(() => {
-                      const all = meetingRows.flatMap(r => r.features);
-                      return all.filter(item => {
-                        const val = statusType === 'my' ? item.status : item.clickupStatus;
-                        if (statusType === 'my') {
-                          return !val || val.trim() === '' || !activeStatuses.some(s => isSameStatus(val, s.label));
-                        } else {
-                          return !val || val.trim() === '' || !activeStatuses.some(s => (val || '').toLowerCase().trim() === s.label.toLowerCase().trim());
-                        }
-                      }).length;
-                    })()}
+                    {consolidatedMeetingRows.reduce((sum: number, r: any) => sum + (r.noStatus || 0), 0)}
                   </td>
                   {(() => {
-                    const allFeatures = meetingRows.flatMap(r => r.features);
-                    const totalClickup = meetingRows.reduce((sum, r) => sum + r.clickupCount, 0);
-                    const totalFeatures = allFeatures.length;
+                    const totalClickup = consolidatedMeetingRows.reduce((sum: number, r: any) => sum + (r.clickupCount || 0), 0);
+                    const totalFeatures = consolidatedMeetingRows.reduce((sum: number, r: any) => sum + (r.featuresCount || 0), 0);
                     const coverage = totalFeatures > 0 ? Math.round((totalClickup / totalFeatures) * 100) : 0;
                     return (
                       <>
                         <td
                           className="dashboard-clickable-number"
-                          onClick={() => setPopupData({
-                            title: 'All ClickUp Linked Features (Meetings)',
-                            tasks: allFeatures.filter(item => item.taskLink && item.taskLink.trim() !== '')
-                          })}
+                          onClick={() => openPopupList('All ClickUp Linked Features (Meetings)', { meetingCategory: 'all', status: 'ClickUp Linked' })}
                           style={{ textAlign: 'center', color: 'var(--info)', fontSize: '0.95rem', padding: '12px 10px', cursor: 'pointer' }}
                         >
                           {totalClickup} <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)' }}>/ {totalFeatures}</span>
@@ -1967,7 +1290,9 @@ export const DashboardOverview: React.FC = () => {
 
 
 
-      </div>
+            </div>
+          </>
+        )}
 
       {popupData && (
         <div 
@@ -2051,9 +1376,35 @@ export const DashboardOverview: React.FC = () => {
               display: 'flex',
               flexDirection: 'column',
               gap: '1rem',
-              backgroundColor: 'var(--background)'
+              backgroundColor: 'var(--background)',
+              justifyContent: 'flex-start',
+              alignItems: 'stretch'
             }}>
-              {popupData.tasks.length === 0 ? (
+              {isPopupLoading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
+                  {[1, 2, 3, 4].map(idx => (
+                    <div key={`popup-skel-${idx}`} className="animate-pulse" style={{
+                      padding: '1rem',
+                      backgroundColor: 'var(--panel-bg)',
+                      border: '1px solid var(--border-light)',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.75rem'
+                    }}>
+                      <div style={{ width: '75%', height: '16px', backgroundColor: 'var(--border-light)', borderRadius: '4px' }} />
+                      <div style={{ width: '90%', height: '12px', backgroundColor: 'var(--border-light)', borderRadius: '4px' }} />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.5rem', borderTop: '1px solid var(--border-light)' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <div style={{ width: '60px', height: '16px', backgroundColor: 'var(--border-light)', borderRadius: '4px' }} />
+                          <div style={{ width: '50px', height: '16px', backgroundColor: 'var(--border-light)', borderRadius: '4px' }} />
+                        </div>
+                        <div style={{ width: '20px', height: '20px', backgroundColor: 'var(--border-light)', borderRadius: '50%' }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : popupData.tasks.length === 0 ? (
                 <div style={{
                   padding: '3rem 1rem',
                   textAlign: 'center',
@@ -2180,6 +1531,7 @@ export const DashboardOverview: React.FC = () => {
           </div>
         </div>
       )}
+      </div>
     </TabContainer>
   );
 };

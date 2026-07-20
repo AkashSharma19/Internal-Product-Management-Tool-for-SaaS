@@ -22,7 +22,6 @@ import { CalendarView } from './components/CalendarView';
 import { PublicFeedbackForm } from './components/PublicFeedbackForm';
 import {
   LayoutDashboard,
-  Flame,
   Calendar,
   CalendarDays,
   FolderGit,
@@ -537,6 +536,52 @@ const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   );
 };
 
+const TableSkeleton = () => {
+  return (
+    <div className="animate-pulse" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1.5rem', height: '100%', width: '100%', boxSizing: 'border-box' }}>
+      {/* Search/Controls skeleton */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', height: '40px' }}>
+        <div style={{ width: '250px', height: '36px', backgroundColor: 'var(--border-light)', borderRadius: '8px' }} />
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div style={{ width: '100px', height: '36px', backgroundColor: 'var(--border-light)', borderRadius: '8px' }} />
+          <div style={{ width: '120px', height: '36px', backgroundColor: 'var(--border-light)', borderRadius: '8px' }} />
+        </div>
+      </div>
+
+      {/* Table grid skeleton */}
+      <div style={{
+        flex: 1,
+        backgroundColor: 'var(--panel-bg)',
+        border: '1px solid var(--border-light)',
+        borderRadius: '12px',
+        padding: '1rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.75rem',
+        overflow: 'hidden'
+      }}>
+        {/* Table header row */}
+        <div style={{ display: 'flex', gap: '1rem', borderBottom: '2px solid var(--border-light)', paddingBottom: '0.75rem' }}>
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} style={{ flex: 1, height: '18px', backgroundColor: 'var(--border-light)', borderRadius: '4px' }} />
+          ))}
+        </div>
+
+        {/* Table body rows */}
+        {[1, 2, 3, 4, 5, 6, 7, 8].map(row => (
+          <div key={row} style={{ display: 'flex', gap: '1rem', padding: '0.75rem 0', borderBottom: '1px solid var(--border-light)' }}>
+            <div style={{ flex: 1.5, height: '16px', backgroundColor: 'var(--border-light)', borderRadius: '4px' }} />
+            <div style={{ flex: 1, height: '16px', backgroundColor: 'var(--border-light)', borderRadius: '4px' }} />
+            <div style={{ flex: 1, height: '16px', backgroundColor: 'var(--border-light)', borderRadius: '4px' }} />
+            <div style={{ flex: 1, height: '16px', backgroundColor: 'var(--border-light)', borderRadius: '4px' }} />
+            <div style={{ flex: 0.8, height: '16px', backgroundColor: 'var(--border-light)', borderRadius: '4px' }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const DashboardContent: React.FC = () => {
   const { 
     activeTab, 
@@ -544,6 +589,13 @@ const DashboardContent: React.FC = () => {
     previewProductId,
     setPreviewProductId,
     productItems,
+    planItems,
+    studentProjects,
+    studentMeetings,
+    adminCalls,
+    tarunSirMeetings,
+    contentItems,
+    featureAdoptions,
     updateProductItem,
     syncStatus,
     currentUser,
@@ -564,6 +616,7 @@ const DashboardContent: React.FC = () => {
     activeSubtasksTaskLink,
     setActiveSubtasksTaskLink,
     isLoading,
+    isLoadingSprint,
     comments,
     lastOpenedMap
   } = useDashboard();
@@ -1246,7 +1299,6 @@ const DashboardContent: React.FC = () => {
     {
       title: "Product Workspace",
       items: [
-        { id: 'product', label: 'Priority Requests', icon: <Flame size={18} /> },
         { id: 'product-wise', label: 'Product Breakdown', icon: <PieChart size={18} /> },
         { id: 'adoption', label: 'Adoption Tracker', icon: <LineChart size={18} /> },
       ]
@@ -1654,11 +1706,37 @@ const DashboardContent: React.FC = () => {
       <main className="viewport">
         {/* Content Area */}
         <div key={activeTab} className="content-area animate-fade-in">
-          {renderActiveView()}
+          {(() => {
+            const isTabDatasetLoading = () => {
+              if (syncStatus !== 'syncing') return false;
+              switch (activeTab) {
+                case 'product': return productItems.length === 0;
+                case 'plan': return isLoadingSprint;
+                case 'projects': return studentProjects.length === 0;
+                case 'meetings': return studentMeetings.length === 0;
+                case 'admin': return adminCalls.length === 0;
+                case 'tarun-meetings': return tarunSirMeetings.length === 0;
+                case 'content': return contentItems.length === 0;
+                case 'product-wise': return false;
+                case 'issues': return dailyIssues.length === 0;
+                case 'feature-requests': return dailyIssues.length === 0;
+                case 'adoption': return featureAdoptions.length === 0;
+                default: return false;
+              }
+            };
+            const isLoading = isTabDatasetLoading();
+            return (
+              <>
+                {isLoading && !previewProductId && <TableSkeleton />}
+                <div style={{ display: (isLoading || previewProductId) ? 'none' : 'block', height: '100%', width: '100%' }}>
+                  {renderActiveView()}
+                </div>
+              </>
+            );
+          })()}
           {previewProductId && (() => {
-            if (activeTab === 'issues' || activeTab === 'feature-requests' || activeTab === 'plan') {
-              const foundIssue = dailyIssues.find(i => i.id === previewProductId);
-              if (!foundIssue) return null;
+            const foundIssue = dailyIssues.find(i => i.id === previewProductId);
+            if (foundIssue) {
               
               const mappedItem: ProductItem = {
                 id: foundIssue.id,
@@ -1736,8 +1814,11 @@ const DashboardContent: React.FC = () => {
               );
             }
 
-            const foundItem = productItems.find(i => i.id === previewProductId);
-            if (!foundItem) return null;
+            const foundItem = productItems.find(i => 
+              i.id === previewProductId || 
+              (previewProductId.startsWith('prod-temp-') && previewProductId.replace('prod-temp-', '') === i.id) ||
+              (i.id.startsWith('prod-temp-') && i.id.replace('prod-temp-', '') === previewProductId)
+            );
             
             const handleBack = () => {
               setPreviewProductId(null);
@@ -1745,6 +1826,64 @@ const DashboardContent: React.FC = () => {
                 setActiveTab(previousTab);
               }
             };
+
+            if (!foundItem) {
+              return (
+                <div className="premium-workspace animate-fade-in" style={{ padding: '1.5rem', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                  {/* Top Navigation Bar Skeleton */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem', marginBottom: '1.5rem', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <button className="btn-back" style={{ width: '24px', height: '24px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={handleBack}>
+                        <ChevronLeft size={12} />
+                      </button>
+                      <div className="skeleton-line" style={{ height: '16px', width: '200px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                    </div>
+                    <div className="skeleton-line" style={{ height: '20px', width: '80px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                  </div>
+
+                  {/* Main Split Layout Skeleton */}
+                  <div style={{ display: 'flex', gap: '2rem', flex: 1, minHeight: 0 }}>
+                    {/* Left Column Skeleton */}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1.5rem', overflowY: 'auto', paddingRight: '1rem' }}>
+                      {/* Feature Title Line */}
+                      <div className="skeleton-line" style={{ height: '28px', width: '60%', borderRadius: '6px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      
+                      {/* Description Panel */}
+                      <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '1.5rem', background: 'var(--panel-bg-alt)' }}>
+                        <div className="skeleton-line" style={{ height: '14px', width: '30%', marginBottom: '1rem', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                        <div className="skeleton-line" style={{ height: '14px', width: '90%', marginBottom: '0.5rem', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                        <div className="skeleton-line" style={{ height: '14px', width: '85%', marginBottom: '0.5rem', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                        <div className="skeleton-line" style={{ height: '14px', width: '40%', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </div>
+
+                      {/* Notes Panel */}
+                      <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '1.5rem' }}>
+                        <div className="skeleton-line" style={{ height: '14px', width: '20%', marginBottom: '1rem', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                        <div className="skeleton-line" style={{ height: '14px', width: '95%', marginBottom: '0.5rem', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                        <div className="skeleton-line" style={{ height: '14px', width: '70%', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </div>
+
+                      {/* Comments Area Skeleton */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div className="skeleton-line" style={{ height: '16px', width: '150px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                        <div style={{ height: '40px', border: '1px solid var(--border)', borderRadius: '8px', background: 'var(--panel-bg-alt)' }}></div>
+                      </div>
+                    </div>
+
+                    {/* Right Column (Sidebar) Skeleton */}
+                    <div style={{ width: '320px', display: 'flex', flexDirection: 'column', gap: '1rem', borderLeft: '1px solid var(--border-light)', paddingLeft: '2rem', flexShrink: 0 }}>
+                      {/* Sidebar Items */}
+                      {Array.from({ length: 6 }).map((_, idx) => (
+                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                          <div className="skeleton-line" style={{ height: '12px', width: '40%', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                          <div className="skeleton-line" style={{ height: '28px', width: '80%', borderRadius: '6px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            }
 
             return (
               <ProductDetailView 

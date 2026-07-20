@@ -20,16 +20,6 @@ import type {
   FeedbackSubmission
 } from '../types';
 import {
-  initialProductItems,
-  initialPlanItems,
-  initialStudentProjects,
-  initialAMASessions,
-  initialStudentMeetings,
-  initialAdminCalls,
-  initialTarunSirMeetings,
-  initialContentItems,
-  initialDailyIssues,
-  initialFeatureAdoptions,
   initialSpeakers,
   initialProductGroups,
   initialStatuses,
@@ -195,6 +185,45 @@ interface DashboardContextType {
   addComment: (itemId: string, content: string) => Promise<{ success: boolean; comment?: any; error?: string }>;
   lastOpenedMap: Record<string, number>;
   markTaskAsRead: (itemId: string) => void;
+
+  // Scalable additions
+  dashboardCounts: any;
+  isLoadingCounts: boolean;
+  fetchDashboardCounts: (dateRangeType: string, customStartDate?: string, customEndDate?: string, statusType?: string) => Promise<void>;
+  fetchDashboardList: (source: string, poc: string, status: string, statusType: string, productGroup: string, meetingCategory: string, dateRangeType: string, customStartDate?: string, customEndDate?: string) => Promise<any[]>;
+  calendarEvents: any[];
+  isLoadingCalendar: boolean;
+  loadCalendarMonth: (year: number, month: number) => Promise<void>;
+  loadCommentsForTask: (itemId: string) => Promise<void>;
+  loadTabData: (type: string) => Promise<void>;
+  isLoadingSprint: boolean;
+  fetchSprintData: (monthLabel: string) => Promise<void>;
+  fetchProductBreakdownData: (options: {
+    product: string;
+    page: number;
+    limit: number;
+    search?: string;
+    superPriority?: boolean;
+    statuses?: string[];
+    pocs?: string[];
+    sortField?: string;
+    sortAsc?: boolean;
+  }) => Promise<{ success: boolean; data: any[]; totalItems: number; totalPages: number; productCounts?: Record<string, number> }>;
+  fetchPaginatedMeetingsData: (options: {
+    type: 'amaSessions' | 'adminCalls' | 'tarunSirMeetings' | 'amaFeedback' | 'adminFeedback' | 'tarunFeedback' | 'dailyIssues' | 'featureRequests';
+    page: number;
+    limit: number;
+    search?: string;
+    superPriority?: boolean;
+    priority?: string;
+    product?: string;
+    statuses?: string[];
+    programs?: string[];
+    pocs?: string[];
+    sortField?: string;
+    sortAsc?: boolean;
+  }) => Promise<{ success: boolean; data: any[]; totalItems: number; totalPages: number }>;
+  loadedTabs: string[];
 }
 
 
@@ -346,20 +375,26 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   const openPreviewForFeature = (featureName: string, fallbackData?: Partial<ProductItem>) => {
-    if (!featureName) return;
+    if (!featureName && !fallbackData?.feature) return;
+    const name = featureName || fallbackData?.feature || '';
     
     const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const cleanName = clean(featureName);
+    const cleanName = clean(name);
     
-    // 1. Check exact or substring match in productItems
-    let match = productItems.find(item => {
-      const cleanFeature = clean(item.feature);
-      return cleanName.includes(cleanFeature) || cleanFeature.includes(cleanName);
-    });
+    // 1. Check exact ID match if fallbackData.id is provided
+    let match = fallbackData?.id ? productItems.find(item => item.id === fallbackData.id) : undefined;
 
-    // 2. Token overlap match (2+ common words with length > 3)
-    if (!match) {
-      const nameWords = featureName.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    // 2. Check exact or substring match in productItems
+    if (!match && cleanName) {
+      match = productItems.find(item => {
+        const cleanFeature = clean(item.feature);
+        return cleanFeature && (cleanName.includes(cleanFeature) || cleanFeature.includes(cleanName));
+      });
+    }
+
+    // 3. Token overlap match (2+ common words with length > 3)
+    if (!match && name) {
+      const nameWords = name.toLowerCase().split(/\s+/).filter(w => w.length > 3);
       match = productItems.find(item => {
         const featureWords = item.feature.toLowerCase().split(/\s+/).filter(w => w.length > 3);
         const common = nameWords.filter(w => featureWords.includes(w));
@@ -462,82 +497,17 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  // Data states loaded from localStorage or mockData
-  const [productItems, setProductItems] = useState<ProductItem[]>(() => {
-    const data = localStorage.getItem('data-products');
-    return data ? JSON.parse(data) : initialProductItems;
-  });
-
-  const [planItems, setPlanItems] = useState<PlanItem[]>(() => {
-    const data = localStorage.getItem('data-plans');
-    if (!data) return initialPlanItems;
-    try {
-      const items = JSON.parse(data) as PlanItem[];
-      return items.map(item => {
-        let updatedStatus = item.status;
-        let completed = item.completed;
-        if (item.status === 'testing' || item.status === 'tested') {
-          updatedStatus = 'development';
-        } else if (item.status === 'Done' || item.status === 'closed') {
-          completed = true;
-          if (item.category === 'Product') {
-            updatedStatus = 'open';
-          } else if (item.category === 'UI/UX') {
-            updatedStatus = 'in design';
-          } else {
-            updatedStatus = 'development';
-          }
-        }
-        return {
-          ...item,
-          status: updatedStatus,
-          completed: !!completed
-        };
-      });
-    } catch (e) {
-      return initialPlanItems;
-    }
-  });
-
-  const [studentProjects, setStudentProjects] = useState<StudentProject[]>(() => {
-    const data = localStorage.getItem('data-student-projects');
-    return data ? JSON.parse(data) : initialStudentProjects;
-  });
-
-  const [amaSessions, setAMASessions] = useState<AMASession[]>(() => {
-    const data = localStorage.getItem('data-ama-sessions');
-    return data ? JSON.parse(data) : initialAMASessions;
-  });
-
-  const [studentMeetings, setStudentMeetings] = useState<StudentMeeting[]>(() => {
-    const data = localStorage.getItem('data-student-meetings');
-    return data ? JSON.parse(data) : initialStudentMeetings;
-  });
-
-  const [adminCalls, setAdminCalls] = useState<AdminCall[]>(() => {
-    const data = localStorage.getItem('data-admin-calls');
-    return data ? JSON.parse(data) : initialAdminCalls;
-  });
-
-  const [tarunSirMeetings, setTarunSirMeetings] = useState<TarunSirMeeting[]>(() => {
-    const data = localStorage.getItem('data-tarun-meetings');
-    return data ? JSON.parse(data) : initialTarunSirMeetings;
-  });
-
-  const [contentItems, setContentItems] = useState<ContentItem[]>(() => {
-    const data = localStorage.getItem('data-content-items');
-    return data ? JSON.parse(data) : initialContentItems;
-  });
-
-  const [dailyIssues, setDailyIssues] = useState<DailyIssue[]>(() => {
-    const data = localStorage.getItem('data-daily-issues');
-    return data ? JSON.parse(data) : initialDailyIssues;
-  });
-
-  const [featureAdoptions, setFeatureAdoptions] = useState<FeatureAdoption[]>(() => {
-    const data = localStorage.getItem('data-feature-adoptions');
-    return data ? JSON.parse(data) : initialFeatureAdoptions;
-  });
+  // Data states loaded dynamically
+  const [productItems, setProductItems] = useState<ProductItem[]>([]);
+  const [planItems, setPlanItems] = useState<PlanItem[]>([]);
+  const [studentProjects, setStudentProjects] = useState<StudentProject[]>([]);
+  const [amaSessions, setAMASessions] = useState<AMASession[]>([]);
+  const [studentMeetings, setStudentMeetings] = useState<StudentMeeting[]>([]);
+  const [adminCalls, setAdminCalls] = useState<AdminCall[]>([]);
+  const [tarunSirMeetings, setTarunSirMeetings] = useState<TarunSirMeeting[]>([]);
+  const [contentItems, setContentItems] = useState<ContentItem[]>([]);
+  const [dailyIssues, setDailyIssues] = useState<DailyIssue[]>([]);
+  const [featureAdoptions, setFeatureAdoptions] = useState<FeatureAdoption[]>([]);
 
   // Config state
   const [speakers, setSpeakers] = useState<ConfigSpeaker[]>(() => {
@@ -634,8 +604,41 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const baseId = previewProductId.replace('prod-temp-', '');
       markTaskAsRead(baseId);
       markTaskAsRead(previewProductId);
+      loadCommentsForTask(baseId);
     }
   }, [previewProductId, markTaskAsRead]);
+
+  // Load single product task details on-demand if missing from local memory (since lazy load is disabled)
+  useEffect(() => {
+    if (previewProductId && previewProductId.startsWith('prod-') && !previewProductId.startsWith('prod-temp-')) {
+      const exists = productItems.some(i => i.id === previewProductId);
+      if (!exists) {
+        const fetchSingleProduct = async () => {
+          try {
+            const headers: Record<string, string> = {};
+            const savedUserId = localStorage.getItem('logged-in-user-id');
+            if (savedUserId) {
+              headers['x-user-id'] = savedUserId;
+            }
+            const response = await fetch(`/api/data?action=single-task&id=${encodeURIComponent(previewProductId)}`, { headers });
+            if (response.ok) {
+              const resData = await response.json();
+              if (resData.success && resData.data) {
+                setProductItems(prev => {
+                  const alreadyPresent = prev.some(i => i.id === resData.data.id);
+                  if (alreadyPresent) return prev;
+                  return [...prev, resData.data];
+                });
+              }
+            }
+          } catch (e) {
+            console.error('Failed to fetch single product:', e);
+          }
+        };
+        fetchSingleProduct();
+      }
+    }
+  }, [previewProductId, productItems]);
 
   const [currentUser, setCurrentUser] = useState<ConfigSpeaker | null>(() => {
     const savedUserData = localStorage.getItem('logged-in-user-data');
@@ -711,46 +714,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     localStorage.setItem('active-tab', activeTab);
   }, [activeTab]);
 
-  // Persist datasets
-  useEffect(() => {
-    localStorage.setItem('data-products', JSON.stringify(productItems));
-  }, [productItems]);
-
-  useEffect(() => {
-    localStorage.setItem('data-plans', JSON.stringify(planItems));
-  }, [planItems]);
-
-  useEffect(() => {
-    localStorage.setItem('data-student-projects', JSON.stringify(studentProjects));
-  }, [studentProjects]);
-
-  useEffect(() => {
-    localStorage.setItem('data-ama-sessions', JSON.stringify(amaSessions));
-  }, [amaSessions]);
-
-  useEffect(() => {
-    localStorage.setItem('data-student-meetings', JSON.stringify(studentMeetings));
-  }, [studentMeetings]);
-
-  useEffect(() => {
-    localStorage.setItem('data-admin-calls', JSON.stringify(adminCalls));
-  }, [adminCalls]);
-
-  useEffect(() => {
-    localStorage.setItem('data-tarun-meetings', JSON.stringify(tarunSirMeetings));
-  }, [tarunSirMeetings]);
-
-  useEffect(() => {
-    localStorage.setItem('data-content-items', JSON.stringify(contentItems));
-  }, [contentItems]);
-
-  useEffect(() => {
-    localStorage.setItem('data-daily-issues', JSON.stringify(dailyIssues));
-  }, [dailyIssues]);
-
-  useEffect(() => {
-    localStorage.setItem('data-feature-adoptions', JSON.stringify(featureAdoptions));
-  }, [featureAdoptions]);
+  // Persist datasets (config lists only)
 
   useEffect(() => {
     localStorage.setItem('config-speakers', JSON.stringify(speakers));
@@ -827,6 +791,373 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Mounting effect to fetch all data from MongoDB
   const [isLoading, setIsLoading] = useState(true);
 
+  const [dashboardCounts, setDashboardCounts] = useState<any>(null);
+  const [isLoadingCounts, setIsLoadingCounts] = useState(false);
+  const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+  const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
+  const [isLoadingSprint, setIsLoadingSprint] = useState(false);
+  const [loadedTabs, setLoadedTabs] = useState<string[]>([]);
+
+  // Helper to load tab dataset on-demand
+  const loadTabData = useCallback(async (tabName: string) => {
+    const tabToType: Record<string, string[]> = {
+      'product': ['products'],
+      'plan': ['plans', 'products', 'projects', 'contentItems', 'dailyIssues'],
+      'projects': ['projects'],
+      'meetings': ['studentMeetings', 'amaSessions', 'products'],
+      'admin': ['adminCalls', 'products'],
+      'tarun-meetings': ['tarunSirMeetings', 'products'],
+      'content': ['contentItems'],
+      'product-wise': [],
+      'issues': ['dailyIssues'],
+      'feature-requests': ['dailyIssues'],
+      'adoption': ['featureAdoptions']
+    };
+
+    const typesToLoad = tabToType[tabName] || [];
+    if (typesToLoad.length === 0) return;
+
+    const allAlreadyLoaded = typesToLoad.every(type => loadedTabs.includes(type));
+    if (allAlreadyLoaded) return;
+
+    setSyncStatus('syncing');
+    try {
+      const headers: Record<string, string> = {};
+      const savedUserId = localStorage.getItem('logged-in-user-id');
+      if (savedUserId) {
+        headers['x-user-id'] = savedUserId;
+      }
+
+      await Promise.all(typesToLoad.map(async (type) => {
+        if (loadedTabs.includes(type)) return;
+
+        const response = await fetch(`/api/data?action=tab-data&type=${type}`, { headers });
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success && resData.data) {
+            const dataList = resData.data;
+            if (type === 'products') setProductItems(dataList);
+            if (type === 'plans') setPlanItems(dataList);
+            if (type === 'projects') setStudentProjects(dataList);
+            if (type === 'amaSessions') setAMASessions(dataList);
+            if (type === 'studentMeetings') setStudentMeetings(dataList);
+            if (type === 'adminCalls') setAdminCalls(dataList);
+            if (type === 'tarunSirMeetings') setTarunSirMeetings(dataList);
+            if (type === 'contentItems') setContentItems(dataList);
+            if (type === 'dailyIssues') setDailyIssues(dataList);
+            if (type === 'featureAdoptions') setFeatureAdoptions(dataList);
+            
+            setLoadedTabs(prev => [...prev, type]);
+          }
+        }
+      }));
+      setSyncStatus('synced');
+    } catch (err) {
+      console.error(`Failed to lazy load tab data for ${tabName}:`, err);
+      setSyncStatus('error');
+    }
+  }, [loadedTabs]);
+
+  // Effect to lazy-load tab datasets when activeTab changes
+  useEffect(() => {
+    if (activeTab && activeTab !== 'dashboard' && activeTab !== 'calendar' && activeTab !== 'config' && activeTab !== 'plan') {
+      loadTabData(activeTab);
+    }
+  }, [activeTab]);
+
+  const fetchDashboardCounts = useCallback(async (dateRangeType: string, customStartDate?: string, customEndDate?: string, statusType?: string) => {
+    setDashboardCounts((prev: any) => {
+      if (!prev) setIsLoadingCounts(true);
+      return prev;
+    });
+    setSyncStatus('syncing');
+    try {
+      const params = new URLSearchParams();
+      params.append('action', 'dashboard-counts');
+      if (dateRangeType) params.append('dateRangeType', dateRangeType);
+      if (statusType) params.append('statusType', statusType);
+      if (customStartDate) params.append('startDate', customStartDate);
+      if (customEndDate) params.append('endDate', customEndDate);
+
+      const headers: Record<string, string> = {};
+      const savedUserId = localStorage.getItem('logged-in-user-id');
+      if (savedUserId) {
+        headers['x-user-id'] = savedUserId;
+      }
+
+      const response = await fetch(`/api/data?${params.toString().replace(/\+/g, '%20')}`, { headers });
+      if (response.ok) {
+        const resData = await response.json();
+        if (resData.success && resData.data) {
+          setDashboardCounts(resData.data);
+          setSyncStatus('synced');
+        }
+      } else {
+        setSyncStatus('error');
+      }
+    } catch (err) {
+      console.error('Failed to fetch dashboard counts:', err);
+      setSyncStatus('error');
+    } finally {
+      setIsLoadingCounts(false);
+    }
+  }, []);
+
+  const fetchDashboardList = useCallback(async (
+    source: string,
+    poc: string,
+    status: string,
+    statusType: string,
+    productGroup: string,
+    meetingCategory: string,
+    dateRangeType: string,
+    customStartDate?: string,
+    customEndDate?: string
+  ): Promise<any[]> => {
+    setSyncStatus('syncing');
+    try {
+      const params = new URLSearchParams();
+      params.append('action', 'dashboard-list');
+      if (source) params.append('source', source);
+      if (poc) params.append('poc', poc);
+      if (status) params.append('status', status);
+      if (statusType) params.append('statusType', statusType);
+      if (productGroup) params.append('productGroup', productGroup);
+      if (meetingCategory) params.append('meetingCategory', meetingCategory);
+      if (dateRangeType) params.append('dateRangeType', dateRangeType);
+      if (customStartDate) params.append('startDate', customStartDate);
+      if (customEndDate) params.append('endDate', customEndDate);
+
+      const headers: Record<string, string> = {};
+      const savedUserId = localStorage.getItem('logged-in-user-id');
+      if (savedUserId) {
+        headers['x-user-id'] = savedUserId;
+      }
+
+      const response = await fetch(`/api/data?${params.toString().replace(/\+/g, '%20')}`, { headers });
+      if (response.ok) {
+        const resData = await response.json();
+        setSyncStatus('synced');
+        if (resData.success && resData.data) {
+          return resData.data;
+        }
+      }
+      setSyncStatus('error');
+      return [];
+    } catch (err) {
+      console.error('Failed to fetch dashboard list:', err);
+      setSyncStatus('error');
+      return [];
+    }
+  }, []);
+
+  const fetchProductBreakdownData = useCallback(async (options: {
+    product: string;
+    page: number;
+    limit: number;
+    search?: string;
+    superPriority?: boolean;
+    statuses?: string[];
+    pocs?: string[];
+    sortField?: string;
+    sortAsc?: boolean;
+  }) => {
+    setSyncStatus('syncing');
+    try {
+      const params = new URLSearchParams();
+      params.append('action', 'product-breakdown-data');
+      params.append('product', options.product);
+      params.append('page', String(options.page));
+      params.append('limit', String(options.limit));
+      if (options.search) params.append('search', options.search);
+      if (options.superPriority) params.append('superPriority', 'true');
+      if (options.statuses && options.statuses.length > 0) {
+        params.append('statuses', options.statuses.join(','));
+      }
+      if (options.pocs && options.pocs.length > 0) {
+        params.append('pocs', options.pocs.join(','));
+      }
+      if (options.sortField) params.append('sortField', options.sortField);
+      if (options.sortAsc !== undefined) params.append('sortAsc', String(options.sortAsc));
+
+      const headers: Record<string, string> = {};
+      const savedUserId = localStorage.getItem('logged-in-user-id');
+      if (savedUserId) {
+        headers['x-user-id'] = savedUserId;
+      }
+
+      const response = await fetch(`/api/data?${params.toString().replace(/\+/g, '%20')}`, { headers });
+      if (response.ok) {
+        const resData = await response.json();
+        setSyncStatus('synced');
+        return resData;
+      }
+      setSyncStatus('error');
+      return { success: false, data: [], totalItems: 0, totalPages: 1 };
+    } catch (err) {
+      console.error('Failed to fetch product breakdown data:', err);
+      setSyncStatus('error');
+      return { success: false, data: [], totalItems: 0, totalPages: 1 };
+    }
+  }, []);
+
+  const fetchPaginatedMeetingsData = useCallback(async (options: {
+    type: 'amaSessions' | 'adminCalls' | 'tarunSirMeetings' | 'amaFeedback' | 'adminFeedback' | 'tarunFeedback' | 'dailyIssues' | 'featureRequests';
+    page: number;
+    limit: number;
+    search?: string;
+    superPriority?: boolean;
+    priority?: string;
+    product?: string;
+    statuses?: string[];
+    programs?: string[];
+    pocs?: string[];
+    sortField?: string;
+    sortAsc?: boolean;
+  }) => {
+    setSyncStatus('syncing');
+    try {
+      const params = new URLSearchParams();
+      params.append('action', 'paginated-meetings-data');
+      params.append('type', options.type);
+      params.append('page', String(options.page));
+      params.append('limit', String(options.limit));
+      if (options.search) params.append('search', options.search);
+      if (options.superPriority) params.append('superPriority', 'true');
+      if (options.priority) params.append('priority', options.priority);
+      if (options.product) params.append('product', options.product);
+      if (options.statuses && options.statuses.length > 0) {
+        params.append('statuses', options.statuses.join(','));
+      }
+      if (options.programs && options.programs.length > 0) {
+        params.append('programs', options.programs.join(','));
+      }
+      if (options.pocs && options.pocs.length > 0) {
+        params.append('pocs', options.pocs.join(','));
+      }
+      if (options.sortField) params.append('sortField', options.sortField);
+      if (options.sortAsc !== undefined) params.append('sortAsc', String(options.sortAsc));
+
+      const headers: Record<string, string> = {};
+      const savedUserId = localStorage.getItem('logged-in-user-id');
+      if (savedUserId) {
+        headers['x-user-id'] = savedUserId;
+      }
+
+      const response = await fetch(`/api/data?${params.toString().replace(/\+/g, '%20')}`, { headers });
+      if (response.ok) {
+        const resData = await response.json();
+        setSyncStatus('synced');
+        return resData;
+      }
+      setSyncStatus('error');
+      return { success: false, data: [], totalItems: 0, totalPages: 1 };
+    } catch (err) {
+      console.error('Failed to fetch paginated meetings data:', err);
+      setSyncStatus('error');
+      return { success: false, data: [], totalItems: 0, totalPages: 1 };
+    }
+  }, []);
+
+  const loadCalendarMonth = useCallback(async (year: number, month: number) => {
+    setIsLoadingCalendar(true);
+    setSyncStatus('syncing');
+    try {
+      const headers: Record<string, string> = {};
+      const savedUserId = localStorage.getItem('logged-in-user-id');
+      if (savedUserId) {
+        headers['x-user-id'] = savedUserId;
+      }
+
+      const searchParams = new URLSearchParams(window.location.search);
+      const isPublicCalendar = searchParams.get('public-calendar') === 'true';
+      let url = `/api/data?action=calendar-events&year=${year}&month=${month}`;
+      if (isPublicCalendar) {
+        url += '&public-calendar=true';
+      }
+
+      const response = await fetch(url, { headers });
+      if (response.ok) {
+        const resData = await response.json();
+        if (resData.success && resData.data) {
+          setCalendarEvents(resData.data);
+          setSyncStatus('synced');
+        }
+      } else {
+        setSyncStatus('error');
+      }
+    } catch (err) {
+      console.error('Failed to fetch calendar events:', err);
+      setSyncStatus('error');
+    } finally {
+      setIsLoadingCalendar(false);
+    }
+  }, []);
+
+  const loadCommentsForTask = useCallback(async (itemId: string) => {
+    setSyncStatus('syncing');
+    try {
+      const headers: Record<string, string> = {};
+      const savedUserId = localStorage.getItem('logged-in-user-id');
+      if (savedUserId) {
+        headers['x-user-id'] = savedUserId;
+      }
+
+      const response = await fetch(`/api/data?action=comments&itemId=${itemId}`, { headers });
+      if (response.ok) {
+        const resData = await response.json();
+        if (resData.success && resData.data) {
+          setComments(prev => {
+            const filtered = prev.filter(c => c.itemId !== itemId);
+            return [...filtered, ...resData.data];
+          });
+          setSyncStatus('synced');
+        }
+      } else {
+        setSyncStatus('error');
+      }
+    } catch (err) {
+      console.error('Failed to load comments for task:', err);
+      setSyncStatus('error');
+    }
+  }, []);
+
+  const fetchSprintData = useCallback(async (monthLabel: string) => {
+    setIsLoadingSprint(true);
+    setSyncStatus('syncing');
+    try {
+      const headers: Record<string, string> = {};
+      const savedUserId = localStorage.getItem('logged-in-user-id');
+      if (savedUserId) {
+        headers['x-user-id'] = savedUserId;
+      }
+
+      const response = await fetch(`/api/data?action=sprint-planning-data&monthLabel=${encodeURIComponent(monthLabel)}`, { headers });
+      if (response.ok) {
+        const resData = await response.json();
+        if (resData.success && resData.data) {
+          const { plans, products, projects, contentItems, dailyIssues } = resData.data;
+          setPlanItems(plans);
+          setProductItems(products);
+          setStudentProjects(projects);
+          setContentItems(contentItems);
+          setDailyIssues(dailyIssues);
+          
+          // Clear loaded status for lists so they fetch full content if switched back
+          setLoadedTabs(prev => prev.filter(t => !['products', 'projects', 'contentItems', 'dailyIssues'].includes(t)));
+          setSyncStatus('synced');
+        }
+      } else {
+        setSyncStatus('error');
+      }
+    } catch (err) {
+      console.error('Failed to fetch sprint data:', err);
+      setSyncStatus('error');
+    } finally {
+      setIsLoadingSprint(false);
+    }
+  }, []);
+
   // Reusable data fetch — used on mount AND by the "Refresh Data" button
   const refreshAllData = async (): Promise<{ success: boolean; updatedSheets: number; error?: string }> => {
     setSyncStatus('syncing');
@@ -844,12 +1175,13 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (feedbackCategory) {
           params.append('category', feedbackCategory);
         }
-      }
-      if (isPublicCalendar) {
+      } else if (isPublicCalendar) {
         params.append('public-calendar', 'true');
+      } else {
+        params.append('action', 'init');
       }
       params.append('_t', Date.now().toString());
-      const queryString = params.toString();
+      const queryString = params.toString().replace(/\+/g, '%20');
       if (queryString) {
         url += `?${queryString}`;
       }
@@ -889,7 +1221,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 try {
                   setCurrentUser(JSON.parse(savedUserData));
                 } catch (e) {
-                  // Fallback
                   const email = savedUserId.replace('guest-', '');
                   setCurrentUser({
                     id: savedUserId,
@@ -936,6 +1267,21 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           if (calSourcesSetting) setSharableCalendarSources(calSourcesSetting.value || '');
         }
         setSyncStatus('synced');
+
+        // Also fetch active tab data or dashboard data initially if authenticated
+        const host = window.location.host || '';
+        const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('3000') || host.includes('5173');
+        if (savedUserId || isLocalhost) {
+          if (activeTab === 'dashboard') {
+            // DashboardOverview component handles fetching counts via its useEffect
+          } else if (activeTab === 'calendar') {
+            const today = new Date();
+            loadCalendarMonth(today.getFullYear(), today.getMonth());
+          } else {
+            loadTabData(activeTab);
+          }
+        }
+
         return { success: true, updatedSheets };
       }
       setSyncStatus('error');
@@ -1820,6 +2166,22 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       alert,
       formConfigs, setFormConfigs, saveFormConfig,
       feedbackSubmissions, setFeedbackSubmissions, addFeedbackSubmission, deleteFeedbackSubmission,
+      
+      // Scalable additions
+      dashboardCounts,
+      isLoadingCounts,
+      fetchDashboardCounts,
+      fetchDashboardList,
+      calendarEvents,
+      isLoadingCalendar,
+      loadCalendarMonth,
+      loadCommentsForTask,
+      loadTabData,
+      loadedTabs,
+      isLoadingSprint,
+      fetchSprintData,
+      fetchProductBreakdownData,
+      fetchPaginatedMeetingsData
     }}>
       {children}
       {dialogState && (

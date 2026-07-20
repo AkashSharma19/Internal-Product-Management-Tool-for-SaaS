@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import { 
   ChevronLeft, 
@@ -6,7 +6,8 @@ import {
   Clock, 
   Calendar,
   Search,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
 import { getClickupBadgeStyle } from './Tables';
 import type { ProductItem } from '../types';
@@ -147,6 +148,38 @@ const getEventDetails = (evt: CalendarEvent) => {
   return { name, description, releaseDate, manualStatus, clickupStatus, pocOwner, link };
 };
 
+const CalendarSkeleton = () => {
+  return (
+    <div className="animate-pulse" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', height: '100%', width: '100%', boxSizing: 'border-box' }}>
+      {/* Grid Header (Days of week) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px', height: '24px' }}>
+        {[1, 2, 3, 4, 5, 6, 7].map(i => (
+          <div key={i} style={{ height: '14px', backgroundColor: 'var(--border-light)', borderRadius: '4px', margin: 'auto', width: '50%' }} />
+        ))}
+      </div>
+      {/* Grid Days */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gridTemplateRows: 'repeat(6, 1fr)', gap: '6px', flex: 1, minHeight: 0 }}>
+        {Array.from({ length: 42 }).map((_, i) => (
+          <div key={i} style={{
+            backgroundColor: 'var(--background-alt)',
+            border: '1px solid var(--border-light)',
+            borderRadius: '8px',
+            padding: '8px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px',
+            minHeight: '80px'
+          }}>
+            <div style={{ width: '20px', height: '14px', backgroundColor: 'var(--border-light)', borderRadius: '4px' }} />
+            {i % 3 === 0 && <div style={{ width: '80%', height: '10px', backgroundColor: 'var(--border-light)', borderRadius: '3px' }} />}
+            {i % 4 === 0 && <div style={{ width: '60%', height: '10px', backgroundColor: 'var(--border-light)', borderRadius: '3px' }} />}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = false }) => {
   const {
     productItems,
@@ -165,7 +198,12 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
     sharableCalendarSources,
     currentUser,
     comments,
-    addComment
+    addComment,
+    
+    // Scalable additions
+    calendarEvents,
+    isLoadingCalendar,
+    loadCalendarMonth
   } = useDashboard();
 
   const [currentMonth, setCurrentMonth] = useState<Date>(() => new Date());
@@ -179,133 +217,20 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [commentError, setCommentError] = useState('');
 
-  // 1. Collect and parse events from all worksheets
+  // Load monthly calendar events on mount & month navigation
+  useEffect(() => {
+    loadCalendarMonth(currentMonth.getFullYear(), currentMonth.getMonth());
+  }, [currentMonth, loadCalendarMonth]);
+
+  // 1. Get monthly events from DashboardContext (calendarEvents)
   const allEvents = useMemo<CalendarEvent[]>(() => {
-    const list: CalendarEvent[] = [];
-
-    const addEvent = (
-      id: string,
-      source: CalendarEvent['source'],
-      title: string,
-      stage: CalendarEvent['stage'],
-      dateStrRaw: string | undefined,
-      isCompleted: boolean,
-      poc: string,
-      priority: string | undefined,
-      taskLink: string | undefined,
-      rawItem: any,
-      tab: string
-    ) => {
-      if (isPublic && ['Specs', 'UI/UX', 'Dev'].includes(stage)) return;
-      const normalized = parseDateToYYYYMMDD(dateStrRaw);
-      if (!normalized) return;
-
-      list.push({
-        id: `${id}-${stage}`,
-        source,
-        title,
-        stage,
-        dateStr: normalized,
-        poc,
-        priority,
-        status: rawItem.status || '',
-        taskLink,
-        rawItem,
-        tab,
-        isCompleted
-      });
-    };
-
-    // 1. Priority Requests (productItems)
-    productItems.forEach(item => {
-      if (item.id.startsWith('prod-temp-')) return;
-      if (isLinkedToMeetingOrCall(item.notes)) return;
-      const isOverallCompleted = isCompletedStatus(item.status);
-      addEvent(item.id, 'Priority Requests', item.feature, 'Specs', item.productDeadline, !!item.productDeadlineCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item, 'product');
-      addEvent(item.id, 'Priority Requests', item.feature, 'UI/UX', item.uiux, !!item.uiuxCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item, 'product');
-      addEvent(item.id, 'Priority Requests', item.feature, 'Dev', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item, 'product');
-      addEvent(item.id, 'Priority Requests', item.feature, 'Final Release', item.finalRelease, !!item.finalReleaseCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item, 'product');
+    return (calendarEvents || []).sort((a, b) => {
+      if (a.isCompleted && !b.isCompleted) return 1;
+      if (!a.isCompleted && b.isCompleted) return -1;
+      return 0;
     });
+  }, [calendarEvents]);
 
-    // 2. Student Projects
-    studentProjects.forEach(item => {
-      const isOverallCompleted = isCompletedStatus(item.status);
-      addEvent(item.id, 'Student Projects', item.title, 'Specs', item.productDeadline, !!item.productDeadlineCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'projects');
-      addEvent(item.id, 'Student Projects', item.title, 'UI/UX', item.uiux, !!item.uiuxCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'projects');
-      addEvent(item.id, 'Student Projects', item.title, 'Dev', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'projects');
-      addEvent(item.id, 'Student Projects', item.title, 'Final Release', item.finalRelease, !!item.finalReleaseCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'projects');
-    });
-
-    // 3. AMA Sessions Linked Tasks
-    amaSessions.forEach(item => {
-      const linked = productItems.filter(p => 
-        !p.id.startsWith('prod-temp-') && 
-        p.notes && 
-        p.notes.includes(`AMA Session ID: ${item.id}`)
-      );
-      linked.forEach(task => {
-        const isOverallCompleted = isCompletedStatus(task.status);
-        addEvent(task.id, 'AMA Sessions', task.feature, 'Final Release', task.finalRelease, !!task.finalReleaseCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'meetings');
-      });
-    });
-
-    // 4. Student Meetings
-    studentMeetings.forEach(item => {
-      const isOverallCompleted = isCompletedStatus(item.status);
-      addEvent(item.id, 'Student Meetings', item.cohort, 'Dev', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'meetings');
-      addEvent(item.id, 'Student Meetings', item.cohort, 'Final Release', item.finalRelease, !!item.finalReleaseCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'meetings');
-    });
-
-    // 5. Admin Calls Linked Tasks
-    adminCalls.forEach(item => {
-      const linked = productItems.filter(p => 
-        !p.id.startsWith('prod-temp-') && 
-        p.notes && 
-        p.notes.includes(`Admin Call ID: ${item.id}`)
-      );
-      linked.forEach(task => {
-        const isOverallCompleted = isCompletedStatus(task.status);
-        addEvent(task.id, 'Admin Calls', task.feature, 'Final Release', task.finalRelease, !!task.finalReleaseCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'admin');
-      });
-    });
-
-    // 5b. Tarun Sir Meetings Linked Tasks
-    tarunSirMeetings.forEach(item => {
-      const linked = productItems.filter(p => 
-        !p.id.startsWith('prod-temp-') && 
-        p.notes && 
-        p.notes.includes(`Tarun Sir Meeting ID: ${item.id}`)
-      );
-      linked.forEach(task => {
-        const isOverallCompleted = isCompletedStatus(task.status);
-        addEvent(task.id, 'Tarun Sir Meetings', task.feature, 'Final Release', task.finalRelease, !!task.finalReleaseCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'tarun-meetings');
-      });
-    });
-
-    // 6. Content Pipeline
-    contentItems.forEach(item => {
-      const isOverallCompleted = isCompletedStatus(item.status);
-      addEvent(item.id, 'Content Pipeline', item.module, 'Publish Date', item.publishDate, isOverallCompleted, item.poc, item.priority, item.draftLink, item, 'content');
-      addEvent(item.id, 'Content Pipeline', item.module, 'Dev', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc, item.priority, item.draftLink, item, 'content');
-    });
-
-    // 7. Daily Issues Log & Feature Requests
-    dailyIssues.forEach(item => {
-      const isOverallCompleted = isCompletedStatus(item.status);
-      if (item.type === 'Feature Gap' || item.type === 'Enhancement') {
-        addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Specs', item.productDeadline, !!item.productDeadlineCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
-        addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'UI/UX', item.uiux, !!item.uiuxCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
-        addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Dev', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
-        addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Final Release', item.finalRelease, !!item.finalReleaseCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
-      } else {
-        addEvent(item.id, 'Daily Issues Log', item.module || `Issue #${item.id}`, 'Deadline', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'issues');
-      }
-    });
-
-    return list;
-  }, [productItems, studentProjects, amaSessions, studentMeetings, adminCalls, tarunSirMeetings, contentItems, dailyIssues, isPublic]);
-
-  // 1b. Collect tasks with no date (Only calculated for public view)
   // 1b. Collect tasks with no date (Only calculated for public view)
   const undatedTasks = useMemo(() => {
     if (!isPublic) return [];
@@ -886,6 +811,9 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
               <h3 className="calendar-title" style={{ margin: 0 }}>
                 <Calendar size={18} color="var(--primary)" />
                 {currentMonth.toLocaleDateString('default', { month: 'long', year: 'numeric' })}
+                {isLoadingCalendar && (
+                  <RefreshCw className="animate-spin" size={14} style={{ marginLeft: '8px', color: 'var(--primary)', display: 'inline-block', verticalAlign: 'middle' }} />
+                )}
                 {overdueCount > 0 && (
                   <span
                     title={`${overdueCount} overdue deadline${overdueCount !== 1 ? 's' : ''} across all sheets`}
@@ -945,8 +873,13 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
             </div>
           </div>
 
-          <div className="calendar-grid-wrapper">
-            <table className="grid-table calendar-grid-table" style={{ width: '100%', height: '100%', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
+          {isLoadingCalendar ? (
+            <div className="calendar-grid-wrapper" style={{ flex: 1, minHeight: 0 }}>
+              <CalendarSkeleton />
+            </div>
+          ) : (
+            <div className="calendar-grid-wrapper" style={{ position: 'relative' }}>
+              <table className="grid-table calendar-grid-table" style={{ width: '100%', height: '100%', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
                   {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
@@ -1022,6 +955,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
               </tbody>
             </table>
           </div>
+          )}
         </div>
 
         {/* Right Sidebar Panel */}

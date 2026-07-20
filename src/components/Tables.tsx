@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import { TabContainer } from './TabContainer';
 import { 
@@ -2902,6 +2902,10 @@ export const ProductTable: React.FC = () => {
   const productStatuses = statuses.map(s => s.label);
   const statusOptions = productStatuses.length > 0 ? productStatuses : ['On Hold', 'In Progress', 'Ongoing', 'Completed'];
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+
   // Sorting state
   const [sortField, setSortField] = useState<keyof ProductItem | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
@@ -2917,6 +2921,11 @@ export const ProductTable: React.FC = () => {
       editInputRef.current.select();
     }
   }, [editingFeatureId]);
+
+  // Reset to page 1 when search or filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterPriority, filterStatuses, filterSuperPriorityOnly]);
 
   const handleSort = (field: keyof ProductItem) => {
     if (sortField === field) {
@@ -2955,6 +2964,14 @@ export const ProductTable: React.FC = () => {
     }
     return 0;
   });
+
+  // Slice for pagination
+  const totalItems = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+  const paginatedItems = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const completedFinalCount = filtered.filter(item => !!item.finalReleaseCompleted).length;
+  const totalFinalCount = filtered.length;
 
 
   const handleAddNew = () => {
@@ -3060,19 +3077,18 @@ export const ProductTable: React.FC = () => {
               <tr>
                 <th className="sticky-header-col" onClick={() => handleSort('feature')} style={{ width: '280px', minWidth: '280px', maxWidth: '280px', cursor: 'pointer' }}>Feature {sortField === 'feature' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('product')} style={{ cursor: 'pointer' }}>Product Group {sortField === 'product' ? (sortAsc ? '▲' : '▼') : ''}</th>
-                <th onClick={() => handleSort('priority')} style={{ cursor: 'pointer' }}>Priority {sortField === 'priority' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('poc')} style={{ cursor: 'pointer' }}>POC Owner {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('status')} style={{ cursor: 'pointer' }}>Status {sortField === 'status' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('clickupStatus')} style={{ cursor: 'pointer' }}>Clickup {sortField === 'clickupStatus' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('productDeadline')} style={{ cursor: 'pointer' }}>Prod {sortField === 'productDeadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('uiux')} style={{ cursor: 'pointer' }}>UIUX {sortField === 'uiux' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('deadline')} style={{ cursor: 'pointer' }}>Dev {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
-                <th onClick={() => handleSort('finalRelease')} style={{ cursor: 'pointer' }}>Final {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('finalRelease')} style={{ cursor: 'pointer' }}>Final ({completedFinalCount}/{totalFinalCount}) {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th style={{ width: '40px' }}></th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map(item => (
+              {paginatedItems.map(item => (
                 <tr 
                   key={item.id} 
                   onClick={() => {
@@ -3138,6 +3154,11 @@ export const ProductTable: React.FC = () => {
                         </span>
                       )}
                       <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+                        {item.priority && (
+                          <span className={`badge badge-${item.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
+                            {item.priority}
+                          </span>
+                        )}
                         {item.raisedByTarunSir && (
                           <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
                             <Star size={10} fill="currentColor" /> Super Priority
@@ -3157,13 +3178,6 @@ export const ProductTable: React.FC = () => {
                     </div>
                   </td>
                   <td>{item.product || '—'}</td>
-                  <td>
-                    {item.priority ? (
-                      <span className={`badge badge-${item.priority.toLowerCase()}`}>
-                        {item.priority}
-                      </span>
-                    ) : '—'}
-                  </td>
                   <td>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
                       {item.poc ? (
@@ -3272,6 +3286,96 @@ export const ProductTable: React.FC = () => {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Pagination Controls */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '0.75rem 1rem',
+          borderTop: '1px solid var(--border-light)',
+          backgroundColor: 'var(--panel-bg)',
+          borderRadius: '0 0 12px 12px',
+          fontSize: '0.8rem',
+          color: 'var(--text-secondary)',
+          userSelect: 'none',
+          marginTop: '-1px'
+        }}>
+          <div>
+            Showing <strong style={{ color: 'var(--text-primary)' }}>{totalItems > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</strong> to <strong style={{ color: 'var(--text-primary)' }}>{Math.min(currentPage * itemsPerPage, totalItems)}</strong> of <strong style={{ color: 'var(--text-primary)' }}>{totalItems}</strong> entries
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <span>Show:</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="filter-select"
+                style={{
+                  padding: '2px 6px',
+                  fontSize: '0.75rem',
+                  height: '26px',
+                  borderRadius: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                {[20, 50, 100].map(sz => <option key={sz} value={sz}>{sz}</option>)}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                style={{
+                  background: 'none',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: '6px',
+                  width: '26px',
+                  height: '26px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                  opacity: currentPage === 1 ? 0.4 : 1,
+                  color: 'var(--text-primary)',
+                  backgroundColor: 'var(--background-alt)'
+                }}
+              >
+                <ChevronLeft size={14} />
+              </button>
+              
+              <span style={{ margin: '0 4px', fontWeight: 600 }}>
+                Page {currentPage} of {totalPages}
+              </span>
+
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                style={{
+                  background: 'none',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: '6px',
+                  width: '26px',
+                  height: '26px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                  opacity: currentPage === totalPages ? 0.4 : 1,
+                  color: 'var(--text-primary)',
+                  backgroundColor: 'var(--background-alt)'
+                }}
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
         </div>
       </TabContainer>
 
@@ -3504,12 +3608,18 @@ export const PlanTable: React.FC = () => {
     planItems, updatePlanItem, addPlanItem, deletePlanItem,
     productItems, studentProjects, contentItems, studentMeetings,
     dailyIssues, setPreviewProductId,
-    openPreviewForFeature, canUserEdit, confirm, comments, lastOpenedMap
+    openPreviewForFeature, canUserEdit, confirm, comments, lastOpenedMap,
+    isLoadingSprint, fetchSprintData
   } = useDashboard();
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const now = new Date();
     return `${now.toLocaleString('default', { month: 'long' })} ${now.getFullYear()}`;
   });
+
+  useEffect(() => {
+    fetchSprintData(selectedMonth);
+  }, [selectedMonth, fetchSprintData]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [editingItem, setEditingItem] = useState<PlanItem | null>(null);
   const [draggedOverColumn, setDraggedOverColumn] = useState<string | null>(null);
@@ -4001,8 +4111,44 @@ export const PlanTable: React.FC = () => {
         }
       >
 
-        <div className="kanban-board-container">
-          {COLUMNS.map(col => {
+        {isLoadingSprint ? (
+          <div className="kanban-board-container animate-pulse" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.25rem', height: '100%', minHeight: '500px' }}>
+            {[1, 2, 3, 4].map(col => (
+              <div key={col} style={{
+                backgroundColor: 'var(--background-alt)',
+                border: '1px solid var(--border-light)',
+                borderRadius: '12px',
+                padding: '1rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem'
+              }}>
+                <div style={{ width: '50%', height: '18px', backgroundColor: 'var(--border-light)', borderRadius: '4px' }} />
+                {[1, 2, 3].map(row => (
+                  <div key={row} style={{
+                    backgroundColor: 'var(--panel-bg)',
+                    border: '1px solid var(--border-light)',
+                    borderRadius: '8px',
+                    padding: '0.75rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.5rem',
+                    height: '80px'
+                  }}>
+                    <div style={{ width: '85%', height: '14px', backgroundColor: 'var(--border-light)', borderRadius: '3px' }} />
+                    <div style={{ width: '40%', height: '10px', backgroundColor: 'var(--border-light)', borderRadius: '3px' }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'auto' }}>
+                      <div style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: 'var(--border-light)' }} />
+                      <div style={{ width: '40px', height: '12px', borderRadius: '4px', backgroundColor: 'var(--border-light)' }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="kanban-board-container">
+            {COLUMNS.map(col => {
             const getAutoItemCompleted = (a: any) => {
               const isFeatureRequest = a.rawItem && (a.rawItem.type === 'Feature Gap' || a.rawItem.type === 'Enhancement');
               
@@ -4114,8 +4260,13 @@ export const PlanTable: React.FC = () => {
                             opacity: 1
                           }}
                           onClick={() => {
-                            if (a.rawItem && (a.rawItem.type === 'Feature Gap' || a.rawItem.type === 'Enhancement')) {
-                              setPreviewProductId(a.rawItem.id);
+                            if (a.rawItem) {
+                              openPreviewForFeature(a.title || a.rawItem.feature || a.rawItem.module, {
+                                ...a.rawItem,
+                                status: (a.status || a.rawItem.status) as any,
+                                priority: (a.priority || a.rawItem.priority) as any,
+                                poc: a.poc || a.rawItem.poc,
+                              });
                             } else {
                               openPreviewForFeature(a.title, {
                                 status: a.status as any,
@@ -4377,6 +4528,7 @@ export const PlanTable: React.FC = () => {
             );
           })}
         </div>
+        )}
       </TabContainer>
 
       {editingItem && (
@@ -4609,7 +4761,6 @@ export const StudentProjectsTable: React.FC = () => {
               <tr>
                 <th className="sticky-header-col" onClick={() => handleSort('title')} style={{ width: '280px', minWidth: '280px', maxWidth: '280px', cursor: 'pointer' }}>Project Title {sortField === 'title' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('product')} style={{ width: '150px', cursor: 'pointer' }}>Product Group {sortField === 'product' ? (sortAsc ? '▲' : '▼') : ''}</th>
-                <th onClick={() => handleSort('priority')} style={{ width: '80px', cursor: 'pointer' }}>Priority {sortField === 'priority' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('poc')} style={{ width: '120px', cursor: 'pointer' }}>POC Owner {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('status')} style={{ width: '120px', cursor: 'pointer' }}>Status {sortField === 'status' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('clickupStatus')} style={{ width: '100px', cursor: 'pointer' }}>Clickup {sortField === 'clickupStatus' ? (sortAsc ? '▲' : '▼') : ''}</th>
@@ -4702,7 +4853,11 @@ export const StudentProjectsTable: React.FC = () => {
                         </span>
                       )}
                       <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
-
+                        {p.priority && (
+                          <span className={`badge badge-${p.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
+                            {p.priority}
+                          </span>
+                        )}
                         {p.raisedByTarunSir && (
                           <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
                             <Star size={10} fill="currentColor" /> Super Priority
@@ -4717,13 +4872,6 @@ export const StudentProjectsTable: React.FC = () => {
                     </div>
                   </td>
                   <td>{p.product || '—'}</td>
-                  <td>
-                    {p.priority ? (
-                      <span className={`badge badge-${p.priority.toLowerCase()}`}>
-                        {p.priority}
-                      </span>
-                    ) : '—'}
-                  </td>
                   <td>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
                       {p.poc ? (
@@ -5013,7 +5161,7 @@ export const StudentMeetingsTable: React.FC = () => {
     amaSessions, addAMASession, updateAMASession, deleteAMASession,
     productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
     speakers: configSpeakers, statuses, currentUser, confirm,
-    programs
+    programs, fetchPaginatedMeetingsData
   } = useDashboard();
 
   // Derive speakers list from configuration context (live — updates when Config tab changes)
@@ -5029,11 +5177,19 @@ export const StudentMeetingsTable: React.FC = () => {
   const [filterPrograms, setFilterPrograms] = useState<string[]>([]);
   const [filterPocs, setFilterPocs] = useState<string[]>([]);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
   useEffect(() => {
     setFilterStatuses([]);
     setFilterPrograms([]);
     setFilterPocs([]);
+    setCurrentPage(1);
   }, [subTab]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterSuperPriorityOnly, filterStatuses, filterPrograms, filterPocs]);
 
   // Sorting states
   const [amaSortField, setAmaSortField] = useState<keyof AMASession | null>('date');
@@ -5200,164 +5356,106 @@ export const StudentMeetingsTable: React.FC = () => {
     }
   }, [editingRelatedFeatureId]);
 
-  const filteredAMASessions = amaSessions.filter(ama => {
-    const matchesSearch = 
-      ama.topic.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ama.speaker.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ama.cohort.toLowerCase().includes(searchQuery.toLowerCase());
-      
-    if (!matchesSearch) return false;
-    
-    if (filterStatuses.length > 0 && !filterStatuses.includes(ama.status)) return false;
+  const [paginatedAMASessions, setPaginatedAMASessions] = useState<AMASession[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isFetching, setIsFetching] = useState(false);
 
-    if (filterPrograms.length > 0) {
-      if (!ama.program || !filterPrograms.includes(ama.program)) return false;
-    }
-
-    if (filterPocs.length > 0) {
-      const related = getRelatedFeatures(ama);
-      const hasMatchingPoc = related.some(feat => filterPocs.includes(feat.poc));
-      if (!hasMatchingPoc) return false;
-    }
-    
-    if (filterSuperPriorityOnly) {
-      const related = getRelatedFeatures(ama);
-      return related.length > 0;
-    }
-    
-    return true;
-  });
-
-  const sortedAMASessions = [...filteredAMASessions];
-  sortedAMASessions.sort((a, b) => {
-    const aComp = a.status === 'Completed';
-    const bComp = b.status === 'Completed';
-    if (aComp !== bComp) return aComp ? 1 : -1;
-
-    if (amaSortField === 'date') {
-      const valA = a.date || '';
-      const valB = b.date || '';
-      return amaSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-    }
-    if (amaSortField) {
-      let valA = a[amaSortField];
-      let valB = b[amaSortField];
-      if (valA === undefined || valA === null) valA = '';
-      if (valB === undefined || valB === null) valB = '';
-      const strA = String(valA).toLowerCase();
-      const strB = String(valB).toLowerCase();
-      return amaSortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
-    }
-    return (b.date || '').localeCompare(a.date || '');
-  });
-
-  const filteredFeedbackFeatures = productItems.filter(item => {
-    if (item.id.startsWith('prod-temp-')) return false;
-    // Admin Call features must never appear in the AMA Feedback tab
-    if (item.id.startsWith('prod-call-') || item.id.startsWith('prod-tarun-')) return false;
-
-    // If it is a prod-ama- task, it must have an active parent AMA session
-    if (item.id.startsWith('prod-ama-')) {
-      const parent = getParentAma(item);
-      if (!parent) return false;
-    }
-    
-    const matchesSuperPriority = !filterSuperPriorityOnly || !!item.raisedByTarunSir;
-    if (!matchesSuperPriority) return false;
-    
-    if (filterStatuses.length > 0 && !filterStatuses.includes(item.status)) return false;
-
-    if (filterPocs.length > 0 && !filterPocs.includes(item.poc)) return false;
-
-    // Check if the item matches any AMA session
-    const matchesAma = amaSessions.some(ama => {
-      // Program filter check
-      if (filterPrograms.length > 0 && (!ama.program || !filterPrograms.includes(ama.program))) {
-        return false;
-      }
-
-      // If it is a prod-ama- task, it must match the AMA Session ID exactly
-      if (item.id.startsWith('prod-ama-')) {
-        return item.notes && item.notes.includes(`AMA Session ID: ${ama.id}`);
-      }
-
-      if (!ama.topic.trim() && !ama.cohort.trim()) return false;
-      const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ');
-      const topicWords = clean(ama.topic).split(/\s+/).filter(w => w.length > 3);
-      const cohortWords = clean(ama.cohort).split(/\s+/).filter(w => w.length > 2);
-      const searchTerms = [...topicWords, ...cohortWords];
-
-      const productLower = (item.product || '').toLowerCase().trim();
-      const moduleLower = (item.module || '').toLowerCase().trim();
-      const notesLower = (item.notes || '').toLowerCase().trim();
-      const cohortLower = (ama.cohort || '').toLowerCase().trim();
-      
-      const directCohortMatch = cohortLower && (
-        (productLower && (productLower.includes(cohortLower) || cohortLower.includes(productLower))) ||
-        (moduleLower && (moduleLower.includes(cohortLower) || cohortLower.includes(moduleLower))) ||
-        (notesLower && notesLower.includes(cohortLower))
-      );
-      
-      const text = clean(
-        (item.feature || '') + ' ' + 
-        (item.description || '') + ' ' + 
-        (item.notes || '') + ' ' + 
-        (item.product || '') + ' ' +
-        (item.module || '')
-      );
-      const matchesKeyword = searchTerms.some(word => text.includes(word));
-      return directCohortMatch || matchesKeyword;
-    });
-
-    if (!matchesAma) return false;
-
-    // Filter by search query if any
-    const matchesSearch = 
-      item.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.poc.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.notes.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.module || '').toLowerCase().includes(searchQuery.toLowerCase());
-
-    return matchesSearch;
-  });
-
-  const sortedFeedbackFeatures = [...filteredFeedbackFeatures];
-  sortedFeedbackFeatures.sort((a, b) => {
-    const aComp = !!a.finalReleaseCompleted;
-    const bComp = !!b.finalReleaseCompleted;
-    if (aComp !== bComp) return aComp ? 1 : -1;
-    if (feedbackSortField) {
-      let valA: any = '';
-      let valB: any = '';
-      
-      if (feedbackSortField === 'amaDate' || feedbackSortField === 'amaProgram' || feedbackSortField === 'amaCohort' || feedbackSortField === 'amaSpeaker') {
-        const parentA = getParentAma(a);
-        const parentB = getParentAma(b);
-        if (feedbackSortField === 'amaDate') {
-          valA = parentA?.date || '';
-          valB = parentB?.date || '';
-        } else if (feedbackSortField === 'amaProgram') {
-          valA = parentA?.program || '';
-          valB = parentB?.program || '';
-        } else if (feedbackSortField === 'amaCohort') {
-          valA = parentA?.cohort || '';
-          valB = parentB?.cohort || '';
-        } else if (feedbackSortField === 'amaSpeaker') {
-          valA = parentA?.speaker || '';
-          valB = parentB?.speaker || '';
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setIsFetching(true);
+      const res = await fetchPaginatedMeetingsData({
+        type: 'amaSessions',
+        page: currentPage,
+        limit: pageSize,
+        search: searchQuery,
+        superPriority: filterSuperPriorityOnly,
+        statuses: filterStatuses,
+        programs: filterPrograms,
+        pocs: filterPocs,
+        sortField: amaSortField || undefined,
+        sortAsc: amaSortAsc
+      });
+      if (active) {
+        if (res.success) {
+          setPaginatedAMASessions(res.data);
+          setTotalItems(res.totalItems);
+          setTotalPages(res.totalPages);
         }
-      } else {
-        valA = a[feedbackSortField as keyof ProductItem] || '';
-        valB = b[feedbackSortField as keyof ProductItem] || '';
+        setIsFetching(false);
       }
-      
-      const strA = String(valA).toLowerCase();
-      const strB = String(valB).toLowerCase();
-      return feedbackSortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
-    }
-    return 0;
-  });
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [
+    currentPage,
+    pageSize,
+    searchQuery,
+    filterSuperPriorityOnly,
+    filterStatuses,
+    filterPrograms,
+    filterPocs,
+    amaSortField,
+    amaSortAsc,
+    amaSessions,
+    fetchPaginatedMeetingsData
+  ]);
+
+  const [paginatedFeedbackFeatures, setPaginatedFeedbackFeatures] = useState<ProductItem[]>([]);
+  const [feedbackTotalItems, setFeedbackTotalItems] = useState(0);
+  const [feedbackTotalPages, setFeedbackTotalPages] = useState(1);
+  const [isFetchingFeedback, setIsFetchingFeedback] = useState(false);
+
+  useEffect(() => {
+    if (subTab !== 'feedback') return;
+    let active = true;
+    const load = async () => {
+      setIsFetchingFeedback(true);
+      const res = await fetchPaginatedMeetingsData({
+        type: 'amaFeedback',
+        page: currentPage,
+        limit: pageSize,
+        search: searchQuery,
+        superPriority: filterSuperPriorityOnly,
+        statuses: filterStatuses,
+        programs: filterPrograms,
+        pocs: filterPocs,
+        sortField: feedbackSortField || undefined,
+        sortAsc: feedbackSortAsc
+      });
+      if (active) {
+        if (res.success) {
+          setPaginatedFeedbackFeatures(res.data);
+          setFeedbackTotalItems(res.totalItems);
+          setFeedbackTotalPages(res.totalPages);
+        }
+        setIsFetchingFeedback(false);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [
+    subTab,
+    currentPage,
+    pageSize,
+    searchQuery,
+    filterSuperPriorityOnly,
+    filterStatuses,
+    filterPrograms,
+    filterPocs,
+    feedbackSortField,
+    feedbackSortAsc,
+    fetchPaginatedMeetingsData
+  ]);
+
+  const feedbackActivePage = Math.min(currentPage, feedbackTotalPages);
+  const feedbackStartIndex = feedbackTotalItems === 0 ? 0 : (feedbackActivePage - 1) * pageSize;
+  const feedbackEndIndex = Math.min(feedbackStartIndex + pageSize, feedbackTotalItems);
 
   const handleAddNew = () => {
     setSearchQuery('');
@@ -5483,7 +5581,7 @@ export const StudentMeetingsTable: React.FC = () => {
         </div>
 
         {subTab === 'schedule' ? (
-          <div className="table-responsive">
+          <div className="table-responsive" style={{ display: 'flex', flexDirection: 'column' }}>
             <table className="grid-table">
               <thead>
                 <tr>
@@ -5497,7 +5595,39 @@ export const StudentMeetingsTable: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {sortedAMASessions.map(ama => {
+                {isFetching ? (
+                  Array.from({ length: Math.min(pageSize, 8) }).map((_, idx) => (
+                    <tr key={`skeleton-${idx}`} style={{ height: '56px' }}>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '14px', width: '80px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '14px', width: '90%', marginBottom: '6px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                        <div className="skeleton-line" style={{ height: '10px', width: '40%', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '14px', width: '120px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '14px', width: '90px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '20px', width: '80px', borderRadius: '12px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '14px', width: '50px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}></td>
+                    </tr>
+                  ))
+                ) : paginatedAMASessions.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                      No AMA sessions found matching current filters.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedAMASessions.map(ama => {
                   const related = getRelatedFeatures(ama);
                   const isExpanded = expandedAMAId === ama.id;
                   return (
@@ -6024,7 +6154,6 @@ export const StudentMeetingsTable: React.FC = () => {
                                       <tr style={{ background: 'var(--background-alt)' }}>
                                         <th>Feature</th>
                                         <th style={{ width: '150px' }}>Product</th>
-                                        <th style={{ width: '80px' }}>Priority</th>
                                         <th style={{ width: '120px' }}>Status</th>
                                         <th style={{ width: '120px' }}>POC</th>
                                         <th style={{ width: '100px' }}>ClickUp</th>
@@ -6090,6 +6219,11 @@ export const StudentMeetingsTable: React.FC = () => {
                                             ) : (
                                               <>
                                                 {feat.feature || '—'}
+                                                {feat.priority && (
+                                                  <span className={`badge badge-${feat.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', marginLeft: '6px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
+                                                    {feat.priority}
+                                                  </span>
+                                                )}
                                                 {feat.raisedByTarunSir && (
                                                   <span className="badge-super-priority" style={{ padding: '1px 4px', fontSize: '0.6rem', borderRadius: '3px', marginLeft: '6px' }}>
                                                     <Sparkles size={8} /> Super Priority
@@ -6257,12 +6391,90 @@ export const StudentMeetingsTable: React.FC = () => {
                       )}
                     </React.Fragment>
                   );
-                })}
+                }))}
               </tbody>
             </table>
+            {/* Pagination Controls */}
+            {totalItems > 0 && (
+              <div style={{
+                position: 'sticky',
+                bottom: 0,
+                zIndex: 10,
+                boxShadow: '0 -4px 12px rgba(0,0,0,0.05)',
+                marginTop: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.75rem 1.5rem',
+                borderTop: '1px solid var(--border)',
+                backgroundColor: 'var(--panel-bg)',
+                fontSize: '0.8rem',
+                color: 'var(--text-secondary)',
+                borderBottomLeftRadius: '8px',
+                borderBottomRightRadius: '8px',
+                flexWrap: 'wrap',
+                gap: '0.75rem'
+              }}>
+                <div>
+                  Showing <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{startIndex + 1}</span> to{' '}
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{endIndex}</span> of{' '}
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{totalItems}</span> meetings
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>Rows per page:</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="form-control"
+                      style={{
+                        padding: '2px 6px',
+                        fontSize: '0.8rem',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border)',
+                        backgroundColor: 'var(--background)',
+                        color: 'var(--text-primary)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={activePage === 1}
+                      style={{ padding: '2px 8px', fontSize: '0.75rem', opacity: activePage === 1 ? 0.5 : 1, cursor: activePage === 1 ? 'not-allowed' : 'pointer' }}
+                    >
+                      Previous
+                    </button>
+                    <span style={{ minWidth: '45px', textAlign: 'center' }}>
+                      Page {activePage} of {totalPages}
+                    </span>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={activePage === totalPages}
+                      style={{ padding: '2px 8px', fontSize: '0.75rem', opacity: activePage === totalPages ? 0.5 : 1, cursor: activePage === totalPages ? 'not-allowed' : 'pointer' }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
-          <div className="table-responsive">
+          <div className="table-responsive" style={{ display: 'flex', flexDirection: 'column' }}>
             <table className="grid-table">
               <thead>
                 <tr>
@@ -6272,7 +6484,6 @@ export const StudentMeetingsTable: React.FC = () => {
                   <th onClick={() => handleFeedbackSort('amaCohort')} style={{ width: '120px', cursor: 'pointer' }}>Cohort {feedbackSortField === 'amaCohort' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('amaSpeaker')} style={{ width: '160px', cursor: 'pointer' }}>Speaker {feedbackSortField === 'amaSpeaker' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('product')} style={{ width: '150px', cursor: 'pointer' }}>Product Group {feedbackSortField === 'product' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
-                  <th onClick={() => handleFeedbackSort('priority')} style={{ width: '80px', cursor: 'pointer' }}>Priority {feedbackSortField === 'priority' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('poc')} style={{ width: '120px', cursor: 'pointer' }}>POC Owner {feedbackSortField === 'poc' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('status')} style={{ width: '120px', cursor: 'pointer' }}>Status {feedbackSortField === 'status' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('clickupStatus')} style={{ width: '100px', cursor: 'pointer' }}>Clickup {feedbackSortField === 'clickupStatus' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
@@ -6284,7 +6495,33 @@ export const StudentMeetingsTable: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {sortedFeedbackFeatures.map(feat => {
+                {isFetchingFeedback ? (
+                  Array.from({ length: Math.min(pageSize, 8) }).map((_, idx) => (
+                    <tr key={`skeleton-${idx}`} style={{ height: '56px' }}>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '90%', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '100px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '60px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '80px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '100px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '90px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '80px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '20px', width: '80px', borderRadius: '12px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '60px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}></td>
+                    </tr>
+                  ))
+                ) : paginatedFeedbackFeatures.length === 0 ? (
+                  <tr>
+                    <td colSpan={14} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                      No feedback features found matching current filters.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedFeedbackFeatures.map(feat => {
                   const parentAma = getParentAma(feat);
                   return (
                     <tr 
@@ -6353,12 +6590,19 @@ export const StudentMeetingsTable: React.FC = () => {
                               style={{ width: '100%', cursor: 'pointer' }}
                               title="Double click to edit"
                             >
-                              {feat.feature || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
-                              {feat.raisedByTarunSir && (
-                                <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', marginLeft: '8px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                                  <Sparkles size={10} /> Super Priority
-                                </span>
-                              )}
+                               {feat.feature || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
+                              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
+                                {feat.priority && (
+                                  <span className={`badge badge-${feat.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
+                                    {feat.priority}
+                                  </span>
+                                )}
+                                {feat.raisedByTarunSir && (
+                                  <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                                    <Sparkles size={10} /> Super Priority
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -6660,13 +6904,6 @@ export const StudentMeetingsTable: React.FC = () => {
                       </td>
                       <td>{feat.product || '—'}</td>
                       <td>
-                        {feat.priority ? (
-                          <span className={`badge badge-${feat.priority.toLowerCase()}`}>
-                            {feat.priority}
-                          </span>
-                        ) : '—'}
-                      </td>
-                      <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
                           {feat.poc ? (
                               <span style={{ ...getPOCBadgeStyle(feat.poc) }}>
@@ -6759,9 +6996,80 @@ export const StudentMeetingsTable: React.FC = () => {
                       </td>
                     </tr>
                   );
-                })}
+                }))}
               </tbody>
             </table>
+            {/* Pagination Controls for Feedback */}
+            {feedbackTotalItems > 0 && (
+              <div style={{
+                position: 'sticky',
+                bottom: 0,
+                zIndex: 10,
+                boxShadow: '0 -4px 12px rgba(0,0,0,0.05)',
+                marginTop: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.75rem 1.5rem',
+                backgroundColor: 'var(--panel-bg)',
+                borderBottomLeftRadius: '8px',
+                borderBottomRightRadius: '8px',
+                borderTop: '1px solid var(--border)'
+              }}>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  Showing {feedbackStartIndex + 1} to {feedbackEndIndex} of {feedbackTotalItems} entries
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    <span>Per page:</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="form-control"
+                      style={{
+                        padding: '2px 6px',
+                        fontSize: '0.8rem',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border)',
+                        backgroundColor: 'var(--background)',
+                        color: 'var(--text-primary)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={feedbackActivePage === 1}
+                      style={{ padding: '2px 8px', fontSize: '0.75rem', opacity: feedbackActivePage === 1 ? 0.5 : 1, cursor: feedbackActivePage === 1 ? 'not-allowed' : 'pointer' }}
+                    >
+                      Previous
+                    </button>
+                    <span style={{ minWidth: '45px', textAlign: 'center' }}>
+                      Page {feedbackActivePage} of {feedbackTotalPages}
+                    </span>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, feedbackTotalPages))}
+                      disabled={feedbackActivePage === feedbackTotalPages}
+                      style={{ padding: '2px 8px', fontSize: '0.75rem', opacity: feedbackActivePage === feedbackTotalPages ? 0.5 : 1, cursor: feedbackActivePage === feedbackTotalPages ? 'not-allowed' : 'pointer' }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </TabContainer>
@@ -6785,7 +7093,7 @@ export const AdminCallsTable: React.FC = () => {
     adminCalls, updateAdminCall, addAdminCall, deleteAdminCall, 
     productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
     speakers: configSpeakers, statuses, currentUser, confirm,
-    programs
+    programs, fetchPaginatedMeetingsData
   } = useDashboard();
   
   const speakersList = configSpeakers.map(s => s.name);
@@ -6799,11 +7107,19 @@ export const AdminCallsTable: React.FC = () => {
   const [filterPrograms, setFilterPrograms] = useState<string[]>([]);
   const [filterPocs, setFilterPocs] = useState<string[]>([]);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
   useEffect(() => {
     setFilterStatuses([]);
     setFilterPrograms([]);
     setFilterPocs([]);
+    setCurrentPage(1);
   }, [subTab]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterSuperPriorityOnly, filterStatuses, filterPrograms, filterPocs]);
 
   // Sorting states
   const [callSortField, setCallSortField] = useState<keyof AdminCall | null>('date');
@@ -6925,58 +7241,57 @@ export const AdminCallsTable: React.FC = () => {
     return undefined;
   };
 
-  const filtered = adminCalls.filter(c => {
-    const matchesSearch = 
-      c.adminPoc.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.cohortTopic.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.discussion.toLowerCase().includes(searchQuery.toLowerCase());
-      
-    if (!matchesSearch) return false;
-    
-    if (filterStatuses.length > 0 && !filterStatuses.includes(c.status)) return false;
+  const [paginatedCalls, setPaginatedCalls] = useState<AdminCall[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isFetching, setIsFetching] = useState(false);
 
-    if (filterPrograms.length > 0) {
-      const callPrograms = c.program ? c.program.split(',').map(p => p.trim()).filter(Boolean) : [];
-      if (!callPrograms.some(p => filterPrograms.includes(p))) return false;
-    }
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setIsFetching(true);
+      const res = await fetchPaginatedMeetingsData({
+        type: 'adminCalls',
+        page: currentPage,
+        limit: pageSize,
+        search: searchQuery,
+        superPriority: filterSuperPriorityOnly,
+        statuses: filterStatuses,
+        programs: filterPrograms,
+        pocs: filterPocs,
+        sortField: callSortField || undefined,
+        sortAsc: callSortAsc
+      });
+      if (active) {
+        if (res.success) {
+          setPaginatedCalls(res.data);
+          setTotalItems(res.totalItems);
+          setTotalPages(res.totalPages);
+        }
+        setIsFetching(false);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [
+    currentPage,
+    pageSize,
+    searchQuery,
+    filterSuperPriorityOnly,
+    filterStatuses,
+    filterPrograms,
+    filterPocs,
+    callSortField,
+    callSortAsc,
+    adminCalls,
+    fetchPaginatedMeetingsData
+  ]);
 
-    if (filterPocs.length > 0) {
-      const related = getRelatedFeatures(c);
-      const hasMatchingPoc = related.some(feat => filterPocs.includes(feat.poc));
-      if (!hasMatchingPoc) return false;
-    }
-    
-    if (filterSuperPriorityOnly) {
-      const related = getRelatedFeatures(c);
-      return related.length > 0;
-    }
-    
-    return true;
-  });
-
-  const sortedCalls = [...filtered];
-  sortedCalls.sort((a, b) => {
-    const aComp = a.status === 'Completed';
-    const bComp = b.status === 'Completed';
-    if (aComp !== bComp) return aComp ? 1 : -1;
-
-    if (callSortField === 'date') {
-      const valA = a.date || '';
-      const valB = b.date || '';
-      return callSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-    }
-    if (callSortField) {
-      let valA = a[callSortField];
-      let valB = b[callSortField];
-      if (valA === undefined || valA === null) valA = '';
-      if (valB === undefined || valB === null) valB = '';
-      const strA = String(valA).toLowerCase();
-      const strB = String(valB).toLowerCase();
-      return callSortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
-    }
-    return (b.date || '').localeCompare(a.date || '');
-  });
-
+  const activePage = Math.min(currentPage, totalPages);
+  const startIndex = totalItems === 0 ? -1 : (activePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
   const handleAddNew = () => {
     setSearchQuery('');
     const newCall: AdminCall = {
@@ -6995,68 +7310,58 @@ export const AdminCallsTable: React.FC = () => {
     setExpandedCallId(newCall.id);
   };
 
-  const filteredFeedbackFeatures = productItems.filter(item => {
-    if (item.id.startsWith('prod-temp-')) return false;
-    // AMA features must never appear in the Admin Calls Feedback tab
-    if (item.id.startsWith('prod-ama-')) return false;
-    const parent = getParentCall(item);
-    if (!parent) return false;
-    
-    const matchesSuperPriority = !filterSuperPriorityOnly || !!item.raisedByTarunSir;
-    if (!matchesSuperPriority) return false;
-    
-    if (filterStatuses.length > 0 && !filterStatuses.includes(item.status)) return false;
+  const [paginatedFeedbackFeatures, setPaginatedFeedbackFeatures] = useState<ProductItem[]>([]);
+  const [feedbackTotalItems, setFeedbackTotalItems] = useState(0);
+  const [feedbackTotalPages, setFeedbackTotalPages] = useState(1);
+  const [isFetchingFeedback, setIsFetchingFeedback] = useState(false);
 
-    if (filterPrograms.length > 0) {
-      const callPrograms = parent.program ? parent.program.split(',').map(p => p.trim()).filter(Boolean) : [];
-      if (!callPrograms.some(p => filterPrograms.includes(p))) return false;
-    }
-
-    if (filterPocs.length > 0 && !filterPocs.includes(item.poc)) return false;
-
-    const matchesSearch = 
-      item.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.poc.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.notes.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.module || '').toLowerCase().includes(searchQuery.toLowerCase());
-      
-    return matchesSearch;
-  });
-
-  const sortedFeedbackFeatures = [...filteredFeedbackFeatures];
-  sortedFeedbackFeatures.sort((a, b) => {
-    const aComp = !!a.finalReleaseCompleted;
-    const bComp = !!b.finalReleaseCompleted;
-    if (aComp !== bComp) return aComp ? 1 : -1;
-    if (feedbackSortField) {
-      let valA: any = '';
-      let valB: any = '';
-      
-      if (feedbackSortField === 'callDate' || feedbackSortField === 'callPoc' || feedbackSortField === 'callTopic') {
-        const parentA = getParentCall(a);
-        const parentB = getParentCall(b);
-        if (feedbackSortField === 'callDate') {
-          valA = parentA?.date || '';
-          valB = parentB?.date || '';
-        } else if (feedbackSortField === 'callPoc') {
-          valA = parentA?.adminPoc || '';
-          valB = parentB?.adminPoc || '';
-        } else if (feedbackSortField === 'callTopic') {
-          valA = parentA?.cohortTopic || '';
-          valB = parentB?.cohortTopic || '';
+  useEffect(() => {
+    if (subTab !== 'feedback') return;
+    let active = true;
+    const load = async () => {
+      setIsFetchingFeedback(true);
+      const res = await fetchPaginatedMeetingsData({
+        type: 'adminFeedback',
+        page: currentPage,
+        limit: pageSize,
+        search: searchQuery,
+        superPriority: filterSuperPriorityOnly,
+        statuses: filterStatuses,
+        programs: filterPrograms,
+        pocs: filterPocs,
+        sortField: feedbackSortField || undefined,
+        sortAsc: feedbackSortAsc
+      });
+      if (active) {
+        if (res.success) {
+          setPaginatedFeedbackFeatures(res.data);
+          setFeedbackTotalItems(res.totalItems);
+          setFeedbackTotalPages(res.totalPages);
         }
-      } else {
-        valA = a[feedbackSortField as keyof ProductItem] || '';
-        valB = b[feedbackSortField as keyof ProductItem] || '';
+        setIsFetchingFeedback(false);
       }
-      
-      const strA = String(valA).toLowerCase();
-      const strB = String(valB).toLowerCase();
-      return feedbackSortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
-    }
-    return 0;
-  });
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [
+    subTab,
+    currentPage,
+    pageSize,
+    searchQuery,
+    filterSuperPriorityOnly,
+    filterStatuses,
+    filterPrograms,
+    filterPocs,
+    feedbackSortField,
+    feedbackSortAsc,
+    fetchPaginatedMeetingsData
+  ]);
+
+  const feedbackActivePage = Math.min(currentPage, feedbackTotalPages);
+  const feedbackStartIndex = feedbackTotalItems === 0 ? 0 : (feedbackActivePage - 1) * pageSize;
+  const feedbackEndIndex = Math.min(feedbackStartIndex + pageSize, feedbackTotalItems);
 
   return (
     <>
@@ -7159,7 +7464,7 @@ export const AdminCallsTable: React.FC = () => {
         </div>
 
         {subTab === 'schedule' ? (
-          <div className="table-responsive">
+          <div className="table-responsive" style={{ display: 'flex', flexDirection: 'column' }}>
             <table className="grid-table">
               <thead>
                 <tr>
@@ -7173,7 +7478,39 @@ export const AdminCallsTable: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {sortedCalls.map(call => {
+                {isFetching ? (
+                  Array.from({ length: Math.min(pageSize, 8) }).map((_, idx) => (
+                    <tr key={`skeleton-${idx}`} style={{ height: '56px' }}>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '14px', width: '80px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '14px', width: '120px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '14px', width: '80px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '14px', width: '90%', marginBottom: '6px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                        <div className="skeleton-line" style={{ height: '10px', width: '40%', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '20px', width: '80px', borderRadius: '12px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '14px', width: '50px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}></td>
+                    </tr>
+                  ))
+                ) : paginatedCalls.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                      No admin calls found matching current filters.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedCalls.map(call => {
                   const related = getRelatedFeatures(call);
                   const isExpanded = expandedCallId === call.id;
                   
@@ -7661,8 +7998,7 @@ export const AdminCallsTable: React.FC = () => {
                                         <tr style={{ background: 'var(--background-alt)' }}>
                                           <th>Feature</th>
                                           <th style={{ width: '150px' }}>Product</th>
-                                          <th style={{ width: '80px' }}>Priority</th>
-                                          <th style={{ width: '120px' }}>Status</th>
+                                           <th style={{ width: '120px' }}>Status</th>
                                           <th style={{ width: '120px' }}>POC</th>
                                           <th style={{ width: '100px' }}>ClickUp</th>
                                           <th style={{ width: '120px' }}>Specs Date</th>
@@ -7724,6 +8060,11 @@ export const AdminCallsTable: React.FC = () => {
                                               ) : (
                                                 <>
                                                   {feat.feature || '—'}
+                                                  {feat.priority && (
+                                                    <span className={`badge badge-${feat.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', marginLeft: '6px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
+                                                      {feat.priority}
+                                                    </span>
+                                                  )}
                                                   {feat.raisedByTarunSir && (
                                                     <span className="badge-super-priority" style={{ padding: '1px 4px', fontSize: '0.6rem', borderRadius: '3px', marginLeft: '6px' }}>
                                                       <Sparkles size={8} /> Super Priority
@@ -7738,13 +8079,6 @@ export const AdminCallsTable: React.FC = () => {
                                               )}
                                             </td>
                                             <td>{feat.product || '—'}</td>
-                                            <td>
-                                              {feat.priority ? (
-                                                <span className={`badge badge-${feat.priority.toLowerCase()}`}>
-                                                  {feat.priority}
-                                                </span>
-                                              ) : '—'}
-                                            </td>
                                             <td>
                                               {feat.status ? (
                                                 <span className={`badge ${
@@ -7892,12 +8226,90 @@ export const AdminCallsTable: React.FC = () => {
                       )}
                     </React.Fragment>
                   );
-                })}
+                }))}
               </tbody>
             </table>
+            {/* Pagination Controls */}
+            {totalItems > 0 && (
+              <div style={{
+                position: 'sticky',
+                bottom: 0,
+                zIndex: 10,
+                boxShadow: '0 -4px 12px rgba(0,0,0,0.05)',
+                marginTop: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.75rem 1.5rem',
+                borderTop: '1px solid var(--border)',
+                backgroundColor: 'var(--panel-bg)',
+                fontSize: '0.8rem',
+                color: 'var(--text-secondary)',
+                borderBottomLeftRadius: '8px',
+                borderBottomRightRadius: '8px',
+                flexWrap: 'wrap',
+                gap: '0.75rem'
+              }}>
+                <div>
+                  Showing <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{startIndex + 1}</span> to{' '}
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{endIndex}</span> of{' '}
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{totalItems}</span> meetings
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>Rows per page:</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="form-control"
+                      style={{
+                        padding: '2px 6px',
+                        fontSize: '0.8rem',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border)',
+                        backgroundColor: 'var(--background)',
+                        color: 'var(--text-primary)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={activePage === 1}
+                      style={{ padding: '2px 8px', fontSize: '0.75rem', opacity: activePage === 1 ? 0.5 : 1, cursor: activePage === 1 ? 'not-allowed' : 'pointer' }}
+                    >
+                      Previous
+                    </button>
+                    <span style={{ minWidth: '45px', textAlign: 'center' }}>
+                      Page {activePage} of {totalPages}
+                    </span>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={activePage === totalPages}
+                      style={{ padding: '2px 8px', fontSize: '0.75rem', opacity: activePage === totalPages ? 0.5 : 1, cursor: activePage === totalPages ? 'not-allowed' : 'pointer' }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
-          <div className="table-responsive">
+          <div className="table-responsive" style={{ display: 'flex', flexDirection: 'column' }}>
             <table className="grid-table">
               <thead>
                 <tr>
@@ -7906,7 +8318,6 @@ export const AdminCallsTable: React.FC = () => {
                   <th onClick={() => handleFeedbackSort('callPoc')} style={{ width: '180px', cursor: 'pointer' }}>Admin / POC {feedbackSortField === 'callPoc' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('callTopic')} style={{ width: '220px', cursor: 'pointer' }}>Topic / Call Agenda {feedbackSortField === 'callTopic' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('product')} style={{ width: '150px', cursor: 'pointer' }}>Product Group {feedbackSortField === 'product' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
-                  <th onClick={() => handleFeedbackSort('priority')} style={{ width: '80px', cursor: 'pointer' }}>Priority {feedbackSortField === 'priority' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('poc')} style={{ width: '120px', cursor: 'pointer' }}>POC Owner {feedbackSortField === 'poc' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('status')} style={{ width: '120px', cursor: 'pointer' }}>Status {feedbackSortField === 'status' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('clickupStatus')} style={{ width: '100px', cursor: 'pointer' }}>Clickup {feedbackSortField === 'clickupStatus' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
@@ -7918,7 +8329,32 @@ export const AdminCallsTable: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {sortedFeedbackFeatures.map(feat => {
+                {isFetchingFeedback ? (
+                  Array.from({ length: Math.min(pageSize, 8) }).map((_, idx) => (
+                    <tr key={`skeleton-${idx}`} style={{ height: '56px' }}>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '90%', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '100px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '80px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '100px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '90px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '80px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '20px', width: '80px', borderRadius: '12px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '60px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}></td>
+                    </tr>
+                  ))
+                ) : paginatedFeedbackFeatures.length === 0 ? (
+                  <tr>
+                    <td colSpan={13} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                      No feedback features found matching current filters.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedFeedbackFeatures.map(feat => {
                   const parentCall = getParentCall(feat);
                   return (
                     <tr 
@@ -7987,11 +8423,18 @@ export const AdminCallsTable: React.FC = () => {
                               title="Double click to edit"
                             >
                               {feat.feature || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
-                              {feat.raisedByTarunSir && (
-                                <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', marginLeft: '8px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                                  <Sparkles size={10} /> Super Priority
-                                </span>
-                              )}
+                              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
+                                {feat.priority && (
+                                  <span className={`badge badge-${feat.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
+                                    {feat.priority}
+                                  </span>
+                                )}
+                                {feat.raisedByTarunSir && (
+                                  <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                                    <Sparkles size={10} /> Super Priority
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -8151,13 +8594,6 @@ export const AdminCallsTable: React.FC = () => {
                       </td>
                       <td>{feat.product || '—'}</td>
                       <td>
-                        {feat.priority ? (
-                          <span className={`badge badge-${feat.priority.toLowerCase()}`}>
-                            {feat.priority}
-                          </span>
-                        ) : '—'}
-                      </td>
-                      <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
                           {feat.poc ? (
                               <span style={{ ...getPOCBadgeStyle(feat.poc) }}>
@@ -8250,9 +8686,80 @@ export const AdminCallsTable: React.FC = () => {
                       </td>
                     </tr>
                   );
-                })}
+                }))}
               </tbody>
             </table>
+            {/* Pagination Controls for Feedback */}
+            {feedbackTotalItems > 0 && (
+              <div style={{
+                position: 'sticky',
+                bottom: 0,
+                zIndex: 10,
+                boxShadow: '0 -4px 12px rgba(0,0,0,0.05)',
+                marginTop: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.75rem 1.5rem',
+                backgroundColor: 'var(--panel-bg)',
+                borderBottomLeftRadius: '8px',
+                borderBottomRightRadius: '8px',
+                borderTop: '1px solid var(--border)'
+              }}>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  Showing {feedbackStartIndex + 1} to {feedbackEndIndex} of {feedbackTotalItems} entries
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    <span>Per page:</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="form-control"
+                      style={{
+                        padding: '2px 6px',
+                        fontSize: '0.8rem',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border)',
+                        backgroundColor: 'var(--background)',
+                        color: 'var(--text-primary)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={feedbackActivePage === 1}
+                      style={{ padding: '2px 8px', fontSize: '0.75rem', opacity: feedbackActivePage === 1 ? 0.5 : 1, cursor: feedbackActivePage === 1 ? 'not-allowed' : 'pointer' }}
+                    >
+                      Previous
+                    </button>
+                    <span style={{ minWidth: '45px', textAlign: 'center' }}>
+                      Page {feedbackActivePage} of {feedbackTotalPages}
+                    </span>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, feedbackTotalPages))}
+                      disabled={feedbackActivePage === feedbackTotalPages}
+                      style={{ padding: '2px 8px', fontSize: '0.75rem', opacity: feedbackActivePage === feedbackTotalPages ? 0.5 : 1, cursor: feedbackActivePage === feedbackTotalPages ? 'not-allowed' : 'pointer' }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </TabContainer>
@@ -8273,7 +8780,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
     tarunSirMeetings, updateTarunSirMeeting, addTarunSirMeeting, deleteTarunSirMeeting, 
     productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
     speakers: configSpeakers, statuses, currentUser, confirm,
-    programs
+    programs, fetchPaginatedMeetingsData
   } = useDashboard();
   
   const speakersList = configSpeakers.map(s => s.name);
@@ -8284,11 +8791,19 @@ export const TarunSirMeetingsTable: React.FC = () => {
   const [filterPrograms, setFilterPrograms] = useState<string[]>([]);
   const [filterPocs, setFilterPocs] = useState<string[]>([]);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
   useEffect(() => {
     setFilterStatuses([]);
     setFilterPrograms([]);
     setFilterPocs([]);
+    setCurrentPage(1);
   }, [subTab]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterSuperPriorityOnly, filterStatuses, filterPrograms, filterPocs]);
 
   // Sorting states
   const [meetingSortField, setMeetingSortField] = useState<keyof TarunSirMeeting | null>('date');
@@ -8428,115 +8943,110 @@ export const TarunSirMeetingsTable: React.FC = () => {
     return undefined;
   };
 
-  const filteredFeedbackFeatures = productItems.filter(item => {
-    if (item.id.startsWith('prod-temp-')) return false;
-    if (!item.id.startsWith('prod-tarun-')) return false;
+  const [paginatedFeedbackFeatures, setPaginatedFeedbackFeatures] = useState<ProductItem[]>([]);
+  const [feedbackTotalItems, setFeedbackTotalItems] = useState(0);
+  const [feedbackTotalPages, setFeedbackTotalPages] = useState(1);
+  const [isFetchingFeedback, setIsFetchingFeedback] = useState(false);
 
-    const parent = getParentMeeting(item);
-    if (!parent) return false;
-    
-    const matchesSuperPriority = !filterSuperPriorityOnly || !!item.raisedByTarunSir;
-    if (!matchesSuperPriority) return false;
-    
-    if (filterStatuses.length > 0 && !filterStatuses.includes(item.status)) return false;
-
-    if (filterPrograms.length > 0) {
-      const meetingPrograms = parent.program ? parent.program.split(',').map(p => p.trim()).filter(Boolean) : [];
-      if (!meetingPrograms.some(p => filterPrograms.includes(p))) return false;
-    }
-
-    if (filterPocs.length > 0 && !filterPocs.includes(item.poc)) return false;
-
-    const matchesSearch = 
-      item.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.poc.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.notes.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.module || '').toLowerCase().includes(searchQuery.toLowerCase());
-      
-    return matchesSearch;
-  });
-
-  const sortedFeedbackFeatures = [...filteredFeedbackFeatures];
-  sortedFeedbackFeatures.sort((a, b) => {
-    const aComp = !!a.finalReleaseCompleted;
-    const bComp = !!b.finalReleaseCompleted;
-    if (aComp !== bComp) return aComp ? 1 : -1;
-    if (feedbackSortField) {
-      let valA: any = '';
-      let valB: any = '';
-      
-      if (feedbackSortField === 'meetingDate' || feedbackSortField === 'meetingPoc' || feedbackSortField === 'meetingTopic') {
-        const parentA = getParentMeeting(a);
-        const parentB = getParentMeeting(b);
-        if (feedbackSortField === 'meetingDate') {
-          valA = parentA?.date || '';
-          valB = parentB?.date || '';
-        } else if (feedbackSortField === 'meetingPoc') {
-          valA = parentA?.adminPoc || '';
-          valB = parentB?.adminPoc || '';
-        } else if (feedbackSortField === 'meetingTopic') {
-          valA = parentA?.cohortTopic || '';
-          valB = parentB?.cohortTopic || '';
+  useEffect(() => {
+    if (subTab !== 'feedback') return;
+    let active = true;
+    const load = async () => {
+      setIsFetchingFeedback(true);
+      const res = await fetchPaginatedMeetingsData({
+        type: 'tarunFeedback',
+        page: currentPage,
+        limit: pageSize,
+        search: searchQuery,
+        superPriority: filterSuperPriorityOnly,
+        statuses: filterStatuses,
+        programs: filterPrograms,
+        pocs: filterPocs,
+        sortField: feedbackSortField || undefined,
+        sortAsc: feedbackSortAsc
+      });
+      if (active) {
+        if (res.success) {
+          setPaginatedFeedbackFeatures(res.data);
+          setFeedbackTotalItems(res.totalItems);
+          setFeedbackTotalPages(res.totalPages);
         }
-      } else {
-        valA = a[feedbackSortField as keyof ProductItem] || '';
-        valB = b[feedbackSortField as keyof ProductItem] || '';
+        setIsFetchingFeedback(false);
       }
-      
-      const strA = String(valA).toLowerCase();
-      const strB = String(valB).toLowerCase();
-      return feedbackSortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
-    }
-    return 0;
-  });
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [
+    subTab,
+    currentPage,
+    pageSize,
+    searchQuery,
+    filterSuperPriorityOnly,
+    filterStatuses,
+    filterPrograms,
+    filterPocs,
+    feedbackSortField,
+    feedbackSortAsc,
+    fetchPaginatedMeetingsData
+  ]);
 
-  // Filter meetings
-  const filteredMeetings = tarunSirMeetings.filter(meeting => {
-    if (filterStatuses.length > 0 && !filterStatuses.includes(meeting.status)) return false;
+  const feedbackActivePage = Math.min(currentPage, feedbackTotalPages);
+  const feedbackStartIndex = feedbackTotalItems === 0 ? 0 : (feedbackActivePage - 1) * pageSize;
+  const feedbackEndIndex = Math.min(feedbackStartIndex + pageSize, feedbackTotalItems);
 
-    if (filterPrograms.length > 0) {
-      const meetingPrograms = meeting.program ? meeting.program.split(',').map(p => p.trim()).filter(Boolean) : [];
-      if (!meetingPrograms.some(p => filterPrograms.includes(p))) return false;
-    }
+  const [paginatedMeetings, setPaginatedMeetings] = useState<TarunSirMeeting[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isFetching, setIsFetching] = useState(false);
 
-    if (filterPocs.length > 0) {
-      const related = getRelatedFeatures(meeting);
-      const hasMatchingPoc = related.some(feat => filterPocs.includes(feat.poc));
-      if (!hasMatchingPoc) return false;
-    }
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setIsFetching(true);
+      const res = await fetchPaginatedMeetingsData({
+        type: 'tarunSirMeetings',
+        page: currentPage,
+        limit: pageSize,
+        search: searchQuery,
+        superPriority: filterSuperPriorityOnly,
+        statuses: filterStatuses,
+        programs: filterPrograms,
+        pocs: filterPocs,
+        sortField: meetingSortField || undefined,
+        sortAsc: meetingSortAsc
+      });
+      if (active) {
+        if (res.success) {
+          setPaginatedMeetings(res.data);
+          setTotalItems(res.totalItems);
+          setTotalPages(res.totalPages);
+        }
+        setIsFetching(false);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [
+    currentPage,
+    pageSize,
+    searchQuery,
+    filterSuperPriorityOnly,
+    filterStatuses,
+    filterPrograms,
+    filterPocs,
+    meetingSortField,
+    meetingSortAsc,
+    tarunSirMeetings,
+    fetchPaginatedMeetingsData
+  ]);
 
-    const matchesSearch = 
-      meeting.cohortTopic.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      meeting.adminPoc.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      meeting.discussion.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      meeting.actions.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      meeting.date.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
-  });
-
-  // Sort meetings
-  const sortedMeetings = [...filteredMeetings];
-  sortedMeetings.sort((a, b) => {
-    const aComp = a.status === 'Completed';
-    const bComp = b.status === 'Completed';
-    if (aComp !== bComp) return aComp ? 1 : -1;
-
-    if (meetingSortField === 'date') {
-      const valA = a.date || '';
-      const valB = b.date || '';
-      return meetingSortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-    }
-    if (meetingSortField) {
-      const valA = a[meetingSortField as keyof TarunSirMeeting] || '';
-      const valB = b[meetingSortField as keyof TarunSirMeeting] || '';
-      const strA = String(valA).toLowerCase();
-      const strB = String(valB).toLowerCase();
-      return meetingSortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
-    }
-    return (b.date || '').localeCompare(a.date || '');
-  });
-
+  const activePage = Math.min(currentPage, totalPages);
+  const startIndex = totalItems === 0 ? -1 : (activePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
   return (
     <>
       <TabContainer
@@ -8638,7 +9148,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
         </div>
 
         {subTab === 'schedule' ? (
-          <div className="table-responsive">
+          <div className="table-responsive" style={{ display: 'flex', flexDirection: 'column' }}>
             <table className="grid-table">
               <thead>
                 <tr>
@@ -8651,7 +9161,36 @@ export const TarunSirMeetingsTable: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {sortedMeetings.map(meeting => {
+                {isFetching ? (
+                  Array.from({ length: Math.min(pageSize, 8) }).map((_, idx) => (
+                    <tr key={`skeleton-${idx}`} style={{ height: '56px' }}>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '14px', width: '80px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '14px', width: '120px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '14px', width: '80px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '14px', width: '90%', marginBottom: '6px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                        <div className="skeleton-line" style={{ height: '10px', width: '40%', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '20px', width: '80px', borderRadius: '12px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}></td>
+                    </tr>
+                  ))
+                ) : paginatedMeetings.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                      No meetings found matching current filters.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedMeetings.map(meeting => {
                   const related = getRelatedFeatures(meeting);
                   const isExpanded = expandedMeetingId === meeting.id;
                   
@@ -9106,8 +9645,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                         <tr style={{ background: 'var(--background-alt)' }}>
                                           <th>Feature</th>
                                           <th style={{ width: '150px' }}>Product</th>
-                                          <th style={{ width: '80px' }}>Priority</th>
-                                          <th style={{ width: '120px' }}>Status</th>
+                                           <th style={{ width: '120px' }}>Status</th>
                                           <th style={{ width: '120px' }}>POC</th>
                                           <th style={{ width: '100px' }}>ClickUp</th>
                                           <th style={{ width: '120px' }}>Specs Date</th>
@@ -9169,6 +9707,11 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                               ) : (
                                                 <>
                                                   {feat.feature || '—'}
+                                                 {feat.priority && (
+                                                   <span className={`badge badge-${feat.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', marginLeft: '6px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
+                                                     {feat.priority}
+                                                   </span>
+                                                 )}
                                                   {feat.raisedByTarunSir && (
                                                     <span className="badge-super-priority" style={{ padding: '1px 4px', fontSize: '0.6rem', borderRadius: '3px', marginLeft: '6px' }}>
                                                       <Sparkles size={8} /> Super Priority
@@ -9188,13 +9731,6 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                               )}
                                             </td>
                                             <td>{feat.product || '—'}</td>
-                                            <td>
-                                              {feat.priority ? (
-                                                <span className={`badge badge-${feat.priority.toLowerCase()}`}>
-                                                  {feat.priority}
-                                                </span>
-                                              ) : '—'}
-                                            </td>
                                             <td>
                                               {feat.status ? (
                                                 <span className={`badge ${
@@ -9340,12 +9876,90 @@ export const TarunSirMeetingsTable: React.FC = () => {
                       )}
                     </React.Fragment>
                   );
-                })}
+                }))}
               </tbody>
             </table>
+            {/* Pagination Controls */}
+            {totalItems > 0 && (
+              <div style={{
+                position: 'sticky',
+                bottom: 0,
+                zIndex: 10,
+                boxShadow: '0 -4px 12px rgba(0,0,0,0.05)',
+                marginTop: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.75rem 1.5rem',
+                borderTop: '1px solid var(--border)',
+                backgroundColor: 'var(--panel-bg)',
+                fontSize: '0.8rem',
+                color: 'var(--text-secondary)',
+                borderBottomLeftRadius: '8px',
+                borderBottomRightRadius: '8px',
+                flexWrap: 'wrap',
+                gap: '0.75rem'
+              }}>
+                <div>
+                  Showing <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{startIndex + 1}</span> to{' '}
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{endIndex}</span> of{' '}
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{totalItems}</span> meetings
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>Rows per page:</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="form-control"
+                      style={{
+                        padding: '2px 6px',
+                        fontSize: '0.8rem',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border)',
+                        backgroundColor: 'var(--background)',
+                        color: 'var(--text-primary)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={activePage === 1}
+                      style={{ padding: '2px 8px', fontSize: '0.75rem', opacity: activePage === 1 ? 0.5 : 1, cursor: activePage === 1 ? 'not-allowed' : 'pointer' }}
+                    >
+                      Previous
+                    </button>
+                    <span style={{ minWidth: '45px', textAlign: 'center' }}>
+                      Page {activePage} of {totalPages}
+                    </span>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={activePage === totalPages}
+                      style={{ padding: '2px 8px', fontSize: '0.75rem', opacity: activePage === totalPages ? 0.5 : 1, cursor: activePage === totalPages ? 'not-allowed' : 'pointer' }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
-          <div className="table-responsive">
+          <div className="table-responsive" style={{ display: 'flex', flexDirection: 'column' }}>
             <table className="grid-table">
               <thead>
                 <tr>
@@ -9354,7 +9968,6 @@ export const TarunSirMeetingsTable: React.FC = () => {
                   <th onClick={() => handleFeedbackSort('meetingPoc')} style={{ width: '180px', cursor: 'pointer' }}>Admin / POC {feedbackSortField === 'meetingPoc' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('meetingTopic')} style={{ width: '220px', cursor: 'pointer' }}>Topic / Meeting Agenda {feedbackSortField === 'meetingTopic' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('product')} style={{ width: '150px', cursor: 'pointer' }}>Product Group {feedbackSortField === 'product' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
-                  <th onClick={() => handleFeedbackSort('priority')} style={{ width: '80px', cursor: 'pointer' }}>Priority {feedbackSortField === 'priority' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('poc')} style={{ width: '120px', cursor: 'pointer' }}>POC Owner {feedbackSortField === 'poc' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('status')} style={{ width: '120px', cursor: 'pointer' }}>Status {feedbackSortField === 'status' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('clickupStatus')} style={{ width: '100px', cursor: 'pointer' }}>Clickup {feedbackSortField === 'clickupStatus' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
@@ -9366,7 +9979,32 @@ export const TarunSirMeetingsTable: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {sortedFeedbackFeatures.map(feat => {
+                {isFetchingFeedback ? (
+                  Array.from({ length: Math.min(pageSize, 8) }).map((_, idx) => (
+                    <tr key={`skeleton-${idx}`} style={{ height: '56px' }}>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '90%', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '100px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '80px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '100px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '90px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '80px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '20px', width: '80px', borderRadius: '12px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '60px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                      <td style={{ padding: '12px 16px' }}></td>
+                    </tr>
+                  ))
+                ) : paginatedFeedbackFeatures.length === 0 ? (
+                  <tr>
+                    <td colSpan={13} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                      No feedback features found matching current filters.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedFeedbackFeatures.map(feat => {
                   const parentMeeting = getParentMeeting(feat);
                   return (
                     <tr 
@@ -9438,6 +10076,11 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                 {feat.feature || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
                               </span>
                               <div style={{ display: 'flex', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
+                                {feat.priority && (
+                                  <span className={`badge badge-${feat.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
+                                    {feat.priority}
+                                  </span>
+                                )}
                                 {feat.raisedByTarunSir && (
                                   <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
                                     <Sparkles size={10} /> Super Priority
@@ -9608,13 +10251,6 @@ export const TarunSirMeetingsTable: React.FC = () => {
                       </td>
                       <td>{feat.product || '—'}</td>
                       <td>
-                        {feat.priority ? (
-                          <span className={`badge badge-${feat.priority.toLowerCase()}`}>
-                            {feat.priority}
-                          </span>
-                        ) : '—'}
-                      </td>
-                      <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
                           {feat.poc ? (
                               <span style={{ ...getPOCBadgeStyle(feat.poc) }}>
@@ -9707,9 +10343,80 @@ export const TarunSirMeetingsTable: React.FC = () => {
                       </td>
                     </tr>
                   );
-                })}
+                }))}
               </tbody>
             </table>
+            {/* Pagination Controls for Feedback */}
+            {feedbackTotalItems > 0 && (
+              <div style={{
+                position: 'sticky',
+                bottom: 0,
+                zIndex: 10,
+                boxShadow: '0 -4px 12px rgba(0,0,0,0.05)',
+                marginTop: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.75rem 1.5rem',
+                backgroundColor: 'var(--panel-bg)',
+                borderBottomLeftRadius: '8px',
+                borderBottomRightRadius: '8px',
+                borderTop: '1px solid var(--border)'
+              }}>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  Showing {feedbackStartIndex + 1} to {feedbackEndIndex} of {feedbackTotalItems} entries
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    <span>Per page:</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="form-control"
+                      style={{
+                        padding: '2px 6px',
+                        fontSize: '0.8rem',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border)',
+                        backgroundColor: 'var(--background)',
+                        color: 'var(--text-primary)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={feedbackActivePage === 1}
+                      style={{ padding: '2px 8px', fontSize: '0.75rem', opacity: feedbackActivePage === 1 ? 0.5 : 1, cursor: feedbackActivePage === 1 ? 'not-allowed' : 'pointer' }}
+                    >
+                      Previous
+                    </button>
+                    <span style={{ minWidth: '45px', textAlign: 'center' }}>
+                      Page {feedbackActivePage} of {feedbackTotalPages}
+                    </span>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, feedbackTotalPages))}
+                      disabled={feedbackActivePage === feedbackTotalPages}
+                      style={{ padding: '2px 8px', fontSize: '0.75rem', opacity: feedbackActivePage === feedbackTotalPages ? 0.5 : 1, cursor: feedbackActivePage === feedbackTotalPages ? 'not-allowed' : 'pointer' }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </TabContainer>
@@ -9772,8 +10479,8 @@ export const ContentTable: React.FC = () => {
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [inlineProductValue, setInlineProductValue] = useState('');
 
-  const [editingPriorityId, setEditingPriorityId] = useState<string | null>(null);
-  const [inlinePriorityValue, setInlinePriorityValue] = useState('');
+  const [_editingPriorityId, _setEditingPriorityId] = useState<string | null>(null);
+  const [_inlinePriorityValue, _setInlinePriorityValue] = useState('');
 
   const [editingClickupStatusId, setEditingClickupStatusId] = useState<string | null>(null);
   const [inlineClickupStatusValue, setInlineClickupStatusValue] = useState('');
@@ -9942,9 +10649,6 @@ export const ContentTable: React.FC = () => {
                 <th onClick={() => handleSort('product')} style={{ width: '150px', cursor: 'pointer' }}>
                   Product Group {sortField === 'product' ? (sortAsc ? '▲' : '▼') : ''}
                 </th>
-                <th onClick={() => handleSort('priority')} style={{ width: '80px', cursor: 'pointer' }}>
-                  Priority {sortField === 'priority' ? (sortAsc ? '▲' : '▼') : ''}
-                </th>
                 <th onClick={() => handleSort('poc')} style={{ width: '120px', cursor: 'pointer' }}>
                   POC Owner {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}
                 </th>
@@ -9980,7 +10684,7 @@ export const ContentTable: React.FC = () => {
                       editingPocId !== item.id &&
                       _editingDateId !== item.id &&
                       editingProductId !== item.id &&
-                      editingPriorityId !== item.id &&
+                      _editingPriorityId !== item.id &&
                       editingClickupStatusId !== item.id &&
                       editingSpecsDateId !== item.id &&
                       editingUiuxDateId !== item.id &&
@@ -10056,14 +10760,21 @@ export const ContentTable: React.FC = () => {
                         }}
                       />
                     ) : (
-                      <>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', width: '100%' }}>
                         <span>{item.module || <span style={{ color: 'var(--text-muted)' }}>— (No topic)</span>}</span>
-                        {item.raisedByTarunSir && (
-                          <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px', marginLeft: '8px' }}>
-                            <Sparkles size={10} /> Super Priority
-                          </span>
-                        )}
-                      </>
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+                          {item.priority && (
+                            <span className={`badge badge-${item.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
+                              {item.priority}
+                            </span>
+                          )}
+                          {item.raisedByTarunSir && (
+                            <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                              <Sparkles size={10} /> Super Priority
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </td>
 
@@ -10115,59 +10826,7 @@ export const ContentTable: React.FC = () => {
                     )}
                   </td>
 
-                  {/* Priority */}
-                  <td
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingPriorityId(item.id);
-                      setInlinePriorityValue(item.priority || '');
-                    }}
-                    title="Click to edit Priority"
-                  >
-                    {editingPriorityId === item.id ? (
-                      <select
-                        autoFocus
-                        value={inlinePriorityValue}
-                        onChange={(e) => {
-                          const val = e.target.value as any;
-                          setInlinePriorityValue(val);
-                          updateContentItem(item.id, { priority: val });
-                          setEditingPriorityId(null);
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Escape') {
-                            setEditingPriorityId(null);
-                          }
-                        }}
-                        onBlur={() => setEditingPriorityId(null)}
-                        style={{
-                          width: '100%',
-                          padding: '4px 6px',
-                          backgroundColor: 'var(--background)',
-                          border: '1.5px solid var(--primary)',
-                          borderRadius: '6px',
-                          color: 'var(--text-primary)',
-                          fontSize: '0.8rem',
-                          outline: 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <option value="">— Select Priority —</option>
-                        <option value="P0">P0</option>
-                        <option value="P1">P1</option>
-                        <option value="P2">P2</option>
-                        <option value="P3">P3</option>
-                        <option value="P4">P4</option>
-                      </select>
-                    ) : (
-                      item.priority ? (
-                        <span className={`badge badge-${item.priority.toLowerCase()}`}>
-                          {item.priority}
-                        </span>
-                      ) : '—'
-                    )}
-                  </td>
+
 
                   {/* POC Owner */}
                   <td
@@ -10456,38 +11115,17 @@ export const ProductWiseSheet: React.FC = () => {
     confirm,
     alert,
     comments,
-    lastOpenedMap
+    lastOpenedMap,
+    fetchProductBreakdownData
   } = useDashboard();
   const products = productGroups.map(g => g.name);
   const NO_GROUP_TAB = 'No Product Group Assigned';
   const allTabs = [...products, NO_GROUP_TAB];
   const pocList = speakers.map(s => s.name);
+  const [productCounts, setProductCounts] = useState<Record<string, number>>({});
 
   const getProductFeatureCount = (prodName: string) => {
-    const isSpecial = prodName === NO_GROUP_TAB;
-    
-    const countProductItems = productItems.filter(item => 
-      !item.id.startsWith('prod-temp-') && 
-      (isSpecial ? (!item.product || item.product.trim() === '') : item.product === prodName)
-    ).length;
-    
-    const countProjects = studentProjects.filter(item => 
-      isSpecial ? (!item.product || item.product.trim() === '') : item.product === prodName
-    ).length;
-    
-    const countContent = contentItems.filter(item => 
-      isSpecial ? (!item.product || item.product.trim() === '') : item.product === prodName
-    ).length;
-    
-    const countMeetings = studentMeetings.filter(item => 
-      isSpecial ? (!item.product || item.product.trim() === '') : item.product === prodName
-    ).length;
-    
-    const countIssues = dailyIssues.filter(item =>
-      (isSpecial ? (!item.product || item.product.trim() === '') : item.product === prodName)
-    ).length;
-    
-    return countProductItems + countProjects + countContent + countMeetings + countIssues;
+    return productCounts[prodName] || 0;
   };
 
   const [activeProductTab, setActiveProductTab] = useState<string>('');
@@ -10498,9 +11136,31 @@ export const ProductWiseSheet: React.FC = () => {
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
   const [filterPocs, setFilterPocs] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [paginatedFeatures, setPaginatedFeatures] = useState<BreakdownFeature[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isFetchingData, setIsFetchingData] = useState(false);
+
+  const openPreviewRef = useRef(openPreviewForFeature);
+  openPreviewRef.current = openPreviewForFeature;
+  const setPreviewProductIdRef = useRef(setPreviewProductId);
+  setPreviewProductIdRef.current = setPreviewProductId;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeProductTab, searchQuery, filterSuperPriorityOnly, filterStatuses, filterPocs]);
 
   const productStatuses = statuses.map(s => s.label);
   const statusOptions = productStatuses.length > 0 ? productStatuses : ['On Hold', 'In Progress', 'Ongoing', 'Completed'];
+
+  type BreakdownFeature = ProductItem & {
+    sourceLabel: string;
+    sourceId: string;
+    openPreview: () => void;
+    canDelete: boolean;
+  };
 
   // Sorting state
   const [sortField, setSortField] = useState<keyof BreakdownFeature | null>(null);
@@ -10515,7 +11175,6 @@ export const ProductWiseSheet: React.FC = () => {
     }
   };
 
-
   useEffect(() => {
     if (editingFeatureId && editInputRef.current) {
       editInputRef.current.focus();
@@ -10528,236 +11187,110 @@ export const ProductWiseSheet: React.FC = () => {
     ? NO_GROUP_TAB
     : (activeProductTab && products.includes(activeProductTab) ? activeProductTab : products[0] || '');
 
-  type BreakdownFeature = ProductItem & {
-    sourceLabel: string;
-    sourceId: string;
-    openPreview: () => void;
-    canDelete: boolean;
-  };
+  const fetchFeatures = useCallback(async () => {
+    if (!activeProduct) return;
+    setIsFetchingData(true);
+    const res = await fetchProductBreakdownData({
+      product: activeProduct,
+      page: currentPage,
+      limit: pageSize,
+      search: searchQuery,
+      superPriority: filterSuperPriorityOnly,
+      statuses: filterStatuses,
+      pocs: filterPocs,
+      sortField: sortField || undefined,
+      sortAsc: sortAsc
+    });
+    if (res && res.success) {
+      const mapped = (res.data || []).map((item: any) => {
+        let openPreview = () => {};
+        if (item.sourceLabel === 'Feedback') {
+          openPreview = () => setPreviewProductIdRef.current(item.sourceId);
+        } else if (item.sourceLabel === 'Product Breakdown') {
+          openPreview = () => setPreviewProductIdRef.current(item.sourceId);
+        } else if (item.sourceLabel === 'Priority Requests') {
+          openPreview = () => setPreviewProductIdRef.current(item.sourceId);
+        } else if (item.sourceLabel === 'Student Projects') {
+          openPreview = () => openPreviewRef.current(item.feature, item);
+        } else if (item.sourceLabel === 'Content Pipeline') {
+          openPreview = () => openPreviewRef.current(item.feature, {
+            description: item.description,
+            status: item.status,
+            clickupStatus: item.clickupStatus,
+            priority: item.priority,
+            poc: item.poc,
+            product: item.product,
+            productDeadline: item.productDeadline,
+            uiux: item.uiux,
+            deadline: item.deadline,
+            finalRelease: item.finalRelease,
+            productDeadlineCompleted: item.productDeadlineCompleted,
+            uiuxCompleted: item.uiuxCompleted,
+            deadlineCompleted: item.deadlineCompleted,
+            finalReleaseCompleted: item.finalReleaseCompleted,
+          });
+        } else if (item.sourceLabel === 'Student Meetings') {
+          openPreview = () => openPreviewRef.current(item.module || item.feature, item);
+        } else if (item.sourceLabel === 'Daily Issues') {
+          openPreview = () => openPreviewRef.current(item.module || item.feature, {
+            description: item.description,
+            product: item.product,
+            module: item.module,
+            notes: item.notes,
+            clickupStatus: item.clickupStatus,
+            productDeadlineCompleted: item.productDeadlineCompleted,
+            uiuxCompleted: item.uiuxCompleted,
+            deadlineCompleted: item.deadlineCompleted,
+            finalReleaseCompleted: item.finalReleaseCompleted,
+          });
+        } else if (item.sourceLabel === 'Feature Request') {
+          openPreview = () => openPreviewRef.current(item.module || item.feature, {
+            description: item.description,
+            product: item.product,
+            module: item.module,
+            notes: item.notes,
+            clickupStatus: item.clickupStatus,
+            productDeadlineCompleted: item.productDeadlineCompleted,
+            uiuxCompleted: item.uiuxCompleted,
+            deadlineCompleted: item.deadlineCompleted,
+            finalReleaseCompleted: item.finalReleaseCompleted,
+          });
+        }
 
-  const toProductStatus = (status?: string): ProductItem['status'] => {
-    const cleanStatus = (status || '').toLowerCase();
-    if (['completed', 'delivered', 'done', 'closed', 'tested', 'used'].includes(cleanStatus)) return 'Completed';
-    if (['cancelled', 'canceled', 'on hold', 'not used'].includes(cleanStatus)) return 'On Hold';
-    if (['in-progress', 'in progress', 'development', 'testing'].includes(cleanStatus)) return 'In Progress';
-    if (cleanStatus === 'ongoing') return 'Ongoing';
-    return '';
-  };
+        return {
+          ...item,
+          openPreview
+        };
+      });
 
-  const features: BreakdownFeature[] = [
-    ...productItems
-      .filter(item => !item.id.startsWith('prod-temp-') && (
-        isNoGroupTab ? (!item.product || item.product.trim() === '') : item.product === activeProduct
-      ))
-      .map(item => ({
-        ...item,
-        productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatus(item.status),
-        uiuxCompleted: item.uiuxCompleted || isCompletedStatus(item.status),
-        deadlineCompleted: item.deadlineCompleted || isCompletedStatus(item.status),
-        finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatus(item.status),
-        sourceLabel: 
-          item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-') || item.id.startsWith('prod-tarun-')
-            ? 'Feedback' 
-            : item.id.startsWith('prod-breakdown-')
-              ? 'Product Breakdown'
-              : 'Priority Requests',
-        sourceId: item.id,
-        openPreview: () => setPreviewProductId(item.id),
-        canDelete: true
-      })),
-    ...studentProjects
-      .filter(item => isNoGroupTab ? (!item.product || item.product.trim() === '') : item.product === activeProduct)
-      .map(item => ({
-        id: `breakdown-project-${item.id}`,
-        feature: item.title,
-        description: item.description || item.thingsWeBuild || '',
-        tarunSirApproval: item.tarunSirApproval || false,
-        raisedByTarunSir: item.raisedByTarunSir || false,
-        priority: (item.priority || '') as ProductItem['priority'],
-        poc: item.poc || '',
-        status: toProductStatus(item.status),
-        clickupStatus: item.clickupStatus || item.status || '',
-        taskLink: item.taskLink || '',
-        blocker: item.blocker || '',
-        deadline: item.deadline || item.completeInfoDate || '',
-        notes: item.thingsWeBuild || '',
-        product: item.product || '',
-        module: item.module || '',
-        type: item.type || 'Student Project',
-        uiux: item.uiux || '',
-        finalRelease: item.finalRelease || '',
-        productDeadline: item.productDeadline || '',
-        productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatus(item.status),
-        uiuxCompleted: item.uiuxCompleted || isCompletedStatus(item.status),
-        deadlineCompleted: item.deadlineCompleted || isCompletedStatus(item.status),
-        finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatus(item.status),
-        sourceLabel: 'Student Projects',
-        sourceId: item.id,
-        openPreview: () => openPreviewForFeature(item.title, item as unknown as Partial<ProductItem>),
-        canDelete: false
-      })),
-    ...contentItems
-      .filter(item => isNoGroupTab ? (!item.product || item.product.trim() === '') : item.product === activeProduct)
-      .map(item => ({
-        id: `breakdown-content-${item.id}`,
-        feature: item.module,
-        description: `Content topic: ${item.module}. Subject: ${item.subject || ''}. Type: ${item.type}.`,
-        tarunSirApproval: false,
-        raisedByTarunSir: false,
-        priority: (item.priority || '') as ProductItem['priority'],
-        poc: item.poc || '',
-        status: toProductStatus(item.status),
-        clickupStatus: item.clickupStatus || item.status || '',
-        taskLink: item.draftLink || '',
-        blocker: '',
-        deadline: item.deadline || '',
-        notes: item.subject || '',
-        product: item.product || '',
-        module: item.module || '',
-        type: item.type || 'Content',
-        uiux: item.uiux || '',
-        finalRelease: item.finalRelease || item.publishDate || '',
-        productDeadline: item.productDeadline || '',
-        productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatus(item.status),
-        uiuxCompleted: item.uiuxCompleted || isCompletedStatus(item.status),
-        deadlineCompleted: item.deadlineCompleted || isCompletedStatus(item.status),
-        finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatus(item.status),
-        sourceLabel: 'Content Pipeline',
-        sourceId: item.id,
-        openPreview: () => openPreviewForFeature(item.module, {
-          description: `Content topic: ${item.module}. Subject: ${item.subject || ''}. Type: ${item.type}.`,
-          status: item.status as any,
-          clickupStatus: item.clickupStatus || item.status || '',
-          priority: item.priority || '',
-          poc: item.poc || '',
-          product: item.product || '',
-          productDeadline: item.productDeadline || '',
-          uiux: item.uiux || '',
-          deadline: item.deadline || '',
-          finalRelease: item.finalRelease || item.publishDate || '',
-          productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatus(item.status),
-          uiuxCompleted: item.uiuxCompleted || isCompletedStatus(item.status),
-          deadlineCompleted: item.deadlineCompleted || isCompletedStatus(item.status),
-          finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatus(item.status),
-        }),
-        canDelete: false
-      })),
-    ...studentMeetings
-      .filter(item => isNoGroupTab ? (!item.product || item.product.trim() === '') : item.product === activeProduct)
-      .map(item => ({
-        id: `breakdown-meeting-${item.id}`,
-        feature: item.cohort,
-        description: item.summary || '',
-        tarunSirApproval: item.tarunSirApproval || false,
-        raisedByTarunSir: item.raisedByTarunSir || false,
-        priority: (item.priority || '') as ProductItem['priority'],
-        poc: item.poc || '',
-        status: toProductStatus(item.status),
-        clickupStatus: item.clickupStatus || item.status || '',
-        taskLink: item.taskLink || '',
-        blocker: item.blocker || '',
-        deadline: item.deadline || '',
-        notes: item.notes || item.summary || '',
-        product: item.product || '',
-        module: item.module || '',
-        type: item.type || 'Student Meeting',
-        uiux: item.uiux || '',
-        finalRelease: item.finalRelease || '',
-        productDeadline: item.productDeadline || '',
-        productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatus(item.status),
-        uiuxCompleted: item.uiuxCompleted || isCompletedStatus(item.status),
-        deadlineCompleted: item.deadlineCompleted || isCompletedStatus(item.status),
-        finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatus(item.status),
-        sourceLabel: 'Student Meetings',
-        sourceId: item.id,
-        openPreview: () => openPreviewForFeature(item.module || item.cohort, item as unknown as Partial<ProductItem>),
-        canDelete: false
-      })),
-    ...dailyIssues
-      .filter(item => item.type !== 'Feature Gap' && item.type !== 'Enhancement')
-      .filter(item => isNoGroupTab ? (!item.product || item.product.trim() === '') : item.product === activeProduct)
-      .map(item => ({
-        id: `breakdown-issue-${item.id}`,
-        feature: item.module || `Issue #${item.id}`,
-        description: item.issues || '',
-        tarunSirApproval: item.tarunSirApproval || false,
-        raisedByTarunSir: item.raisedByTarunSir || false,
-        priority: (item.priority || '') as ProductItem['priority'],
-        poc: item.poc || item.contact || '',
-        status: (item.status || '') as ProductItem['status'],
-        clickupStatus: item.clickupStatus || item.type || '',
-        taskLink: item.taskLink || '',
-        blocker: item.blocker || '',
-        deadline: item.deadline || '',
-        notes: item.notes || item.issues || '',
-        product: item.product || '',
-        module: item.module || '',
-        type: item.type || 'Daily Issue',
-        uiux: item.uiux || '',
-        finalRelease: item.finalRelease || '',
-        productDeadline: item.productDeadline || '',
-        productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatus(item.status),
-        uiuxCompleted: item.uiuxCompleted || isCompletedStatus(item.status),
-        deadlineCompleted: item.deadlineCompleted || isCompletedStatus(item.status),
-        finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatus(item.status),
-        sourceLabel: 'Daily Issues',
-        sourceId: item.id,
-        openPreview: () => openPreviewForFeature(item.module || `${item.cohort} - ${item.id}`, {
-          description: item.issues,
-          product: item.product,
-          module: item.module,
-          notes: item.cohort,
-          clickupStatus: item.type,
-          productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatus(item.status),
-          uiuxCompleted: item.uiuxCompleted || isCompletedStatus(item.status),
-          deadlineCompleted: item.deadlineCompleted || isCompletedStatus(item.status),
-          finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatus(item.status),
-        }),
-        canDelete: false
-      })),
-    ...dailyIssues
-      .filter(item => item.type === 'Feature Gap' || item.type === 'Enhancement')
-      .filter(item => isNoGroupTab ? (!item.product || item.product.trim() === '') : item.product === activeProduct)
-      .map(item => ({
-        id: `breakdown-request-${item.id}`,
-        feature: item.module || `Request #${item.id}`,
-        description: item.issues || '',
-        tarunSirApproval: item.tarunSirApproval || false,
-        raisedByTarunSir: item.raisedByTarunSir || false,
-        priority: (item.priority || '') as ProductItem['priority'],
-        poc: item.poc || '',
-        status: (item.status || '') as ProductItem['status'],
-        clickupStatus: item.clickupStatus || '',
-        taskLink: item.taskLink || '',
-        blocker: item.blocker || '',
-        deadline: item.deadline || '',
-        notes: item.notes || item.issues || '',
-        product: item.product || '',
-        module: item.module || '',
-        type: item.type || 'Feature Gap',
-        uiux: item.uiux || '',
-        finalRelease: item.finalRelease || '',
-        productDeadline: item.productDeadline || '',
-        productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatus(item.status),
-        uiuxCompleted: item.uiuxCompleted || isCompletedStatus(item.status),
-        deadlineCompleted: item.deadlineCompleted || isCompletedStatus(item.status),
-        finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatus(item.status),
-        sourceLabel: 'Feature Request',
-        sourceId: item.id,
-        openPreview: () => openPreviewForFeature(item.module || `Request #${item.id}`, {
-          description: item.issues,
-          product: item.product,
-          module: item.module,
-          notes: item.notes,
-          clickupStatus: item.clickupStatus,
-          productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatus(item.status),
-          uiuxCompleted: item.uiuxCompleted || isCompletedStatus(item.status),
-          deadlineCompleted: item.deadlineCompleted || isCompletedStatus(item.status),
-          finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatus(item.status),
-        }),
-        canDelete: false
-      }))
-  ];
+      setPaginatedFeatures(mapped);
+      setTotalItems(res.totalItems || 0);
+      setTotalPages(res.totalPages || 1);
+      if (res.productCounts) {
+        setProductCounts(res.productCounts);
+      }
+    } else {
+      setPaginatedFeatures([]);
+      setTotalItems(0);
+      setTotalPages(1);
+    }
+    setIsFetchingData(false);
+  }, [
+    activeProduct,
+    currentPage,
+    pageSize,
+    searchQuery,
+    filterSuperPriorityOnly,
+    filterStatuses,
+    filterPocs,
+    sortField,
+    sortAsc,
+    fetchProductBreakdownData
+  ]);
+
+  useEffect(() => {
+    fetchFeatures();
+  }, [fetchFeatures, productItems, studentProjects, contentItems, studentMeetings, dailyIssues]);
 
   const handleAddNewFeature = async () => {
     if (!activeProduct || isNoGroupTab) {
@@ -10799,49 +11332,9 @@ export const ProductWiseSheet: React.FC = () => {
     }, 50);
   };
 
-  const filteredFeatures = features.filter(item => {
-    const matchesSuperPriority = !filterSuperPriorityOnly || !!item.raisedByTarunSir;
-    if (!matchesSuperPriority) return false;
-
-    if (filterStatuses.length > 0 && !filterStatuses.includes(item.status)) return false;
-
-    if (filterPocs.length > 0) {
-      const itemPoc = (item.poc || '').trim();
-      const hasMatchingPoc = filterPocs.some(p => {
-        if (p === 'No POC') {
-          return !itemPoc;
-        }
-        return itemPoc.toLowerCase() === p.toLowerCase();
-      });
-      if (!hasMatchingPoc) return false;
-    }
-
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      (item.feature || '').toLowerCase().includes(q) ||
-      (item.description || '').toLowerCase().includes(q) ||
-      (item.poc || '').toLowerCase().includes(q) ||
-      (item.sourceLabel || '').toLowerCase().includes(q)
-    );
-  });
-
-  const sortedFeatures = [...filteredFeatures];
-  sortedFeatures.sort((a, b) => {
-    const aComp = !!a.finalReleaseCompleted;
-    const bComp = !!b.finalReleaseCompleted;
-    if (aComp !== bComp) return aComp ? 1 : -1;
-    if (sortField) {
-      let valA = a[sortField];
-      let valB = b[sortField];
-      if (valA === undefined || valA === null) valA = '';
-      if (valB === undefined || valB === null) valB = '';
-      const strA = String(valA).toLowerCase();
-      const strB = String(valB).toLowerCase();
-      return sortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
-    }
-    return 0;
-  });
+  const activePage = Math.min(currentPage, totalPages);
+  const startIndex = totalItems === 0 ? -1 : (activePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
 
   return (
     <div className="full-canvas-workspace">
@@ -11032,13 +11525,13 @@ export const ProductWiseSheet: React.FC = () => {
 
           {/* Active Product Details Content - Full Canvas Table */}
           {activeProduct && (
-            <div className="table-responsive" style={{ flex: 1, width: '100%', border: 'none', borderRadius: 0 }}>
-              {filteredFeatures.length > 0 ? (
+            <>
+              <div className="table-responsive" style={{ flex: 1, width: '100%', border: 'none', borderRadius: 0, display: 'flex', flexDirection: 'column' }}>
+                {(paginatedFeatures.length > 0 || isFetchingData) ? (
                 <table className="grid-table">
                   <thead>
                     <tr>
                       <th className="sticky-header-col" onClick={() => handleSort('feature')} style={{ width: '320px', minWidth: '320px', maxWidth: '320px', cursor: 'pointer' }}>Feature {sortField === 'feature' ? (sortAsc ? '▲' : '▼') : ''}</th>
-                      <th onClick={() => handleSort('priority')} style={{ width: '80px', cursor: 'pointer' }}>Priority {sortField === 'priority' ? (sortAsc ? '▲' : '▼') : ''}</th>
                       <th onClick={() => handleSort('poc')} style={{ width: '120px', cursor: 'pointer' }}>POC Owner {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}</th>
                       <th onClick={() => handleSort('status')} style={{ width: '120px', cursor: 'pointer' }}>Status {sortField === 'status' ? (sortAsc ? '▲' : '▼') : ''}</th>
                       <th onClick={() => handleSort('clickupStatus')} style={{ width: '100px', cursor: 'pointer' }}>Clickup {sortField === 'clickupStatus' ? (sortAsc ? '▲' : '▼') : ''}</th>
@@ -11050,7 +11543,24 @@ export const ProductWiseSheet: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedFeatures.map(item => (
+                    {isFetchingData ? (
+                      Array.from({ length: Math.min(pageSize, 8) }).map((_, idx) => (
+                        <tr key={`skeleton-${idx}`} style={{ height: '56px' }}>
+                          <td className="sticky-col" style={{ width: '320px', minWidth: '320px', maxWidth: '320px', padding: '12px 16px' }}>
+                            <div className="skeleton-line" style={{ height: '14px', width: '80%', marginBottom: '6px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                            <div className="skeleton-line" style={{ height: '10px', width: '40%', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                          </td>
+                          <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '60px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                          <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '20px', width: '80px', borderRadius: '12px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                          <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '20px', width: '70px', borderRadius: '12px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                          <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                          <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                          <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                          <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                          <td></td>
+                        </tr>
+                      ))
+                    ) : paginatedFeatures.map(item => (
                       <tr key={item.id} onClick={() => {
                         if (editingFeatureId !== item.id) {
                           item.openPreview();
@@ -11151,6 +11661,11 @@ export const ProductWiseSheet: React.FC = () => {
                             })()
                             }
                             <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+                              {item.priority && (
+                                <span className={`badge badge-${item.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
+                                  {item.priority}
+                                </span>
+                              )}
                               {item.raisedByTarunSir && (
                                 <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
                                   <Star size={10} fill="currentColor" /> Super Priority
@@ -11164,14 +11679,6 @@ export const ProductWiseSheet: React.FC = () => {
                             </div>
                           </div>
                         </td>
-                        <td>
-                          {item.priority ? (
-                            <span className={`badge badge-${item.priority.toLowerCase()}`}>
-                              {item.priority}
-                            </span>
-                          ) : '—'}
-                        </td>
-
                         <td>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
                             {item.poc ? (
@@ -11282,12 +11789,175 @@ export const ProductWiseSheet: React.FC = () => {
                     : 'No priority features mapped to this product.'}
                 </div>
               )}
+
+            {/* Pagination Controls */}
+            {totalItems > 0 && (
+              <div style={{
+                position: 'sticky',
+                bottom: 0,
+                zIndex: 10,
+                boxShadow: '0 -4px 12px rgba(0,0,0,0.05)',
+                marginTop: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.75rem 1.5rem',
+                borderTop: '1px solid var(--border)',
+                backgroundColor: 'var(--panel-bg)',
+                fontSize: '0.8rem',
+                color: 'var(--text-secondary)',
+                borderBottomLeftRadius: '8px',
+                borderBottomRightRadius: '8px',
+                flexWrap: 'wrap',
+                gap: '0.75rem'
+              }}>
+                {/* Left: Info */}
+                <div>
+                  Showing <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{startIndex + 1}</span> to{' '}
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{endIndex}</span> of{' '}
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{totalItems}</span> features
+                </div>
+
+                {/* Right: Controls */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                  {/* Page Size Select */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <span>Rows per page:</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      style={{
+                        padding: '4px 24px 4px 8px',
+                        borderRadius: '6px',
+                        border: '1.5px solid var(--border)',
+                        backgroundColor: 'var(--background)',
+                        color: 'var(--text-primary)',
+                        fontSize: '0.75rem',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        fontWeight: 600
+                      }}
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+
+                  {/* Navigation Buttons */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      disabled={activePage === 1}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '6px',
+                        border: '1.5px solid var(--border)',
+                        backgroundColor: 'var(--background)',
+                        color: activePage === 1 ? 'var(--text-muted)' : 'var(--text-primary)',
+                        cursor: activePage === 1 ? 'not-allowed' : 'pointer',
+                        opacity: activePage === 1 ? 0.5 : 1,
+                        outline: 'none',
+                        transition: 'all 0.2s',
+                        fontWeight: 'bold'
+                      }}
+                      title="First Page"
+                    >
+                      «
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={activePage === 1}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '6px',
+                        border: '1.5px solid var(--border)',
+                        backgroundColor: 'var(--background)',
+                        color: activePage === 1 ? 'var(--text-muted)' : 'var(--text-primary)',
+                        cursor: activePage === 1 ? 'not-allowed' : 'pointer',
+                        opacity: activePage === 1 ? 0.5 : 1,
+                        outline: 'none',
+                        transition: 'all 0.2s',
+                        fontWeight: 'bold'
+                      }}
+                      title="Previous Page"
+                    >
+                      ‹
+                    </button>
+                    
+                    <span style={{ fontSize: '0.75rem', padding: '0 0.5rem', fontWeight: 650 }}>
+                      Page {activePage} of {totalPages}
+                    </span>
+
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={activePage === totalPages}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '6px',
+                        border: '1.5px solid var(--border)',
+                        backgroundColor: 'var(--background)',
+                        color: activePage === totalPages ? 'var(--text-muted)' : 'var(--text-primary)',
+                        cursor: activePage === totalPages ? 'not-allowed' : 'pointer',
+                        opacity: activePage === totalPages ? 0.5 : 1,
+                        outline: 'none',
+                        transition: 'all 0.2s',
+                        fontWeight: 'bold'
+                      }}
+                      title="Next Page"
+                    >
+                      ›
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={activePage === totalPages}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '6px',
+                        border: '1.5px solid var(--border)',
+                        backgroundColor: 'var(--background)',
+                        color: activePage === totalPages ? 'var(--text-muted)' : 'var(--text-primary)',
+                        cursor: activePage === totalPages ? 'not-allowed' : 'pointer',
+                        opacity: activePage === totalPages ? 0.5 : 1,
+                        outline: 'none',
+                        transition: 'all 0.2s',
+                        fontWeight: 'bold'
+                      }}
+                      title="Last Page"
+                    >
+                      »
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             </div>
-          )}
-        </>
-      )}
-    </div>
-  );
+          </>
+        )}
+      </>
+    )}
+  </div>
+);
 };
 
 /* =========================================================================
@@ -11296,7 +11966,7 @@ export const ProductWiseSheet: React.FC = () => {
 // DailyIssueDetailModal is deprecated in favor of unified ProductDetailView
 
 export const IssuesTable: React.FC = () => {
-  const { dailyIssues, addDailyIssue, deleteDailyIssue, statuses, setPreviewProductId, currentUser, confirm } = useDashboard();
+  const { dailyIssues, addDailyIssue, deleteDailyIssue, statuses, setPreviewProductId, currentUser, confirm, fetchPaginatedMeetingsData } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState('All');
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
@@ -11306,6 +11976,61 @@ export const IssuesTable: React.FC = () => {
   const [sortField, setSortField] = useState<keyof DailyIssue | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [paginatedIssues, setPaginatedIssues] = useState<DailyIssue[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isFetching, setIsFetching] = useState(false);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterPriority, filterSuperPriorityOnly, filterStatuses]);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setIsFetching(true);
+      const res = await fetchPaginatedMeetingsData({
+        type: 'dailyIssues',
+        page: currentPage,
+        limit: pageSize,
+        search: searchQuery,
+        superPriority: filterSuperPriorityOnly,
+        priority: filterPriority !== 'All' ? filterPriority : undefined,
+        statuses: filterStatuses,
+        sortField: sortField || undefined,
+        sortAsc: sortAsc
+      });
+      if (active) {
+        if (res.success) {
+          setPaginatedIssues(res.data);
+          setTotalItems(res.totalItems);
+          setTotalPages(res.totalPages);
+        }
+        setIsFetching(false);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [
+    currentPage,
+    pageSize,
+    searchQuery,
+    filterPriority,
+    filterSuperPriorityOnly,
+    filterStatuses,
+    sortField,
+    sortAsc,
+    fetchPaginatedMeetingsData
+  ]);
+
+  const activePage = Math.min(currentPage, totalPages);
+  const startIndex = totalItems === 0 ? 0 : (activePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+
   const handleSort = (field: keyof DailyIssue) => {
     if (sortField === field) {
       setSortAsc(!sortAsc);
@@ -11314,32 +12039,6 @@ export const IssuesTable: React.FC = () => {
       setSortAsc(true);
     }
   };
-
-  const filtered = dailyIssues.filter(item => {
-    const matchesSearch = 
-      (item.module || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.poc || item.contact || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.notes || item.issues || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.product || '').toLowerCase().includes(searchQuery.toLowerCase());
-      
-    const matchesPriority = filterPriority === 'All' || item.priority === filterPriority;
-    const matchesStatus = filterStatuses.length === 0 || filterStatuses.includes(item.status || '');
-    const matchesSuperPriority = !filterSuperPriorityOnly || !!item.raisedByTarunSir;
-    
-    return matchesSearch && matchesPriority && matchesStatus && matchesSuperPriority;
-  });
-
-  filtered.sort((a, b) => {
-    const aComp = !!a.finalReleaseCompleted;
-    const bComp = !!b.finalReleaseCompleted;
-    if (aComp !== bComp) return aComp ? 1 : -1;
-    if (sortField) {
-      const valA = String(a[sortField] || '').toLowerCase();
-      const valB = String(b[sortField] || '').toLowerCase();
-      return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-    }
-    return 0;
-  });
 
   const handleAddNew = () => {
     const newId = String(Math.max(...dailyIssues.map(i => parseInt(i.id) || 0), 0) + 1);
@@ -11400,7 +12099,6 @@ export const IssuesTable: React.FC = () => {
     );
   };
 
-
   const renderRow = (item: DailyIssue) => {
     return (
       <tr 
@@ -11417,6 +12115,11 @@ export const IssuesTable: React.FC = () => {
               <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
                 {item.module || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
               </span>
+              {item.priority && (
+                <span className={`badge badge-${item.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
+                  {item.priority}
+                </span>
+              )}
               {item.raisedByTarunSir && (
                 <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
                   <Star size={10} fill="currentColor" /> Super Priority
@@ -11432,11 +12135,6 @@ export const IssuesTable: React.FC = () => {
         </td>
         <td>
           {item.product || '—'}
-        </td>
-        <td>
-          {item.priority ? (
-            <span className={`badge badge-${item.priority.toLowerCase()}`}>{item.priority}</span>
-          ) : '—'}
         </td>
         <td style={{ fontWeight: 500 }}>{renderTextCell(item, 'poc', item.contact || '—')}</td>
         <td>
@@ -11538,47 +12236,181 @@ export const IssuesTable: React.FC = () => {
         </div>
       }
     >
-      <div className="table-responsive">
-        <table className="grid-table">
-          <thead>
-            <tr>
-              <th className="sticky-header-col" onClick={() => handleSort('module')} style={{ width: '280px', minWidth: '280px', maxWidth: '280px', cursor: 'pointer' }}>Feature {sortField === 'module' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('product')} style={{ cursor: 'pointer' }}>Product Group {sortField === 'product' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('priority')} style={{ cursor: 'pointer' }}>Priority {sortField === 'priority' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('poc')} style={{ cursor: 'pointer' }}>POC Owner {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('status')} style={{ cursor: 'pointer' }}>Status {sortField === 'status' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('clickupStatus')} style={{ cursor: 'pointer' }}>Clickup {sortField === 'clickupStatus' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('productDeadline')} style={{ cursor: 'pointer' }}>Prod {sortField === 'productDeadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('uiux')} style={{ cursor: 'pointer' }}>UIUX {sortField === 'uiux' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('deadline')} style={{ cursor: 'pointer' }}>Dev {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('finalRelease')} style={{ cursor: 'pointer' }}>Final {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th style={{ width: '40px' }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.filter(item => item.type !== 'Feature Gap' && item.type !== 'Enhancement').length === 0 ? (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0 }}>
+        <div className="table-responsive" style={{ flex: 1, overflow: 'auto' }}>
+          <table className="grid-table">
+            <thead>
               <tr>
-                <td colSpan={11} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                  No active issues logged.
-                </td>
+                <th className="sticky-header-col" onClick={() => handleSort('module')} style={{ width: '280px', minWidth: '280px', maxWidth: '280px', cursor: 'pointer' }}>Feature {sortField === 'module' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('product')} style={{ cursor: 'pointer' }}>Product Group {sortField === 'product' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('poc')} style={{ cursor: 'pointer' }}>POC Owner {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('status')} style={{ cursor: 'pointer' }}>Status {sortField === 'status' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('clickupStatus')} style={{ cursor: 'pointer' }}>Clickup {sortField === 'clickupStatus' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('productDeadline')} style={{ cursor: 'pointer' }}>Prod {sortField === 'productDeadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('uiux')} style={{ cursor: 'pointer' }}>UIUX {sortField === 'uiux' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('deadline')} style={{ cursor: 'pointer' }}>Dev {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('finalRelease')} style={{ cursor: 'pointer' }}>Final {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th style={{ width: '40px' }}></th>
               </tr>
-            ) : (
-              filtered.filter(item => item.type !== 'Feature Gap' && item.type !== 'Enhancement').map(item => renderRow(item))
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {isFetching ? (
+                Array.from({ length: Math.min(pageSize, 8) }).map((_, idx) => (
+                  <tr key={`skeleton-${idx}`} style={{ height: '56px' }}>
+                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '90%', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '90px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '80px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '20px', width: '80px', borderRadius: '12px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '60px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                    <td style={{ padding: '12px 16px' }}></td>
+                  </tr>
+                ))
+              ) : paginatedIssues.length === 0 ? (
+                <tr>
+                  <td colSpan={10} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                    No active issues logged.
+                  </td>
+                </tr>
+              ) : (
+                paginatedIssues.map(item => renderRow(item))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination Controls Footer - Always visible */}
+        <div style={{
+          zIndex: 10,
+          boxShadow: '0 -4px 12px rgba(0,0,0,0.05)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0.75rem 1.5rem',
+          backgroundColor: 'var(--panel-bg)',
+          borderBottomLeftRadius: '8px',
+          borderBottomRightRadius: '8px',
+          borderTop: '1px solid var(--border)',
+          flexShrink: 0
+        }}>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            Showing {totalItems === 0 ? 0 : startIndex + 1} to {endIndex} of {totalItems} entries
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              <span>Per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="form-control"
+                style={{
+                  padding: '2px 6px',
+                  fontSize: '0.8rem',
+                  borderRadius: '4px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--background)',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={activePage === 1 || totalItems === 0}
+                style={{ padding: '2px 8px', fontSize: '0.75rem', opacity: (activePage === 1 || totalItems === 0) ? 0.5 : 1, cursor: (activePage === 1 || totalItems === 0) ? 'not-allowed' : 'pointer' }}
+              >
+                Previous
+              </button>
+              <span style={{ minWidth: '45px', textAlign: 'center' }}>
+                Page {activePage} of {totalPages}
+              </span>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={activePage === totalPages || totalItems === 0}
+                style={{ padding: '2px 8px', fontSize: '0.75rem', opacity: (activePage === totalPages || totalItems === 0) ? 0.5 : 1, cursor: (activePage === totalPages || totalItems === 0) ? 'not-allowed' : 'pointer' }}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </TabContainer>
   );
 };
 
-
 export const FeatureRequestsTable: React.FC = () => {
-  const { dailyIssues, deleteDailyIssue, statuses, setPreviewProductId, confirm, comments, lastOpenedMap } = useDashboard();
+  const { dailyIssues, deleteDailyIssue, statuses, setPreviewProductId, confirm, comments, lastOpenedMap, fetchPaginatedMeetingsData } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterProduct, setFilterProduct] = useState('All');
   const [sortField, setSortField] = useState<keyof DailyIssue | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [paginatedRequests, setPaginatedRequests] = useState<DailyIssue[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isFetching, setIsFetching] = useState(false);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterProduct]);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      setIsFetching(true);
+      const res = await fetchPaginatedMeetingsData({
+        type: 'featureRequests',
+        page: currentPage,
+        limit: pageSize,
+        search: searchQuery,
+        product: filterProduct !== 'All' ? filterProduct : undefined,
+        sortField: sortField || undefined,
+        sortAsc: sortAsc
+      });
+      if (active) {
+        if (res.success) {
+          setPaginatedRequests(res.data);
+          setTotalItems(res.totalItems);
+          setTotalPages(res.totalPages);
+        }
+        setIsFetching(false);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [
+    currentPage,
+    pageSize,
+    searchQuery,
+    filterProduct,
+    sortField,
+    sortAsc,
+    fetchPaginatedMeetingsData
+  ]);
+
+  const activePage = Math.min(currentPage, totalPages);
+  const startIndex = totalItems === 0 ? 0 : (activePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
 
   const handleSort = (field: keyof DailyIssue) => {
     if (sortField === field) {
@@ -11590,30 +12422,6 @@ export const FeatureRequestsTable: React.FC = () => {
   };
 
   const allProducts = Array.from(new Set(dailyIssues.map(i => i.product).filter(Boolean)));
-
-  const filtered = dailyIssues.filter(item =>
-    item.type === 'Feature Gap' || item.type === 'Enhancement'
-  ).filter(item => {
-    const matchSearch =
-      (item.module || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.issues || item.notes || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.product || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.poc || item.contact || '').toLowerCase().includes(searchQuery.toLowerCase());
-    const matchProduct = filterProduct === 'All' || item.product === filterProduct;
-    return matchSearch && matchProduct;
-  });
-
-  filtered.sort((a, b) => {
-    const aComp = !!a.finalReleaseCompleted;
-    const bComp = !!b.finalReleaseCompleted;
-    if (aComp !== bComp) return aComp ? 1 : -1;
-    if (sortField) {
-      const valA = String(a[sortField] || '').toLowerCase();
-      const valB = String(b[sortField] || '').toLowerCase();
-      return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-    }
-    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
-  });
 
   const renderDateCell = (item: DailyIssue, field: keyof DailyIssue, previousField?: keyof DailyIssue) => {
     const value = String(item[field] || '');
@@ -11643,157 +12451,244 @@ export const FeatureRequestsTable: React.FC = () => {
         </div>
       }
     >
-      <div className="table-responsive">
-        <table className="grid-table">
-          <thead>
-            <tr>
-              <th className="sticky-header-col" onClick={() => handleSort('module')} style={{ width: '320px', minWidth: '320px', maxWidth: '320px', cursor: 'pointer' }}>Feature {sortField === 'module' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('cohort')} style={{ width: '120px', cursor: 'pointer' }}>Program {sortField === 'cohort' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('priority')} style={{ width: '80px', cursor: 'pointer' }}>Priority {sortField === 'priority' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('poc')} style={{ width: '120px', cursor: 'pointer' }}>Raised By {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th style={{ width: '120px' }}>POC Owner</th>
-              <th onClick={() => handleSort('status')} style={{ width: '120px', cursor: 'pointer' }}>Status {sortField === 'status' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('clickupStatus')} style={{ width: '100px', cursor: 'pointer' }}>Clickup {sortField === 'clickupStatus' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('productDeadline')} style={{ width: '120px', cursor: 'pointer' }}>Specs Date {sortField === 'productDeadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('uiux')} style={{ width: '120px', cursor: 'pointer' }}>UI/UX Date {sortField === 'uiux' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('deadline')} style={{ width: '120px', cursor: 'pointer' }}>Dev Date {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th onClick={() => handleSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>Release Date {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}</th>
-              <th style={{ width: '40px' }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0 }}>
+        <div className="table-responsive" style={{ flex: 1, overflow: 'auto' }}>
+          <table className="grid-table">
+            <thead>
               <tr>
-                <td colSpan={12} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                  No feature requests yet. Requests submitted via the public calendar will appear here.
-                </td>
+                <th className="sticky-header-col" onClick={() => handleSort('module')} style={{ width: '320px', minWidth: '320px', maxWidth: '320px', cursor: 'pointer' }}>Feature {sortField === 'module' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('cohort')} style={{ width: '120px', cursor: 'pointer' }}>Program {sortField === 'cohort' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('poc')} style={{ width: '120px', cursor: 'pointer' }}>Raised By {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th style={{ width: '120px' }}>POC Owner</th>
+                <th onClick={() => handleSort('status')} style={{ width: '120px', cursor: 'pointer' }}>Status {sortField === 'status' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('clickupStatus')} style={{ width: '100px', cursor: 'pointer' }}>Clickup {sortField === 'clickupStatus' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('productDeadline')} style={{ width: '120px', cursor: 'pointer' }}>Specs Date {sortField === 'productDeadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('uiux')} style={{ width: '120px', cursor: 'pointer' }}>UI/UX Date {sortField === 'uiux' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('deadline')} style={{ width: '120px', cursor: 'pointer' }}>Dev Date {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>Release Date {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th style={{ width: '40px' }}></th>
               </tr>
-            ) : (
-              filtered.map(item => {
-                const statusMatch = statuses.find(s => s.label === item.status);
-                const itemComments = comments.filter((c: any) => c.itemId === item.id);
-                const lastOpened = lastOpenedMap[item.id];
-                const unreadCount = itemComments.filter((c: any) => {
-                  if (!lastOpened) return true;
-                  return new Date(c.createdAt).getTime() > lastOpened;
-                }).length;
-
-                return (
-                  <tr key={item.id} onClick={() => setPreviewProductId(item.id)} style={{ cursor: 'pointer' }}>
-                    <td className="sticky-col" style={{ fontWeight: 600, width: '320px', minWidth: '320px', maxWidth: '320px', whiteSpace: 'normal' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          {item.product || 'No Product Group'}
-                        </span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', lineHeight: '1.3' }}>
-                          <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                            {item.module || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
-                          </span>
-                          {unreadCount > 0 && (
-                            <span 
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '3px',
-                                backgroundColor: 'var(--danger-bg, rgba(239, 68, 68, 0.12))',
-                                border: '1px solid rgba(239, 68, 68, 0.3)',
-                                color: 'var(--danger, #ef4444)',
-                                fontSize: '0.65rem',
-                                fontWeight: 800,
-                                padding: '2px 6px',
-                                borderRadius: '8px',
-                                lineHeight: 1,
-                                flexShrink: 0
-                              }}
-                              title={`${unreadCount} unread comments`}
-                            >
-                              <MessageSquare size={10} fill="var(--danger, #ef4444)" />
-                              {unreadCount}
-                            </span>
-                          )}
-                        </div>
-                        <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)', background: 'var(--bg-secondary)', padding: '1px 6px', borderRadius: '4px', alignSelf: 'flex-start', marginTop: '2px' }}>
-                          {item.type === 'Feature Gap' ? '✦ Feature Gap' : '✦ Enhancement'}
-                        </span>
-                      </div>
-                    </td>
-                    <td>{item.cohort || '—'}</td>
-                    <td>
-                      {item.priority ? (
-                        <span className={`badge badge-${item.priority.toLowerCase()}`}>{item.priority}</span>
-                      ) : '—'}
-                    </td>
-                    <td>
-                      {(item.contact || item.poc) ? (
-                        <span style={getPOCBadgeStyle(item.contact || item.poc || '')}>
-                          {item.contact || item.poc}
-                        </span>
-                      ) : '—'}
-                    </td>
-                    <td>
-                      {item.poc ? (
-                        <span style={getPOCBadgeStyle(item.poc)}>
-                          {item.poc}
-                        </span>
-                      ) : '—'}
-                    </td>
-                    <td>
-                      {item.status ? (
-                        statusMatch ? (
-                          <span className="badge" style={{
-                            backgroundColor: `${statusMatch.color}14`,
-                            color: statusMatch.color,
-                            borderColor: `${statusMatch.color}33`,
-                            borderStyle: 'solid',
-                            borderWidth: '1px'
-                          }}>{item.status}</span>
-                        ) : (
-                          <span className={`badge ${
-                            item.status === 'On Hold' ? 'status-hold' :
-                            item.status === 'In Progress' ? 'status-progress' :
-                            item.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
-                          }`}>{item.status}</span>
-                        )
-                      ) : <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Pending Review</span>}
-                    </td>
-                    <td>
-                      {item.clickupStatus ? (
-                        <span style={getClickupBadgeStyle(item.clickupStatus)}>
-                          {item.clickupStatus}
-                        </span>
-                      ) : '—'}
-                    </td>
-                    <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      {renderDateCell(item, 'productDeadline')}
-                    </td>
-                    <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                      {renderDateCell(item, 'uiux', 'productDeadline')}
-                    </td>
-                    <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                      {renderDateCell(item, 'deadline', 'uiux')}
-                    </td>
-                    <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                      {renderDateCell(item, 'finalRelease', 'deadline')}
-                    </td>
-                    <td>
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          if (await confirm('Delete this feature request?', 'Delete Request')) {
-                            deleteDailyIssue(item.id);
-                          }
-                        }}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
+            </thead>
+            <tbody>
+              {isFetching ? (
+                Array.from({ length: Math.min(pageSize, 8) }).map((_, idx) => (
+                  <tr key={`skeleton-${idx}`} style={{ height: '56px' }}>
+                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '90%', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '80px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '80px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '80px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '20px', width: '80px', borderRadius: '12px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '60px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
+                    <td style={{ padding: '12px 16px' }}></td>
                   </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                ))
+              ) : paginatedRequests.length === 0 ? (
+                <tr>
+                  <td colSpan={11} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                    No feature requests yet. Requests submitted via the public calendar will appear here.
+                  </td>
+                </tr>
+              ) : (
+                paginatedRequests.map(item => {
+                  const statusMatch = statuses.find(s => s.label === item.status);
+                  const itemComments = comments.filter((c: any) => c.itemId === item.id);
+                  const lastOpened = lastOpenedMap[item.id];
+                  const unreadCount = itemComments.filter((c: any) => {
+                    if (!lastOpened) return true;
+                    return new Date(c.createdAt).getTime() > lastOpened;
+                  }).length;
+
+                  return (
+                    <tr key={item.id} onClick={() => setPreviewProductId(item.id)} style={{ cursor: 'pointer' }}>
+                      <td className="sticky-col" style={{ fontWeight: 600, width: '320px', minWidth: '320px', maxWidth: '320px', whiteSpace: 'normal' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {item.product || 'No Product Group'}
+                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', lineHeight: '1.3' }}>
+                            <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                              {item.module || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
+                            </span>
+                            {unreadCount > 0 && (
+                              <span 
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  backgroundColor: 'var(--danger-bg, rgba(239, 68, 68, 0.12))',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  color: 'var(--danger, #ef4444)',
+                                  fontSize: '0.65rem',
+                                  fontWeight: 800,
+                                  padding: '2px 6px',
+                                  borderRadius: '8px',
+                                  lineHeight: 1,
+                                  flexShrink: 0
+                                }}
+                                title={`${unreadCount} unread comments`}
+                              >
+                                <MessageSquare size={10} fill="var(--danger, #ef4444)" />
+                                {unreadCount}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+                            {item.priority && (
+                              <span className={`badge badge-${item.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
+                                {item.priority}
+                              </span>
+                            )}
+                            <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)', background: 'var(--bg-secondary)', padding: '1px 6px', borderRadius: '4px', alignSelf: 'flex-start' }}>
+                              {item.type === 'Feature Gap' ? '✦ Feature Gap' : '✦ Enhancement'}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>{item.cohort || '—'}</td>
+                      <td>
+                        {(item.contact || item.poc) ? (
+                          <span style={getPOCBadgeStyle(item.contact || item.poc || '')}>
+                            {item.contact || item.poc}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td>
+                        {item.poc ? (
+                          <span style={getPOCBadgeStyle(item.poc)}>
+                            {item.poc}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td>
+                        {item.status ? (
+                          statusMatch ? (
+                            <span className="badge" style={{
+                              backgroundColor: `${statusMatch.color}14`,
+                              color: statusMatch.color,
+                              borderColor: `${statusMatch.color}33`,
+                              borderStyle: 'solid',
+                              borderWidth: '1px'
+                            }}>{item.status}</span>
+                          ) : (
+                            <span className={`badge ${
+                              item.status === 'On Hold' ? 'status-hold' :
+                              item.status === 'In Progress' ? 'status-progress' :
+                              item.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
+                            }`}>{item.status}</span>
+                          )
+                        ) : <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Pending Review</span>}
+                      </td>
+                      <td>
+                        {item.clickupStatus ? (
+                          <span style={getClickupBadgeStyle(item.clickupStatus)}>
+                            {item.clickupStatus}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        {renderDateCell(item, 'productDeadline')}
+                      </td>
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                        {renderDateCell(item, 'uiux', 'productDeadline')}
+                      </td>
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                        {renderDateCell(item, 'deadline', 'uiux')}
+                      </td>
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                        {renderDateCell(item, 'finalRelease', 'deadline')}
+                      </td>
+                      <td>
+                        <button 
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (await confirm("Are you sure you want to delete this feature request?", "Delete Feature Request")) {
+                              deleteDailyIssue(item.id);
+                            }
+                          }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination Controls Footer - Always visible */}
+        <div style={{
+          zIndex: 10,
+          boxShadow: '0 -4px 12px rgba(0,0,0,0.05)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0.75rem 1.5rem',
+          backgroundColor: 'var(--panel-bg)',
+          borderBottomLeftRadius: '8px',
+          borderBottomRightRadius: '8px',
+          borderTop: '1px solid var(--border)',
+          flexShrink: 0
+        }}>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            Showing {totalItems === 0 ? 0 : startIndex + 1} to {endIndex} of {totalItems} entries
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              <span>Per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="form-control"
+                style={{
+                  padding: '2px 6px',
+                  fontSize: '0.8rem',
+                  borderRadius: '4px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--background)',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={activePage === 1 || totalItems === 0}
+                style={{ padding: '2px 8px', fontSize: '0.75rem', opacity: (activePage === 1 || totalItems === 0) ? 0.5 : 1, cursor: (activePage === 1 || totalItems === 0) ? 'not-allowed' : 'pointer' }}
+              >
+                Previous
+              </button>
+              <span style={{ minWidth: '45px', textAlign: 'center' }}>
+                Page {activePage} of {totalPages}
+              </span>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={activePage === totalPages || totalItems === 0}
+                style={{ padding: '2px 8px', fontSize: '0.75rem', opacity: (activePage === totalPages || totalItems === 0) ? 0.5 : 1, cursor: (activePage === totalPages || totalItems === 0) ? 'not-allowed' : 'pointer' }}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </TabContainer>
   );
