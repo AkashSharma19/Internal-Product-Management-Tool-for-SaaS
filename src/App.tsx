@@ -589,7 +589,6 @@ const DashboardContent: React.FC = () => {
     previewProductId,
     setPreviewProductId,
     productItems,
-    planItems,
     studentProjects,
     studentMeetings,
     adminCalls,

@@ -3607,7 +3607,7 @@ export const PlanTable: React.FC = () => {
   const {
     planItems, updatePlanItem, addPlanItem, deletePlanItem,
     productItems, studentProjects, contentItems, studentMeetings,
-    dailyIssues, setPreviewProductId,
+    dailyIssues,
     openPreviewForFeature, canUserEdit, confirm, comments, lastOpenedMap,
     isLoadingSprint, fetchSprintData
   } = useDashboard();
@@ -6395,7 +6395,11 @@ export const StudentMeetingsTable: React.FC = () => {
               </tbody>
             </table>
             {/* Pagination Controls */}
-            {totalItems > 0 && (
+            {(() => {
+              const activePage = Math.min(currentPage, totalPages);
+              const startIndex = totalItems === 0 ? -1 : (activePage - 1) * pageSize;
+              const endIndex = Math.min(startIndex + pageSize, totalItems);
+              return totalItems > 0 && (
               <div style={{
                 position: 'sticky',
                 bottom: 0,
@@ -6471,7 +6475,8 @@ export const StudentMeetingsTable: React.FC = () => {
                   </div>
                 </div>
               </div>
-            )}
+            );
+            })()}
           </div>
         ) : (
           <div className="table-responsive" style={{ display: 'flex', flexDirection: 'column' }}>

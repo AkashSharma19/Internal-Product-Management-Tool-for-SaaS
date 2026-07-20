@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import { TabContainer } from './TabContainer';
-import { Video, PhoneCall, Crown, ExternalLink, ChevronLeft, ChevronRight, Star, RefreshCw } from 'lucide-react';
+import { Video, PhoneCall, Crown, ExternalLink, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 const isSameStatus = (s1: string | undefined, s2: string | undefined) => {
   if (!s1 || !s2) return false;
   return s1.toLowerCase().trim() === s2.toLowerCase().trim();
