@@ -1585,7 +1585,10 @@ export default async function handler(req: any, res: any) {
           const sortField = url.searchParams.get('sortField') || '';
           const sortAsc = url.searchParams.get('sortAsc') !== 'false';
 
+          console.log(`[API LOG] paginated-meetings-data: type=${type}, page=${page}, limit=${limit}, search="${search}", statuses="${statusesParam}", programs="${programsParam}", pocs="${pocsParam}"`);
+
           if (!type || !['amaSessions', 'adminCalls', 'tarunSirMeetings', 'amaFeedback', 'adminFeedback', 'tarunFeedback', 'dailyIssues', 'featureRequests'].includes(type)) {
+            console.log(`[API LOG] Invalid type requested: ${type}`);
             return res.status(400).json({ success: false, error: 'Invalid meeting type' });
           }
 
@@ -1860,6 +1863,8 @@ export default async function handler(req: any, res: any) {
             const paginatedData = sorted.slice(startIndex, startIndex + limit);
             const completedItems = sorted.filter((item: any) => !!item.finalReleaseCompleted).length;
 
+            console.log(`[API LOG] feedback: type=${type}, matched=${totalItems}, returned=${paginatedData.length}, activePage=${activePage}`);
+
             return res.status(200).json({
               success: true,
               data: paginatedData,
@@ -1976,6 +1981,8 @@ export default async function handler(req: any, res: any) {
           const activePage = Math.min(page, totalPages);
           const startIndex = totalItems === 0 ? 0 : (activePage - 1) * limit;
           const paginated = sorted.slice(startIndex, startIndex + limit);
+
+          console.log(`[API LOG] meetings/calls: type=${type}, matched=${totalItems}, returned=${paginated.length}, activePage=${activePage}`);
 
           return res.status(200).json({
             success: true,

@@ -6,8 +6,8 @@ async function run() {
   try {
     await mongoose.connect(MONGODB_URI);
     const db = mongoose.connection.db;
-    const speaker = await db.collection('configspeakers').findOne({});
-    console.log("Speaker ID:", speaker.id);
+    const speakers = await db.collection('configspeakers').find({}).toArray();
+    console.log("Speakers:", speakers.map(s => ({ id: s.id, name: s.name, email: s.email })));
   } catch (err) {
     console.error("Error:", err);
   } finally {
