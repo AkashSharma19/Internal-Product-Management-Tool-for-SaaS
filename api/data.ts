@@ -82,7 +82,7 @@ export default async function handler(req: any, res: any) {
       const action = url.searchParams.get('action');
 
       if (action) {
-        if (!isAuthenticated && !(isPublicCalendar && action === 'calendar-events')) {
+        if (!isAuthenticated && action !== 'init' && !(isPublicCalendar && action === 'calendar-events')) {
           return res.status(401).json({ success: false, error: 'Unauthorized action request.' });
         }
 
