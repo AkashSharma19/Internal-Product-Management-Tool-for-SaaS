@@ -205,7 +205,7 @@ export default async function handler(req: any, res: any) {
         // --- Action Routers ---
         if (action === 'init') {
           const results: Record<string, any[]> = {};
-          const allowedKeys = ['settings', 'speakers', 'statuses', 'productGroups', 'programs', 'cohorts', 'formConfigs'];
+          const allowedKeys = ['settings', 'speakers', 'statuses', 'productGroups', 'programs', 'cohorts', 'formConfigs', 'products'];
           for (const key of allowedKeys) {
             if (key === 'speakers') {
               const rawSpeakers = await modelsMap[key].find({}).lean();
@@ -223,7 +223,12 @@ export default async function handler(req: any, res: any) {
                 return s;
               });
             } else {
-              results[key] = await modelsMap[key].find({}).lean();
+              const rawItems = await modelsMap[key].find({}).lean();
+              if (key === 'products') {
+                results[key] = rawItems.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+              } else {
+                results[key] = rawItems;
+              }
             }
           }
           return res.status(200).json({ success: true, data: results });
