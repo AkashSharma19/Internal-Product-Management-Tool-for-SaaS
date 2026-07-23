@@ -208,7 +208,7 @@ interface DashboardContextType {
     pocs?: string[];
     sortField?: string;
     sortAsc?: boolean;
-  }) => Promise<{ success: boolean; data: any[]; totalItems: number; totalPages: number; productCounts?: Record<string, number> }>;
+  }) => Promise<{ success: boolean; data: any[]; totalItems: number; totalPages: number; productCounts?: Record<string, number>; completedItems?: number }>;
   fetchPaginatedMeetingsData: (options: {
     type: 'amaSessions' | 'adminCalls' | 'tarunSirMeetings' | 'amaFeedback' | 'adminFeedback' | 'tarunFeedback' | 'dailyIssues' | 'featureRequests';
     page: number;
@@ -222,7 +222,7 @@ interface DashboardContextType {
     pocs?: string[];
     sortField?: string;
     sortAsc?: boolean;
-  }) => Promise<{ success: boolean; data: any[]; totalItems: number; totalPages: number }>;
+  }) => Promise<{ success: boolean; data: any[]; totalItems: number; totalPages: number; completedItems?: number }>;
   loadedTabs: string[];
 }
 
