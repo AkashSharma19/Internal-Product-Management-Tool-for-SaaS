@@ -235,7 +235,7 @@ export default async function handler(req: any, res: any) {
           const customEndDate = url.searchParams.get('endDate') || '';
           const statusType = url.searchParams.get('statusType') || 'my';
 
-          const [products, projects, content, issues, meetings, speakers, productGroups, configStatuses, amaSessions, adminCalls, tarunSirMeetings, formConfigs, feedbackSubmissions] = await Promise.all([
+          const [productsRaw, projectsRaw, contentRaw, issuesRaw, meetingsRaw, speakers, productGroups, configStatuses, amaSessionsRaw, adminCallsRaw, tarunSirMeetingsRaw, formConfigs, feedbackSubmissions] = await Promise.all([
             ProductItemModel.find({}, 'id poc product status clickupStatus taskLink deadline productDeadline finalRelease notes').lean(),
             StudentProjectModel.find({}, 'id poc product status clickupStatus taskLink deadline productDeadline completeInfoDate title thingsWeBuild').lean(),
             ContentItemModel.find({}, 'id poc product status clickupStatus draftLink deadline productDeadline publishDate module subject type').lean(),
@@ -250,6 +250,15 @@ export default async function handler(req: any, res: any) {
             FeedbackFormConfigModel.find({}).lean(),
             FeedbackSubmissionModel.find({}).lean()
           ]);
+
+          const products = productsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+          const projects = projectsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+          const content = contentRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+          const issues = issuesRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+          const meetings = meetingsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+          const amaSessions = amaSessionsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+          const adminCalls = adminCallsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+          const tarunSirMeetings = tarunSirMeetingsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
 
           const mainProductTasks = products
             .filter((item: any) => {
@@ -824,7 +833,7 @@ export default async function handler(req: any, res: any) {
           const year = parseInt(url.searchParams.get('year') || '2026');
           const month = parseInt(url.searchParams.get('month') || '6');
 
-          const [products, projects, amaSessions, meetings, adminCalls, tarunSirMeetings, content, issues] = await Promise.all([
+          const [productsRaw, projectsRaw, amaSessionsRaw, meetingsRaw, adminCallsRaw, tarunSirMeetingsRaw, contentRaw, issuesRaw] = await Promise.all([
             ProductItemModel.find({}).lean(),
             StudentProjectModel.find({}).lean(),
             AMASessionModel.find({}).lean(),
@@ -834,6 +843,15 @@ export default async function handler(req: any, res: any) {
             ContentItemModel.find({}).lean(),
             DailyIssueModel.find({}).lean()
           ]);
+
+          const products = productsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+          const projects = projectsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+          const amaSessions = amaSessionsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+          const meetings = meetingsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+          const adminCalls = adminCallsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+          const tarunSirMeetings = tarunSirMeetingsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+          const content = contentRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+          const issues = issuesRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
 
           const list: any[] = [];
           const parseDateToYYYYMMDD = (dateStr: string | undefined): string => {
@@ -1164,15 +1182,17 @@ export default async function handler(req: any, res: any) {
           const studentMeetings = await modelsMap['studentMeetings'].find(dbProductFilter).lean();
           const dailyIssues = await modelsMap['dailyIssues'].find(dbProductFilter).lean();
 
-          const [amaSessions, adminCalls, tarunSirMeetings] = await Promise.all([
+          const [amaSessionsRaw, adminCallsRaw, tarunSirMeetingsRaw] = await Promise.all([
             modelsMap['amaSessions'].find({}, 'id').lean(),
             modelsMap['adminCalls'].find({}, 'id').lean(),
             modelsMap['tarunSirMeetings'].find({}, 'id').lean()
           ]);
 
+          const amaSessions = amaSessionsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+          const adminCalls = adminCallsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+          const tarunIds = new Set(tarunSirMeetingsRaw.map((call: any) => call.id || String(call._id)));
           const amaIds = new Set(amaSessions.map((ama: any) => ama.id));
           const callIds = new Set(adminCalls.map((call: any) => call.id));
-          const tarunIds = new Set(tarunSirMeetings.map((call: any) => call.id));
 
           const isCompletedStatusLocal = (status: string | undefined): boolean => {
             const s = (status || '').toLowerCase();
@@ -1466,13 +1486,19 @@ export default async function handler(req: any, res: any) {
               counts[name] = (counts[name] || 0) + 1;
             };
 
-            const [products, projects, content, meetings, issues] = await Promise.all([
+            const [productsRaw, projectsRaw, contentRaw, meetingsRaw, issuesRaw] = await Promise.all([
               modelsMap['products'].find({}, 'id product notes').lean(),
               modelsMap['projects'].find({}, 'product').lean(),
               modelsMap['contentItems'].find({}, 'product').lean(),
               modelsMap['studentMeetings'].find({}, 'product').lean(),
               modelsMap['dailyIssues'].find({}, 'product').lean()
             ]);
+
+            const products = productsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+            const projects = projectsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+            const content = contentRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+            const meetings = meetingsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+            const issues = issuesRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
 
             for (const item of products) {
               if (item.id.startsWith('prod-temp-')) continue;
@@ -1673,15 +1699,17 @@ export default async function handler(req: any, res: any) {
           }
 
           if (['amaFeedback', 'adminFeedback', 'tarunFeedback'].includes(type)) {
-            const products = await modelsMap['products'].find({}).lean();
-            let parentMeetings: any[] = [];
+            const productsRaw = await modelsMap['products'].find({}).lean();
+            const products = productsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+            let parentMeetingsRaw: any[] = [];
             if (type === 'amaFeedback') {
-              parentMeetings = await modelsMap['amaSessions'].find({}).lean();
+              parentMeetingsRaw = await modelsMap['amaSessions'].find({}).lean();
             } else if (type === 'adminFeedback') {
-              parentMeetings = await modelsMap['adminCalls'].find({}).lean();
+              parentMeetingsRaw = await modelsMap['adminCalls'].find({}).lean();
             } else if (type === 'tarunFeedback') {
-              parentMeetings = await modelsMap['tarunSirMeetings'].find({}).lean();
+              parentMeetingsRaw = await modelsMap['tarunSirMeetings'].find({}).lean();
             }
+            const parentMeetings = parentMeetingsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
 
             const getParent = (item: any) => {
               const notes = item.notes || '';
@@ -1838,17 +1866,19 @@ export default async function handler(req: any, res: any) {
           }
 
           // 1. Fetch the raw items for this model
-          let items: any[] = [];
+          let itemsRaw: any[] = [];
           if (type === 'amaSessions') {
-            items = await modelsMap['amaSessions'].find({}).lean();
+            itemsRaw = await modelsMap['amaSessions'].find({}).lean();
           } else if (type === 'adminCalls') {
-            items = await modelsMap['adminCalls'].find({}).lean();
+            itemsRaw = await modelsMap['adminCalls'].find({}).lean();
           } else if (type === 'tarunSirMeetings') {
-            items = await modelsMap['tarunSirMeetings'].find({}).lean();
+            itemsRaw = await modelsMap['tarunSirMeetings'].find({}).lean();
           }
+          const items = itemsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
 
           // 2. Fetch all products (to check related items for POC / Super Priority filters)
-          const products = await modelsMap['products'].find({}, 'id notes poc raisedByTarunSir').lean();
+          const productsRaw = await modelsMap['products'].find({}, 'id notes poc raisedByTarunSir').lean();
+          const products = productsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
 
           // Helper to get related features
           const getRelatedFeatures = (meetingId: string) => {
