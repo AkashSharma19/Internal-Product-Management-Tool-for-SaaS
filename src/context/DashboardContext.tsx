@@ -1310,8 +1310,13 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       );
 
       if (relatedTasks.length > 0) {
-        const allReleased = relatedTasks.every(task => !!task.finalReleaseCompleted);
-        const targetStatus = allReleased ? 'Completed' : 'Pending Actions';
+        const allDone = relatedTasks.every(task => {
+          if (task.finalReleaseCompleted) return true;
+          if (!task.status) return false;
+          const s = task.status.toLowerCase();
+          return s === 'delivered' || s === 'completed' || s === 'done' || s === 'closed';
+        });
+        const targetStatus = allDone ? 'Completed' : 'Pending Actions';
 
         if (call.status !== targetStatus) {
           changed = true;
@@ -1327,6 +1332,78 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setAdminCalls(updatedCalls);
     }
   }, [productItems, adminCalls, isLoading]);
+
+  // Auto-sync AMA Session status based on related tasks
+  useEffect(() => {
+    if (isLoading) return;
+
+    let changed = false;
+    const updatedSessions = amaSessions.map(session => {
+      const relatedTasks = productItems.filter(item => 
+        !item.id.startsWith('prod-temp-') && 
+        item.notes && 
+        item.notes.includes(`AMA Session ID: ${session.id}`)
+      );
+
+      if (relatedTasks.length > 0) {
+        const allDone = relatedTasks.every(task => {
+          if (task.finalReleaseCompleted) return true;
+          if (!task.status) return false;
+          const s = task.status.toLowerCase();
+          return s === 'delivered' || s === 'completed' || s === 'done' || s === 'closed';
+        });
+        const targetStatus = allDone ? 'Completed' : 'Pending Actions';
+
+        if (session.status !== targetStatus) {
+          changed = true;
+          const updatedSession = { ...session, status: targetStatus as any };
+          persistChange('update', 'amaSessions', session.id, updatedSession);
+          return updatedSession;
+        }
+      }
+      return session;
+    });
+
+    if (changed) {
+      setAMASessions(updatedSessions);
+    }
+  }, [productItems, amaSessions, isLoading]);
+
+  // Auto-sync Tarun Sir Meeting status based on related tasks
+  useEffect(() => {
+    if (isLoading) return;
+
+    let changed = false;
+    const updatedMeetings = tarunSirMeetings.map(meeting => {
+      const relatedTasks = productItems.filter(item => 
+        !item.id.startsWith('prod-temp-') && 
+        item.notes && 
+        item.notes.includes(`Tarun Sir Meeting ID: ${meeting.id}`)
+      );
+
+      if (relatedTasks.length > 0) {
+        const allDone = relatedTasks.every(task => {
+          if (task.finalReleaseCompleted) return true;
+          if (!task.status) return false;
+          const s = task.status.toLowerCase();
+          return s === 'delivered' || s === 'completed' || s === 'done' || s === 'closed';
+        });
+        const targetStatus = allDone ? 'Completed' : 'Pending Actions';
+
+        if (meeting.status !== targetStatus) {
+          changed = true;
+          const updatedMeeting = { ...meeting, status: targetStatus as any };
+          persistChange('update', 'tarunSirMeetings', meeting.id, updatedMeeting);
+          return updatedMeeting;
+        }
+      }
+      return meeting;
+    });
+
+    if (changed) {
+      setTarunSirMeetings(updatedMeetings);
+    }
+  }, [productItems, tarunSirMeetings, isLoading]);
 
 
 
