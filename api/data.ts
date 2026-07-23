@@ -205,7 +205,7 @@ export default async function handler(req: any, res: any) {
         // --- Action Routers ---
         if (action === 'init') {
           const results: Record<string, any[]> = {};
-          const allowedKeys = ['settings', 'speakers', 'statuses', 'productGroups', 'programs', 'cohorts', 'formConfigs', 'products'];
+          const allowedKeys = ['settings', 'speakers', 'statuses', 'productGroups', 'programs', 'cohorts', 'formConfigs', 'products', 'feedbackSubmissions', 'comments'];
           for (const key of allowedKeys) {
             if (key === 'speakers') {
               const rawSpeakers = await modelsMap[key].find({}).lean();
