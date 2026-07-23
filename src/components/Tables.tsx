@@ -2459,9 +2459,9 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
               >
                 {item.deadline ? formatDateToShortPattern(item.deadline) : 'Set Date'}
               </span>
-              {item.deadline && getDateDiffDays(item.uiux, item.deadline) && (
-                <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', backgroundColor: 'var(--primary-glow)', color: 'var(--primary)', fontWeight: 600 }} title="Days since UI/UX Date">
-                  {getDateDiffDays(item.uiux, item.deadline)}
+              {item.deadline && (item.uiux || item.productDeadline) && getDateDiffDays(item.uiux || item.productDeadline, item.deadline) && (
+                <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', backgroundColor: 'var(--primary-glow)', color: 'var(--primary)', fontWeight: 600 }} title={item.uiux ? "Days since UI/UX Date" : "Days since Specs Date"}>
+                  {getDateDiffDays(item.uiux || item.productDeadline, item.deadline)}
                 </span>
               )}
               {isEditingDevDate && (
@@ -2495,9 +2495,9 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
               >
                 {item.finalRelease ? formatDateToShortPattern(item.finalRelease) : 'Set Date'}
               </span>
-              {item.finalRelease && getDateDiffDays(item.deadline, item.finalRelease) && (
-                <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', backgroundColor: 'var(--primary-glow)', color: 'var(--primary)', fontWeight: 600 }} title="Days since Dev Date">
-                  {getDateDiffDays(item.deadline, item.finalRelease)}
+              {item.finalRelease && (item.deadline || item.uiux || item.productDeadline) && getDateDiffDays(item.deadline || item.uiux || item.productDeadline, item.finalRelease) && (
+                <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', backgroundColor: 'var(--primary-glow)', color: 'var(--primary)', fontWeight: 600 }} title={item.deadline ? "Days since Dev Date" : item.uiux ? "Days since UI/UX Date" : "Days since Specs Date"}>
+                  {getDateDiffDays(item.deadline || item.uiux || item.productDeadline, item.finalRelease)}
                 </span>
               )}
               {isEditingReleaseDate && (
@@ -4768,7 +4768,16 @@ export const StudentProjectsTable: React.FC = () => {
                 <th onClick={() => handleSort('productDeadline')} style={{ width: '120px', cursor: 'pointer' }}>Specs Date {sortField === 'productDeadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('uiux')} style={{ width: '120px', cursor: 'pointer' }}>UI/UX Date {sortField === 'uiux' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('deadline')} style={{ width: '120px', cursor: 'pointer' }}>Dev Date {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
-                <th onClick={() => handleSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>Release Date {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>
+                  Release Date ({(() => {
+                    const comp = filtered.filter(p => {
+                      const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+                      const matchedProduct = productItems.find(item => clean(item.feature) === clean(p.title));
+                      return isCompletedStatus(p.status) || !!matchedProduct?.finalReleaseCompleted;
+                    }).length;
+                    return `${comp}/${filtered.length}`;
+                  })()}) {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}
+                </th>
                 <th style={{ width: '40px' }}></th>
               </tr>
             </thead>
@@ -5406,6 +5415,7 @@ export const StudentMeetingsTable: React.FC = () => {
 
   const [paginatedFeedbackFeatures, setPaginatedFeedbackFeatures] = useState<ProductItem[]>([]);
   const [feedbackTotalItems, setFeedbackTotalItems] = useState(0);
+  const [feedbackCompletedItems, setFeedbackCompletedItems] = useState(0);
   const [feedbackTotalPages, setFeedbackTotalPages] = useState(1);
   const [isFetchingFeedback, setIsFetchingFeedback] = useState(false);
 
@@ -5430,6 +5440,7 @@ export const StudentMeetingsTable: React.FC = () => {
         if (res.success) {
           setPaginatedFeedbackFeatures(res.data);
           setFeedbackTotalItems(res.totalItems);
+          setFeedbackCompletedItems(res.completedItems || 0);
           setFeedbackTotalPages(res.totalPages);
         }
         setIsFetchingFeedback(false);
@@ -6160,7 +6171,7 @@ export const StudentMeetingsTable: React.FC = () => {
                                         <th style={{ width: '120px' }}>Specs Date</th>
                                         <th style={{ width: '120px' }}>UI/UX Date</th>
                                         <th style={{ width: '120px' }}>Dev Date</th>
-                                        <th style={{ width: '120px' }}>Release Date</th>
+                                        <th style={{ width: '120px' }}>Release Date ({related.filter(feat => !!feat.finalReleaseCompleted).length}/{related.length})</th>
                                         <th style={{ width: '40px' }}></th>
                                       </tr>
                                     </thead>
@@ -6495,7 +6506,9 @@ export const StudentMeetingsTable: React.FC = () => {
                   <th onClick={() => handleFeedbackSort('productDeadline')} style={{ width: '120px', cursor: 'pointer' }}>Specs Date {feedbackSortField === 'productDeadline' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('uiux')} style={{ width: '120px', cursor: 'pointer' }}>UI/UX Date {feedbackSortField === 'uiux' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('deadline')} style={{ width: '120px', cursor: 'pointer' }}>Dev Date {feedbackSortField === 'deadline' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
-                  <th onClick={() => handleFeedbackSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>Release Date {feedbackSortField === 'finalRelease' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>
+                    Release Date ({feedbackCompletedItems}/{feedbackTotalItems}) {feedbackSortField === 'finalRelease' ? (feedbackSortAsc ? '▲' : '▼') : ''}
+                  </th>
                   <th style={{ width: '40px' }}></th>
                 </tr>
               </thead>
@@ -7317,6 +7330,7 @@ export const AdminCallsTable: React.FC = () => {
 
   const [paginatedFeedbackFeatures, setPaginatedFeedbackFeatures] = useState<ProductItem[]>([]);
   const [feedbackTotalItems, setFeedbackTotalItems] = useState(0);
+  const [feedbackCompletedItems, setFeedbackCompletedItems] = useState(0);
   const [feedbackTotalPages, setFeedbackTotalPages] = useState(1);
   const [isFetchingFeedback, setIsFetchingFeedback] = useState(false);
 
@@ -7341,6 +7355,7 @@ export const AdminCallsTable: React.FC = () => {
         if (res.success) {
           setPaginatedFeedbackFeatures(res.data);
           setFeedbackTotalItems(res.totalItems);
+          setFeedbackCompletedItems(res.completedItems || 0);
           setFeedbackTotalPages(res.totalPages);
         }
         setIsFetchingFeedback(false);
@@ -8009,7 +8024,7 @@ export const AdminCallsTable: React.FC = () => {
                                           <th style={{ width: '120px' }}>Specs Date</th>
                                           <th style={{ width: '120px' }}>UI/UX Date</th>
                                           <th style={{ width: '120px' }}>Dev Date</th>
-                                          <th style={{ width: '120px' }}>Release Date</th>
+                                          <th style={{ width: '120px' }}>Release Date ({related.filter(feat => !!feat.finalReleaseCompleted).length}/{related.length})</th>
                                           <th style={{ width: '40px' }}></th>
                                         </tr>
                                       </thead>
@@ -8137,7 +8152,7 @@ export const AdminCallsTable: React.FC = () => {
                                               ) : '—'}
                                             </td>
                                             <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                                              <DateDiffBadge prevDate={feat.uiux} currentDate={feat.deadline} />
+                                              <DateDiffBadge prevDate={feat.uiux || feat.productDeadline} currentDate={feat.deadline} />
                                               {feat.deadline ? (
                                                 <span style={getDateSpanStyle(feat.deadline, feat.deadlineCompleted)}>
                                                   {formatDateToUserPattern(feat.deadline)}
@@ -8145,7 +8160,7 @@ export const AdminCallsTable: React.FC = () => {
                                               ) : '—'}
                                             </td>
                                             <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                                              <DateDiffBadge prevDate={feat.deadline} currentDate={feat.finalRelease} />
+                                              <DateDiffBadge prevDate={feat.deadline || feat.uiux || feat.productDeadline} currentDate={feat.finalRelease} />
                                               {feat.finalRelease ? (
                                                 <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
                                                   {formatDateToUserPattern(feat.finalRelease)}
@@ -8318,10 +8333,9 @@ export const AdminCallsTable: React.FC = () => {
             <table className="grid-table">
               <thead>
                 <tr>
-                  <th className="sticky-header-col" onClick={() => handleFeedbackSort('feature')} style={{ width: '250px', minWidth: '250px', maxWidth: '250px', cursor: 'pointer' }}>Feature {feedbackSortField === 'feature' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th className="sticky-header-col" onClick={() => handleFeedbackSort('feature')} style={{ width: '280px', minWidth: '280px', maxWidth: '280px', cursor: 'pointer' }}>Feature / Call Agenda {feedbackSortField === 'feature' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('callDate')} style={{ width: '150px', cursor: 'pointer' }}>Call Date {feedbackSortField === 'callDate' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('callPoc')} style={{ width: '180px', cursor: 'pointer' }}>Admin / POC {feedbackSortField === 'callPoc' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
-                  <th onClick={() => handleFeedbackSort('callTopic')} style={{ width: '220px', cursor: 'pointer' }}>Topic / Call Agenda {feedbackSortField === 'callTopic' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('product')} style={{ width: '150px', cursor: 'pointer' }}>Product Group {feedbackSortField === 'product' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('poc')} style={{ width: '120px', cursor: 'pointer' }}>POC Owner {feedbackSortField === 'poc' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('status')} style={{ width: '120px', cursor: 'pointer' }}>Status {feedbackSortField === 'status' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
@@ -8329,7 +8343,9 @@ export const AdminCallsTable: React.FC = () => {
                   <th onClick={() => handleFeedbackSort('productDeadline')} style={{ width: '120px', cursor: 'pointer' }}>Specs Date {feedbackSortField === 'productDeadline' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('uiux')} style={{ width: '120px', cursor: 'pointer' }}>UI/UX Date {feedbackSortField === 'uiux' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('deadline')} style={{ width: '120px', cursor: 'pointer' }}>Dev Date {feedbackSortField === 'deadline' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
-                  <th onClick={() => handleFeedbackSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>Release Date {feedbackSortField === 'finalRelease' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>
+                    Release Date ({feedbackCompletedItems}/{feedbackTotalItems}) {feedbackSortField === 'finalRelease' ? (feedbackSortAsc ? '▲' : '▼') : ''}
+                  </th>
                   <th style={{ width: '40px' }}></th>
                 </tr>
               </thead>
@@ -8348,13 +8364,12 @@ export const AdminCallsTable: React.FC = () => {
                       <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
                       <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
                       <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
-                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
                       <td style={{ padding: '12px 16px' }}></td>
                     </tr>
                   ))
                 ) : paginatedFeedbackFeatures.length === 0 ? (
                   <tr>
-                    <td colSpan={13} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                    <td colSpan={12} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
                       No feedback features found matching current filters.
                     </td>
                   </tr>
@@ -8379,8 +8394,8 @@ export const AdminCallsTable: React.FC = () => {
                         transition: 'background-color 0.2s ease'
                       }}
                     >
-                      <td className="sticky-col" style={{ fontWeight: 600, width: '250px', minWidth: '250px', maxWidth: '250px', whiteSpace: 'normal' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', width: '100%' }}>
+                      <td className="sticky-col" style={{ fontWeight: 600, width: '280px', minWidth: '280px', maxWidth: '280px', whiteSpace: 'normal' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.35rem', width: '100%' }}>
                           {editingFeedbackFeatureId === feat.id ? (
                             <input
                               ref={editFeedbackFeatureInputRef}
@@ -8425,23 +8440,85 @@ export const AdminCallsTable: React.FC = () => {
                                 setInlineFeedbackFeatureValue(feat.feature || '');
                               }}
                               style={{ width: '100%', cursor: 'pointer' }}
-                              title="Double click to edit"
+                              title="Double click to edit Feature Name"
                             >
                               {feat.feature || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
-                              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '4px' }}>
-                                {feat.priority && (
-                                  <span className={`badge badge-${feat.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
-                                    {feat.priority}
-                                  </span>
-                                )}
-                                {feat.raisedByTarunSir && (
-                                  <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                                    <Sparkles size={10} /> Super Priority
-                                  </span>
-                                )}
-                              </div>
                             </div>
                           )}
+
+                          {parentCall ? (
+                            editingFeedbackTopicId === feat.id ? (
+                              <input
+                                ref={editFeedbackTopicInputRef}
+                                type="text"
+                                value={inlineFeedbackTopicValue}
+                                onChange={(e) => setInlineFeedbackTopicValue(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    const finalVal = inlineFeedbackTopicValue.trim() || 'New Topic';
+                                    updateAdminCall(parentCall.id, { cohortTopic: finalVal });
+                                    setEditingFeedbackTopicId(null);
+                                  } else if (e.key === 'Escape') {
+                                    e.preventDefault();
+                                    setEditingFeedbackTopicId(null);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  const finalVal = inlineFeedbackTopicValue.trim() || 'New Topic';
+                                  updateAdminCall(parentCall.id, { cohortTopic: finalVal });
+                                  setEditingFeedbackTopicId(null);
+                                }}
+                                style={{
+                                  width: '100%',
+                                  padding: '4px 6px',
+                                  backgroundColor: 'var(--background)',
+                                  border: '1.5px solid var(--primary)',
+                                  borderRadius: '6px',
+                                  color: 'var(--text-primary)',
+                                  fontSize: '0.75rem',
+                                  outline: 'none',
+                                }}
+                              />
+                            ) : (
+                              <div
+                                onDoubleClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingFeedbackTopicId(feat.id);
+                                  setInlineFeedbackTopicValue(parentCall.cohortTopic || '');
+                                }}
+                                style={{ 
+                                  width: '100%', 
+                                  cursor: 'pointer', 
+                                  fontSize: '0.7rem', 
+                                  color: 'var(--text-muted)', 
+                                  fontWeight: 500,
+                                  lineHeight: '1.2' 
+                                }}
+                                title="Double click to edit Call Agenda"
+                              >
+                                Call Agenda: {parentCall.cohortTopic || '—'}
+                              </div>
+                            )
+                          ) : (
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                              Call Agenda: —
+                            </div>
+                          )}
+
+                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+                            {feat.priority && (
+                              <span className={`badge badge-${feat.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
+                                {feat.priority}
+                              </span>
+                            )}
+                            {feat.raisedByTarunSir && (
+                              <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                                <Sparkles size={10} /> Super Priority
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td
@@ -8462,18 +8539,18 @@ export const AdminCallsTable: React.FC = () => {
                               onChange={(e) => setInlineFeedbackDateValue(e.target.value)}
                               onClick={(e) => e.stopPropagation()}
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  updateAdminCall(parentCall.id, { date: inlineFeedbackDateValue });
-                                  setEditingFeedbackDateId(null);
-                                } else if (e.key === 'Escape') {
-                                  e.preventDefault();
-                                  setEditingFeedbackDateId(null);
-                                }
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    updateAdminCall(parentCall.id, { date: inlineFeedbackDateValue });
+                                    setEditingFeedbackDateId(null);
+                                  } else if (e.key === 'Escape') {
+                                    e.preventDefault();
+                                    setEditingFeedbackDateId(null);
+                                  }
                               }}
                               onBlur={() => {
-                                updateAdminCall(parentCall.id, { date: inlineFeedbackDateValue });
-                                setEditingFeedbackDateId(null);
+                                  updateAdminCall(parentCall.id, { date: inlineFeedbackDateValue });
+                                  setEditingFeedbackDateId(null);
                               }}
                               style={{
                                 padding: '4px 6px',
@@ -8546,57 +8623,6 @@ export const AdminCallsTable: React.FC = () => {
                           '—'
                         )}
                       </td>
-                      <td
-                        onDoubleClick={(e) => {
-                          if (!parentCall) return;
-                          e.stopPropagation();
-                          setEditingFeedbackTopicId(feat.id);
-                          setInlineFeedbackTopicValue(parentCall.cohortTopic || '');
-                        }}
-                        title={parentCall ? "Double click to edit Topic" : undefined}
-                      >
-                        {parentCall ? (
-                          editingFeedbackTopicId === feat.id ? (
-                            <input
-                              ref={editFeedbackTopicInputRef}
-                              type="text"
-                              value={inlineFeedbackTopicValue}
-                              onChange={(e) => setInlineFeedbackTopicValue(e.target.value)}
-                              onClick={(e) => e.stopPropagation()}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  const finalVal = inlineFeedbackTopicValue.trim() || 'New Topic';
-                                  updateAdminCall(parentCall.id, { cohortTopic: finalVal });
-                                  setEditingFeedbackTopicId(null);
-                                } else if (e.key === 'Escape') {
-                                  e.preventDefault();
-                                  setEditingFeedbackTopicId(null);
-                                }
-                              }}
-                              onBlur={() => {
-                                const finalVal = inlineFeedbackTopicValue.trim() || 'New Topic';
-                                updateAdminCall(parentCall.id, { cohortTopic: finalVal });
-                                setEditingFeedbackTopicId(null);
-                              }}
-                              style={{
-                                width: '100%',
-                                padding: '4px 6px',
-                                backgroundColor: 'var(--background)',
-                                border: '1.5px solid var(--primary)',
-                                borderRadius: '6px',
-                                color: 'var(--text-primary)',
-                                fontSize: '0.8rem',
-                                outline: 'none',
-                              }}
-                            />
-                          ) : (
-                            parentCall.cohortTopic || '—'
-                          )
-                        ) : (
-                          '—'
-                        )}
-                      </td>
                       <td>{feat.product || '—'}</td>
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
@@ -8651,7 +8677,7 @@ export const AdminCallsTable: React.FC = () => {
                         ) : '—'}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        <DateDiffBadge prevDate={feat.uiux} currentDate={feat.deadline} />
+                        <DateDiffBadge prevDate={feat.uiux || feat.productDeadline} currentDate={feat.deadline} />
                         {feat.deadline ? (
                           <span style={getDateSpanStyle(feat.deadline, feat.deadlineCompleted)}>
                             {formatDateToUserPattern(feat.deadline)}
@@ -8659,7 +8685,7 @@ export const AdminCallsTable: React.FC = () => {
                         ) : '—'}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        <DateDiffBadge prevDate={feat.deadline} currentDate={feat.finalRelease} />
+                        <DateDiffBadge prevDate={feat.deadline || feat.uiux || feat.productDeadline} currentDate={feat.finalRelease} />
                         {feat.finalRelease ? (
                           <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
                             {formatDateToUserPattern(feat.finalRelease)}
@@ -8950,6 +8976,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
 
   const [paginatedFeedbackFeatures, setPaginatedFeedbackFeatures] = useState<ProductItem[]>([]);
   const [feedbackTotalItems, setFeedbackTotalItems] = useState(0);
+  const [feedbackCompletedItems, setFeedbackCompletedItems] = useState(0);
   const [feedbackTotalPages, setFeedbackTotalPages] = useState(1);
   const [isFetchingFeedback, setIsFetchingFeedback] = useState(false);
 
@@ -8974,6 +9001,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
         if (res.success) {
           setPaginatedFeedbackFeatures(res.data);
           setFeedbackTotalItems(res.totalItems);
+          setFeedbackCompletedItems(res.completedItems || 0);
           setFeedbackTotalPages(res.totalPages);
         }
         setIsFetchingFeedback(false);
@@ -9656,7 +9684,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                           <th style={{ width: '120px' }}>Specs Date</th>
                                           <th style={{ width: '120px' }}>UI/UX Date</th>
                                           <th style={{ width: '120px' }}>Dev Date</th>
-                                          <th style={{ width: '120px' }}>Release Date</th>
+                                          <th style={{ width: '120px' }}>Release Date ({related.filter(feat => !!feat.finalReleaseCompleted).length}/{related.length})</th>
                                           <th style={{ width: '40px' }}></th>
                                         </tr>
                                       </thead>
@@ -9789,7 +9817,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                               ) : '—'}
                                             </td>
                                             <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                                              <DateDiffBadge prevDate={feat.uiux} currentDate={feat.deadline} />
+                                              <DateDiffBadge prevDate={feat.uiux || feat.productDeadline} currentDate={feat.deadline} />
                                               {feat.deadline ? (
                                                 <span style={getDateSpanStyle(feat.deadline, feat.deadlineCompleted)}>
                                                   {formatDateToUserPattern(feat.deadline)}
@@ -9797,7 +9825,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                               ) : '—'}
                                             </td>
                                             <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                                              <DateDiffBadge prevDate={feat.deadline} currentDate={feat.finalRelease} />
+                                              <DateDiffBadge prevDate={feat.deadline || feat.uiux || feat.productDeadline} currentDate={feat.finalRelease} />
                                               {feat.finalRelease ? (
                                                 <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
                                                   {formatDateToUserPattern(feat.finalRelease)}
@@ -9968,10 +9996,9 @@ export const TarunSirMeetingsTable: React.FC = () => {
             <table className="grid-table">
               <thead>
                 <tr>
-                  <th className="sticky-header-col" onClick={() => handleFeedbackSort('feature')} style={{ width: '250px', minWidth: '250px', maxWidth: '250px', cursor: 'pointer' }}>Feature {feedbackSortField === 'feature' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th className="sticky-header-col" onClick={() => handleFeedbackSort('feature')} style={{ width: '280px', minWidth: '280px', maxWidth: '280px', cursor: 'pointer' }}>Feature / Meeting Agenda {feedbackSortField === 'feature' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('meetingDate')} style={{ width: '150px', cursor: 'pointer' }}>Meeting Date {feedbackSortField === 'meetingDate' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('meetingPoc')} style={{ width: '180px', cursor: 'pointer' }}>Admin / POC {feedbackSortField === 'meetingPoc' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
-                  <th onClick={() => handleFeedbackSort('meetingTopic')} style={{ width: '220px', cursor: 'pointer' }}>Topic / Meeting Agenda {feedbackSortField === 'meetingTopic' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('product')} style={{ width: '150px', cursor: 'pointer' }}>Product Group {feedbackSortField === 'product' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('poc')} style={{ width: '120px', cursor: 'pointer' }}>POC Owner {feedbackSortField === 'poc' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('status')} style={{ width: '120px', cursor: 'pointer' }}>Status {feedbackSortField === 'status' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
@@ -9979,7 +10006,9 @@ export const TarunSirMeetingsTable: React.FC = () => {
                   <th onClick={() => handleFeedbackSort('productDeadline')} style={{ width: '120px', cursor: 'pointer' }}>Specs Date {feedbackSortField === 'productDeadline' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('uiux')} style={{ width: '120px', cursor: 'pointer' }}>UI/UX Date {feedbackSortField === 'uiux' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('deadline')} style={{ width: '120px', cursor: 'pointer' }}>Dev Date {feedbackSortField === 'deadline' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
-                  <th onClick={() => handleFeedbackSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>Release Date {feedbackSortField === 'finalRelease' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleFeedbackSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>
+                    Release Date ({feedbackCompletedItems}/{feedbackTotalItems}) {feedbackSortField === 'finalRelease' ? (feedbackSortAsc ? '▲' : '▼') : ''}
+                  </th>
                   <th style={{ width: '40px' }}></th>
                 </tr>
               </thead>
@@ -9998,13 +10027,12 @@ export const TarunSirMeetingsTable: React.FC = () => {
                       <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
                       <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
                       <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
-                      <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
                       <td style={{ padding: '12px 16px' }}></td>
                     </tr>
                   ))
                 ) : paginatedFeedbackFeatures.length === 0 ? (
                   <tr>
-                    <td colSpan={13} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                    <td colSpan={12} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
                       No feedback features found matching current filters.
                     </td>
                   </tr>
@@ -10029,8 +10057,8 @@ export const TarunSirMeetingsTable: React.FC = () => {
                         transition: 'background-color 0.2s ease'
                       }}
                     >
-                      <td className="sticky-col" style={{ fontWeight: 600, width: '250px', minWidth: '250px', maxWidth: '250px', whiteSpace: 'normal' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', width: '100%' }}>
+                      <td className="sticky-col" style={{ fontWeight: 600, width: '280px', minWidth: '280px', maxWidth: '280px', whiteSpace: 'normal' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.35rem', width: '100%' }}>
                           {editingFeedbackFeatureId === feat.id ? (
                             <input
                               ref={editFeedbackFeatureInputRef}
@@ -10075,30 +10103,90 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                 setInlineFeedbackFeatureValue(feat.feature || '');
                               }}
                               style={{ width: '100%', cursor: 'pointer' }}
-                              title="Double click to edit"
+                              title="Double click to edit Feature Name"
                             >
-                              <span style={{ display: 'block', wordBreak: 'break-word' }}>
-                                {feat.feature || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
-                              </span>
-                              <div style={{ display: 'flex', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
-                                {feat.priority && (
-                                  <span className={`badge badge-${feat.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
-                                    {feat.priority}
-                                  </span>
-                                )}
-                                {feat.raisedByTarunSir && (
-                                  <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                                    <Sparkles size={10} /> Super Priority
-                                  </span>
-                                )}
-                                {feat.tarunSirApproval && (
-                                  <span className="badge-verified" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', fontWeight: 650 }}>
-                                    <CheckCircle size={10} /> Verified
-                                  </span>
-                                )}
-                              </div>
+                              {feat.feature || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
                             </div>
                           )}
+
+                          {parentMeeting ? (
+                            editingFeedbackTopicId === feat.id ? (
+                              <input
+                                ref={editFeedbackTopicInputRef}
+                                type="text"
+                                value={inlineFeedbackTopicValue}
+                                onChange={(e) => setInlineFeedbackTopicValue(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    const finalVal = inlineFeedbackTopicValue.trim() || 'New Topic';
+                                    updateTarunSirMeeting(parentMeeting.id, { cohortTopic: finalVal });
+                                    setEditingFeedbackTopicId(null);
+                                  } else if (e.key === 'Escape') {
+                                    e.preventDefault();
+                                    setEditingFeedbackTopicId(null);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  const finalVal = inlineFeedbackTopicValue.trim() || 'New Topic';
+                                  updateTarunSirMeeting(parentMeeting.id, { cohortTopic: finalVal });
+                                  setEditingFeedbackTopicId(null);
+                                }}
+                                style={{
+                                  width: '100%',
+                                  padding: '4px 6px',
+                                  backgroundColor: 'var(--background)',
+                                  border: '1.5px solid var(--primary)',
+                                  borderRadius: '6px',
+                                  color: 'var(--text-primary)',
+                                  fontSize: '0.75rem',
+                                  outline: 'none',
+                                }}
+                              />
+                            ) : (
+                              <div
+                                onDoubleClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingFeedbackTopicId(feat.id);
+                                  setInlineFeedbackTopicValue(parentMeeting.cohortTopic || '');
+                                }}
+                                style={{ 
+                                  width: '100%', 
+                                  cursor: 'pointer', 
+                                  fontSize: '0.7rem', 
+                                  color: 'var(--text-muted)', 
+                                  fontWeight: 500,
+                                  lineHeight: '1.2' 
+                                }}
+                                title="Double click to edit Meeting Agenda"
+                              >
+                                Meeting Agenda: {parentMeeting.cohortTopic || '—'}
+                              </div>
+                            )
+                          ) : (
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                              Meeting Agenda: —
+                            </div>
+                          )}
+
+                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+                            {feat.priority && (
+                              <span className={`badge badge-${feat.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
+                                {feat.priority}
+                              </span>
+                            )}
+                            {feat.raisedByTarunSir && (
+                              <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                                <Sparkles size={10} /> Super Priority
+                              </span>
+                            )}
+                            {feat.tarunSirApproval && (
+                              <span className="badge-verified" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', fontWeight: 650 }}>
+                                <CheckCircle size={10} /> Verified
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td
@@ -10203,57 +10291,6 @@ export const TarunSirMeetingsTable: React.FC = () => {
                           '—'
                         )}
                       </td>
-                      <td
-                        onDoubleClick={(e) => {
-                          if (!parentMeeting) return;
-                          e.stopPropagation();
-                          setEditingFeedbackTopicId(feat.id);
-                          setInlineFeedbackTopicValue(parentMeeting.cohortTopic || '');
-                        }}
-                        title={parentMeeting ? "Double click to edit Topic" : undefined}
-                      >
-                        {parentMeeting ? (
-                          editingFeedbackTopicId === feat.id ? (
-                            <input
-                              ref={editFeedbackTopicInputRef}
-                              type="text"
-                              value={inlineFeedbackTopicValue}
-                              onChange={(e) => setInlineFeedbackTopicValue(e.target.value)}
-                              onClick={(e) => e.stopPropagation()}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  const finalVal = inlineFeedbackTopicValue.trim() || 'New Topic';
-                                  updateTarunSirMeeting(parentMeeting.id, { cohortTopic: finalVal });
-                                  setEditingFeedbackTopicId(null);
-                                } else if (e.key === 'Escape') {
-                                  e.preventDefault();
-                                  setEditingFeedbackTopicId(null);
-                                }
-                              }}
-                              onBlur={() => {
-                                const finalVal = inlineFeedbackTopicValue.trim() || 'New Topic';
-                                updateTarunSirMeeting(parentMeeting.id, { cohortTopic: finalVal });
-                                setEditingFeedbackTopicId(null);
-                              }}
-                              style={{
-                                width: '100%',
-                                padding: '4px 6px',
-                                backgroundColor: 'var(--background)',
-                                border: '1.5px solid var(--primary)',
-                                borderRadius: '6px',
-                                color: 'var(--text-primary)',
-                                fontSize: '0.8rem',
-                                outline: 'none',
-                              }}
-                            />
-                          ) : (
-                            parentMeeting.cohortTopic || '—'
-                          )
-                        ) : (
-                          '—'
-                        )}
-                      </td>
                       <td>{feat.product || '—'}</td>
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
@@ -10308,7 +10345,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                         ) : '—'}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        <DateDiffBadge prevDate={feat.uiux} currentDate={feat.deadline} />
+                        <DateDiffBadge prevDate={feat.uiux || feat.productDeadline} currentDate={feat.deadline} />
                         {feat.deadline ? (
                           <span style={getDateSpanStyle(feat.deadline, feat.deadlineCompleted)}>
                             {formatDateToUserPattern(feat.deadline)}
@@ -10316,7 +10353,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                         ) : '—'}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        <DateDiffBadge prevDate={feat.deadline} currentDate={feat.finalRelease} />
+                        <DateDiffBadge prevDate={feat.deadline || feat.uiux || feat.productDeadline} currentDate={feat.finalRelease} />
                         {feat.finalRelease ? (
                           <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
                             {formatDateToUserPattern(feat.finalRelease)}
@@ -10673,7 +10710,7 @@ export const ContentTable: React.FC = () => {
                   Dev Date {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}
                 </th>
                 <th onClick={() => handleSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>
-                  Release Date {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}
+                  Release Date ({filtered.filter(item => !!item.finalReleaseCompleted).length}/{filtered.length}) {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}
                 </th>
                 <th style={{ width: '40px' }}></th>
               </tr>
@@ -11145,6 +11182,7 @@ export const ProductWiseSheet: React.FC = () => {
   const [pageSize, setPageSize] = useState(20);
   const [paginatedFeatures, setPaginatedFeatures] = useState<BreakdownFeature[]>([]);
   const [totalItems, setTotalItems] = useState(0);
+  const [completedItems, setCompletedItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isFetchingData, setIsFetchingData] = useState(false);
 
@@ -11270,6 +11308,7 @@ export const ProductWiseSheet: React.FC = () => {
 
       setPaginatedFeatures(mapped);
       setTotalItems(res.totalItems || 0);
+      setCompletedItems(res.completedItems || 0);
       setTotalPages(res.totalPages || 1);
       if (res.productCounts) {
         setProductCounts(res.productCounts);
@@ -11277,6 +11316,7 @@ export const ProductWiseSheet: React.FC = () => {
     } else {
       setPaginatedFeatures([]);
       setTotalItems(0);
+      setCompletedItems(0);
       setTotalPages(1);
     }
     setIsFetchingData(false);
@@ -11543,7 +11583,9 @@ export const ProductWiseSheet: React.FC = () => {
                       <th onClick={() => handleSort('productDeadline')} style={{ width: '120px', cursor: 'pointer' }}>Specs Date {sortField === 'productDeadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
                       <th onClick={() => handleSort('uiux')} style={{ width: '120px', cursor: 'pointer' }}>UI/UX Date {sortField === 'uiux' ? (sortAsc ? '▲' : '▼') : ''}</th>
                       <th onClick={() => handleSort('deadline')} style={{ width: '120px', cursor: 'pointer' }}>Dev Date {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
-                      <th onClick={() => handleSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>Release Date {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                      <th onClick={() => handleSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>
+                        Release Date ({completedItems}/{totalItems}) {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}
+                      </th>
                       <th style={{ width: '40px' }}></th>
                     </tr>
                   </thead>
@@ -11985,6 +12027,7 @@ export const IssuesTable: React.FC = () => {
   const [pageSize, setPageSize] = useState(20);
   const [paginatedIssues, setPaginatedIssues] = useState<DailyIssue[]>([]);
   const [totalItems, setTotalItems] = useState(0);
+  const [completedItems, setCompletedItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isFetching, setIsFetching] = useState(false);
 
@@ -12011,6 +12054,7 @@ export const IssuesTable: React.FC = () => {
         if (res.success) {
           setPaginatedIssues(res.data);
           setTotalItems(res.totalItems);
+          setCompletedItems(res.completedItems || 0);
           setTotalPages(res.totalPages);
         }
         setIsFetching(false);
@@ -12090,13 +12134,22 @@ export const IssuesTable: React.FC = () => {
     return <span>{val}</span>;
   };
 
-  const renderDateCell = (item: DailyIssue, field: keyof DailyIssue, previousField?: keyof DailyIssue) => {
+  const renderDateCell = (item: DailyIssue, field: keyof DailyIssue, previousFields?: (keyof DailyIssue)[]) => {
     const value = String(item[field] || '');
     const completedField = `${String(field)}Completed` as keyof DailyIssue;
     const completed = Boolean(item[completedField]);
+    let prevDate = '';
+    if (previousFields) {
+      for (const pf of previousFields) {
+        if (item[pf]) {
+          prevDate = String(item[pf]);
+          break;
+        }
+      }
+    }
     return (
       <>
-        {previousField && <DateDiffBadge prevDate={String(item[previousField] || '')} currentDate={value} />}
+        {prevDate && <DateDiffBadge prevDate={prevDate} currentDate={value} />}
         <span style={getDateSpanStyle(value, completed)}>
           {value ? formatDateToUserPattern(value) : '—'}
         </span>
@@ -12180,13 +12233,13 @@ export const IssuesTable: React.FC = () => {
           {renderDateCell(item, 'productDeadline')}
         </td>
         <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-          {renderDateCell(item, 'uiux', 'productDeadline')}
+          {renderDateCell(item, 'uiux', ['productDeadline'])}
         </td>
         <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-          {renderDateCell(item, 'deadline', 'uiux')}
+          {renderDateCell(item, 'deadline', ['uiux', 'productDeadline'])}
         </td>
         <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-          {renderDateCell(item, 'finalRelease', 'deadline')}
+          {renderDateCell(item, 'finalRelease', ['deadline', 'uiux', 'productDeadline'])}
         </td>
         <td>
           <button 
@@ -12254,7 +12307,7 @@ export const IssuesTable: React.FC = () => {
                 <th onClick={() => handleSort('productDeadline')} style={{ cursor: 'pointer' }}>Prod {sortField === 'productDeadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('uiux')} style={{ cursor: 'pointer' }}>UIUX {sortField === 'uiux' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('deadline')} style={{ cursor: 'pointer' }}>Dev {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
-                <th onClick={() => handleSort('finalRelease')} style={{ cursor: 'pointer' }}>Final {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('finalRelease')} style={{ cursor: 'pointer' }}>Final ({completedItems}/{totalItems}) {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th style={{ width: '40px' }}></th>
               </tr>
             </thead>
@@ -12370,6 +12423,7 @@ export const FeatureRequestsTable: React.FC = () => {
   const [pageSize, setPageSize] = useState(20);
   const [paginatedRequests, setPaginatedRequests] = useState<DailyIssue[]>([]);
   const [totalItems, setTotalItems] = useState(0);
+  const [completedItems, setCompletedItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isFetching, setIsFetching] = useState(false);
 
@@ -12394,6 +12448,7 @@ export const FeatureRequestsTable: React.FC = () => {
         if (res.success) {
           setPaginatedRequests(res.data);
           setTotalItems(res.totalItems);
+          setCompletedItems(res.completedItems || 0);
           setTotalPages(res.totalPages);
         }
         setIsFetching(false);
@@ -12428,13 +12483,22 @@ export const FeatureRequestsTable: React.FC = () => {
 
   const allProducts = Array.from(new Set(dailyIssues.map(i => i.product).filter(Boolean)));
 
-  const renderDateCell = (item: DailyIssue, field: keyof DailyIssue, previousField?: keyof DailyIssue) => {
+  const renderDateCell = (item: DailyIssue, field: keyof DailyIssue, previousFields?: (keyof DailyIssue)[]) => {
     const value = String(item[field] || '');
     const completedField = `${String(field)}Completed` as keyof DailyIssue;
     const completed = Boolean(item[completedField]);
+    let prevDate = '';
+    if (previousFields) {
+      for (const pf of previousFields) {
+        if (item[pf]) {
+          prevDate = String(item[pf]);
+          break;
+        }
+      }
+    }
     return (
       <>
-        {previousField && <DateDiffBadge prevDate={String(item[previousField] || '')} currentDate={value} />}
+        {prevDate && <DateDiffBadge prevDate={prevDate} currentDate={value} />}
         <span style={getDateSpanStyle(value, completed)}>
           {value ? formatDateToUserPattern(value) : '—'}
         </span>
@@ -12470,7 +12534,9 @@ export const FeatureRequestsTable: React.FC = () => {
                 <th onClick={() => handleSort('productDeadline')} style={{ width: '120px', cursor: 'pointer' }}>Specs Date {sortField === 'productDeadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('uiux')} style={{ width: '120px', cursor: 'pointer' }}>UI/UX Date {sortField === 'uiux' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('deadline')} style={{ width: '120px', cursor: 'pointer' }}>Dev Date {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
-                <th onClick={() => handleSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>Release Date {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th onClick={() => handleSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>
+                  Release Date ({completedItems}/{totalItems}) {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}
+                </th>
                 <th style={{ width: '40px' }}></th>
               </tr>
             </thead>
@@ -12598,13 +12664,13 @@ export const FeatureRequestsTable: React.FC = () => {
                         {renderDateCell(item, 'productDeadline')}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        {renderDateCell(item, 'uiux', 'productDeadline')}
+                        {renderDateCell(item, 'uiux', ['productDeadline'])}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        {renderDateCell(item, 'deadline', 'uiux')}
+                        {renderDateCell(item, 'deadline', ['uiux', 'productDeadline'])}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        {renderDateCell(item, 'finalRelease', 'deadline')}
+                        {renderDateCell(item, 'finalRelease', ['deadline', 'uiux', 'productDeadline'])}
                       </td>
                       <td>
                         <button 

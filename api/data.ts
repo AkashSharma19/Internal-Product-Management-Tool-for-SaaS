@@ -1528,6 +1528,7 @@ export default async function handler(req: any, res: any) {
           };
 
           const productCounts = await getProductBreakdownCounts();
+          const completedItems = sortedFeatures.filter((item: any) => !!item.finalReleaseCompleted).length;
 
           return res.status(200).json({
             success: true,
@@ -1536,7 +1537,8 @@ export default async function handler(req: any, res: any) {
             totalPages,
             page: activePage,
             limit,
-            productCounts
+            productCounts,
+            completedItems
           });
         }
 
@@ -1598,13 +1600,15 @@ export default async function handler(req: any, res: any) {
             const activePage = Math.min(page, totalPages);
             const startIndex = (activePage - 1) * limit;
             const paginatedData = sorted.slice(startIndex, startIndex + limit);
+            const completedItems = sorted.filter((item: any) => !!item.finalReleaseCompleted).length;
 
             return res.status(200).json({
               success: true,
               data: paginatedData,
               totalItems,
               totalPages,
-              page: activePage
+              page: activePage,
+              completedItems
             });
           }
 
@@ -1656,13 +1660,15 @@ export default async function handler(req: any, res: any) {
             const activePage = Math.min(page, totalPages);
             const startIndex = (activePage - 1) * limit;
             const paginatedData = sorted.slice(startIndex, startIndex + limit);
+            const completedItems = sorted.filter((item: any) => !!item.finalReleaseCompleted).length;
 
             return res.status(200).json({
               success: true,
               data: paginatedData,
               totalItems,
               totalPages,
-              page: activePage
+              page: activePage,
+              completedItems
             });
           }
 
@@ -1819,13 +1825,15 @@ export default async function handler(req: any, res: any) {
             const activePage = Math.min(page, totalPages);
             const startIndex = (activePage - 1) * limit;
             const paginatedData = sorted.slice(startIndex, startIndex + limit);
+            const completedItems = sorted.filter((item: any) => !!item.finalReleaseCompleted).length;
 
             return res.status(200).json({
               success: true,
               data: paginatedData,
               totalItems,
               totalPages,
-              page: activePage
+              page: activePage,
+              completedItems
             });
           }
 
