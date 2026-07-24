@@ -31,7 +31,8 @@ import {
   Rocket,
   MessageSquare,
   Layers,
-  ClipboardList
+  ClipboardList,
+  Copy
 } from 'lucide-react';
 import type { 
   ProductItem, 
@@ -1527,6 +1528,17 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const { studentProjects, speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser, productItems, setActiveSubtasksTaskLink, setPreviewProductId, deleteProductItem, comments, addComment } = useDashboard();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [copiedClickup, setCopiedClickup] = useState(false);
+  const handleCopyClickupLink = async () => {
+    if (!item.taskLink) return;
+    try {
+      await navigator.clipboard.writeText(item.taskLink);
+      setCopiedClickup(true);
+      setTimeout(() => setCopiedClickup(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy clickup link', err);
+    }
+  };
   const [isEditingCreatedAt, setIsEditingCreatedAt] = useState(false);
   const [isEditingSpecsDate, setIsEditingSpecsDate] = useState(false);
   const [isEditingUiuxDate, setIsEditingUiuxDate] = useState(false);
@@ -2292,9 +2304,27 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                 defaultValue={item.taskLink}
               />
               {item.taskLink && (
-                <a href={item.taskLink} target="_blank" rel="noreferrer" title="Open ClickUp Task" style={{ display: 'inline-flex', alignItems: 'center', pointerEvents: 'auto' }}>
-                  <ExternalLink size={11} style={{ color: 'var(--text-muted)' }} />
-                </a>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', pointerEvents: 'auto', marginLeft: '6px' }}>
+                  <a href={item.taskLink} target="_blank" rel="noreferrer" title="Open ClickUp Task" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    <ExternalLink size={11} style={{ color: 'var(--text-muted)' }} />
+                  </a>
+                  <button
+                    onClick={handleCopyClickupLink}
+                    title={copiedClickup ? "Copied!" : "Copy ClickUp Link"}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      padding: 0,
+                      color: copiedClickup ? '#10b981' : 'var(--text-muted)',
+                      transition: 'color 0.15s ease'
+                    }}
+                  >
+                    {copiedClickup ? <Check size={11} /> : <Copy size={11} />}
+                  </button>
+                </div>
               )}
             </div>
           </div>
