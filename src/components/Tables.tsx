@@ -1759,8 +1759,19 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
           clickupSubtasksCount: res.subtasksCount,
           clickupAssignee: res.assignee
         };
-        const currentName = item.feature || '';
-        const isDefaultName = currentName === '' || currentName === 'New Priority Request';
+        const currentName = (item.feature || '').trim();
+        const isDefaultName = 
+          currentName === '' || 
+          currentName === 'New Priority Request' || 
+          currentName === 'New Project' || 
+          currentName === 'New Task' || 
+          currentName === 'New Sprint Task Description' || 
+          currentName === 'New Issue Logged' || 
+          currentName.startsWith('Issue #') || 
+          currentName.startsWith('Request #') || 
+          currentName.toLowerCase().startsWith('new ') ||
+          currentName.toLowerCase().startsWith('feature for ') ||
+          currentName.toLowerCase().startsWith('related feature');
         if (res.name && isDefaultName) {
           updates.feature = res.name;
           setFeatureText(res.name);
