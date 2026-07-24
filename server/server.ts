@@ -1,8 +1,10 @@
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { createServer, request, type IncomingMessage, type ServerResponse } from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import mongoose from 'mongoose';
+import { connectToDatabase } from '../api/lib/db.js';
 
 import dataHandler from '../api/data.js';
 import webhookHandler from '../api/webhook.js';
@@ -191,4 +193,92 @@ createServer(async (req, res) => {
   }
 }).listen(PORT, '0.0.0.0', () => {
   console.log(`Internal Product Tool listening on port ${PORT}`);
+  runEmailDigestScheduler().catch((err) => {
+    console.error('[Scheduler] Initialization failed:', err);
+  });
 });
+
+// Helper to make local POST request to trigger email digest
+function triggerLocalDigest(): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const req = request({
+      hostname: 'localhost',
+      port: PORT,
+      path: '/api/data?action=send-product-ship-digest',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch {
+          resolve(data);
+        }
+      });
+    });
+    req.on('error', (err) => reject(err));
+    req.write(JSON.stringify({}));
+    req.end();
+  });
+}
+
+// Background scheduler checker daemon (running once every minute)
+async function runEmailDigestScheduler() {
+  console.log('[Scheduler] Starting automated email digest background scheduler...');
+  await connectToDatabase();
+  const GlobalSettings = mongoose.models.GlobalSettings || mongoose.model('GlobalSettings');
+  
+  let lastSentKey = '';
+
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      // Format time and date string in Asia/Kolkata (IST) timezone
+      const currentMin = now.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour12: false, hour: '2-digit', minute: '2-digit' });
+      const currentDay = now.toLocaleDateString('en-US', { timeZone: 'Asia/Kolkata', weekday: 'long' });
+      const currentDateStr = now.toLocaleDateString('en-US', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' });
+      
+      const sentKey = `${currentDateStr} ${currentMin}`;
+      if (sentKey === lastSentKey) {
+        return; // Checked already in this minute
+      }
+      lastSentKey = sentKey;
+
+      // Fetch scheduler configurations
+      const [freqSetting, timeSetting, daySetting] = await Promise.all([
+        GlobalSettings.findOne({ key: 'digestFrequency' }).lean(),
+        GlobalSettings.findOne({ key: 'digestTime' }).lean(),
+        GlobalSettings.findOne({ key: 'digestDayOfWeek' }).lean()
+      ]);
+
+      const frequency = freqSetting?.value || 'weekly';
+      const preferredTime = timeSetting?.value || '09:00';
+      const preferredDay = daySetting?.value || 'Monday';
+
+      if (currentMin === preferredTime) {
+        let shouldSend = false;
+        if (frequency === 'everyday') {
+          shouldSend = true;
+        } else if (frequency === 'weekly' && currentDay === preferredDay) {
+          shouldSend = true;
+        }
+
+        if (shouldSend) {
+          console.log(`[Scheduler] Time match found (${sentKey})! Dispatching automated Product Ship digest...`);
+          try {
+            const result = await triggerLocalDigest();
+            console.log('[Scheduler] Dispatch result:', result);
+          } catch (dispatchErr) {
+            console.error('[Scheduler] Dispatch request failed:', dispatchErr);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[Scheduler] Error checking schedule:', err);
+    }
+  }, 60000); // Check once every minute
+}
