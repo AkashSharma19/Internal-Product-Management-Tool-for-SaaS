@@ -256,6 +256,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // StrictMode & double-mount prevention refs
   const hasInitializedRef = useRef(false);
   const activeFetchesRef = useRef<Record<string, Promise<Response> | undefined>>({});
+  const pendingWritesRef = useRef<Promise<any>>(Promise.resolve());
 
   // Deduplicate concurrent GET requests
   const dedupedFetch = useCallback(async (url: string, options?: RequestInit): Promise<Response> => {
@@ -263,6 +264,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!isGet) {
       return fetch(url, options);
     }
+
+    // Wait for all pending database writes to complete BEFORE sending any GET requests
+    await pendingWritesRef.current;
 
     // Add a 1-second rounded cache-buster to prevent browser caching while preserving concurrent deduplication
     const separator = url.includes('?') ? '&' : '?';
@@ -796,30 +800,35 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const persistChange = async (action: 'create' | 'update' | 'delete' | 'batch-import', type: string, id: string | null, data: any) => {
     setSyncStatus('syncing');
-    try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-      const savedUserId = localStorage.getItem('logged-in-user-id');
-      if (savedUserId) {
-        headers['x-user-id'] = savedUserId;
-      }
+    const writePromise = (async () => {
+      try {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json'
+        };
+        const savedUserId = localStorage.getItem('logged-in-user-id');
+        if (savedUserId) {
+          headers['x-user-id'] = savedUserId;
+        }
 
-      const response = await fetch('/api/data', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ action, type, id, data })
-      });
-      if (response.ok) {
-        setSyncStatus('synced');
-      } else {
-        console.error(`Persist failed for ${type} ${action}:`, await response.text());
+        const response = await fetch('/api/data', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ action, type, id, data })
+        });
+        if (response.ok) {
+          setSyncStatus('synced');
+        } else {
+          console.error(`Persist failed for ${type} ${action}:`, await response.text());
+          setSyncStatus('error');
+        }
+      } catch (err) {
+        console.error(`Failed to connect to API for ${type} ${action}:`, err);
         setSyncStatus('error');
       }
-    } catch (err) {
-      console.error(`Failed to connect to API for ${type} ${action}:`, err);
-      setSyncStatus('error');
-    }
+    })();
+
+    pendingWritesRef.current = pendingWritesRef.current.then(() => writePromise).catch(() => {});
+    return writePromise;
   };
 
   // Mounting effect to fetch all data from MongoDB

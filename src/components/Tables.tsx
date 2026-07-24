@@ -12080,6 +12080,7 @@ export const IssuesTable: React.FC = () => {
     filterStatuses,
     sortField,
     sortAsc,
+    dailyIssues,
     fetchPaginatedMeetingsData
   ]);
 
@@ -12472,6 +12473,7 @@ export const FeatureRequestsTable: React.FC = () => {
     filterProduct,
     sortField,
     sortAsc,
+    dailyIssues,
     fetchPaginatedMeetingsData
   ]);
 
