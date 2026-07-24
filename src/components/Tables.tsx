@@ -1754,11 +1754,18 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     try {
       const res = await syncClickupTask(taskLinkValue);
       if (res) {
-        onUpdate(item.id, { 
+        const updates: Partial<ProductItem> = { 
           clickupStatus: res.status, 
           clickupSubtasksCount: res.subtasksCount,
           clickupAssignee: res.assignee
-        });
+        };
+        const currentName = item.feature || '';
+        const isDefaultName = currentName === '' || currentName === 'New Priority Request';
+        if (res.name && isDefaultName) {
+          updates.feature = res.name;
+          setFeatureText(res.name);
+        }
+        onUpdate(item.id, updates);
       } else {
         setSyncError('Could not fetch status from ClickUp API. Please check your credentials or connection.');
       }

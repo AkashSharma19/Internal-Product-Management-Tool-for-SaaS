@@ -1469,13 +1469,12 @@ const DashboardContent: React.FC = () => {
           flexDirection: 'column', 
           gap: '0.75rem' 
         }}>
-          {/* Sync buttons — two actions: ClickUp status + full data refresh */}
+          {/* Sync buttons — two actions: ClickUp status + full data refresh (hidden from UI) */}
           <div style={{
-            display: 'flex',
+            display: 'none',
             flexDirection: isCollapsed ? 'column' : 'column',
             gap: '0.4rem'
           }}>
-            {/* 1. Refresh all data from server */}
             <button
               onClick={handleRefreshAllData}
               disabled={isRefreshingData || isRefreshingClickup}
@@ -1511,7 +1510,6 @@ const DashboardContent: React.FC = () => {
               )}
             </button>
 
-            {/* 2. Sync ClickUp statuses */}
             {clickupApiKey && (
               <button
                 onClick={handleRefreshAllClickup}

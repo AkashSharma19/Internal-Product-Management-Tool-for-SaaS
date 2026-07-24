@@ -100,7 +100,8 @@ export const DashboardOverview: React.FC = () => {
     dashboardCounts,
     isLoadingCounts,
     fetchDashboardCounts,
-    fetchDashboardList
+    fetchDashboardList,
+    isLoading
   } = useDashboard();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -154,8 +155,9 @@ export const DashboardOverview: React.FC = () => {
 
   // Trigger counts load when filters change
   useEffect(() => {
+    if (isLoading) return;
     fetchDashboardCounts(dateRangeType, customStartDate, customEndDate, statusType);
-  }, [dateRangeType, customStartDate, customEndDate, statusType]);
+  }, [dateRangeType, customStartDate, customEndDate, statusType, isLoading]);
 
   // Dynamic popup loader
   const openPopupList = async (title: string, filters: {

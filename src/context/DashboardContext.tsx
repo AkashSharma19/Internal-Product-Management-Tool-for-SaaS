@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { AlertCircle, CheckCircle, Info } from 'lucide-react';
 import type { 
   ProductItem, 
@@ -131,7 +131,7 @@ interface DashboardContextType {
   // ClickUp Integration
   clickupApiKey: string;
   setClickupApiKey: (key: string) => void;
-  syncClickupTask: (taskIdOrUrl: string) => Promise<{ status: string; subtasksCount: number; assignee: string } | null>;
+  syncClickupTask: (taskIdOrUrl: string) => Promise<{ status: string; subtasksCount: number; assignee: string; name?: string } | null>;
   refreshAllClickupStatuses: () => Promise<{ success: boolean; totalScanned: number; updatedCount: number; error?: string }>;
   registerClickupWebhook: () => Promise<{ success: boolean; error?: string }>;
   checkClickupWebhookStatus: () => Promise<{ success: boolean; registered: boolean; error?: string }>;
@@ -251,6 +251,40 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Set static light theme
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', 'light');
+  }, []);
+
+  // StrictMode & double-mount prevention refs
+  const hasInitializedRef = useRef(false);
+  const activeFetchesRef = useRef<Record<string, Promise<Response> | undefined>>({});
+
+  // Deduplicate concurrent GET requests
+  const dedupedFetch = useCallback(async (url: string, options?: RequestInit): Promise<Response> => {
+    const isGet = !options || !options.method || options.method.toUpperCase() === 'GET';
+    if (!isGet) {
+      return fetch(url, options);
+    }
+
+    // Add a 1-second rounded cache-buster to prevent browser caching while preserving concurrent deduplication
+    const separator = url.includes('?') ? '&' : '?';
+    const finalUrl = `${url}${separator}_b=${Math.floor(Date.now() / 1000)}`;
+
+    const headersKey = options?.headers ? JSON.stringify(options.headers) : '';
+    const key = `${finalUrl}::${headersKey}`;
+
+    if (activeFetchesRef.current[key]) {
+      const res = await activeFetchesRef.current[key];
+      return res.clone();
+    }
+
+    const promise = fetch(finalUrl, options);
+    activeFetchesRef.current[key] = promise;
+
+    try {
+      const res = await promise;
+      return res.clone();
+    } finally {
+      delete activeFetchesRef.current[key];
+    }
   }, []);
 
   // Active Tab state
@@ -620,7 +654,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             if (savedUserId) {
               headers['x-user-id'] = savedUserId;
             }
-            const response = await fetch(`/api/data?action=single-task&id=${encodeURIComponent(previewProductId)}`, { headers });
+            const response = await dedupedFetch(`/api/data?action=single-task&id=${encodeURIComponent(previewProductId)}`, { headers });
             if (response.ok) {
               const resData = await response.json();
               if (resData.success && resData.data) {
@@ -831,7 +865,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       await Promise.all(typesToLoad.map(async (type) => {
         if (loadedTabs.includes(type)) return;
 
-        const response = await fetch(`/api/data?action=tab-data&type=${type}`, { headers });
+        const response = await dedupedFetch(`/api/data?action=tab-data&type=${type}`, { headers });
         if (response.ok) {
           const resData = await response.json();
           if (resData.success && resData.data) {
@@ -885,7 +919,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         headers['x-user-id'] = savedUserId;
       }
 
-      const response = await fetch(`/api/data?${params.toString().replace(/\+/g, '%20')}`, { headers });
+      const response = await dedupedFetch(`/api/data?${params.toString().replace(/\+/g, '%20')}`, { headers });
       if (response.ok) {
         const resData = await response.json();
         if (resData.success && resData.data) {
@@ -934,7 +968,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         headers['x-user-id'] = savedUserId;
       }
 
-      const response = await fetch(`/api/data?${params.toString().replace(/\+/g, '%20')}`, { headers });
+      const response = await dedupedFetch(`/api/data?${params.toString().replace(/\+/g, '%20')}`, { headers });
       if (response.ok) {
         const resData = await response.json();
         setSyncStatus('synced');
@@ -986,7 +1020,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         headers['x-user-id'] = savedUserId;
       }
 
-      const response = await fetch(`/api/data?${params.toString().replace(/\+/g, '%20')}`, { headers });
+      const response = await dedupedFetch(`/api/data?${params.toString().replace(/\+/g, '%20')}`, { headers });
       if (response.ok) {
         const resData = await response.json();
         setSyncStatus('synced');
@@ -1044,7 +1078,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         headers['x-user-id'] = savedUserId;
       }
 
-      const response = await fetch(`/api/data?${params.toString().replace(/\+/g, '%20')}`, { headers });
+      const response = await dedupedFetch(`/api/data?${params.toString().replace(/\+/g, '%20')}`, { headers });
       if (response.ok) {
         const resData = await response.json();
         setSyncStatus('synced');
@@ -1076,7 +1110,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         url += '&public-calendar=true';
       }
 
-      const response = await fetch(url, { headers });
+      const response = await dedupedFetch(url, { headers });
       if (response.ok) {
         const resData = await response.json();
         if (resData.success && resData.data) {
@@ -1103,7 +1137,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         headers['x-user-id'] = savedUserId;
       }
 
-      const response = await fetch(`/api/data?action=comments&itemId=${itemId}`, { headers });
+      const response = await dedupedFetch(`/api/data?action=comments&itemId=${itemId}`, { headers });
       if (response.ok) {
         const resData = await response.json();
         if (resData.success && resData.data) {
@@ -1132,7 +1166,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         headers['x-user-id'] = savedUserId;
       }
 
-      const response = await fetch(`/api/data?action=sprint-planning-data&monthLabel=${encodeURIComponent(monthLabel)}`, { headers });
+      const response = await dedupedFetch(`/api/data?action=sprint-planning-data&monthLabel=${encodeURIComponent(monthLabel)}`, { headers });
       if (response.ok) {
         const resData = await response.json();
         if (resData.success && resData.data) {
@@ -1192,7 +1226,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         headers['x-user-id'] = savedUserId;
       }
 
-      const response = await fetch(url, { headers });
+      const response = await dedupedFetch(url, { headers });
       if (!response.ok) {
         setSyncStatus('error');
         return { success: false, updatedSheets: 0, error: 'Server returned an error' };
@@ -1294,6 +1328,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   useEffect(() => {
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
     refreshAllData().finally(() => setIsLoading(false));
   }, []);
 
@@ -2058,7 +2094,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return null;
   };
 
-  const syncClickupTask = async (taskIdOrUrl: string): Promise<{ status: string; subtasksCount: number; assignee: string } | null> => {
+  const syncClickupTask = async (taskIdOrUrl: string): Promise<{ status: string; subtasksCount: number; assignee: string; name?: string } | null> => {
     const taskId = extractClickupTaskId(taskIdOrUrl);
     if (!taskId) return null;
     if (!clickupApiKey.trim()) return null;

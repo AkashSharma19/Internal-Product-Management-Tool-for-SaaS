@@ -45,6 +45,12 @@ const modelsMap: Record<string, any> = {
 };
 
 export default async function handler(req: any, res: any) {
+  if (res.setHeader) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+
   try {
     await connectToDatabase();
   } catch (dbErr) {
@@ -2318,7 +2324,8 @@ export default async function handler(req: any, res: any) {
                 status: clickupData.status.status,
                 subtasksCount: clickupData.subtasks ? clickupData.subtasks.length : 0,
                 assignee: assigneeName,
-                subtasks: clickupData.subtasks || []
+                subtasks: clickupData.subtasks || [],
+                name: clickupData.name
               }
             });
           }
