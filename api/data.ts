@@ -3189,6 +3189,9 @@ export default async function handler(req: any, res: any) {
         const issuesPercent = issuesTotal > 0 ? Math.round(((issuesTotal - issuesPending) / issuesTotal) * 100) : 100;
         const releasedPercent = releasedTotal > 0 ? Math.round((releasedCompleted / releasedTotal) * 100) : 100;
 
+        const protocol = req.headers['x-forwarded-proto'] || 'http';
+        const host = req.headers.host || '';
+
         const isMetricsGood = releasedPercent >= 75;
         const statusImageName = isMetricsGood ? 'analytics_good.png' : 'analytics_bad.png';
         const statusImageUrl = `${protocol}://${host}/${statusImageName}`;
