@@ -136,6 +136,7 @@ interface DashboardContextType {
   registerClickupWebhook: () => Promise<{ success: boolean; error?: string }>;
   checkClickupWebhookStatus: () => Promise<{ success: boolean; registered: boolean; error?: string }>;
   refreshAllData: () => Promise<{ success: boolean; updatedSheets: number; error?: string }>;
+  sendEmailDigest: (testRecipient?: string) => Promise<{ success: boolean; message: string; testLink?: string; error?: string }>;
 
   // Google OAuth Settings
   googleClientId: string;
@@ -146,6 +147,24 @@ interface DashboardContextType {
   setGoogleAllowedDomains: (val: string) => void;
   sharableCalendarSources: string;
   updateSharableCalendarSources: (val: string) => void;
+
+  // Email Digest Settings
+  digestRecipient: string;
+  updateDigestRecipient: (val: string) => void;
+  digestSMTPHost: string;
+  updateDigestSMTPHost: (val: string) => void;
+  digestSMTPPort: string;
+  updateDigestSMTPPort: (val: string) => void;
+  digestSMTPUser: string;
+  updateDigestSMTPUser: (val: string) => void;
+  digestSMTPPass: string;
+  updateDigestSMTPPass: (val: string) => void;
+  digestFrequency: string;
+  updateDigestFrequency: (val: string) => void;
+  digestTime: string;
+  updateDigestTime: (val: string) => void;
+  digestDayOfWeek: string;
+  updateDigestDayOfWeek: (val: string) => void;
 
   // User Authentication
   currentUser: ConfigSpeaker | null;
@@ -598,6 +617,41 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return localStorage.getItem('config-sharable-calendar-sources') || 'product,projects,meetings,admin,tarun-meetings,content,issues';
   });
 
+  const [digestRecipient, setDigestRecipient] = useState<string>(() => {
+    return localStorage.getItem('config-digest-recipient') || '';
+  });
+  const [digestSMTPHost, setDigestSMTPHost] = useState<string>(() => {
+    return localStorage.getItem('config-digest-smtp-host') || '';
+  });
+  const [digestSMTPPort, setDigestSMTPPort] = useState<string>(() => {
+    return localStorage.getItem('config-digest-smtp-port') || '';
+  });
+  const [digestSMTPUser, setDigestSMTPUser] = useState<string>(() => {
+    return localStorage.getItem('config-digest-smtp-user') || '';
+  });
+  const [digestSMTPPass, setDigestSMTPPass] = useState<string>(() => {
+    return localStorage.getItem('config-digest-smtp-pass') || '';
+  });
+  const [digestFrequency, setDigestFrequency] = useState<string>(() => {
+    return localStorage.getItem('config-digest-frequency') || 'weekly';
+  });
+  const [digestTime, setDigestTime] = useState<string>(() => {
+    return localStorage.getItem('config-digest-time') || '09:00';
+  });
+  const [digestDayOfWeek, setDigestDayOfWeek] = useState<string>(() => {
+    return localStorage.getItem('config-digest-day-of-week') || 'Monday';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('config-digest-frequency', digestFrequency);
+  }, [digestFrequency]);
+  useEffect(() => {
+    localStorage.setItem('config-digest-time', digestTime);
+  }, [digestTime]);
+  useEffect(() => {
+    localStorage.setItem('config-digest-day-of-week', digestDayOfWeek);
+  }, [digestDayOfWeek]);
+
   const [formConfigs, setFormConfigs] = useState<FeedbackFormConfig[]>(() => {
     const data = localStorage.getItem('config-form-configs');
     return data ? JSON.parse(data) : [];
@@ -798,6 +852,26 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     localStorage.setItem('config-sharable-calendar-sources', sharableCalendarSources);
   }, [sharableCalendarSources]);
+
+  useEffect(() => {
+    localStorage.setItem('config-digest-recipient', digestRecipient);
+  }, [digestRecipient]);
+
+  useEffect(() => {
+    localStorage.setItem('config-digest-smtp-host', digestSMTPHost);
+  }, [digestSMTPHost]);
+
+  useEffect(() => {
+    localStorage.setItem('config-digest-smtp-port', digestSMTPPort);
+  }, [digestSMTPPort]);
+
+  useEffect(() => {
+    localStorage.setItem('config-digest-smtp-user', digestSMTPUser);
+  }, [digestSMTPUser]);
+
+  useEffect(() => {
+    localStorage.setItem('config-digest-smtp-pass', digestSMTPPass);
+  }, [digestSMTPPass]);
 
 
   // Helper to persist to API
@@ -1332,6 +1406,30 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
           const calSourcesSetting = db.settings.find((s: any) => s.key === 'sharableCalendarSources');
           if (calSourcesSetting) setSharableCalendarSources(calSourcesSetting.value || '');
+
+          const recipientSetting = db.settings.find((s: any) => s.key === 'digestRecipient');
+          if (recipientSetting) setDigestRecipient(recipientSetting.value || '');
+
+          const smtpHostSetting = db.settings.find((s: any) => s.key === 'digestSMTPHost');
+          if (smtpHostSetting) setDigestSMTPHost(smtpHostSetting.value || '');
+
+          const smtpPortSetting = db.settings.find((s: any) => s.key === 'digestSMTPPort');
+          if (smtpPortSetting) setDigestSMTPPort(smtpPortSetting.value || '');
+
+          const smtpUserSetting = db.settings.find((s: any) => s.key === 'digestSMTPUser');
+          if (smtpUserSetting) setDigestSMTPUser(smtpUserSetting.value || '');
+
+          const smtpPassSetting = db.settings.find((s: any) => s.key === 'digestSMTPPass');
+          if (smtpPassSetting) setDigestSMTPPass(smtpPassSetting.value || '');
+
+          const freqSetting = db.settings.find((s: any) => s.key === 'digestFrequency');
+          if (freqSetting) setDigestFrequency(freqSetting.value || 'weekly');
+
+          const timeSetting = db.settings.find((s: any) => s.key === 'digestTime');
+          if (timeSetting) setDigestTime(timeSetting.value || '09:00');
+
+          const daySetting = db.settings.find((s: any) => s.key === 'digestDayOfWeek');
+          if (daySetting) setDigestDayOfWeek(daySetting.value || 'Monday');
         }
         setSyncStatus('synced');
 
@@ -1499,6 +1597,39 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const updateSharableCalendarSources = (val: string) => {
     setSharableCalendarSources(val);
     persistChange('update', 'settings', 'sharableCalendarSources', { id: 'sharableCalendarSources', key: 'sharableCalendarSources', value: val });
+  };
+
+  const updateDigestRecipient = (val: string) => {
+    setDigestRecipient(val);
+    persistChange('update', 'settings', 'digestRecipient', { id: 'digestRecipient', key: 'digestRecipient', value: val });
+  };
+  const updateDigestSMTPHost = (val: string) => {
+    setDigestSMTPHost(val);
+    persistChange('update', 'settings', 'digestSMTPHost', { id: 'digestSMTPHost', key: 'digestSMTPHost', value: val });
+  };
+  const updateDigestSMTPPort = (val: string) => {
+    setDigestSMTPPort(val);
+    persistChange('update', 'settings', 'digestSMTPPort', { id: 'digestSMTPPort', key: 'digestSMTPPort', value: val });
+  };
+  const updateDigestSMTPUser = (val: string) => {
+    setDigestSMTPUser(val);
+    persistChange('update', 'settings', 'digestSMTPUser', { id: 'digestSMTPUser', key: 'digestSMTPUser', value: val });
+  };
+  const updateDigestSMTPPass = (val: string) => {
+    setDigestSMTPPass(val);
+    persistChange('update', 'settings', 'digestSMTPPass', { id: 'digestSMTPPass', key: 'digestSMTPPass', value: val });
+  };
+  const updateDigestFrequency = (val: string) => {
+    setDigestFrequency(val);
+    persistChange('update', 'settings', 'digestFrequency', { id: 'digestFrequency', key: 'digestFrequency', value: val });
+  };
+  const updateDigestTime = (val: string) => {
+    setDigestTime(val);
+    persistChange('update', 'settings', 'digestTime', { id: 'digestTime', key: 'digestTime', value: val });
+  };
+  const updateDigestDayOfWeek = (val: string) => {
+    setDigestDayOfWeek(val);
+    persistChange('update', 'settings', 'digestDayOfWeek', { id: 'digestDayOfWeek', key: 'digestDayOfWeek', value: val });
   };
 
   // Helper Updaters
@@ -2159,6 +2290,27 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return null;
   };
 
+  const sendEmailDigest = async (testRecipient?: string): Promise<{ success: boolean; message: string; testLink?: string; error?: string }> => {
+    try {
+      const savedUserId = localStorage.getItem('logged-in-user-id') || '';
+      const response = await fetch('/api/data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': savedUserId
+        },
+        body: JSON.stringify({
+          action: 'send-product-ship-digest',
+          testRecipient
+        })
+      });
+      const data = await response.json();
+      return data;
+    } catch (err: any) {
+      return { success: false, message: 'Failed to send digest email.', error: err.message };
+    }
+  };
+
   const refreshAllClickupStatuses = async (): Promise<{ success: boolean; totalScanned: number; updatedCount: number; error?: string }> => {
     if (!clickupApiKey.trim()) {
       return { success: false, totalScanned: 0, updatedCount: 0, error: 'ClickUp API key is not configured' };
@@ -2299,6 +2451,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       cohorts, addCohort, updateCohort, deleteCohort,
       clickupApiKey, setClickupApiKey: updateClickupApiKey, syncClickupTask,
       refreshAllClickupStatuses,
+      sendEmailDigest,
       registerClickupWebhook,
       checkClickupWebhookStatus,
       refreshAllData,
@@ -2332,7 +2485,23 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       highlightedCallId,
       setHighlightedCallId,
       meetingSearchQuery,
-      setMeetingSearchQuery
+      setMeetingSearchQuery,
+      digestRecipient,
+      updateDigestRecipient,
+      digestSMTPHost,
+      updateDigestSMTPHost,
+      digestSMTPPort,
+      updateDigestSMTPPort,
+      digestSMTPUser,
+      updateDigestSMTPUser,
+      digestSMTPPass,
+      updateDigestSMTPPass,
+      digestFrequency,
+      updateDigestFrequency,
+      digestTime,
+      updateDigestTime,
+      digestDayOfWeek,
+      updateDigestDayOfWeek
     }}>
       {children}
       {dialogState && (

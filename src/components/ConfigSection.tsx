@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import type { ConfigSpeaker, ConfigProductGroup, ConfigStatus, ConfigProgram, ConfigCohort, FeedbackFormField } from '../types';
-import { Plus, Trash2, Check, X, Pencil, Users, Layers, Tag, Key, Eye, EyeOff, RefreshCw, AlertCircle, ClipboardList, ChevronUp, ChevronDown, Shield, Calendar, Copy, Link, Zap } from 'lucide-react';
+import { Plus, Trash2, Check, X, Pencil, Users, Layers, Tag, Key, Eye, EyeOff, RefreshCw, AlertCircle, ClipboardList, ChevronUp, ChevronDown, Shield, Calendar, Copy, Link, Zap, Mail, Sparkles } from 'lucide-react';
 
 // ─── Colour palette ────────────────────────────────────────────────────────────
 const PALETTE = [
@@ -2196,8 +2196,578 @@ const CalendarConfigSection: React.FC = () => {
 };
 
 
+const EmailDigestSettingsSection: React.FC = () => {
+  const {
+    digestRecipient, updateDigestRecipient,
+    digestSMTPHost, updateDigestSMTPHost,
+    digestSMTPPort, updateDigestSMTPPort,
+    digestSMTPUser, updateDigestSMTPUser,
+    digestSMTPPass, updateDigestSMTPPass,
+    digestFrequency, updateDigestFrequency,
+    digestTime, updateDigestTime,
+    digestDayOfWeek, updateDigestDayOfWeek,
+    canUserEdit,
+    sendEmailDigest
+  } = useDashboard();
+
+  const [recipient, setRecipient] = useState(digestRecipient);
+  const [smtpHost, setSmtpHost] = useState(digestSMTPHost);
+  const [smtpPort, setSmtpPort] = useState(digestSMTPPort);
+  const [smtpUser, setSmtpUser] = useState(digestSMTPUser);
+  const [smtpPass, setSmtpPass] = useState(digestSMTPPass);
+  const [frequency, setFrequency] = useState(digestFrequency);
+  const [deliveryTime, setDeliveryTime] = useState(digestTime);
+  const [dayOfWeek, setDayOfWeek] = useState(digestDayOfWeek);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [sendFeedback, setSendFeedback] = useState<{ success: boolean; message: string; testLink?: string } | null>(null);
+
+  useEffect(() => {
+    setRecipient(digestRecipient);
+    setSmtpHost(digestSMTPHost);
+    setSmtpPort(digestSMTPPort);
+    setSmtpUser(digestSMTPUser);
+    setSmtpPass(digestSMTPPass);
+    setFrequency(digestFrequency);
+    setDeliveryTime(digestTime);
+    setDayOfWeek(digestDayOfWeek);
+  }, [digestRecipient, digestSMTPHost, digestSMTPPort, digestSMTPUser, digestSMTPPass, digestFrequency, digestTime, digestDayOfWeek]);
+
+  const handleSave = () => {
+    if (!canUserEdit) return;
+    updateDigestRecipient(recipient.trim());
+    updateDigestSMTPHost(smtpHost.trim());
+    updateDigestSMTPPort(smtpPort.trim());
+    updateDigestSMTPUser(smtpUser.trim());
+    updateDigestSMTPPass(smtpPass.trim());
+    updateDigestFrequency(frequency);
+    updateDigestTime(deliveryTime);
+    updateDigestDayOfWeek(dayOfWeek);
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 3000);
+  };
+
+  const handleSend = async () => {
+    setIsSending(true);
+    setSendFeedback(null);
+    try {
+      const res = await sendEmailDigest();
+      setSendFeedback(res);
+    } catch (e: any) {
+      setSendFeedback({ success: false, message: e.message || 'Error occurred.' });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleSendTest = async () => {
+    const targetEmail = prompt('Enter the email address you want to send the test digest to:', recipient || '');
+    if (!targetEmail || !targetEmail.trim()) return;
+
+    setIsSending(true);
+    setSendFeedback(null);
+    try {
+      const res = await sendEmailDigest(targetEmail.trim());
+      setSendFeedback(res);
+    } catch (e: any) {
+      setSendFeedback({ success: false, message: e.message || 'Error occurred.' });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', width: '100%', gap: '2rem', padding: '2rem', overflowY: 'auto', alignItems: 'flex-start' }}>
+        {/* Left Side: Form Controls */}
+        <div style={{ flex: 1, minWidth: '320px', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          <SectionCard
+            icon={<Mail size={16} />}
+            title="Email Digest Configurations"
+            subtitle="Configure recipient and SMTP settings for the product shipments digest"
+          >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              SMTP Sender & Recipient Configurations
+            </h4>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Digest Recipient Email
+              </label>
+              <input
+                type="email"
+                className="config-input"
+                placeholder="e.g. founder@company.com"
+                value={recipient}
+                onChange={(e) => setRecipient(e.target.value)}
+              />
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                Multiple emails can be separated by commas
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', gap: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  SMTP Host Server
+                </label>
+                <input
+                  type="text"
+                  className="config-input"
+                  placeholder="e.g. smtp.gmail.com"
+                  value={smtpHost}
+                  onChange={(e) => setSmtpHost(e.target.value)}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  Port
+                </label>
+                <input
+                  type="text"
+                  className="config-input"
+                  placeholder="465"
+                  value={smtpPort}
+                  onChange={(e) => setSmtpPort(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  SMTP User (Email)
+                </label>
+                <input
+                  type="text"
+                  className="config-input"
+                  placeholder="e.g. operations@gmail.com"
+                  value={smtpUser}
+                  onChange={(e) => setSmtpUser(e.target.value)}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  SMTP Password / App Token
+                </label>
+                <input
+                  type="password"
+                  className="config-input"
+                  placeholder="••••••••••••••••"
+                  value={smtpPass}
+                  onChange={(e) => setSmtpPass(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Scheduler Configuration Section */}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.2rem', marginTop: '0.4rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <h5 style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                📅 Automated Schedule Settings
+              </h5>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                    Frequency
+                  </label>
+                  <select
+                    className="config-input"
+                    value={frequency}
+                    onChange={(e) => setFrequency(e.target.value)}
+                    style={{ backgroundColor: 'var(--panel-bg)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '6px', padding: '6px 12px', fontSize: '0.8rem', outline: 'none' }}
+                  >
+                    <option value="everyday">Everyday</option>
+                    <option value="weekly">Weekly</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                    Preferred Time
+                  </label>
+                  <input
+                    type="time"
+                    className="config-input"
+                    value={deliveryTime}
+                    onChange={(e) => setDeliveryTime(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {frequency === 'weekly' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                    Preferred Day of Week
+                  </label>
+                  <select
+                    className="config-input"
+                    value={dayOfWeek}
+                    onChange={(e) => setDayOfWeek(e.target.value)}
+                    style={{ backgroundColor: 'var(--panel-bg)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: '6px', padding: '6px 12px', fontSize: '0.8rem', outline: 'none' }}
+                  >
+                    <option value="Monday">Monday</option>
+                    <option value="Tuesday">Tuesday</option>
+                    <option value="Wednesday">Wednesday</option>
+                    <option value="Thursday">Thursday</option>
+                    <option value="Friday">Friday</option>
+                    <option value="Saturday">Saturday</option>
+                    <option value="Sunday">Sunday</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {canUserEdit && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className="btn btn-primary"
+                  style={{ fontSize: '0.8rem', padding: '8px 18px', borderRadius: '8px' }}
+                >
+                  Save Configurations
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSend}
+                  disabled={isSending || !recipient}
+                  className="btn btn-outline"
+                  style={{ fontSize: '0.8rem', padding: '8px 18px', borderRadius: '8px', border: '1px solid var(--primary)', color: 'var(--primary)' }}
+                >
+                  {isSending ? 'Sending...' : 'Send Live Digest Now'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSendTest}
+                  disabled={isSending}
+                  className="btn btn-outline"
+                  style={{ fontSize: '0.8rem', padding: '8px 18px', borderRadius: '8px', border: '1px solid var(--text-secondary)', color: 'var(--text-secondary)' }}
+                >
+                  Send Test Email
+                </button>
+
+                {isSaved && (
+                  <span style={{ color: 'var(--success)', fontSize: '0.8rem', fontWeight: 600 }}>
+                    ✓ Saved
+                  </span>
+                )}
+              </div>
+            )}
+
+            {sendFeedback && (
+              <div style={{
+                marginTop: '0.5rem',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                backgroundColor: sendFeedback.success ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                border: `1px solid ${sendFeedback.success ? 'var(--success)' : 'var(--danger)'}`,
+                fontSize: '0.8rem',
+                color: sendFeedback.success ? 'var(--success)' : 'var(--danger)'
+              }}>
+                <span style={{ fontWeight: 600 }}>{sendFeedback.success ? 'Success: ' : 'Error: '}</span>
+                {sendFeedback.message}
+                {sendFeedback.testLink && (
+                  <div style={{ marginTop: '6px' }}>
+                    <a
+                      href={sendFeedback.testLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: 'var(--primary)', fontWeight: 700, textDecoration: 'underline' }}
+                    >
+                      Open Ethereal Test Inbox (Preview Mail) ↗
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </SectionCard>
+      </div>
+
+        {/* Right Side: Live Email Preview */}
+        <div style={{ flex: 1.2, display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: '400px' }}>
+          <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Sparkles size={16} color="var(--primary)" /> Active Email Digest Template
+          </h3>
+          
+          {/* Mock Email Client Container */}
+          <div style={{
+            border: '1.5px solid var(--border)',
+            borderRadius: '12px',
+            background: 'var(--panel-bg)',
+            overflow: 'hidden',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+            display: 'flex',
+            flexDirection: 'column',
+            width: '100%',
+            maxWidth: '600px'
+          }}>
+            {/* Window header */}
+            <div style={{
+              background: 'var(--background-alt)',
+              padding: '10px 16px',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#ef4444' }} />
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#eab308' }} />
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22c55e' }} />
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '12px', fontWeight: 500 }}>
+                Operations Status Digest Preview
+              </span>
+            </div>
+
+            {/* Email Metadata */}
+            <div style={{
+              padding: '12px 18px',
+              borderBottom: '1px solid var(--border)',
+              fontSize: '0.8rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+              background: 'var(--panel-bg)'
+            }}>
+              <div>
+                <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>From:</span>{' '}
+                <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+                  {smtpUser ? `Product Ship Console <${smtpUser}>` : 'Product Ship Console <digest@productship.com>'}
+                </span>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>To:</span>{' '}
+                <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+                  {recipient || 'Tarun Sir & Team <recipient@company.com>'}
+                </span>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Subject:</span>{' '}
+                <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+                  🚢 Product Ship Digest — Delivery & Status
+                </span>
+              </div>
+            </div>
+
+            {/* Email Content Frame */}
+            <div style={{
+              padding: '1.5rem',
+              backgroundColor: '#f8fafc',
+              overflowY: 'auto'
+            }}>
+              {/* Actual HTML Email Design */}
+              <div style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '8px',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                padding: '20px',
+                color: '#334155',
+                fontSize: '13px',
+                lineHeight: '1.5'
+              }}>
+                {/* Logo / Header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '2px solid #7c3aed', paddingBottom: '12px', marginBottom: '16px' }}>
+                  <span style={{ fontSize: '20px' }}>🚢</span>
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Product Ship
+                    </h2>
+                    <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 500 }}>
+                      Feature Delivery & Status Sync
+                    </span>
+                  </div>
+                </div>
+
+                <p style={{ margin: '0 0 12px 0', color: '#475569', fontWeight: 500 }}>
+                  Hello team,
+                </p>
+                <p style={{ margin: '0 0 16px 0', color: '#475569', fontSize: '12px' }}>
+                  Here is the summary of product shipments and operational metrics. Please review the digest below:
+                </p>
+
+                {/* Analytics Status Banner Illustration Preview */}
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '0 0 16px 0' }}>
+                  <img
+                    src="/analytics_bad.png"
+                    alt="System status illustration"
+                    width="200"
+                    style={{ borderRadius: '8px', display: 'block', maxWidth: '100%', height: 'auto' }}
+                  />
+                </div>
+
+
+
+                {/* DIGEST TABLE */}
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                      <th style={{ textAlign: 'left', padding: '6px 8px', fontSize: '11px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>
+                        Operation / Call Log
+                      </th>
+                      <th style={{ textAlign: 'right', padding: '6px 8px', fontSize: '11px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', width: '90px' }}>
+                        Status
+                      </th>
+                      <th style={{ textAlign: 'left', padding: '6px 12px', fontSize: '11px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', width: '90px' }}>
+                        Progress
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '10px 8px', fontWeight: 600, color: '#1e293b' }}>
+                        👑 Tarun Sir Meetings <span style={{ fontWeight: 400, color: '#64748b', fontSize: '11px' }}>(3 calls)</span>
+                      </td>
+                      <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 700, color: '#f97316' }}>
+                        10 / 20 pending
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ flex: 1, backgroundColor: '#f1f5f9', borderRadius: '3px', height: '5px', overflow: 'hidden' }}>
+                            <div style={{ width: '50%', backgroundColor: '#f97316', height: '100%', borderRadius: '3px' }} />
+                          </div>
+                          <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 600 }}>50%</span>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '10px 8px', fontWeight: 600, color: '#1e293b' }}>
+                        📞 Weekly Calls <span style={{ fontWeight: 400, color: '#64748b', fontSize: '11px' }}>(5 calls)</span>
+                      </td>
+                      <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 700, color: '#f97316' }}>
+                        8 / 15 pending
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ flex: 1, backgroundColor: '#f1f5f9', borderRadius: '3px', height: '5px', overflow: 'hidden' }}>
+                            <div style={{ width: '47%', backgroundColor: '#f97316', height: '100%', borderRadius: '3px' }} />
+                          </div>
+                          <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 600 }}>47%</span>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '10px 8px', fontWeight: 600, color: '#1e293b' }}>
+                        🎥 AMA Sessions <span style={{ fontWeight: 400, color: '#64748b', fontSize: '11px' }}>(0 sessions)</span>
+                      </td>
+                      <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 700, color: '#2563eb' }}>
+                        0 / 0 pending
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ flex: 1, backgroundColor: '#f1f5f9', borderRadius: '3px', height: '5px', overflow: 'hidden' }}>
+                            <div style={{ width: '100%', backgroundColor: '#2563eb', height: '100%', borderRadius: '3px' }} />
+                          </div>
+                          <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 600 }}>100%</span>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '10px 8px', fontWeight: 600, color: '#1e293b' }}>
+                        ⚠️ Daily Issues Log
+                      </td>
+                      <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 700, color: '#ef4444' }}>
+                        8 / 12 unresolved
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ flex: 1, backgroundColor: '#f1f5f9', borderRadius: '3px', height: '5px', overflow: 'hidden' }}>
+                            <div style={{ width: '33%', backgroundColor: '#ef4444', height: '100%', borderRadius: '3px' }} />
+                          </div>
+                          <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 600 }}>33%</span>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '10px 8px', fontWeight: 600, color: '#10b981' }}>
+                        🚀 Released (Total Tasks)
+                      </td>
+                      <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 700, color: '#10b981' }}>
+                        10 / 20 released
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ flex: 1, backgroundColor: '#f1f5f9', borderRadius: '3px', height: '5px', overflow: 'hidden' }}>
+                            <div style={{ width: '50%', backgroundColor: '#10b981', height: '100%', borderRadius: '3px' }} />
+                          </div>
+                          <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 600 }}>50%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* Visual Chart Section */}
+                <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px', marginBottom: '20px' }}>
+                  <h3 style={{ margin: '0 0 12px 0', fontSize: '11px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span>💬</span> User & Student Feedback Radar
+                  </h3>
+                  
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    {/* AMA Sessions Card */}
+                    <div style={{ flex: 1, backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>AMA Sessions Rating</span>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                        <span style={{ fontSize: '18px', fontWeight: 800, color: '#7c3aed' }}>—</span>
+                      </div>
+                      <div style={{ color: '#cbd5e1', fontSize: '12px', letterSpacing: '1px' }}>☆☆☆☆☆</div>
+                      <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>0 feedback submissions</div>
+                    </div>
+
+                    {/* Weekly Calls Card */}
+                    <div style={{ flex: 1, backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Weekly Calls Rating</span>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                        <span style={{ fontSize: '18px', fontWeight: 800, color: '#7c3aed' }}>4.5</span>
+                        <span style={{ fontSize: '10px', color: '#94a3b8' }}>/ 5.0</span>
+                      </div>
+                      <div style={{ color: '#fbbf24', fontSize: '12px', letterSpacing: '1px' }}>★★★★★</div>
+                      <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>15 feedback submissions</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Call to action button */}
+                <div style={{ textAlign: 'center', margin: '20px 0 12px 0' }}>
+                  <span
+                    style={{
+                      backgroundColor: '#7c3aed',
+                      color: '#ffffff',
+                      textDecoration: 'none',
+                      padding: '8px 20px',
+                      borderRadius: '6px',
+                      fontWeight: 700,
+                      fontSize: '12px',
+                      display: 'inline-block',
+                      cursor: 'default'
+                    }}
+                  >
+                    Open Product Ship
+                  </span>
+                </div>
+
+                <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px', marginTop: '18px', fontSize: '10px', color: '#94a3b8', textAlign: 'center' }}>
+                  This digest was auto-generated by the internal Product Tool. To manage email subscriptions, go to the Configuration portal.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+
 const IntegrationsSection: React.FC = () => {
-  const [subTab, setSubTab] = useState<'clickup' | 'security'>('clickup');
+  const [subTab, setSubTab] = useState<'clickup' | 'security' | 'email'>('clickup');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -2243,13 +2813,32 @@ const IntegrationsSection: React.FC = () => {
         >
           Form Security
         </button>
+        <button
+          onClick={() => setSubTab('email')}
+          style={{
+            padding: '0.75rem 0.5rem',
+            border: 'none',
+            background: 'none',
+            borderBottom: subTab === 'email' ? '2px solid var(--primary)' : '2px solid transparent',
+            color: subTab === 'email' ? 'var(--text-primary)' : 'var(--text-muted)',
+            fontWeight: 600,
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            outline: 'none'
+          }}
+        >
+          Email Digest
+        </button>
       </div>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {subTab === 'clickup' ? (
           <ClickupSettingsSection />
-        ) : (
+        ) : subTab === 'security' ? (
           <FormSecuritySection />
+        ) : (
+          <EmailDigestSettingsSection />
         )}
       </div>
     </div>

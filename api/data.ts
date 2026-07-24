@@ -1,4 +1,5 @@
 import https from 'https';
+import nodemailer from 'nodemailer';
 import { connectToDatabase } from './lib/db.js';
 import {
   ProductItemModel,
@@ -786,7 +787,12 @@ export default async function handler(req: any, res: any) {
                      statusMatch && 
                      isWithinDateRange(date, filterStart, filterEnd);
             });
-            items.push(...matched.map(item => ({ ...item, source: 'Priority Requests' })));
+            items.push(...matched.map((item: any) => ({
+              ...item,
+              id: item.id || String(item._id),
+              feature: item.feature || item.module || item.title || item.issues || 'Unnamed Task',
+              source: 'Priority Requests'
+            })));
           }
 
           if (!source || source === 'Student Projects') {
@@ -798,7 +804,12 @@ export default async function handler(req: any, res: any) {
                      getStatusFilter(toProductStatus(item.status), item.clickupStatus, item.taskLink) && 
                      isWithinDateRange(date, filterStart, filterEnd);
             });
-            items.push(...matched.map(item => ({ ...item, source: 'Student Projects' })));
+            items.push(...matched.map((item: any) => ({
+              ...item,
+              id: item.id || String(item._id),
+              feature: item.title || item.feature || item.module || 'Unnamed Project',
+              source: 'Student Projects'
+            })));
           }
 
           if (!source || source === 'Content Pipeline') {
@@ -810,7 +821,13 @@ export default async function handler(req: any, res: any) {
                      getStatusFilter(toProductStatus(item.status), item.clickupStatus, item.draftLink) && 
                      isWithinDateRange(date, filterStart, filterEnd);
             });
-            items.push(...matched.map(item => ({ ...item, source: 'Content Pipeline' })));
+            items.push(...matched.map((item: any) => ({
+              ...item,
+              id: item.id || String(item._id),
+              feature: item.module || item.feature || item.subject || 'Unnamed Content',
+              taskLink: item.draftLink || item.taskLink,
+              source: 'Content Pipeline'
+            })));
           }
 
           if (!source || source === 'Daily Issues Log') {
@@ -822,7 +839,12 @@ export default async function handler(req: any, res: any) {
                      getStatusFilter(toProductStatus(item.status), item.clickupStatus, item.taskLink) && 
                      isWithinDateRange(date, filterStart, filterEnd);
             });
-            items.push(...matched.map(item => ({ ...item, source: 'Daily Issues Log' })));
+            items.push(...matched.map((item: any) => ({
+              ...item,
+              id: item.id || String(item._id),
+              feature: item.module || item.issues || item.feature || 'Unnamed Issue',
+              source: 'Daily Issues Log'
+            })));
           }
 
           if (!source || source === 'AMA & Meetings') {
@@ -834,7 +856,12 @@ export default async function handler(req: any, res: any) {
                      getStatusFilter(toProductStatus(item.status), item.clickupStatus, item.taskLink) && 
                      isWithinDateRange(date, filterStart, filterEnd);
             });
-            items.push(...matched.map(item => ({ ...item, source: 'AMA & Meetings' })));
+            items.push(...matched.map((item: any) => ({
+              ...item,
+              id: item.id || String(item._id),
+              feature: item.cohort || item.module || item.feature || 'Unnamed Meeting',
+              source: 'AMA & Meetings'
+            })));
           }
 
           return res.status(200).json({ success: true, data: items });
@@ -2949,6 +2976,497 @@ export default async function handler(req: any, res: any) {
         return res.status(200).json({ success: true, registered: allRegistered });
       } catch (err: any) {
         console.error('ClickUp webhook check error:', err);
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+
+    if (action === 'send-product-ship-digest') {
+      try {
+        const userId = req.headers['x-user-id'];
+        let isAuthenticated = false;
+        if (userId) {
+          const ConfigSpeaker = modelsMap['speakers'];
+          const speaker = await ConfigSpeaker.findOne({ id: userId }).lean();
+          if (speaker) {
+            isAuthenticated = true;
+          }
+        }
+        const host = req.headers.host || '';
+        const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('3000') || host.includes('5173');
+        if (!isAuthenticated && !isLocalhost) {
+          return res.status(401).json({ success: false, error: 'Unauthorized.' });
+        }
+
+        const { testRecipient } = req.body;
+
+        // 1. Fetch SMTP settings from DB
+        const GlobalSettings = modelsMap['settings'];
+        const recipientSet = await GlobalSettings.findOne({ key: 'digestRecipient' }).lean();
+        const smtpHostSet = await GlobalSettings.findOne({ key: 'digestSMTPHost' }).lean();
+        const smtpPortSet = await GlobalSettings.findOne({ key: 'digestSMTPPort' }).lean();
+        const smtpUserSet = await GlobalSettings.findOne({ key: 'digestSMTPUser' }).lean();
+        const smtpPassSet = await GlobalSettings.findOne({ key: 'digestSMTPPass' }).lean();
+
+        const recipient = testRecipient || recipientSet?.value || '';
+        const smtpHost = smtpHostSet?.value || '';
+        const smtpPort = smtpPortSet?.value || '465';
+        const smtpUser = smtpUserSet?.value || '';
+        const smtpPass = smtpPassSet?.value || '';
+
+        if (!recipient.trim()) {
+          return res.status(400).json({ success: false, error: 'No recipient email specified.' });
+        }
+
+        // 2. Fetch Models
+        const ProductItemModel = modelsMap['products'];
+        const AdminCallModel = modelsMap['adminCalls'];
+        const TarunSirMeetingModel = modelsMap['tarunSirMeetings'];
+        const AMASessionModel = modelsMap['amaSessions'];
+        const DailyIssueModel = modelsMap['dailyIssues'];
+        const StudentProjectModel = modelsMap['projects'];
+        const ContentItemModel = modelsMap['contentItems'];
+        const StudentMeetingModel = modelsMap['studentMeetings'];
+        const FeedbackSubmissionModel = modelsMap['feedbackSubmissions'];
+
+        const isCompletedStatusLocal = (status: string | undefined): boolean => {
+          const s = (status || '').toLowerCase();
+          return ['completed', 'delivered', 'done', 'closed', 'resolved', 'tested', 'used'].includes(s);
+        };
+
+        // Fetch parent IDs and sub-collections to align totals with Product Breakdown tabs
+        const [
+          tarunMeetingsRaw,
+          adminCallsRaw,
+          amaSessionsRaw,
+          allProductFeaturesRaw,
+          dailyIssuesRaw,
+          projectsRaw,
+          contentRaw,
+          meetingsRaw
+        ] = await Promise.all([
+          TarunSirMeetingModel.find({}, 'id').lean(),
+          AdminCallModel.find({}, 'id').lean(),
+          AMASessionModel.find({}, 'id').lean(),
+          ProductItemModel.find({}).lean(),
+          DailyIssueModel.find({}).lean(),
+          StudentProjectModel.find({}).lean(),
+          ContentItemModel.find({}).lean(),
+          StudentMeetingModel.find({}).lean()
+        ]);
+
+        const tarunIds = new Set(tarunMeetingsRaw.map((item: any) => item.id || String(item._id)));
+        const callIds = new Set(adminCallsRaw.map((item: any) => item.id || String(item._id)));
+        const amaIds = new Set(amaSessionsRaw.map((item: any) => item.id || String(item._id)));
+
+        const tarunCallsCount = tarunIds.size;
+        const weeklyCallsCount = callIds.size;
+        const amaCallsCount = amaIds.size;
+
+        const isValidFeature = (item: any): boolean => {
+          const itemId = item.id || `prod-db-${item._id}`;
+          if (itemId.startsWith('prod-temp-')) return false;
+          return true;
+        };
+
+        const tarunFeatures = allProductFeaturesRaw.filter((item: any) => {
+          if (item.id?.startsWith('prod-ama-') || item.id?.startsWith('prod-call-') || !isValidFeature(item)) return false;
+          const notes = item.notes || '';
+          if (notes.includes('Tarun Sir Meeting ID:')) {
+            const match = notes.match(/Tarun Sir Meeting ID:\s*([^\s,;\]]+)/);
+            return !!(match && match[1] && tarunIds.has(match[1]));
+          }
+          return false;
+        });
+        const tarunTotal = tarunFeatures.length;
+        const tarunPending = tarunFeatures.filter((f: any) => !f.finalReleaseCompleted && !isCompletedStatusLocal(f.status)).length;
+
+        const adminFeatures = allProductFeaturesRaw.filter((item: any) => {
+          if (item.id?.startsWith('prod-ama-') || item.id?.startsWith('prod-tarun-') || !isValidFeature(item)) return false;
+          const notes = item.notes || '';
+          if (notes.includes('Admin Call ID:')) {
+            const match = notes.match(/Admin Call ID:\s*([^\s,;\]]+)/);
+            return !!(match && match[1] && callIds.has(match[1]));
+          }
+          return false;
+        });
+        const adminTotal = adminFeatures.length;
+        const adminPending = adminFeatures.filter((f: any) => !f.finalReleaseCompleted && !isCompletedStatusLocal(f.status)).length;
+
+        const amaFeatures = allProductFeaturesRaw.filter((item: any) => {
+          if (item.id?.startsWith('prod-call-') || item.id?.startsWith('prod-tarun-') || !isValidFeature(item)) return false;
+          const notes = item.notes || '';
+          if (notes.includes('AMA Session ID:')) {
+            const match = notes.match(/AMA Session ID:\s*([^\s,;\]]+)/);
+            return !!(match && match[1] && amaIds.has(match[1]));
+          }
+          return false;
+        });
+        const amaTotal = amaFeatures.length;
+        const amaPending = amaFeatures.filter((f: any) => !f.finalReleaseCompleted && !isCompletedStatusLocal(f.status)).length;
+
+        const dailyIssuesFiltered = dailyIssuesRaw.filter((item: any) => item.type !== 'Feature Gap' && item.type !== 'Enhancement');
+        const issuesTotal = dailyIssuesFiltered.length;
+        const issuesPending = dailyIssuesFiltered.filter((item: any) => !item.finalReleaseCompleted && !isCompletedStatusLocal(item.status)).length;
+
+        const activeProducts = allProductFeaturesRaw.filter((item: any) => isValidFeature(item));
+        const activeProjects = projectsRaw.filter((item: any) => !item.id?.startsWith('prod-temp-'));
+        const activeContent = contentRaw.filter((item: any) => !item.id?.startsWith('prod-temp-'));
+        const activeMeetings = meetingsRaw.filter((item: any) => !item.id?.startsWith('prod-temp-'));
+        const activeIssues = dailyIssuesRaw.filter((item: any) => !item.id?.startsWith('prod-temp-'));
+
+        const totalTasksList = [
+          ...activeProducts,
+          ...activeProjects,
+          ...activeContent,
+          ...activeMeetings,
+          ...activeIssues
+        ];
+
+        const releasedTotal = totalTasksList.length;
+        const releasedCompleted = totalTasksList.filter((item: any) => item.finalReleaseCompleted || isCompletedStatusLocal(item.status)).length;
+
+        // Feedback submissions
+        const configs = await modelsMap['formConfigs'].find({ enabled: true }).lean();
+        const amaConfig = configs.find((c: any) => c.category === 'ama-meetings');
+        const adminConfig = configs.find((c: any) => c.category === 'admin-calls');
+
+        const amaRatingFields = amaConfig ? amaConfig.fields.filter((f: any) => f.type === 'rating').map((f: any) => f.id) : [];
+        const adminRatingFields = adminConfig ? adminConfig.fields.filter((f: any) => f.type === 'rating').map((f: any) => f.id) : [];
+
+        const [amaSubmissions, adminSubmissions] = await Promise.all([
+          FeedbackSubmissionModel.find({ category: 'ama-meetings' }).lean(),
+          FeedbackSubmissionModel.find({ category: 'admin-calls' }).lean()
+        ]);
+
+        const amaFeedbackCount = amaSubmissions.length;
+        const weeklyFeedbackCount = adminSubmissions.length;
+
+        let amaAvgRating: number | null = null;
+        if (amaSubmissions.length > 0 && amaRatingFields.length > 0) {
+          const scores: number[] = [];
+          amaSubmissions.forEach((sub: any) => {
+            if (sub.answers) {
+              amaRatingFields.forEach((fieldId: string) => {
+                const score = Number(sub.answers[fieldId]);
+                if (!isNaN(score) && score > 0) {
+                  scores.push(score);
+                }
+              });
+            }
+          });
+          if (scores.length > 0) {
+            amaAvgRating = Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1));
+          }
+        }
+
+        let weeklyAvgRating: number | null = null;
+        if (adminSubmissions.length > 0 && adminRatingFields.length > 0) {
+          const scores: number[] = [];
+          adminSubmissions.forEach((sub: any) => {
+            if (sub.answers) {
+              adminRatingFields.forEach((fieldId: string) => {
+                const score = Number(sub.answers[fieldId]);
+                if (!isNaN(score) && score > 0) {
+                  scores.push(score);
+                }
+              });
+            }
+          });
+          if (scores.length > 0) {
+            weeklyAvgRating = Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1));
+          }
+        }
+
+        const getStars = (r: number | null) => {
+          if (r === null) return '☆☆☆☆☆';
+          const rounded = Math.round(r);
+          return '★'.repeat(rounded) + '☆'.repeat(5 - rounded);
+        };
+
+        const tarunPercent = tarunTotal > 0 ? Math.round(((tarunTotal - tarunPending) / tarunTotal) * 100) : 100;
+        const adminPercent = adminTotal > 0 ? Math.round(((adminTotal - adminPending) / adminTotal) * 100) : 100;
+        const amaPercent = amaTotal > 0 ? Math.round(((amaTotal - amaPending) / amaTotal) * 100) : 100;
+        const issuesPercent = issuesTotal > 0 ? Math.round(((issuesTotal - issuesPending) / issuesTotal) * 100) : 100;
+        const releasedPercent = releasedTotal > 0 ? Math.round((releasedCompleted / releasedTotal) * 100) : 100;
+
+        const isMetricsGood = releasedPercent >= 75;
+        const statusImageName = isMetricsGood ? 'analytics_good.png' : 'analytics_bad.png';
+        const statusImageUrl = `${protocol}://${host}/${statusImageName}`;
+        const statusAltText = isMetricsGood ? 'Superb performance!' : 'System is warm - action needed!';
+
+        const emailHtml = `
+          <!--[if mso]>
+          <noscript>
+              <xml>
+                  <o:OfficeDocumentSettings>
+                      <o:PixelsPerInch>96</o:PixelsPerInch>
+                  </o:OfficeDocumentSettings>
+              </xml>
+          </noscript>
+          <![endif]-->
+          <div style="margin: 0; padding: 0; background-color: #f6f9fc; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+            <style>
+              @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap');
+              
+              body, table, td, th, p, h1, h2, h3, h4, span, a, div {
+                font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+              }
+            </style>
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f6f9fc; padding: 20px 10px;">
+              <tr>
+                <td align="center">
+                  <table width="560" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); overflow: hidden;">
+                    
+                    <!-- Header Card Border -->
+                    <tr>
+                      <td style="background-color: #7c3aed; height: 6px; font-size: 0; line-height: 0;">&nbsp;</td>
+                    </tr>
+
+                    <!-- Header Content -->
+                    <tr>
+                      <td style="padding: 24px 30px; border-bottom: 1px solid #f1f5f9;">
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                          <tr>
+                            <td style="vertical-align: middle;">
+                              <span style="font-size: 24px; vertical-align: middle; margin-right: 8px;">🚢</span>
+                              <span style="font-size: 20px; font-weight: 800; color: #0f172a; letter-spacing: -0.5px; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; vertical-align: middle;">Product Ship</span>
+                            </td>
+                            <td align="right" style="vertical-align: middle;">
+                              <span style="font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">Sync Digest</span>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+
+                    <!-- Greeting & Intro -->
+                    <tr>
+                      <td style="padding: 30px 30px 15px 30px;">
+                        <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 700; color: #1e293b; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">Hello team,</h3>
+                        <p style="margin: 0 0 16px 0; font-size: 13px; line-height: 1.6; color: #475569; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                          Here is the summary of product shipments and operational metrics. Please review the digest below:
+                        </p>
+                      </td>
+                    </tr>
+
+                    <!-- Analytics Status Banner Illustration -->
+                    <tr>
+                      <td align="center" style="padding: 0 30px 15px 30px;">
+                        <img src="${statusImageUrl}" alt="${statusAltText}" width="200" style="display: block; border-radius: 8px; max-width: 100%; height: auto;" />
+                      </td>
+                    </tr>
+
+                    <!-- Operations & Weekly Status Table -->
+                    <tr>
+                      <td style="padding: 15px 30px;">
+                        <h4 style="margin: 0 0 12px 0; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                          📋 Operations Status Log
+                        </h4>
+                        
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; background-color: #fafbfc;">
+                          <!-- Headers -->
+                          <tr style="background-color: #f1f5f9;">
+                            <th align="left" style="padding: 10px 14px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">Category</th>
+                            <th align="right" style="padding: 10px 14px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; width: 120px; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">Unresolved Tasks</th>
+                            <th align="right" style="padding: 10px 14px; font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; width: 100px; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">Progress</th>
+                          </tr>
+
+                          <!-- Tarun Sir Meetings Row -->
+                          <tr>
+                            <td align="left" style="padding: 12px 14px; font-size: 12px; font-weight: 600; color: #0f172a; border-bottom: 1px solid #e2e8f0; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                              👑 Tarun Sir Meetings <span style="font-weight: 400; color: #64748b; font-size: 11px;">(${tarunCallsCount} calls)</span>
+                            </td>
+                            <td align="right" style="padding: 12px 14px; font-size: 12px; font-weight: 700; color: #ea580c; border-bottom: 1px solid #e2e8f0; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                              ${tarunPending} / ${tarunTotal} pending
+                            </td>
+                            <td align="right" style="padding: 12px 14px; font-size: 12px; font-weight: 700; color: #475569; border-bottom: 1px solid #e2e8f0; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                              ${tarunPercent}%
+                            </td>
+                          </tr>
+
+                          <!-- Weekly Calls Row -->
+                          <tr>
+                            <td align="left" style="padding: 12px 14px; font-size: 12px; font-weight: 600; color: #0f172a; border-bottom: 1px solid #e2e8f0; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                              📞 Weekly Calls <span style="font-weight: 400; color: #64748b; font-size: 11px;">(${weeklyCallsCount} calls)</span>
+                            </td>
+                            <td align="right" style="padding: 12px 14px; font-size: 12px; font-weight: 700; color: #ea580c; border-bottom: 1px solid #e2e8f0; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                              ${adminPending} / ${adminTotal} pending
+                            </td>
+                            <td align="right" style="padding: 12px 14px; font-size: 12px; font-weight: 700; color: #475569; border-bottom: 1px solid #e2e8f0; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                              ${adminPercent}%
+                            </td>
+                          </tr>
+
+                          <!-- AMA Sessions Row -->
+                          <tr>
+                            <td align="left" style="padding: 12px 14px; font-size: 12px; font-weight: 600; color: #0f172a; border-bottom: 1px solid #e2e8f0; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                              🎥 AMA Sessions <span style="font-weight: 400; color: #64748b; font-size: 11px;">(${amaCallsCount} sessions)</span>
+                            </td>
+                            <td align="right" style="padding: 12px 14px; font-size: 12px; font-weight: 700; color: #2563eb; border-bottom: 1px solid #e2e8f0; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                              ${amaPending} / ${amaTotal} pending
+                            </td>
+                            <td align="right" style="padding: 12px 14px; font-size: 12px; font-weight: 700; color: #475569; border-bottom: 1px solid #e2e8f0; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                              ${amaPercent}%
+                            </td>
+                          </tr>
+
+                          <!-- Daily Issues Log -->
+                          <tr>
+                            <td align="left" style="padding: 12px 14px; font-size: 12px; font-weight: 600; color: #0f172a; border-bottom: 1px solid #e2e8f0; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                              ⚠️ Daily Issues Log
+                            </td>
+                            <td align="right" style="padding: 12px 14px; font-size: 12px; font-weight: 700; color: #dc2626; border-bottom: 1px solid #e2e8f0; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                              ${issuesPending} / ${issuesTotal} unresolved
+                            </td>
+                            <td align="right" style="padding: 12px 14px; font-size: 12px; font-weight: 700; color: #475569; border-bottom: 1px solid #e2e8f0; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                              ${issuesPercent}%
+                            </td>
+                          </tr>
+
+                          <!-- Total Released -->
+                          <tr>
+                            <td align="left" style="padding: 12px 14px; font-size: 12px; font-weight: 700; color: #16a34a; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                              🚀 Released (Total Tasks)
+                            </td>
+                            <td align="right" style="padding: 12px 14px; font-size: 12px; font-weight: 700; color: #16a34a; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                              ${releasedCompleted} / ${releasedTotal} released
+                            </td>
+                            <td align="right" style="padding: 12px 14px; font-size: 12px; font-weight: 800; color: #16a34a; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                              ${releasedPercent}%
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+
+                    <!-- User & Student Feedback Cards -->
+                    <tr>
+                      <td style="padding: 15px 30px;">
+                        <h4 style="margin: 0 0 12px 0; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                          💬 User & Student Feedback Radar
+                        </h4>
+                        
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                          <tr>
+                            <!-- AMA Feedback Card -->
+                            <td width="48%" style="vertical-align: top;">
+                              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; background-color: #ffffff;">
+                                <tr>
+                                  <td style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding-bottom: 4px;">
+                                    AMA Sessions Rating
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td style="padding-bottom: 6px;">
+                                    <span style="font-size: 22px; font-weight: 800; color: #7c3aed; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">${amaAvgRating !== null ? amaAvgRating : '—'}</span>
+                                    ${amaAvgRating !== null ? `<span style="font-size: 10px; color: #94a3b8; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">/ 5.0</span>` : ''}
+                                    <span style="color: ${amaAvgRating !== null ? '#fbbf24' : '#cbd5e1'}; font-size: 12px; margin-left: 6px; letter-spacing: 1px;">${getStars(amaAvgRating)}</span>
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td style="font-size: 10px; font-weight: 600; color: #475569; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                                    ${amaFeedbackCount} feedback submissions
+                                  </td>
+                                </tr>
+                              </table>
+                            </td>
+
+                            <!-- Spacer -->
+                            <td width="4%">&nbsp;</td>
+
+                            <!-- Weekly Calls Card -->
+                            <td width="48%" style="vertical-align: top;">
+                              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; background-color: #ffffff;">
+                                <tr>
+                                  <td style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding-bottom: 4px;">
+                                    Weekly Calls Rating
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td style="padding-bottom: 6px;">
+                                    <span style="font-size: 22px; font-weight: 800; color: #7c3aed; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">${weeklyAvgRating !== null ? weeklyAvgRating : '—'}</span>
+                                    ${weeklyAvgRating !== null ? `<span style="font-size: 10px; color: #94a3b8; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">/ 5.0</span>` : ''}
+                                    <span style="color: ${weeklyAvgRating !== null ? '#fbbf24' : '#cbd5e1'}; font-size: 12px; margin-left: 6px; letter-spacing: 1px;">${getStars(weeklyAvgRating)}</span>
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td style="font-size: 10px; font-weight: 600; color: #475569; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                                    ${weeklyFeedbackCount} feedback submissions
+                                  </td>
+                                </tr>
+                              </table>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+
+                    <!-- Call To Action Button -->
+                    <tr>
+                      <td style="padding: 24px 30px; text-align: center; border-top: 1px solid #f1f5f9; background-color: #fafbfc;">
+                        <a href="${protocol}://${host}" style="background-color: #7c3aed; color: #ffffff; text-decoration: none; padding: 10px 24px; border-radius: 6px; font-weight: 700; font-size: 13px; display: inline-block; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; letter-spacing: -0.2px;">
+                          Open Product Ship
+                        </a>
+                      </td>
+                    </tr>
+
+                    <!-- Footer Details -->
+                    <tr>
+                      <td style="background-color: #f1f5f9; padding: 16px 30px; font-size: 10px; color: #94a3b8; text-align: center; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.4;">
+                        This digest was auto-generated by the internal Product Ship Management Tool.<br>
+                        To manage email notifications or view detailed logs, visit the Configuration portal.
+                      </td>
+                    </tr>
+
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </div>
+        `;
+
+        let transporter;
+        if (smtpHost && smtpUser && smtpPass) {
+          transporter = nodemailer.createTransport({
+            host: smtpHost,
+            port: Number(smtpPort),
+            secure: Number(smtpPort) === 465,
+            auth: {
+              user: smtpUser,
+              pass: smtpPass
+            }
+          });
+        } else {
+          const testAccount = await nodemailer.createTestAccount();
+          transporter = nodemailer.createTransport({
+            host: "smtp.ethereal.email",
+            port: 587,
+            secure: false,
+            auth: {
+              user: testAccount.user,
+              pass: testAccount.pass
+            }
+          });
+        }
+
+        const mailOptions = {
+          from: smtpUser ? `Product Ship Console <${smtpUser}>` : 'Product Ship Console <digest@productship.com>',
+          to: recipient,
+          subject: '🚢 Product Ship Digest — Delivery & Status',
+          html: emailHtml
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Email sent:', info.messageId);
+
+        let testLink = '';
+        if (!smtpHost) {
+          testLink = nodemailer.getTestMessageUrl(info);
+        }
+
+        return res.status(200).json({ success: true, message: 'Email digest sent successfully!', testLink });
+      } catch (err: any) {
+        console.error('Send email digest error:', err);
         return res.status(500).json({ success: false, error: err.message });
       }
     }

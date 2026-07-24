@@ -14,11 +14,13 @@
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.5",
+    "@types/nodemailer": "^8.0.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "lucide-react": "^1.17.0",
     "mongodb": "^7.3.0",
     "mongoose": "^9.7.0",
+    "nodemailer": "^9.0.3",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "ws": "^8.21.0"
