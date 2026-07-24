@@ -848,7 +848,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
                   </span>
                 )}
               </h3>
-              <div className="search-input-wrapper" style={{ width: '220px', height: '32px' }}>
+              <div className="search-input-wrapper" style={{ width: '220px', height: '32px', position: 'relative' }}>
                 <Search size={14} />
                 <input 
                   type="text" 
@@ -858,6 +858,31 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
                   onChange={(e) => setSearchQuery(e.target.value)}
                   style={{ height: '100%', fontSize: '0.75rem' }}
                 />
+                {searchQuery && (
+                  <button 
+                    className="search-clear-btn" 
+                    onClick={() => setSearchQuery('')}
+                    title="Clear search"
+                    style={{
+                      position: 'absolute',
+                      right: '10px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      zIndex: 10,
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--text-muted)',
+                      padding: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      outline: 'none'
+                    }}
+                  >
+                    <X size={12} />
+                  </button>
+                )}
               </div>
             </div>
             <div className="calendar-nav-buttons">

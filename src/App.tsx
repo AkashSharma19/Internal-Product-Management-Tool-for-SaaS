@@ -39,6 +39,7 @@ import {
   LogOut,
   RefreshCw,
   Search,
+  X,
   CornerDownLeft,
   PlusCircle,
   CheckCircle,
@@ -236,11 +237,16 @@ const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     setPreviewProductId,
     openPreviewForFeature,
     activeTab,
-    setPreviousTab
+    setPreviousTab,
+    searchGlobalTasks,
+    setHighlightedCallId,
+    setMeetingSearchQuery
   } = useDashboard();
 
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -258,12 +264,12 @@ const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     }
   };
 
-  // Compile all searchable items across all worksheets
-  const searchItems = useMemo<SearchResult[]>(() => {
+  // Compile suggestions for empty/short queries from local state
+  const localSuggestions = useMemo<SearchResult[]>(() => {
     const list: SearchResult[] = [];
-
-    // 1. Priority Requests (productItems)
-    productItems.forEach(item => {
+    
+    // Suggest first 2 items from each category that is already in state
+    productItems.slice(0, 2).forEach(item => {
       if (item.id.startsWith('prod-temp-')) return;
       list.push({
         id: `product-${item.id}`,
@@ -272,12 +278,11 @@ const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         category: 'Priority Requests',
         tab: 'product',
         onSelect: () => setPreviewProductId(item.id),
-        searchContent: `${item.feature} ${item.product} ${item.poc || ''} ${item.status || ''} ${item.description || ''} ${item.notes || ''} ${item.module || ''}`.toLowerCase()
+        searchContent: ''
       });
     });
 
-    // 2. Sprint Planning (planItems)
-    planItems.forEach(item => {
+    planItems.slice(0, 2).forEach(item => {
       list.push({
         id: `plan-${item.id}`,
         title: item.task,
@@ -289,12 +294,11 @@ const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           clickupStatus: item.clickupStatus || item.status, 
           taskLink: item.link 
         }),
-        searchContent: `${item.task} ${item.month} ${item.category} ${item.status || ''}`.toLowerCase()
+        searchContent: ''
       });
     });
 
-    // 3. Student Projects (studentProjects)
-    studentProjects.forEach(item => {
+    studentProjects.slice(0, 2).forEach(item => {
       list.push({
         id: `project-${item.id}`,
         title: item.title,
@@ -302,59 +306,56 @@ const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         category: 'Student Projects',
         tab: 'projects',
         onSelect: () => openPreviewForFeature(item.title, item as unknown as Partial<ProductItem>),
-        searchContent: `${item.title} ${item.description || ''} ${item.thingsWeBuild || ''} ${item.poc || ''} ${item.product || ''} ${item.module || ''} ${item.status || ''}`.toLowerCase()
+        searchContent: ''
       });
     });
 
-    // 4. AMA Sessions (amaSessions)
-    amaSessions.forEach(item => {
+    amaSessions.slice(0, 2).forEach(item => {
       list.push({
         id: `ama-${item.id}`,
         title: item.topic,
         subtitle: `Date: ${item.date} • Speaker: ${item.speaker} • Cohort: ${item.cohort}`,
         category: 'AMA Sessions',
         tab: 'meetings',
-        onSelect: () => openPreviewForFeature(item.topic, { 
-          notes: item.cohort, 
-          taskLink: item.link, 
-          status: item.status as any 
-        }),
-        searchContent: `${item.topic} ${item.speaker} ${item.cohort} ${item.status || ''} ${item.program || ''}`.toLowerCase()
+        onSelect: () => {
+          setHighlightedCallId(item.id);
+          setMeetingSearchQuery(item.topic);
+        },
+        searchContent: ''
       });
     });
 
-    // 5. Student Meetings (studentMeetings)
-    studentMeetings.forEach(item => {
+    studentMeetings.slice(0, 2).forEach(item => {
       list.push({
         id: `meeting-${item.id}`,
         title: `Meeting: ${item.cohort}`,
         subtitle: `Date: ${item.date} • Summary: ${item.summary ? item.summary.substring(0, 60) : ''}`,
         category: 'Student Meetings',
         tab: 'meetings',
-        onSelect: () => openPreviewForFeature(item.cohort, item as unknown as Partial<ProductItem>),
-        searchContent: `${item.cohort} ${item.summary || ''} ${item.notes || ''} ${item.poc || ''} ${item.product || ''} ${item.module || ''}`.toLowerCase()
+        onSelect: () => {
+          setHighlightedCallId(item.id);
+          setMeetingSearchQuery(item.cohort);
+        },
+        searchContent: ''
       });
     });
 
-    // 6. Admin Calls (adminCalls)
-    adminCalls.forEach(item => {
+    adminCalls.slice(0, 2).forEach(item => {
       list.push({
         id: `admin-${item.id}`,
         title: item.cohortTopic,
         subtitle: `Date: ${item.date} • POC: ${item.adminPoc} • Actions: ${item.actions ? item.actions.substring(0, 60) : ''}`,
         category: 'Admin Calls',
         tab: 'admin',
-        onSelect: () => openPreviewForFeature(item.cohortTopic, { 
-          notes: item.discussion, 
-          description: item.actions, 
-          status: item.status as any 
-        }),
-        searchContent: `${item.cohortTopic} ${item.adminPoc} ${item.discussion || ''} ${item.actions || ''} ${item.status || ''}`.toLowerCase()
+        onSelect: () => {
+          setHighlightedCallId(item.id);
+          setMeetingSearchQuery(item.cohortTopic);
+        },
+        searchContent: ''
       });
     });
 
-    // 7. Content Pipeline (contentItems)
-    contentItems.forEach(item => {
+    contentItems.slice(0, 2).forEach(item => {
       list.push({
         id: `content-${item.id}`,
         title: item.module,
@@ -367,12 +368,11 @@ const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           status: item.status as any, 
           notes: item.subject 
         }),
-        searchContent: `${item.module} ${item.subject} ${item.type} ${item.poc || ''} ${item.status || ''}`.toLowerCase()
+        searchContent: ''
       });
     });
 
-    // 8. Daily Issues Log (dailyIssues)
-    dailyIssues.forEach(item => {
+    dailyIssues.slice(0, 2).forEach(item => {
       list.push({
         id: `issue-${item.id}`,
         title: item.module || `Issue #${item.id}`,
@@ -380,28 +380,90 @@ const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         category: 'Daily Issues Log',
         tab: 'issues',
         onSelect: () => setPreviewProductId(item.id),
-        searchContent: `${item.module || ''} ${item.cohort || ''} ${item.product || ''} ${item.type || ''} ${item.issues || ''} ${item.contact || ''} ${item.poc || ''}`.toLowerCase()
+        searchContent: ''
       });
     });
 
-    return list;
+    return list.slice(0, 10);
   }, [productItems, planItems, studentProjects, amaSessions, studentMeetings, adminCalls, contentItems, dailyIssues, setPreviewProductId, openPreviewForFeature]);
 
-  // Filter search items based on query
-  const filteredItems = useMemo(() => {
-    const cleanQuery = query.toLowerCase().trim();
-    if (!cleanQuery) {
-      // Suggest up to 2 items from each category as defaults
-      const suggestions: SearchResult[] = [];
-      const categories = Array.from(new Set(searchItems.map(item => item.category)));
-      categories.forEach(cat => {
-        const catItems = searchItems.filter(item => item.category === cat).slice(0, 2);
-        suggestions.push(...catItems);
-      });
-      return suggestions.slice(0, 10);
+  // Debounced search effect
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
+      setResults(localSuggestions);
+      setIsSearching(false);
+      return;
     }
-    return searchItems.filter(item => item.searchContent.includes(cleanQuery));
-  }, [query, searchItems]);
+
+    setIsSearching(true);
+    const handler = setTimeout(async () => {
+      const res = await searchGlobalTasks(trimmed);
+      if (res.success && res.data) {
+        // Map backend SearchResult entries to local onSelect handlers
+        const mapped = res.data.map((item: any) => {
+          let onSelect = () => {};
+          const raw = item.rawItem;
+          
+          if (item.category === 'Priority Requests') {
+            onSelect = () => setPreviewProductId(raw.id);
+          } else if (item.category === 'Sprint Planning') {
+            onSelect = () => openPreviewForFeature(raw.task, { 
+              status: raw.status as any, 
+              clickupStatus: raw.clickupStatus || raw.status, 
+              taskLink: raw.link 
+            });
+          } else if (item.category === 'Student Projects') {
+            onSelect = () => openPreviewForFeature(raw.title, raw as unknown as Partial<ProductItem>);
+          } else if (item.category === 'AMA Sessions') {
+            onSelect = () => {
+              setHighlightedCallId(raw.id);
+              setMeetingSearchQuery(raw.topic);
+            };
+          } else if (item.category === 'Student Meetings') {
+            onSelect = () => {
+              setHighlightedCallId(raw.id);
+              setMeetingSearchQuery(raw.cohort);
+            };
+          } else if (item.category === 'Admin Calls') {
+            onSelect = () => {
+              setHighlightedCallId(raw.id);
+              setMeetingSearchQuery(raw.cohortTopic);
+            };
+          } else if (item.category === 'Tarun Sir Meetings') {
+            onSelect = () => {
+              setHighlightedCallId(raw.id);
+              setMeetingSearchQuery(raw.cohortTopic);
+            };
+          } else if (item.category === 'Content Pipeline') {
+            onSelect = () => openPreviewForFeature(raw.module, { 
+              type: raw.type, 
+              poc: raw.poc, 
+              status: raw.status as any, 
+              notes: raw.subject 
+            });
+          } else if (item.category === 'Daily Issues Log') {
+            onSelect = () => setPreviewProductId(raw.id);
+          }
+
+          return {
+            ...item,
+            onSelect,
+            searchContent: ''
+          } as SearchResult;
+        });
+
+        setResults(mapped);
+      }
+      setIsSearching(false);
+    }, 200);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [query, localSuggestions, searchGlobalTasks, setPreviewProductId, openPreviewForFeature]);
+
+  const filteredItems = results;
 
   // Reset selected index when search query changes
   useEffect(() => {
@@ -474,11 +536,36 @@ const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             value={query}
             onChange={e => setQuery(e.target.value)}
           />
-          <span className="command-palette-keyboard-pill">ESC</span>
+          {query ? (
+            <button 
+              onClick={() => setQuery('')}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 4px',
+                outline: 'none',
+                marginRight: '8px'
+              }}
+              title="Clear search"
+            >
+              <X size={16} />
+            </button>
+          ) : (
+            <span className="command-palette-keyboard-pill">ESC</span>
+          )}
         </div>
 
         <div className="command-palette-results" ref={listRef}>
-          {filteredItems.length === 0 ? (
+          {isSearching ? (
+            <div className="command-palette-empty-state">
+              <span className="animate-spin" style={{ display: 'inline-block', width: '20px', height: '20px', border: '2px solid var(--border)', borderTopColor: 'var(--primary)', borderRadius: '50%', marginBottom: '8px' }} />
+              <p>Searching database...</p>
+            </div>
+          ) : filteredItems.length === 0 ? (
             <div className="command-palette-empty-state">
               <p>No results found for "{query}"</p>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>

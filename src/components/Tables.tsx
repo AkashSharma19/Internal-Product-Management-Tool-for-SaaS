@@ -2014,15 +2014,42 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
               Cancel
             </button>
           </div>
-          <input
-            type="text"
-            className="premium-input"
-            style={{ width: '100%', padding: '6px 10px', fontSize: '0.8rem', borderRadius: '6px', border: '1px solid var(--border)', backgroundColor: 'var(--background)' }}
-            placeholder="Type task name to search all tasks..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            autoFocus
-          />
+          <div style={{ position: 'relative', width: '100%', display: 'block' }}>
+            <input
+              type="text"
+              className="premium-input"
+              style={{ width: '100%', padding: '6px 28px 6px 10px', fontSize: '0.8rem', borderRadius: '6px', border: '1px solid var(--border)', backgroundColor: 'var(--background)' }}
+              placeholder="Type task name to search all tasks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              autoFocus
+            />
+            {searchQuery && (
+              <button 
+                className="search-clear-btn" 
+                onClick={() => setSearchQuery('')}
+                title="Clear search"
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  zIndex: 10,
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  padding: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  outline: 'none'
+                }}
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
           {searchQuery.trim().length >= 2 && (
             <div style={{
               marginTop: '6px',
@@ -5188,7 +5215,9 @@ export const StudentMeetingsTable: React.FC = () => {
     amaSessions, addAMASession, updateAMASession, deleteAMASession,
     productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
     speakers: configSpeakers, statuses, currentUser, confirm,
-    programs, fetchPaginatedMeetingsData
+    programs, fetchPaginatedMeetingsData,
+    meetingSearchQuery, setMeetingSearchQuery,
+    highlightedCallId, setHighlightedCallId
   } = useDashboard();
 
   // Derive speakers list from configuration context (live — updates when Config tab changes)
@@ -5387,6 +5416,33 @@ export const StudentMeetingsTable: React.FC = () => {
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isFetching, setIsFetching] = useState(false);
+
+  useEffect(() => {
+    if (meetingSearchQuery) {
+      setSearchQuery(meetingSearchQuery);
+      setMeetingSearchQuery('');
+    }
+  }, [meetingSearchQuery, setMeetingSearchQuery]);
+
+  useEffect(() => {
+    if (highlightedCallId && paginatedAMASessions.length > 0) {
+      const hasItem = paginatedAMASessions.some(ama => ama.id === highlightedCallId);
+      if (hasItem) {
+        setExpandedAMAId(highlightedCallId);
+        setHighlightedCallId(null);
+        setTimeout(() => {
+          const el = document.getElementById(`call-row-${highlightedCallId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('highlight-pulse');
+            setTimeout(() => {
+              el.classList.remove('highlight-pulse');
+            }, 3000);
+          }
+        }, 150);
+      }
+    }
+  }, [highlightedCallId, paginatedAMASessions, setHighlightedCallId]);
 
   useEffect(() => {
     let active = true;
@@ -5662,6 +5718,7 @@ export const StudentMeetingsTable: React.FC = () => {
                   return (
                     <React.Fragment key={ama.id}>
                       <tr 
+                        id={`call-row-${ama.id}`}
                         onClick={() => setExpandedAMAId(isExpanded ? null : ama.id)} 
                         style={{ 
                           cursor: 'pointer',
@@ -7129,7 +7186,9 @@ export const AdminCallsTable: React.FC = () => {
     adminCalls, updateAdminCall, addAdminCall, deleteAdminCall, 
     productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
     speakers: configSpeakers, statuses, currentUser, confirm,
-    programs, fetchPaginatedMeetingsData
+    programs, fetchPaginatedMeetingsData,
+    meetingSearchQuery, setMeetingSearchQuery,
+    highlightedCallId, setHighlightedCallId
   } = useDashboard();
   
   const speakersList = configSpeakers.map(s => s.name);
@@ -7281,6 +7340,33 @@ export const AdminCallsTable: React.FC = () => {
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isFetching, setIsFetching] = useState(false);
+
+  useEffect(() => {
+    if (meetingSearchQuery) {
+      setSearchQuery(meetingSearchQuery);
+      setMeetingSearchQuery('');
+    }
+  }, [meetingSearchQuery, setMeetingSearchQuery]);
+
+  useEffect(() => {
+    if (highlightedCallId && paginatedCalls.length > 0) {
+      const hasItem = paginatedCalls.some(call => call.id === highlightedCallId);
+      if (hasItem) {
+        setExpandedCallId(highlightedCallId);
+        setHighlightedCallId(null);
+        setTimeout(() => {
+          const el = document.getElementById(`call-row-${highlightedCallId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('highlight-pulse');
+            setTimeout(() => {
+              el.classList.remove('highlight-pulse');
+            }, 3000);
+          }
+        }, 150);
+      }
+    }
+  }, [highlightedCallId, paginatedCalls, setHighlightedCallId]);
 
   useEffect(() => {
     let active = true;
@@ -7555,6 +7641,7 @@ export const AdminCallsTable: React.FC = () => {
                   return (
                     <React.Fragment key={call.id}>
                       <tr 
+                        id={`call-row-${call.id}`}
                         onClick={() => setExpandedCallId(isExpanded ? null : call.id)} 
                         style={{ 
                           cursor: 'pointer',
@@ -8829,7 +8916,9 @@ export const TarunSirMeetingsTable: React.FC = () => {
     tarunSirMeetings, updateTarunSirMeeting, addTarunSirMeeting, deleteTarunSirMeeting, 
     productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
     speakers: configSpeakers, statuses, currentUser, confirm,
-    programs, fetchPaginatedMeetingsData
+    programs, fetchPaginatedMeetingsData,
+    meetingSearchQuery, setMeetingSearchQuery,
+    highlightedCallId, setHighlightedCallId
   } = useDashboard();
   
   const speakersList = configSpeakers.map(s => s.name);
@@ -9053,6 +9142,33 @@ export const TarunSirMeetingsTable: React.FC = () => {
   const [isFetching, setIsFetching] = useState(false);
 
   useEffect(() => {
+    if (meetingSearchQuery) {
+      setSearchQuery(meetingSearchQuery);
+      setMeetingSearchQuery('');
+    }
+  }, [meetingSearchQuery, setMeetingSearchQuery]);
+
+  useEffect(() => {
+    if (highlightedCallId && paginatedMeetings.length > 0) {
+      const hasItem = paginatedMeetings.some(meeting => meeting.id === highlightedCallId);
+      if (hasItem) {
+        setExpandedMeetingId(highlightedCallId);
+        setHighlightedCallId(null);
+        setTimeout(() => {
+          const el = document.getElementById(`call-row-${highlightedCallId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('highlight-pulse');
+            setTimeout(() => {
+              el.classList.remove('highlight-pulse');
+            }, 3000);
+          }
+        }, 150);
+      }
+    }
+  }, [highlightedCallId, paginatedMeetings, setHighlightedCallId]);
+
+  useEffect(() => {
     let active = true;
     const load = async () => {
       setIsFetching(true);
@@ -9248,6 +9364,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                   return (
                     <React.Fragment key={meeting.id}>
                       <tr 
+                        id={`call-row-${meeting.id}`}
                         onClick={() => setExpandedMeetingId(isExpanded ? null : meeting.id)} 
                         style={{ 
                           cursor: 'pointer',
@@ -11501,7 +11618,7 @@ export const ProductWiseSheet: React.FC = () => {
                 />
                 Super Priority Only
               </label>
-              <div className="search-input-wrapper">
+              <div className="search-input-wrapper" style={{ position: 'relative' }}>
                 <Search size={16} />
                 <input 
                   type="text" 
@@ -11510,6 +11627,31 @@ export const ProductWiseSheet: React.FC = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
+                {searchQuery && (
+                  <button 
+                    className="search-clear-btn" 
+                    onClick={() => setSearchQuery('')}
+                    title="Clear search"
+                    style={{
+                      position: 'absolute',
+                      right: '10px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      zIndex: 10,
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--text-muted)',
+                      padding: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      outline: 'none'
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
               <button
                 className="btn btn-primary btn-sm"

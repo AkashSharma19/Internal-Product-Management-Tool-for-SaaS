@@ -2018,6 +2018,236 @@ export default async function handler(req: any, res: any) {
           return res.status(404).json({ success: false, error: 'Task not found' });
         }
 
+        if (action === 'global-search') {
+          const queryStr = (url.searchParams.get('q') || '').trim();
+          if (!queryStr || queryStr.length < 2) {
+            return res.status(200).json({ success: true, data: [] });
+          }
+
+          const regex = new RegExp(queryStr, 'i');
+
+          const [
+            products,
+            plans,
+            projects,
+            amaSessions,
+            studentMeetings,
+            adminCalls,
+            tarunSirMeetings,
+            contentItems,
+            dailyIssues
+          ] = await Promise.all([
+            modelsMap['products'].find({
+              $or: [
+                { feature: regex },
+                { description: regex },
+                { poc: regex },
+                { product: regex },
+                { notes: regex },
+                { taskLink: regex }
+              ]
+            }).limit(10).lean(),
+
+            modelsMap['plans'].find({
+              $or: [
+                { task: regex },
+                { month: regex },
+                { category: regex },
+                { link: regex }
+              ]
+            }).limit(10).lean(),
+
+            modelsMap['projects'].find({
+              $or: [
+                { title: regex },
+                { poc: regex },
+                { product: regex },
+                { description: regex },
+                { thingsWeBuild: regex },
+                { taskLink: regex }
+              ]
+            }).limit(10).lean(),
+
+            modelsMap['amaSessions'].find({
+              $or: [
+                { topic: regex },
+                { speaker: regex },
+                { cohort: regex },
+                { link: regex }
+              ]
+            }).limit(10).lean(),
+
+            modelsMap['studentMeetings'].find({
+              $or: [
+                { cohort: regex },
+                { summary: regex },
+                { notes: regex },
+                { taskLink: regex }
+              ]
+            }).limit(10).lean(),
+
+            modelsMap['adminCalls'].find({
+              $or: [
+                { cohortTopic: regex },
+                { adminPoc: regex },
+                { discussion: regex },
+                { taskLink: regex }
+              ]
+            }).limit(10).lean(),
+
+            modelsMap['tarunSirMeetings'].find({
+              $or: [
+                { cohortTopic: regex },
+                { adminPoc: regex },
+                { discussion: regex },
+                { taskLink: regex }
+              ]
+            }).limit(10).lean(),
+
+            modelsMap['contentItems'].find({
+              $or: [
+                { module: regex },
+                { subject: regex },
+                { type: regex },
+                { poc: regex },
+                { draftLink: regex }
+              ]
+            }).limit(10).lean(),
+
+            modelsMap['dailyIssues'].find({
+              $or: [
+                { module: regex },
+                { issues: regex },
+                { contact: regex },
+                { poc: regex },
+                { taskLink: regex }
+              ]
+            }).limit(10).lean()
+          ]);
+
+          const resultsList: any[] = [];
+
+          // 1. Priority Requests
+          products.forEach((item: any) => {
+            const itemId = item.id || `prod-db-${item._id}`;
+            if (itemId.startsWith('prod-temp-')) return;
+            resultsList.push({
+              id: `product-${itemId}`,
+              title: item.feature,
+              subtitle: `${item.product || 'No Product'} • POC: ${item.poc || 'Unassigned'} • Status: ${item.status || 'Draft'}`,
+              category: 'Priority Requests',
+              tab: 'product',
+              rawItem: { ...item, id: itemId }
+            });
+          });
+
+          // 2. Sprint Planning
+          plans.forEach((item: any) => {
+            const itemId = item.id || String(item._id);
+            resultsList.push({
+              id: `plan-${itemId}`,
+              title: item.task,
+              subtitle: `Month: ${item.month} • Category: ${item.category} • Status: ${item.status || 'Open'}`,
+              category: 'Sprint Planning',
+              tab: 'plan',
+              rawItem: { ...item, id: itemId }
+            });
+          });
+
+          // 3. Student Projects
+          projects.forEach((item: any) => {
+            const itemId = item.id || String(item._id);
+            resultsList.push({
+              id: `project-${itemId}`,
+              title: item.title,
+              subtitle: `${item.product || 'No Product'} • POC: ${item.poc || 'Unassigned'} • Status: ${item.status || 'Active'}`,
+              category: 'Student Projects',
+              tab: 'projects',
+              rawItem: { ...item, id: itemId }
+            });
+          });
+
+          // 5. AMA Sessions
+          amaSessions.forEach((item: any) => {
+            const itemId = item.id || String(item._id);
+            resultsList.push({
+              id: `ama-${itemId}`,
+              title: item.topic,
+              subtitle: `Date: ${item.date} • Speaker: ${item.speaker} • Cohort: ${item.cohort}`,
+              category: 'AMA Sessions',
+              tab: 'meetings',
+              rawItem: { ...item, id: itemId }
+            });
+          });
+
+          // 5b. Student Meetings
+          studentMeetings.forEach((item: any) => {
+            const itemId = item.id || String(item._id);
+            resultsList.push({
+              id: `meeting-${itemId}`,
+              title: `Meeting: ${item.cohort}`,
+              subtitle: `Date: ${item.date} • Summary: ${item.summary ? item.summary.substring(0, 60) : ''}`,
+              category: 'Student Meetings',
+              tab: 'meetings',
+              rawItem: { ...item, id: itemId }
+            });
+          });
+
+          // 6. Admin Calls
+          adminCalls.forEach((item: any) => {
+            const itemId = item.id || String(item._id);
+            resultsList.push({
+              id: `admin-${itemId}`,
+              title: item.cohortTopic,
+              subtitle: `Date: ${item.date} • POC: ${item.adminPoc} • Actions: ${item.actions ? item.actions.substring(0, 60) : ''}`,
+              category: 'Admin Calls',
+              tab: 'admin',
+              rawItem: { ...item, id: itemId }
+            });
+          });
+
+          // 7. Tarun Sir Meetings
+          tarunSirMeetings.forEach((item: any) => {
+            const itemId = item.id || String(item._id);
+            resultsList.push({
+              id: `tarun-${itemId}`,
+              title: `Tarun Sir Meeting: ${item.cohortTopic}`,
+              subtitle: `Date: ${item.date} • POC: ${item.adminPoc} • Actions: ${item.actions ? item.actions.substring(0, 60) : ''}`,
+              category: 'Tarun Sir Meetings',
+              tab: 'tarun-meetings',
+              rawItem: { ...item, id: itemId }
+            });
+          });
+
+          // 8. Content Pipeline
+          contentItems.forEach((item: any) => {
+            const itemId = item.id || String(item._id);
+            resultsList.push({
+              id: `content-${itemId}`,
+              title: item.module,
+              subtitle: `Subject: ${item.subject} • Type: ${item.type} • POC: ${item.poc || 'Unassigned'}`,
+              category: 'Content Pipeline',
+              tab: 'content',
+              rawItem: { ...item, id: itemId }
+            });
+          });
+
+          // 9. Daily Issues Log
+          dailyIssues.forEach((item: any) => {
+            const itemId = item.id || String(item._id);
+            resultsList.push({
+              id: `issue-${itemId}`,
+              title: item.module || `Issue #${itemId}`,
+              subtitle: `Product: ${item.product || 'No Product'} • Issue: ${item.issues ? item.issues.substring(0, 60) : ''}`,
+              category: 'Daily Issues Log',
+              tab: 'issues',
+              rawItem: { ...item, id: itemId }
+            });
+          });
+
+          return res.status(200).json({ success: true, data: resultsList });
+        }
+
         if (action === 'tab-data') {
           const type = url.searchParams.get('type');
           if (!type || !modelsMap[type]) {

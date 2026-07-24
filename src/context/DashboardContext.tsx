@@ -223,6 +223,11 @@ interface DashboardContextType {
     sortField?: string;
     sortAsc?: boolean;
   }) => Promise<{ success: boolean; data: any[]; totalItems: number; totalPages: number; completedItems?: number }>;
+  searchGlobalTasks: (query: string) => Promise<{ success: boolean; data: any[] }>;
+  highlightedCallId: string | null;
+  setHighlightedCallId: (id: string | null) => void;
+  meetingSearchQuery: string;
+  setMeetingSearchQuery: (query: string) => void;
   loadedTabs: string[];
 }
 
@@ -840,6 +845,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
   const [isLoadingSprint, setIsLoadingSprint] = useState(false);
   const [loadedTabs, setLoadedTabs] = useState<string[]>([]);
+  const [highlightedCallId, setHighlightedCallId] = useState<string | null>(null);
+  const [meetingSearchQuery, setMeetingSearchQuery] = useState<string>('');
 
   // Helper to load tab dataset on-demand
   const loadTabData = useCallback(async (tabName: string) => {
@@ -1100,6 +1107,23 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setSyncStatus('error');
       return { success: false, data: [], totalItems: 0, totalPages: 1 };
     }
+  }, []);
+
+  const searchGlobalTasks = useCallback(async (query: string) => {
+    try {
+      const headers: Record<string, string> = {};
+      const savedUserId = localStorage.getItem('logged-in-user-id');
+      if (savedUserId) {
+        headers['x-user-id'] = savedUserId;
+      }
+      const response = await dedupedFetch(`/api/data?action=global-search&q=${encodeURIComponent(query)}`, { headers });
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (err) {
+      console.error('Failed to perform global search:', err);
+    }
+    return { success: false, data: [] };
   }, []);
 
   const loadCalendarMonth = useCallback(async (year: number, month: number) => {
@@ -2303,7 +2327,12 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       isLoadingSprint,
       fetchSprintData,
       fetchProductBreakdownData,
-      fetchPaginatedMeetingsData
+      fetchPaginatedMeetingsData,
+      searchGlobalTasks,
+      highlightedCallId,
+      setHighlightedCallId,
+      meetingSearchQuery,
+      setMeetingSearchQuery
     }}>
       {children}
       {dialogState && (
