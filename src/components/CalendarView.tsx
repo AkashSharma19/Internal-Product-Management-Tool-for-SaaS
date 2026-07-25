@@ -199,6 +199,14 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
     currentUser,
     comments,
     addComment,
+    updateProductItem,
+    updateStudentProject,
+    updateContentItem,
+    updateDailyIssue,
+    updateStudentMeeting,
+    updateAdminCall,
+    updateAMASession,
+    updateTarunSirMeeting,
     
     // Scalable additions
     calendarEvents,
@@ -216,6 +224,93 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
   const [newCommentText, setNewCommentText] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [commentError, setCommentError] = useState('');
+
+  // Drag & drop state
+  const [draggedEvent, setDraggedEvent] = useState<CalendarEvent | null>(null);
+  const [dragOverDateStr, setDragOverDateStr] = useState<string | null>(null);
+  const [rescheduleToast, setRescheduleToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, evt: CalendarEvent) => {
+    if (isPublic) return;
+    setDraggedEvent(evt);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', evt.id);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedEvent(null);
+    setDragOverDateStr(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, dateStr: string) => {
+    if (isPublic || !draggedEvent) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverDateStr !== dateStr) {
+      setDragOverDateStr(dateStr);
+    }
+  };
+
+  const handleDragLeave = (_e: React.DragEvent, dateStr: string) => {
+    if (dragOverDateStr === dateStr) {
+      setDragOverDateStr(null);
+    }
+  };
+
+  const handleDropOnDate = async (e: React.DragEvent, targetDateStr: string) => {
+    e.preventDefault();
+    setDragOverDateStr(null);
+    if (!draggedEvent || isPublic) return;
+    if (draggedEvent.dateStr === targetDateStr) return;
+
+    const evt = draggedEvent;
+    setDraggedEvent(null);
+
+    // Determine target date property based on stage
+    let fieldToUpdate = '';
+    if (evt.stage === 'Specs') fieldToUpdate = 'productDeadline';
+    else if (evt.stage === 'UI/UX') fieldToUpdate = 'uiux';
+    else if (evt.stage === 'Dev') fieldToUpdate = 'deadline';
+    else if (evt.stage === 'Final Release') fieldToUpdate = 'finalRelease';
+    else if (evt.stage === 'Publish Date') fieldToUpdate = 'publishDate';
+    else if (evt.stage === 'AMA Date' || evt.stage === 'Call Date' || evt.stage === 'Meeting Date') fieldToUpdate = 'date';
+    else fieldToUpdate = 'deadline';
+
+    try {
+      if (evt.source === 'Priority Requests') {
+        updateProductItem(evt.rawItem.id, { [fieldToUpdate]: targetDateStr });
+      } else if (evt.source === 'Student Projects') {
+        updateStudentProject(evt.rawItem.id, { [fieldToUpdate]: targetDateStr });
+      } else if (evt.source === 'Content Pipeline') {
+        updateContentItem(evt.rawItem.id, { [fieldToUpdate]: targetDateStr });
+      } else if (evt.source === 'Daily Issues Log') {
+        updateDailyIssue(evt.rawItem.id, { [fieldToUpdate]: targetDateStr });
+      } else if (evt.source === 'Student Meetings') {
+        updateStudentMeeting(evt.rawItem.id, { [fieldToUpdate]: targetDateStr });
+      } else if (evt.source === 'Admin Calls') {
+        updateAdminCall(evt.rawItem.id, { [fieldToUpdate]: targetDateStr });
+      } else if (evt.source === 'AMA Sessions') {
+        updateAMASession(evt.rawItem.id, { [fieldToUpdate]: targetDateStr });
+      } else if (evt.source === 'Tarun Sir Meetings') {
+        updateTarunSirMeeting(evt.rawItem.id, { [fieldToUpdate]: targetDateStr });
+      }
+
+      setRescheduleToast({
+        message: `Rescheduled "${evt.title}" (${evt.stage}) to ${targetDateStr}`,
+        type: 'success'
+      });
+      setTimeout(() => setRescheduleToast(null), 3500);
+
+      // Refresh monthly events
+      setTimeout(() => {
+        loadCalendarMonth(currentMonth.getFullYear(), currentMonth.getMonth());
+      }, 300);
+    } catch (err: any) {
+      console.error('Failed to reschedule milestone:', err);
+      setRescheduleToast({ message: 'Failed to reschedule milestone', type: 'error' });
+      setTimeout(() => setRescheduleToast(null), 3500);
+    }
+  };
 
   // Load monthly calendar events on mount & month navigation
   useEffect(() => {
@@ -925,11 +1020,17 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
                           key={cell.dateStr}
                           className={`calendar-day-cell ${cell.isCurrentMonth ? '' : 'other-month'} ${cell.isToday ? 'is-today' : ''} ${isSelected ? 'selected-day' : ''}`}
                           onClick={() => setSelectedDateStr(cell.dateStr)}
+                          onDragOver={(e) => handleDragOver(e, cell.dateStr)}
+                          onDragLeave={(e) => handleDragLeave(e, cell.dateStr)}
+                          onDrop={(e) => handleDropOnDate(e, cell.dateStr)}
                           style={{
                             width: '14.28%',
                             verticalAlign: 'top',
                             padding: '6px',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            backgroundColor: dragOverDateStr === cell.dateStr ? 'rgba(99, 102, 241, 0.15)' : undefined,
+                            outline: dragOverDateStr === cell.dateStr ? '2px dashed var(--primary)' : undefined,
+                            transition: 'background-color 0.15s ease, outline 0.15s ease'
                           }}
                         >
                           <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '4px' }}>
@@ -943,9 +1044,15 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
                               {dayEvents.slice(0, 3).map(evt => (
                                 <div
                                   key={evt.id}
+                                  draggable={!isPublic}
+                                  onDragStart={(e) => handleDragStart(e, evt)}
+                                  onDragEnd={handleDragEnd}
                                   className={`calendar-mini-event-badge ${getEventClass(evt)}`}
-                                  style={{ opacity: evt.isCompleted ? 0.6 : 1, cursor: 'pointer' }}
-                                  title={`[${getStageLabel(evt.stage)}] ${evt.title}${evt.isCompleted ? ' ✓' : ''}`}
+                                  style={{
+                                    opacity: draggedEvent?.id === evt.id ? 0.4 : evt.isCompleted ? 0.6 : 1,
+                                    cursor: isPublic ? 'pointer' : 'grab'
+                                  }}
+                                  title={`[${getStageLabel(evt.stage)}] ${evt.title}${evt.isCompleted ? ' ✓' : ''} (Drag to reschedule)`}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleEventClick(evt);
@@ -1044,10 +1151,13 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
                   {selectedDateEvents.map(evt => (
                     <tr 
                       key={evt.id} 
+                      draggable={!isPublic}
+                      onDragStart={(e) => handleDragStart(e, evt)}
+                      onDragEnd={handleDragEnd}
                       onClick={() => handleEventClick(evt)}
                       style={{ 
-                        cursor: 'pointer', 
-                        opacity: evt.isCompleted ? 0.75 : 1,
+                        cursor: isPublic ? 'pointer' : 'grab', 
+                        opacity: draggedEvent?.id === evt.id ? 0.4 : evt.isCompleted ? 0.75 : 1,
                         background: evt.isCompleted ? 'rgba(16, 185, 129, 0.04)' : 'transparent'
                       }}
                     >
@@ -1385,6 +1495,28 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
           );
         })()}
       </div>
+
+      {rescheduleToast && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          zIndex: 9999,
+          backgroundColor: rescheduleToast.type === 'success' ? '#10b981' : '#ef4444',
+          color: '#ffffff',
+          padding: '10px 16px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          fontWeight: 600,
+          fontSize: '0.825rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          animation: 'slideInUp 0.2s ease-out'
+        }}>
+          <span>{rescheduleToast.message}</span>
+        </div>
+      )}
     </div>
   );
 };

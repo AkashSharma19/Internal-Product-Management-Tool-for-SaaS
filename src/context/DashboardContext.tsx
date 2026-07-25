@@ -1659,33 +1659,33 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           ) {
             const updatedP = {
               ...p,
-              title: updatedItem.feature,
-              description: updatedItem.description,
+              title: updatedItem.feature !== undefined ? updatedItem.feature : p.title,
+              description: updatedItem.description !== undefined ? updatedItem.description : p.description,
               status: (
                 updatedItem.status === 'Completed' ? 'Delivered' :
                 updatedItem.status === 'On Hold' ? 'Cancelled' :
                 updatedItem.status === 'In Progress' ? 'In-Progress' :
-                updatedItem.status || ''
+                updatedItem.status !== undefined ? updatedItem.status : p.status
               ) as any,
-              blocker: updatedItem.blocker,
-              completeInfoDate: updatedItem.deadline,
-              priority: updatedItem.priority || undefined,
-              poc: updatedItem.poc,
-              clickupStatus: updatedItem.clickupStatus,
-              taskLink: updatedItem.taskLink,
-              productDeadline: updatedItem.productDeadline,
-              uiux: updatedItem.uiux,
-              deadline: updatedItem.deadline,
-              finalRelease: updatedItem.finalRelease,
-              raisedByTarunSir: updatedItem.raisedByTarunSir,
-              tarunSirApproval: updatedItem.tarunSirApproval,
-              product: updatedItem.product,
-              module: updatedItem.module,
-              type: updatedItem.type,
-              productDeadlineCompleted: updatedItem.productDeadlineCompleted,
-              uiuxCompleted: updatedItem.uiuxCompleted,
-              deadlineCompleted: updatedItem.deadlineCompleted,
-              finalReleaseCompleted: updatedItem.finalReleaseCompleted
+              blocker: updatedItem.blocker !== undefined ? updatedItem.blocker : p.blocker,
+              completeInfoDate: updatedItem.deadline !== undefined ? updatedItem.deadline : p.completeInfoDate,
+              priority: updatedItem.priority !== undefined ? (updatedItem.priority || undefined) : p.priority,
+              poc: updatedItem.poc !== undefined ? updatedItem.poc : p.poc,
+              clickupStatus: updatedItem.clickupStatus !== undefined ? updatedItem.clickupStatus : p.clickupStatus,
+              taskLink: updatedItem.taskLink !== undefined ? updatedItem.taskLink : p.taskLink,
+              productDeadline: updatedItem.productDeadline !== undefined ? updatedItem.productDeadline : p.productDeadline,
+              uiux: updatedItem.uiux !== undefined ? updatedItem.uiux : p.uiux,
+              deadline: updatedItem.deadline !== undefined ? updatedItem.deadline : p.deadline,
+              finalRelease: updatedItem.finalRelease !== undefined ? updatedItem.finalRelease : p.finalRelease,
+              raisedByTarunSir: updatedItem.raisedByTarunSir !== undefined ? updatedItem.raisedByTarunSir : p.raisedByTarunSir,
+              tarunSirApproval: updatedItem.tarunSirApproval !== undefined ? updatedItem.tarunSirApproval : p.tarunSirApproval,
+              product: updatedItem.product !== undefined ? updatedItem.product : p.product,
+              module: updatedItem.module !== undefined ? updatedItem.module : p.module,
+              type: updatedItem.type !== undefined ? updatedItem.type : p.type,
+              productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : p.productDeadlineCompleted,
+              uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : p.uiuxCompleted,
+              deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
+              finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted
             };
             persistChange('update', 'projects', p.id, updatedP);
             return updatedP;
@@ -1698,27 +1698,27 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           if ((featureName && meetingCohort && meetingCohort.toLowerCase() === featureName.toLowerCase()) || id === `prod-temp-${m.id}`) {
             const updatedM = {
               ...m,
-              cohort: updatedItem.feature,
-              summary: updatedItem.description,
-              status: updatedItem.status,
-              blocker: updatedItem.blocker,
-              priority: updatedItem.priority || undefined,
-              poc: updatedItem.poc,
-              clickupStatus: updatedItem.clickupStatus,
-              taskLink: updatedItem.taskLink,
-              productDeadline: updatedItem.productDeadline,
-              uiux: updatedItem.uiux,
-              deadline: updatedItem.deadline,
-              finalRelease: updatedItem.finalRelease,
-              raisedByTarunSir: updatedItem.raisedByTarunSir,
-              tarunSirApproval: updatedItem.tarunSirApproval,
-              product: updatedItem.product,
-              module: updatedItem.module,
-              type: updatedItem.type,
-              productDeadlineCompleted: updatedItem.productDeadlineCompleted,
-              uiuxCompleted: updatedItem.uiuxCompleted,
-              deadlineCompleted: updatedItem.deadlineCompleted,
-              finalReleaseCompleted: updatedItem.finalReleaseCompleted
+              cohort: updatedItem.feature !== undefined ? updatedItem.feature : m.cohort,
+              summary: updatedItem.description !== undefined ? updatedItem.description : m.summary,
+              status: updatedItem.status !== undefined ? updatedItem.status : m.status,
+              blocker: updatedItem.blocker !== undefined ? updatedItem.blocker : m.blocker,
+              priority: updatedItem.priority !== undefined ? (updatedItem.priority || undefined) : m.priority,
+              poc: updatedItem.poc !== undefined ? updatedItem.poc : m.poc,
+              clickupStatus: updatedItem.clickupStatus !== undefined ? updatedItem.clickupStatus : m.clickupStatus,
+              taskLink: updatedItem.taskLink !== undefined ? updatedItem.taskLink : m.taskLink,
+              productDeadline: updatedItem.productDeadline !== undefined ? updatedItem.productDeadline : m.productDeadline,
+              uiux: updatedItem.uiux !== undefined ? updatedItem.uiux : m.uiux,
+              deadline: updatedItem.deadline !== undefined ? updatedItem.deadline : m.deadline,
+              finalRelease: updatedItem.finalRelease !== undefined ? updatedItem.finalRelease : m.finalRelease,
+              raisedByTarunSir: updatedItem.raisedByTarunSir !== undefined ? updatedItem.raisedByTarunSir : m.raisedByTarunSir,
+              tarunSirApproval: updatedItem.tarunSirApproval !== undefined ? updatedItem.tarunSirApproval : m.tarunSirApproval,
+              product: updatedItem.product !== undefined ? updatedItem.product : m.product,
+              module: updatedItem.module !== undefined ? updatedItem.module : m.module,
+              type: updatedItem.type !== undefined ? updatedItem.type : m.type,
+              productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : m.productDeadlineCompleted,
+              uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : m.uiuxCompleted,
+              deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : m.deadlineCompleted,
+              finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : m.finalReleaseCompleted
             };
             persistChange('update', 'studentMeetings', m.id, updatedM);
             return updatedM;
@@ -1731,21 +1731,21 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           if ((featureName && contentModule && contentModule.toLowerCase() === featureName.toLowerCase()) || id === `prod-temp-${p.id}`) {
             const updatedCI = {
               ...p,
-              module: updatedItem.feature,
-              product: updatedItem.product,
-              priority: updatedItem.priority,
-              poc: updatedItem.poc,
-              clickupStatus: updatedItem.clickupStatus,
-              productDeadline: updatedItem.productDeadline,
-              uiux: updatedItem.uiux,
-              deadline: updatedItem.deadline,
-              finalRelease: updatedItem.finalRelease,
-              productDeadlineCompleted: updatedItem.productDeadlineCompleted,
-              uiuxCompleted: updatedItem.uiuxCompleted,
-              deadlineCompleted: updatedItem.deadlineCompleted,
-              finalReleaseCompleted: updatedItem.finalReleaseCompleted,
-              status: updatedItem.status,
-              raisedByTarunSir: updatedItem.raisedByTarunSir
+              module: updatedItem.feature !== undefined ? updatedItem.feature : p.module,
+              product: updatedItem.product !== undefined ? updatedItem.product : p.product,
+              priority: updatedItem.priority !== undefined ? updatedItem.priority : p.priority,
+              poc: updatedItem.poc !== undefined ? updatedItem.poc : p.poc,
+              clickupStatus: updatedItem.clickupStatus !== undefined ? updatedItem.clickupStatus : p.clickupStatus,
+              productDeadline: updatedItem.productDeadline !== undefined ? updatedItem.productDeadline : p.productDeadline,
+              uiux: updatedItem.uiux !== undefined ? updatedItem.uiux : p.uiux,
+              deadline: updatedItem.deadline !== undefined ? updatedItem.deadline : p.deadline,
+              finalRelease: updatedItem.finalRelease !== undefined ? updatedItem.finalRelease : p.finalRelease,
+              productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : p.productDeadlineCompleted,
+              uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : p.uiuxCompleted,
+              deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
+              finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted,
+              status: updatedItem.status !== undefined ? updatedItem.status : p.status,
+              raisedByTarunSir: updatedItem.raisedByTarunSir !== undefined ? updatedItem.raisedByTarunSir : p.raisedByTarunSir
             };
             persistChange('update', 'contentItems', p.id, updatedCI);
             return updatedCI;
@@ -1758,21 +1758,21 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           if ((featureName && issueModule && issueModule.toLowerCase() === featureName.toLowerCase()) || id === `prod-temp-${issue.id}`) {
             const updatedIssue = {
               ...issue,
-              module: updatedItem.feature,
-              product: updatedItem.product || issue.product,
-              priority: updatedItem.priority || issue.priority,
-              poc: updatedItem.poc || issue.poc,
-              clickupStatus: updatedItem.clickupStatus || issue.clickupStatus,
-              productDeadline: updatedItem.productDeadline || issue.productDeadline,
-              uiux: updatedItem.uiux || issue.uiux,
-              deadline: updatedItem.deadline || issue.deadline,
-              finalRelease: updatedItem.finalRelease || issue.finalRelease,
-              productDeadlineCompleted: updatedItem.productDeadlineCompleted,
-              uiuxCompleted: updatedItem.uiuxCompleted,
-              deadlineCompleted: updatedItem.deadlineCompleted,
-              finalReleaseCompleted: updatedItem.finalReleaseCompleted,
-              status: updatedItem.status as any,
-              raisedByTarunSir: updatedItem.raisedByTarunSir
+              module: updatedItem.feature !== undefined ? updatedItem.feature : issue.module,
+              product: updatedItem.product !== undefined ? updatedItem.product : issue.product,
+              priority: updatedItem.priority !== undefined ? updatedItem.priority : issue.priority,
+              poc: updatedItem.poc !== undefined ? updatedItem.poc : issue.poc,
+              clickupStatus: updatedItem.clickupStatus !== undefined ? updatedItem.clickupStatus : issue.clickupStatus,
+              productDeadline: updatedItem.productDeadline !== undefined ? updatedItem.productDeadline : issue.productDeadline,
+              uiux: updatedItem.uiux !== undefined ? updatedItem.uiux : issue.uiux,
+              deadline: updatedItem.deadline !== undefined ? updatedItem.deadline : issue.deadline,
+              finalRelease: updatedItem.finalRelease !== undefined ? updatedItem.finalRelease : issue.finalRelease,
+              productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : issue.productDeadlineCompleted,
+              uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : issue.uiuxCompleted,
+              deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : issue.deadlineCompleted,
+              finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : issue.finalReleaseCompleted,
+              status: updatedItem.status !== undefined ? updatedItem.status : issue.status,
+              raisedByTarunSir: updatedItem.raisedByTarunSir !== undefined ? updatedItem.raisedByTarunSir : issue.raisedByTarunSir
             };
             persistChange('update', 'dailyIssues', issue.id, updatedIssue);
             return updatedIssue;
