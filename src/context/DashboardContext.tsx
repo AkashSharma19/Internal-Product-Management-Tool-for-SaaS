@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { AlertCircle, CheckCircle, Info } from 'lucide-react';
+import { triggerReleaseConfetti } from '../utils/confetti';
 import type { 
   ProductItem, 
   PlanItem, 
@@ -1644,6 +1645,12 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const updateProductItem = (id: string, updated: Partial<ProductItem>) => {
     setProductItems(prev => {
       const oldItem = prev.find(item => item.id === id);
+      if (
+        (updated.finalReleaseCompleted === true && !oldItem?.finalReleaseCompleted) ||
+        (updated.status && ['Released', 'Completed', 'Done', 'released'].includes(updated.status) && oldItem?.status !== updated.status)
+      ) {
+        triggerReleaseConfetti();
+      }
       const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
       const updatedItem = next.find(item => item.id === id);
       if (updatedItem) {
@@ -1798,6 +1805,13 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const updatePlanItem = (id: string, updated: Partial<PlanItem>) => {
     setPlanItems(prev => {
+      const oldItem = prev.find(item => item.id === id);
+      if (
+        (updated.completed === true && !oldItem?.completed) ||
+        (updated.status && ['Released', 'Completed', 'Done', 'released'].includes(updated.status) && oldItem?.status !== updated.status)
+      ) {
+        triggerReleaseConfetti();
+      }
       const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
       const updatedItem = next.find(item => item.id === id);
       if (updatedItem) persistChange('update', 'plans', id, updatedItem);

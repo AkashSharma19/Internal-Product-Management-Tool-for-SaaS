@@ -43,8 +43,11 @@ import {
   CornerDownLeft,
   PlusCircle,
   CheckCircle,
-  Lightbulb
+  Lightbulb,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
+import { isAudioMuted, toggleAudioMute, playPopSound } from './utils/audio';
 
 const LoginView: React.FC = () => {
   const { loginUserByEmail, googleClientId, isLoading } = useDashboard();
@@ -710,6 +713,12 @@ const DashboardContent: React.FC = () => {
   const [isRefreshingClickup, setIsRefreshingClickup] = useState(false);
   const [isRefreshingData, setIsRefreshingData] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isMuted, setIsMuted] = useState(isAudioMuted());
+
+  const handleToggleAudio = () => {
+    const nextMuted = toggleAudioMute();
+    setIsMuted(nextMuted);
+  };
 
   const unreadCommentsCount = useMemo(() => {
     const featureRequestIds = dailyIssues
@@ -896,6 +905,7 @@ const DashboardContent: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
+        playPopSound();
         setIsCommandPaletteOpen(prev => !prev);
       }
     };
@@ -1695,33 +1705,53 @@ const DashboardContent: React.FC = () => {
                 </div>
               </div>
 
-              {/* Logout icon button */}
-              <button
-                onClick={logoutUser}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: 'var(--text-muted)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '6px',
-                  borderRadius: '6px',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.08)';
-                  e.currentTarget.style.color = 'var(--danger)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                  e.currentTarget.style.color = 'var(--text-muted)';
-                }}
-                title="Log Out"
-              >
-                <LogOut size={16} />
-              </button>
+              {/* Sound FX & Logout buttons */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <button
+                  onClick={handleToggleAudio}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: isMuted ? 'var(--text-muted)' : 'var(--primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '6px',
+                    borderRadius: '6px',
+                    transition: 'all 0.2s'
+                  }}
+                  title={isMuted ? "Unmute Sound FX" : "Mute Sound FX"}
+                >
+                  {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                </button>
+                <button
+                  onClick={logoutUser}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '6px',
+                    borderRadius: '6px',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.08)';
+                    e.currentTarget.style.color = 'var(--danger)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.color = 'var(--text-muted)';
+                  }}
+                  title="Log Out"
+                >
+                  <LogOut size={16} />
+                </button>
+              </div>
             </div>
           ) : (
             /* Collapsed view footer */
