@@ -48,6 +48,7 @@ import {
   VolumeX
 } from 'lucide-react';
 import { isAudioMuted, toggleAudioMute, playPopSound } from './utils/audio';
+import PixelBlast from './components/common/PixelBlast';
 
 const LoginView: React.FC = () => {
   const { loginUserByEmail, googleClientId, isLoading } = useDashboard();
@@ -116,8 +117,32 @@ const LoginView: React.FC = () => {
       background: 'linear-gradient(180deg, var(--background-alt) 0%, var(--background) 100%)',
       fontFamily: 'Outfit, sans-serif',
       color: 'var(--text-primary)',
-      padding: '1rem'
+      padding: '1rem',
+      position: 'relative',
+      overflow: 'hidden'
     }}>
+      {/* PixelBlast animated background */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
+        <PixelBlast
+          variant="circle"
+          pixelSize={6}
+          color="#7c5cbf"
+          patternScale={3}
+          patternDensity={1.2}
+          pixelSizeJitter={0.5}
+          enableRipples
+          rippleSpeed={0.4}
+          rippleThickness={0.12}
+          rippleIntensityScale={1.5}
+          liquid
+          liquidStrength={0.12}
+          liquidRadius={1.2}
+          liquidWobbleSpeed={5}
+          speed={0.6}
+          edgeFade={0.25}
+          transparent
+        />
+      </div>
       <div style={{
         background: 'var(--panel-bg)',
         border: '1px solid var(--border-light)',
@@ -129,7 +154,9 @@ const LoginView: React.FC = () => {
         textAlign: 'center',
         display: 'flex',
         flexDirection: 'column',
-        gap: '1.75rem'
+        gap: '1.75rem',
+        position: 'relative',
+        zIndex: 1
       }}>
         {/* Header */}
         <div>
