@@ -221,7 +221,7 @@ function triggerLocalDigest(): Promise<any> {
       });
     });
     req.on('error', (err) => reject(err));
-    req.write(JSON.stringify({}));
+    req.write(JSON.stringify({ action: 'send-product-ship-digest' }));
     req.end();
   });
 }

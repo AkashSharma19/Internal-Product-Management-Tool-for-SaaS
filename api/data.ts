@@ -2433,7 +2433,8 @@ export default async function handler(req: any, res: any) {
   }
 
   if (method === 'POST') {
-    const { action, type, id, data } = req.body;
+    const { action: bodyAction, type, id, data } = req.body || {};
+    const action = bodyAction || url.searchParams.get('action');
 
     if (action === 'login') {
       try {
@@ -3192,9 +3193,6 @@ export default async function handler(req: any, res: any) {
         const protocol = req.headers['x-forwarded-proto'] || 'http';
 
         const isMetricsGood = releasedPercent >= 75;
-        const statusImageName = isMetricsGood ? 'analytics_good.png' : 'analytics_bad.png';
-        const statusImageUrl = `${protocol}://${host}/${statusImageName}`;
-        const statusAltText = isMetricsGood ? 'Superb performance!' : 'System is warm - action needed!';
 
         const emailHtml = `
           <!--[if mso]>
@@ -3251,10 +3249,51 @@ export default async function handler(req: any, res: any) {
                       </td>
                     </tr>
 
-                    <!-- Analytics Status Banner Illustration -->
+                    <!-- Analytics Status Banner UIUX (CSS-driven, no external images) -->
                     <tr>
-                      <td align="center" style="padding: 0 30px 15px 30px;">
-                        <img src="${statusImageUrl}" alt="${statusAltText}" width="200" style="display: block; border-radius: 8px; max-width: 100%; height: auto;" />
+                      <td style="padding: 0 30px 20px 30px;">
+                        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border: 1px solid ${isMetricsGood ? '#bbf7d0' : '#fee2e2'}; border-radius: 12px; background: ${isMetricsGood ? 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)' : 'linear-gradient(135deg, #fff5f5 0%, #fee2e2 100%)'}; background-color: ${isMetricsGood ? '#f0fdf4' : '#fff5f5'}; padding: 20px; box-sizing: border-box;">
+                          <tr>
+                            <td align="center">
+                              <!-- Badge -->
+                              <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px;">
+                                <tr>
+                                  <td style="background-color: ${isMetricsGood ? '#16a34a' : '#dc2626'}; color: #ffffff; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; padding: 4px 10px; border-radius: 20px; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                                    ${isMetricsGood ? '🟢 Excellent Performance' : '⚠️ Attention Required'}
+                                  </td>
+                                </tr>
+                              </table>
+                              
+                              <!-- Main Metric Percentage -->
+                              <div style="font-size: 48px; font-weight: 800; color: #0f172a; line-height: 1; margin: 4px 0; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                                ${releasedPercent}%
+                              </div>
+                              
+                              <!-- Label -->
+                              <div style="font-size: 12px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                                Overall Task Release Rate
+                              </div>
+
+                              <!-- Progress Bar Track -->
+                              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: ${isMetricsGood ? '#dcfce7' : '#fecaca'}; border-radius: 10px; height: 10px; overflow: hidden; margin-bottom: 14px;">
+                                <tr>
+                                  <!-- Progress Bar Fill -->
+                                  <td width="${releasedPercent}%" style="background-color: ${isMetricsGood ? '#16a34a' : '#dc2626'}; border-radius: 10px; height: 10px; font-size: 0; line-height: 0;">&nbsp;</td>
+                                  <!-- Empty space -->
+                                  <td width="${100 - releasedPercent}%" style="font-size: 0; line-height: 0;">&nbsp;</td>
+                                </tr>
+                              </table>
+
+                              <!-- Status Description Message -->
+                              <div style="font-size: 13px; line-height: 1.5; color: #334155; max-width: 400px; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                                ${isMetricsGood 
+                                  ? `Great job! The release rate is above target. Excellent pace of shipping new features and updates.` 
+                                  : `System status is warm. Release rate is below target. Action needed to resolve blockers and accelerate pending tasks.`
+                                }
+                              </div>
+                            </td>
+                          </tr>
+                        </table>
                       </td>
                     </tr>
 

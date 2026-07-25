@@ -2592,14 +2592,43 @@ const EmailDigestSettingsSection: React.FC = () => {
                   Here is the summary of product shipments and operational metrics. Please review the digest below:
                 </p>
 
-                {/* Analytics Status Banner Illustration Preview */}
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '0 0 16px 0' }}>
-                  <img
-                    src="/analytics_bad.png"
-                    alt="System status illustration"
-                    width="200"
-                    style={{ borderRadius: '8px', display: 'block', maxWidth: '100%', height: 'auto' }}
-                  />
+                {/* Analytics Status Banner UIUX Preview */}
+                <div style={{ padding: '0 0 20px 0' }}>
+                  <div style={{
+                    border: '1px solid #fee2e2',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #fff5f5 0%, #fee2e2 100%)',
+                    backgroundColor: '#fff5f5',
+                    padding: '18px',
+                    textAlign: 'center',
+                    boxSizing: 'border-box'
+                  }}>
+                    {/* Badge */}
+                    <div style={{ display: 'inline-block', backgroundColor: '#dc2626', color: '#ffffff', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', padding: '3px 10px', borderRadius: '20px', fontFamily: "'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", marginBottom: '10px' }}>
+                      ⚠️ Attention Required
+                    </div>
+                    
+                    {/* Main Metric Percentage */}
+                    <div style={{ fontSize: '42px', fontWeight: 800, color: '#0f172a', lineHeight: 1, margin: '2px 0', fontFamily: "'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}>
+                      50%
+                    </div>
+                    
+                    {/* Label */}
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', fontFamily: "'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}>
+                      Overall Task Release Rate
+                    </div>
+
+                    {/* Progress Bar Track */}
+                    <div style={{ backgroundColor: '#fecaca', borderRadius: '10px', height: '8px', overflow: 'hidden', marginBottom: '12px', display: 'flex' }}>
+                      {/* Progress Bar Fill */}
+                      <div style={{ width: '50%', backgroundColor: '#dc2626', borderRadius: '10px', height: '8px' }} />
+                    </div>
+
+                    {/* Status Description Message */}
+                    <div style={{ fontSize: '11.5px', lineHeight: 1.4, color: '#334155', maxWidth: '380px', margin: '0 auto', fontFamily: "'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}>
+                      System status is warm. Release rate is below target. Action needed to resolve blockers and accelerate pending tasks.
+                    </div>
+                  </div>
                 </div>
 
 
