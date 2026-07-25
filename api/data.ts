@@ -250,11 +250,11 @@ export default async function handler(req: any, res: any) {
           const statusType = url.searchParams.get('statusType') || 'my';
 
           const [productsRaw, projectsRaw, contentRaw, issuesRaw, meetingsRaw, speakers, productGroups, configStatuses, amaSessionsRaw, adminCallsRaw, tarunSirMeetingsRaw, formConfigs, feedbackSubmissions] = await Promise.all([
-            ProductItemModel.find({}, 'id poc product status clickupStatus taskLink deadline productDeadline finalRelease notes').lean(),
-            StudentProjectModel.find({}, 'id poc product status clickupStatus taskLink deadline productDeadline completeInfoDate title thingsWeBuild').lean(),
-            ContentItemModel.find({}, 'id poc product status clickupStatus draftLink deadline productDeadline publishDate module subject type').lean(),
-            DailyIssueModel.find({}, 'id poc contact product status clickupStatus taskLink deadline module issues notes type').lean(),
-            StudentMeetingModel.find({}, 'id poc product status clickupStatus taskLink deadline productDeadline date cohort summary notes').lean(),
+            ProductItemModel.find({}, 'id poc product status clickupStatus taskLink deadline productDeadline finalRelease notes finalReleaseCompleted').lean(),
+            StudentProjectModel.find({}, 'id poc product status clickupStatus taskLink deadline productDeadline completeInfoDate title thingsWeBuild finalReleaseCompleted').lean(),
+            ContentItemModel.find({}, 'id poc product status clickupStatus draftLink deadline productDeadline publishDate module subject type finalReleaseCompleted').lean(),
+            DailyIssueModel.find({}, 'id poc contact product status clickupStatus taskLink deadline module issues notes type finalReleaseCompleted').lean(),
+            StudentMeetingModel.find({}, 'id poc product status clickupStatus taskLink deadline productDeadline date cohort summary notes finalReleaseCompleted').lean(),
             ConfigSpeakerModel.find({}, 'name').lean(),
             ConfigProductGroupModel.find({}).lean(),
             ConfigStatusModel.find({}).lean(),
@@ -340,7 +340,8 @@ export default async function handler(req: any, res: any) {
                 date: item.deadline || item.productDeadline || '',
                 feature: item.feature || '',
                 notes: item.notes || '',
-                source: itemSource
+                source: itemSource,
+                finalReleaseCompleted: !!item.finalReleaseCompleted
               };
             });
 
@@ -353,7 +354,8 @@ export default async function handler(req: any, res: any) {
             taskLink: item.taskLink || '',
             date: item.deadline || item.productDeadline || item.completeInfoDate || '',
             feature: item.title || '',
-            source: 'Student Projects'
+            source: 'Student Projects',
+            finalReleaseCompleted: !!item.finalReleaseCompleted
           }));
 
           const contentTasks = content.map((item: any) => ({
@@ -365,7 +367,8 @@ export default async function handler(req: any, res: any) {
             taskLink: item.draftLink || '',
             date: item.deadline || item.productDeadline || item.publishDate || '',
             feature: item.module || '',
-            source: 'Content Pipeline'
+            source: 'Content Pipeline',
+            finalReleaseCompleted: !!item.finalReleaseCompleted
           }));
 
           const issueTasks = issues.map((item: any) => ({
@@ -377,7 +380,8 @@ export default async function handler(req: any, res: any) {
             taskLink: item.taskLink || '',
             date: item.deadline || item.productDeadline || '',
             feature: item.module || `Issue #${item.id}`,
-            source: 'Daily Issues Log'
+            source: 'Daily Issues Log',
+            finalReleaseCompleted: !!item.finalReleaseCompleted
           }));
 
           const meetingTasks = meetings.map((item: any) => ({
@@ -390,7 +394,8 @@ export default async function handler(req: any, res: any) {
             date: item.deadline || item.productDeadline || item.date || '',
             feature: item.cohort || '',
             notes: item.notes || '',
-            source: 'AMA & Meetings'
+            source: 'AMA & Meetings',
+            finalReleaseCompleted: !!item.finalReleaseCompleted
           }));
 
           const allUnifiedTasks = [
@@ -458,6 +463,7 @@ export default async function handler(req: any, res: any) {
               : pocItems.filter((item: any) => !item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(status => (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim())).length;
             const total = pocItems.length;
             const clickupCount = pocItems.filter((item: any) => item.taskLink && item.taskLink.trim() !== '').length;
+            const releasedCount = pocItems.filter((item: any) => !!item.finalReleaseCompleted).length;
 
             return {
               poc,
@@ -465,6 +471,7 @@ export default async function handler(req: any, res: any) {
               noStatus,
               total,
               clickupCount,
+              releasedCount,
             };
           });
 
@@ -491,6 +498,7 @@ export default async function handler(req: any, res: any) {
               : prodItems.filter((item: any) => !item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(status => (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim())).length;
             const total = prodItems.length;
             const clickupCount = prodItems.filter((item: any) => item.taskLink && item.taskLink.trim() !== '').length;
+            const releasedCount = prodItems.filter((item: any) => !!item.finalReleaseCompleted).length;
 
             const matchedGroup = productGroups.find((g: any) => g.name === prodGroup);
             const color = matchedGroup ? matchedGroup.color : '#6b7280';
@@ -502,6 +510,7 @@ export default async function handler(req: any, res: any) {
               noStatus,
               total,
               clickupCount,
+              releasedCount,
             };
           });
 
@@ -599,6 +608,7 @@ export default async function handler(req: any, res: any) {
               formCategory: 'ama-meetings',
               featuresCount: allAmaFeatures.length,
               clickupCount: allAmaFeatures.filter(item => item.taskLink && item.taskLink.trim() !== '').length,
+              releasedCount: allAmaFeatures.filter(item => !!item.finalReleaseCompleted).length,
               callCount: filteredAmaSessions.length,
               rating: getCategoryRating('ama-meetings'),
               ...getMeetingCategoryStats(allAmaFeatures)
@@ -608,6 +618,7 @@ export default async function handler(req: any, res: any) {
               formCategory: 'admin-calls',
               featuresCount: allAdminFeatures.length,
               clickupCount: allAdminFeatures.filter(item => item.taskLink && item.taskLink.trim() !== '').length,
+              releasedCount: allAdminFeatures.filter(item => !!item.finalReleaseCompleted).length,
               callCount: filteredAdminCalls.length,
               rating: getCategoryRating('admin-calls'),
               ...getMeetingCategoryStats(allAdminFeatures)
@@ -617,6 +628,7 @@ export default async function handler(req: any, res: any) {
               formCategory: null,
               featuresCount: allTarunFeatures.length,
               clickupCount: allTarunFeatures.filter(item => item.taskLink && item.taskLink.trim() !== '').length,
+              releasedCount: allTarunFeatures.filter(item => !!item.finalReleaseCompleted).length,
               callCount: filteredTarunSirMeetings.length,
               rating: null,
               ...getMeetingCategoryStats(allTarunFeatures)
@@ -626,6 +638,7 @@ export default async function handler(req: any, res: any) {
           // Overall Totals
           const overallTotal = validItems.length;
           const overallClickup = validItems.filter(item => item.taskLink && item.taskLink.trim() !== '').length;
+          const overallReleased = validItems.filter(item => !!item.finalReleaseCompleted).length;
           const overallStatusTotals: Record<string, number> = {};
           activeStatuses.forEach(status => {
             if (statusType === 'my') {
@@ -648,7 +661,8 @@ export default async function handler(req: any, res: any) {
               overallTotal,
               overallClickup,
               overallStatusTotals,
-              overallNoStatus
+              overallNoStatus,
+              overallReleased
             }
           });
         }

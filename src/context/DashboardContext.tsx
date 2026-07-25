@@ -989,6 +989,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [activeTab]);
 
+
   const fetchDashboardCounts = useCallback(async (dateRangeType: string, customStartDate?: string, customEndDate?: string, statusType?: string) => {
     setDashboardCounts((prev: any) => {
       if (!prev) setIsLoadingCounts(true);
@@ -1026,6 +1027,13 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setIsLoadingCounts(false);
     }
   }, []);
+
+  // Refresh dashboard counts when user navigates to the dashboard tab
+  useEffect(() => {
+    if (activeTab === 'dashboard' && !isLoading) {
+      fetchDashboardCounts('all', '', '', 'my');
+    }
+  }, [activeTab, isLoading, fetchDashboardCounts]);
 
   const fetchDashboardList = useCallback(async (
     source: string,

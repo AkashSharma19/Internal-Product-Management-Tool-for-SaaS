@@ -104,6 +104,24 @@ export const DashboardOverview: React.FC = () => {
     isLoading
   } = useDashboard();
 
+  const isCompletedStatus = (statusStr: string) => {
+    if (!statusStr) return false;
+    const s = statusStr.toLowerCase().trim();
+    return ['completed', 'delivered', 'done', 'closed', 'tested', 'released'].includes(s);
+  };
+
+  const getCompletedCount = (statusCounts: Record<string, number>) => {
+    let completed = 0;
+    if (statusCounts) {
+      Object.entries(statusCounts).forEach(([statusLabel, count]) => {
+        if (isCompletedStatus(statusLabel)) {
+          completed += count;
+        }
+      });
+    }
+    return completed;
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
   const [popupData, setPopupData] = useState<{ title: string; tasks: any[] } | null>(null);
   const [isPopupLoading, setIsPopupLoading] = useState(false);
@@ -272,7 +290,8 @@ export const DashboardOverview: React.FC = () => {
   const overallClickup = dashboardCounts?.overallClickup || 0;
   const overallStatusTotals = dashboardCounts?.overallStatusTotals || {};
   const overallNoStatus = dashboardCounts?.overallNoStatus || 0;
-  const clickupCoverage = overallTotal > 0 ? Math.round((overallClickup / overallTotal) * 100) : 0;
+  const overallReleased = dashboardCounts?.overallReleased || 0;
+  const releaseRate = overallTotal > 0 ? Math.round((overallReleased / overallTotal) * 100) : 0;
 
   const consolidatedMeetingRows = (dashboardCounts?.meetingRows || []).map((row: any) => {
     let icon = <Video size={14} style={{ color: 'var(--primary)' }} />;
@@ -646,12 +665,12 @@ export const DashboardOverview: React.FC = () => {
                   </th>
 
                   <th style={{ textAlign: 'center', width: '120px', fontWeight: 700, padding: '10px' }}>ClickUp Linked</th>
-                  <th style={{ width: '150px', fontWeight: 700, padding: '10px', textAlign: 'left' }}>Coverage Rate</th>
+                  <th style={{ width: '150px', fontWeight: 700, padding: '10px', textAlign: 'left' }}>Release Rate</th>
                 </tr>
               </thead>
               <tbody>
                 {finalRows.map(row => {
-                  const coveragePercent = row.total > 0 ? Math.round((row.clickupCount / row.total) * 100) : 0;
+                  const releasePercent = row.total > 0 ? Math.round(((row.releasedCount || 0) / row.total) * 100) : 0;
                   
                   return (
                     <tr key={row.poc} style={{ transition: 'background-color 0.2s' }}>
@@ -731,9 +750,9 @@ export const DashboardOverview: React.FC = () => {
                             border: '1px solid var(--border-light)'
                           }}>
                             <div style={{
-                              width: `${coveragePercent}%`,
+                              width: `${releasePercent}%`,
                               height: '100%',
-                              backgroundColor: coveragePercent > 75 ? 'var(--success)' : coveragePercent > 40 ? 'var(--warning)' : 'var(--danger)',
+                              backgroundColor: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)',
                               borderRadius: '3px',
                               transition: 'width 0.5s ease-out'
                             }} />
@@ -743,8 +762,8 @@ export const DashboardOverview: React.FC = () => {
                             fontWeight: 700,
                             minWidth: '32px',
                             textAlign: 'right',
-                            color: coveragePercent > 75 ? 'var(--success)' : coveragePercent > 40 ? 'var(--warning)' : 'var(--danger)'
-                          }}>{coveragePercent}%</span>
+                            color: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)'
+                          }}>{releasePercent}%</span>
                         </div>
                       </td>
                     </tr>
@@ -795,9 +814,9 @@ export const DashboardOverview: React.FC = () => {
                         border: '1px solid var(--border-light)'
                       }}>
                         <div style={{
-                          width: `${clickupCoverage}%`,
+                          width: `${releaseRate}%`,
                           height: '100%',
-                          backgroundColor: clickupCoverage > 75 ? 'var(--success)' : clickupCoverage > 40 ? 'var(--warning)' : 'var(--danger)',
+                          backgroundColor: releaseRate > 75 ? 'var(--success)' : releaseRate > 40 ? 'var(--warning)' : 'var(--danger)',
                           borderRadius: '3px'
                         }} />
                       </div>
@@ -806,8 +825,8 @@ export const DashboardOverview: React.FC = () => {
                         fontWeight: 800,
                         minWidth: '32px',
                         textAlign: 'right',
-                        color: clickupCoverage > 75 ? 'var(--success)' : clickupCoverage > 40 ? 'var(--warning)' : 'var(--danger)'
-                      }}>{clickupCoverage}%</span>
+                        color: releaseRate > 75 ? 'var(--success)' : releaseRate > 40 ? 'var(--warning)' : 'var(--danger)'
+                      }}>{releaseRate}%</span>
                     </div>
                   </td>
                 </tr>
@@ -863,12 +882,12 @@ export const DashboardOverview: React.FC = () => {
                   </th>
 
                   <th style={{ textAlign: 'center', width: '120px', fontWeight: 700, padding: '10px' }}>ClickUp Linked</th>
-                  <th style={{ width: '150px', fontWeight: 700, padding: '10px', textAlign: 'left' }}>Coverage Rate</th>
+                  <th style={{ width: '150px', fontWeight: 700, padding: '10px', textAlign: 'left' }}>Release Rate</th>
                 </tr>
               </thead>
               <tbody>
                 {productGroupRows.map((row: any) => {
-                  const coveragePercent = row.total > 0 ? Math.round((row.clickupCount / row.total) * 100) : 0;
+                  const releasePercent = row.total > 0 ? Math.round(((row.releasedCount || 0) / row.total) * 100) : 0;
                   
                   return (
                     <tr key={row.productGroup} style={{ transition: 'background-color 0.2s' }}>
@@ -949,9 +968,9 @@ export const DashboardOverview: React.FC = () => {
                             border: '1px solid var(--border-light)'
                           }}>
                             <div style={{
-                              width: `${coveragePercent}%`,
+                              width: `${releasePercent}%`,
                               height: '100%',
-                              backgroundColor: coveragePercent > 75 ? 'var(--success)' : coveragePercent > 40 ? 'var(--warning)' : 'var(--danger)',
+                              backgroundColor: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)',
                               borderRadius: '3px',
                               transition: 'width 0.5s ease-out'
                             }} />
@@ -961,8 +980,8 @@ export const DashboardOverview: React.FC = () => {
                             fontWeight: 700,
                             minWidth: '32px',
                             textAlign: 'right',
-                            color: coveragePercent > 75 ? 'var(--success)' : coveragePercent > 40 ? 'var(--warning)' : 'var(--danger)'
-                          }}>{coveragePercent}%</span>
+                            color: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)'
+                          }}>{releasePercent}%</span>
                         </div>
                       </td>
                     </tr>
@@ -1013,9 +1032,9 @@ export const DashboardOverview: React.FC = () => {
                         border: '1px solid var(--border-light)'
                       }}>
                         <div style={{
-                          width: `${clickupCoverage}%`,
+                          width: `${releaseRate}%`,
                           height: '100%',
-                          backgroundColor: clickupCoverage > 75 ? 'var(--success)' : clickupCoverage > 40 ? 'var(--warning)' : 'var(--danger)',
+                          backgroundColor: releaseRate > 75 ? 'var(--success)' : releaseRate > 40 ? 'var(--warning)' : 'var(--danger)',
                           borderRadius: '3px'
                         }} />
                       </div>
@@ -1024,8 +1043,8 @@ export const DashboardOverview: React.FC = () => {
                         fontWeight: 800,
                         minWidth: '32px',
                         textAlign: 'right',
-                        color: clickupCoverage > 75 ? 'var(--success)' : clickupCoverage > 40 ? 'var(--warning)' : 'var(--danger)'
-                      }}>{clickupCoverage}%</span>
+                        color: releaseRate > 75 ? 'var(--success)' : releaseRate > 40 ? 'var(--warning)' : 'var(--danger)'
+                      }}>{releaseRate}%</span>
                     </div>
                   </td>
                 </tr>
@@ -1082,12 +1101,12 @@ export const DashboardOverview: React.FC = () => {
                   </th>
 
                   <th style={{ textAlign: 'center', width: '120px', fontWeight: 700, padding: '10px' }}>ClickUp Linked</th>
-                  <th style={{ width: '150px', fontWeight: 700, padding: '10px', textAlign: 'left' }}>Coverage Rate</th>
+                  <th style={{ width: '150px', fontWeight: 700, padding: '10px', textAlign: 'left' }}>Release Rate</th>
                 </tr>
               </thead>
               <tbody>
                 {consolidatedMeetingRows.map((row: any) => {
-                  const coveragePercent = row.featuresCount > 0 ? Math.round((row.clickupCount / row.featuresCount) * 100) : 0;
+                  const releasePercent = row.featuresCount > 0 ? Math.round(((row.releasedCount || 0) / row.featuresCount) * 100) : 0;
                   
                   return (
                     <tr key={row.category} style={{ transition: 'background-color 0.2s' }}>
@@ -1193,9 +1212,9 @@ export const DashboardOverview: React.FC = () => {
                             border: '1px solid var(--border-light)'
                           }}>
                             <div style={{
-                              width: `${coveragePercent}%`,
+                              width: `${releasePercent}%`,
                               height: '100%',
-                              backgroundColor: coveragePercent > 75 ? 'var(--success)' : coveragePercent > 40 ? 'var(--warning)' : 'var(--danger)',
+                              backgroundColor: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)',
                               borderRadius: '3px',
                               transition: 'width 0.5s ease-out'
                             }} />
@@ -1205,8 +1224,8 @@ export const DashboardOverview: React.FC = () => {
                             fontWeight: 700,
                             minWidth: '32px',
                             textAlign: 'right',
-                            color: coveragePercent > 75 ? 'var(--success)' : coveragePercent > 40 ? 'var(--warning)' : 'var(--danger)'
-                          }}>{coveragePercent}%</span>
+                            color: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)'
+                          }}>{releasePercent}%</span>
                         </div>
                       </td>
                     </tr>
@@ -1243,9 +1262,10 @@ export const DashboardOverview: React.FC = () => {
                     {consolidatedMeetingRows.reduce((sum: number, r: any) => sum + (r.noStatus || 0), 0)}
                   </td>
                   {(() => {
-                    const totalClickup = consolidatedMeetingRows.reduce((sum: number, r: any) => sum + (r.clickupCount || 0), 0);
                     const totalFeatures = consolidatedMeetingRows.reduce((sum: number, r: any) => sum + (r.featuresCount || 0), 0);
-                    const coverage = totalFeatures > 0 ? Math.round((totalClickup / totalFeatures) * 100) : 0;
+                    const totalCompleted = consolidatedMeetingRows.reduce((sum: number, r: any) => sum + getCompletedCount(r.statusCounts), 0);
+                    const totalClickup = consolidatedMeetingRows.reduce((sum: number, r: any) => sum + (r.clickupCount || 0), 0);
+                    const overallMeetingsReleaseRate = totalFeatures > 0 ? Math.round((totalCompleted / totalFeatures) * 100) : 0;
                     return (
                       <>
                         <td
@@ -1266,9 +1286,9 @@ export const DashboardOverview: React.FC = () => {
                               border: '1px solid var(--border-light)'
                             }}>
                               <div style={{
-                                width: `${coverage}%`,
+                                width: `${overallMeetingsReleaseRate}%`,
                                 height: '100%',
-                                backgroundColor: coverage > 75 ? 'var(--success)' : coverage > 40 ? 'var(--warning)' : 'var(--danger)',
+                                backgroundColor: overallMeetingsReleaseRate > 75 ? 'var(--success)' : overallMeetingsReleaseRate > 40 ? 'var(--warning)' : 'var(--danger)',
                                 borderRadius: '3px'
                               }} />
                             </div>
@@ -1277,8 +1297,8 @@ export const DashboardOverview: React.FC = () => {
                               fontWeight: 800,
                               minWidth: '32px',
                               textAlign: 'right',
-                              color: coverage > 75 ? 'var(--success)' : coverage > 40 ? 'var(--warning)' : 'var(--danger)'
-                            }}>{coverage}%</span>
+                              color: overallMeetingsReleaseRate > 75 ? 'var(--success)' : overallMeetingsReleaseRate > 40 ? 'var(--warning)' : 'var(--danger)'
+                            }}>{overallMeetingsReleaseRate}%</span>
                           </div>
                         </td>
                       </>
