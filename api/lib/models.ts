@@ -320,3 +320,15 @@ const CommentSchema = new Schema({
 
 export const CommentModel = mongoose.models.Comment || mongoose.model('Comment', CommentSchema);
 
+const ChangeHistorySchema = new Schema({
+  id: { type: String, required: true, unique: true },
+  itemId: { type: String, required: true, index: true }, // Refers to the product item ID / issue ID (indexed)
+  fieldName: { type: String, required: true }, // 'productDeadline' | 'uiux' | 'deadline' | 'finalRelease' | 'poc'
+  oldValue: { type: String, default: "" },
+  newValue: { type: String, default: "" },
+  changedBy: { type: String, required: true }, // User's name or email
+  changedById: { type: String, default: "" } // User's ID
+}, { timestamps: true });
+
+export const ChangeHistoryModel = mongoose.models.ChangeHistory || mongoose.model('ChangeHistory', ChangeHistorySchema);
+

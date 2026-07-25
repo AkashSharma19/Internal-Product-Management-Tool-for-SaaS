@@ -1812,7 +1812,7 @@ const DashboardContent: React.FC = () => {
             return (
               <>
                 {isLoading && !previewProductId && <TableSkeleton />}
-                <div style={{ display: (isLoading || previewProductId) ? 'none' : 'block', height: '100%', width: '100%' }}>
+                <div style={{ display: (isLoading || previewProductId) ? 'none' : 'flex', flexDirection: 'column', height: '100%', width: '100%', minWidth: 0, maxWidth: '100%', flex: 1 }}>
                   {renderActiveView()}
                 </div>
               </>

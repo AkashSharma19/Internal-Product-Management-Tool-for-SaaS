@@ -209,7 +209,7 @@ export const DashboardOverview: React.FC = () => {
     }
   };
 
-  if (!dashboardCounts && isLoadingCounts) {
+  if (!dashboardCounts || isLoading || isLoadingCounts) {
     return (
       <TabContainer
         title="Dashboard"

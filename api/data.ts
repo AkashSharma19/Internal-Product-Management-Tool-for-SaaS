@@ -20,7 +20,8 @@ import {
   GlobalSettingsModel,
   FeedbackFormConfigModel,
   FeedbackSubmissionModel,
-  CommentModel
+  CommentModel,
+  ChangeHistoryModel
 } from './lib/models.js';
 
 const modelsMap: Record<string, any> = {
@@ -42,7 +43,8 @@ const modelsMap: Record<string, any> = {
   settings: GlobalSettingsModel,
   formConfigs: FeedbackFormConfigModel,
   feedbackSubmissions: FeedbackSubmissionModel,
-  comments: CommentModel
+  comments: CommentModel,
+  changeHistories: ChangeHistoryModel
 };
 
 export default async function handler(req: any, res: any) {
@@ -1518,18 +1520,25 @@ export default async function handler(req: any, res: any) {
           const paginatedFeatures = sortedFeatures.slice(startIndex, endIndex);
 
           const getProductBreakdownCounts = async () => {
-            const counts: Record<string, number> = {};
-            const addToCount = (prod: string | undefined | null) => {
+            const counts: Record<string, { total: number; completed: number }> = {};
+            const addToCount = (prod: string | undefined | null, item: any) => {
               const name = (prod || '').trim() || 'No Product Group Assigned';
-              counts[name] = (counts[name] || 0) + 1;
+              if (!counts[name]) {
+                counts[name] = { total: 0, completed: 0 };
+              }
+              counts[name].total += 1;
+              const isCompleted = !!item.finalReleaseCompleted || isCompletedStatusLocal(item.status);
+              if (isCompleted) {
+                counts[name].completed += 1;
+              }
             };
 
             const [productsRaw, projectsRaw, contentRaw, meetingsRaw, issuesRaw] = await Promise.all([
-              modelsMap['products'].find({}, 'id product notes').lean(),
-              modelsMap['projects'].find({}, 'product').lean(),
-              modelsMap['contentItems'].find({}, 'product').lean(),
-              modelsMap['studentMeetings'].find({}, 'product').lean(),
-              modelsMap['dailyIssues'].find({}, 'product').lean()
+              modelsMap['products'].find({}, 'id product notes status finalReleaseCompleted').lean(),
+              modelsMap['projects'].find({}, 'product status finalReleaseCompleted').lean(),
+              modelsMap['contentItems'].find({}, 'product status finalReleaseCompleted').lean(),
+              modelsMap['studentMeetings'].find({}, 'product status finalReleaseCompleted').lean(),
+              modelsMap['dailyIssues'].find({}, 'product status finalReleaseCompleted').lean()
             ]);
 
             const products = productsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
@@ -1580,13 +1589,13 @@ export default async function handler(req: any, res: any) {
                 }
               }
 
-              addToCount(item.product);
+              addToCount(item.product, item);
             }
 
-            for (const p of projects) addToCount(p.product);
-            for (const c of content) addToCount(c.product);
-            for (const m of meetings) addToCount(m.product);
-            for (const i of issues) addToCount(i.product);
+            for (const p of projects) addToCount(p.product, p);
+            for (const c of content) addToCount(c.product, c);
+            for (const m of meetings) addToCount(m.product, m);
+            for (const i of issues) addToCount(i.product, i);
 
             return counts;
           };
@@ -2043,6 +2052,19 @@ export default async function handler(req: any, res: any) {
             return res.status(200).json({ success: true, data: mappedItem });
           }
           return res.status(404).json({ success: false, error: 'Task not found' });
+        }
+
+        if (action === 'get-change-history') {
+          const itemId = url.searchParams.get('itemId');
+          if (!itemId) {
+            return res.status(400).json({ success: false, error: 'itemId parameter is required' });
+          }
+          const ChangeHistory = modelsMap['changeHistories'];
+          if (!ChangeHistory) {
+            return res.status(500).json({ success: false, error: 'Change history model not registered' });
+          }
+          const logs = await ChangeHistory.find({ itemId }).sort({ createdAt: -1 }).lean();
+          return res.status(200).json({ success: true, data: logs });
         }
 
         if (action === 'global-search') {
@@ -3577,6 +3599,72 @@ export default async function handler(req: any, res: any) {
       if (action === 'update') {
         if (!id) return res.status(400).json({ success: false, error: 'ID is required for update' });
         
+        // Use key for settings, and id for all other tables
+        const query = type === 'settings' ? { key: id } : { id };
+
+        // --- Change Logging System ---
+        const loggedTables = ['products', 'projects', 'contentItems', 'studentMeetings', 'dailyIssues'];
+        if (loggedTables.includes(type) && data) {
+          try {
+            const existingItem = await Model.findOne(query).lean() as any;
+            if (existingItem) {
+              const userId = req.headers['x-user-id'];
+              let changerName = 'Unknown User';
+              if (userId) {
+                const ConfigSpeaker = modelsMap['speakers'];
+                if (ConfigSpeaker) {
+                  const speaker = await ConfigSpeaker.findOne({ id: userId }).lean();
+                  if (speaker) {
+                    changerName = speaker.name;
+                  } else if (String(userId).startsWith('guest-')) {
+                    changerName = `Guest (${userId.replace('guest-', '')})`;
+                  } else {
+                    changerName = String(userId);
+                  }
+                }
+              }
+              
+              const fieldsToTrack = ['productDeadline', 'uiux', 'deadline', 'finalRelease', 'poc'];
+              const ChangeHistory = modelsMap['changeHistories'];
+              if (ChangeHistory) {
+                for (const field of fieldsToTrack) {
+                  if (data[field] !== undefined) {
+                    const oldValue = String(existingItem[field] || '').trim();
+                    const newValue = String(data[field] || '').trim();
+                    if (oldValue !== newValue) {
+                      // Deduplicate logs created within 2 seconds
+                      const twoSecondsAgo = new Date(Date.now() - 2000);
+                      const duplicateLog = await ChangeHistory.findOne({
+                        itemId: id,
+                        fieldName: field,
+                        oldValue,
+                        newValue,
+                        createdAt: { $gte: twoSecondsAgo }
+                      }).lean();
+
+                      if (!duplicateLog) {
+                        const logEntry = new ChangeHistory({
+                          id: `change-log-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                          itemId: id,
+                          fieldName: field,
+                          oldValue,
+                          newValue,
+                          changedBy: changerName,
+                          changedById: String(userId || '')
+                        });
+                        await logEntry.save();
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          } catch (logErr) {
+            console.error('Audit change logging error:', logErr);
+          }
+        }
+        // ------------------------------
+        
         // If updating clickupApiKey, check if it is masked
         if (type === 'settings' && id === 'clickupApiKey') {
           if (data && data.value === '••••••••') {
@@ -3586,8 +3674,6 @@ export default async function handler(req: any, res: any) {
           }
         }
 
-        // Use key for settings, and id for all other tables
-        const query = type === 'settings' ? { key: id } : { id };
         const updatedItem = await Model.findOneAndUpdate(query, data, { new: true, upsert: true });
         return res.status(200).json({ success: true, item: updatedItem });
       }

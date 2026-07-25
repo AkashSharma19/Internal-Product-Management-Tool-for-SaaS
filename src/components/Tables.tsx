@@ -32,7 +32,8 @@ import {
   MessageSquare,
   Layers,
   ClipboardList,
-  Copy
+  Copy,
+  History
 } from 'lucide-react';
 import type { 
   ProductItem, 
@@ -642,6 +643,167 @@ const isDateOverdue = (dateStr: string | undefined, isCompleted: boolean | undef
   } catch (e) {
     return false;
   }
+};
+
+interface FieldHistoryModalProps {
+  itemId: string;
+  fieldName: string;
+  fieldLabel: string;
+  onClose: () => void;
+}
+
+export const FieldHistoryModal: React.FC<FieldHistoryModalProps> = ({ itemId, fieldName, fieldLabel, onClose }) => {
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const savedUserId = localStorage.getItem('logged-in-user-id') || '';
+        const response = await fetch(`/api/data?action=get-change-history&itemId=${encodeURIComponent(itemId)}`, {
+          headers: {
+            'x-user-id': savedUserId
+          }
+        });
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success && Array.isArray(resData.data)) {
+            const filtered = resData.data.filter((log: any) => log.fieldName === fieldName);
+            // Deduplicate logs created within a 2-second window
+            const uniqueLogs: any[] = [];
+            for (let i = 0; i < filtered.length; i++) {
+              const current = filtered[i];
+              let isDup = false;
+              for (let j = i + 1; j < filtered.length; j++) {
+                const other = filtered[j];
+                const timeDiff = Math.abs(new Date(current.createdAt).getTime() - new Date(other.createdAt).getTime());
+                if (
+                  current.oldValue === other.oldValue &&
+                  current.newValue === other.newValue &&
+                  current.changedBy === other.changedBy &&
+                  timeDiff < 2000
+                ) {
+                  isDup = true;
+                  break;
+                }
+              }
+              if (!isDup) {
+                uniqueLogs.push(current);
+              }
+            }
+            setLogs(uniqueLogs);
+          } else {
+            setError(resData.error || 'Failed to fetch history logs');
+          }
+        } else {
+          setError('Failed to fetch history logs from server');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Error loading history logs');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchHistory();
+  }, [itemId, fieldName]);
+
+  const modalRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [onClose]);
+
+  const formatDateString = (dateStr: string) => {
+    if (!dateStr) return 'empty';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const parts = dateStr.split('-');
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const year = parts[0];
+      const monthIdx = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      if (monthIdx >= 0 && monthIdx < 12) {
+        return `${day} ${months[monthIdx]} ${year}`;
+      }
+    }
+    return dateStr;
+  };
+
+  return (
+    <div 
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        zIndex: 99999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}
+      onClick={onClose}
+    >
+      <div 
+        ref={modalRef}
+        style={{
+          width: '450px',
+          maxWidth: '92vw',
+          maxHeight: '75vh',
+          backgroundColor: 'var(--panel-bg)',
+          border: '1px solid var(--border-light)',
+          borderRadius: '12px',
+          padding: '1.25rem',
+          boxShadow: 'var(--shadow)',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+          <h4 style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+            History of Changes: {fieldLabel}
+          </h4>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', fontSize: '0.75rem', paddingRight: '4px' }}>
+          {loading && <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '1rem' }}>Loading change history...</div>}
+          {error && <div style={{ color: 'var(--danger)', padding: '0.5rem', textAlign: 'center' }}>{error}</div>}
+          {!loading && !error && logs.length === 0 && (
+            <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem' }}>No change history recorded yet.</div>
+          )}
+          {!loading && !error && logs.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {logs.map((log) => (
+                <div key={log.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '8px 10px', backgroundColor: 'var(--background-alt)', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.7rem' }}>
+                    <span style={{ fontWeight: 700, color: 'var(--primary)' }}>
+                      {log.changedBy}
+                    </span>
+                    <span style={{ color: 'var(--text-muted)' }}>
+                      {new Date(log.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                    </span>
+                  </div>
+                  <div style={{ color: 'var(--text-primary)', marginTop: '2px', lineHeight: '1.4' }}>
+                    Changed from <strong style={{ color: 'var(--text-secondary)' }}>"{formatDateString(log.oldValue)}"</strong> to <strong style={{ color: 'var(--success, #10b981)' }}>"{formatDateString(log.newValue)}"</strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 interface ClickupSubtasksModalProps {
@@ -1529,6 +1691,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [copiedClickup, setCopiedClickup] = useState(false);
+  const [historyField, setHistoryField] = useState<{ name: string; label: string } | null>(null);
   const handleCopyClickupLink = async () => {
     if (!item.taskLink) return;
     try {
@@ -2451,8 +2614,15 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
           {/* Specs Date */}
           <div className="property-row-flat" style={{ position: 'relative' }}>
-            <span className="premium-property-label">
+            <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Calendar size={13} /> Specs Date
+              <span title="View Change History" style={{ display: 'inline-flex' }}>
+                <History 
+                  size={12} 
+                  style={{ cursor: 'pointer', opacity: 0.6 }} 
+                  onClick={() => setHistoryField({ name: 'productDeadline', label: 'Specs Date' })}
+                />
+              </span>
             </span>
             <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span 
@@ -2487,8 +2657,15 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
           {/* UI/UX Date */}
           <div className="property-row-flat" style={{ position: 'relative' }}>
-            <span className="premium-property-label">
+            <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Palette size={13} /> UI/UX Date
+              <span title="View Change History" style={{ display: 'inline-flex' }}>
+                <History 
+                  size={12} 
+                  style={{ cursor: 'pointer', opacity: 0.6 }} 
+                  onClick={() => setHistoryField({ name: 'uiux', label: 'UI/UX Date' })}
+                />
+              </span>
             </span>
             <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span 
@@ -2523,8 +2700,15 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
           {/* Dev Date */}
           <div className="property-row-flat" style={{ position: 'relative' }}>
-            <span className="premium-property-label">
+            <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Code size={13} /> Dev Date
+              <span title="View Change History" style={{ display: 'inline-flex' }}>
+                <History 
+                  size={12} 
+                  style={{ cursor: 'pointer', opacity: 0.6 }} 
+                  onClick={() => setHistoryField({ name: 'deadline', label: 'Dev Date' })}
+                />
+              </span>
             </span>
             <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span 
@@ -2559,8 +2743,15 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
           {/* Release Date */}
           <div className="property-row-flat" style={{ position: 'relative' }}>
-            <span className="premium-property-label">
+            <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Sparkles size={13} /> Release Date
+              <span title="View Change History" style={{ display: 'inline-flex' }}>
+                <History 
+                  size={12} 
+                  style={{ cursor: 'pointer', opacity: 0.6 }} 
+                  onClick={() => setHistoryField({ name: 'finalRelease', label: 'Release Date' })}
+                />
+              </span>
             </span>
             <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span 
@@ -2600,8 +2791,15 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
           
           {/* Assignees */}
           <div className="property-row-flat">
-            <span className="premium-property-label">
+            <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <User size={13} /> assignees
+              <span title="View Change History" style={{ display: 'inline-flex' }}>
+                <History 
+                  size={12} 
+                  style={{ cursor: 'pointer', opacity: 0.6 }} 
+                  onClick={() => setHistoryField({ name: 'poc', label: 'POC Owner' })}
+                />
+              </span>
             </span>
             <div className="premium-property-value">
               <div className="premium-select-pill" style={{ paddingLeft: '4px' }}>
@@ -2889,6 +3087,14 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
         </div>
       </div>
 
+      {historyField && (
+        <FieldHistoryModal 
+          itemId={item.id}
+          fieldName={historyField.name}
+          fieldLabel={historyField.label}
+          onClose={() => setHistoryField(null)}
+        />
+      )}
       </div>
     </div>
   );
@@ -5696,8 +5902,9 @@ export const StudentMeetingsTable: React.FC = () => {
         </div>
 
         {subTab === 'schedule' ? (
-          <div className="table-responsive" style={{ display: 'flex', flexDirection: 'column' }}>
-            <table className="grid-table">
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0, minWidth: 0, width: '100%' }}>
+            <div className="table-responsive" style={{ flex: 1, minHeight: 0 }}>
+              <table className="grid-table">
               <thead>
                 <tr>
                   <th onClick={() => handleAmaSort('date')} style={{ width: '130px', cursor: 'pointer' }}>Date {amaSortField === 'date' ? (amaSortAsc ? '▲' : '▼') : ''}</th>
@@ -6510,6 +6717,7 @@ export const StudentMeetingsTable: React.FC = () => {
                 }))}
               </tbody>
             </table>
+            </div>
             {/* Pagination Controls */}
             {(() => {
               const activePage = Math.min(currentPage, totalPages);
@@ -6595,8 +6803,9 @@ export const StudentMeetingsTable: React.FC = () => {
             })()}
           </div>
         ) : (
-          <div className="table-responsive" style={{ display: 'flex', flexDirection: 'column' }}>
-            <table className="grid-table">
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0, minWidth: 0, width: '100%' }}>
+            <div className="table-responsive" style={{ flex: 1, minHeight: 0 }}>
+              <table className="grid-table">
               <thead>
                 <tr>
                   <th className="sticky-header-col" onClick={() => handleFeedbackSort('feature')} style={{ width: '250px', minWidth: '250px', maxWidth: '250px', cursor: 'pointer' }}>Feature {feedbackSortField === 'feature' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
@@ -7122,6 +7331,7 @@ export const StudentMeetingsTable: React.FC = () => {
                 }))}
               </tbody>
             </table>
+            </div>
             {/* Pagination Controls for Feedback */}
             {feedbackTotalItems > 0 && (
               <div style={{
@@ -7618,8 +7828,9 @@ export const AdminCallsTable: React.FC = () => {
         </div>
 
         {subTab === 'schedule' ? (
-          <div className="table-responsive" style={{ display: 'flex', flexDirection: 'column' }}>
-            <table className="grid-table">
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0, minWidth: 0, width: '100%' }}>
+            <div className="table-responsive" style={{ flex: 1, minHeight: 0 }}>
+              <table className="grid-table">
               <thead>
                 <tr>
                   <th onClick={() => handleCallSort('date')} style={{ width: '150px', cursor: 'pointer' }}>Call Date {callSortField === 'date' ? (callSortAsc ? '▲' : '▼') : ''}</th>
@@ -8384,6 +8595,7 @@ export const AdminCallsTable: React.FC = () => {
                 }))}
               </tbody>
             </table>
+            </div>
             {/* Pagination Controls */}
             {totalItems > 0 && (
               <div style={{
@@ -8464,8 +8676,9 @@ export const AdminCallsTable: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className="table-responsive" style={{ display: 'flex', flexDirection: 'column' }}>
-            <table className="grid-table">
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0, minWidth: 0, width: '100%' }}>
+            <div className="table-responsive" style={{ flex: 1, minHeight: 0 }}>
+              <table className="grid-table">
               <thead>
                 <tr>
                   <th className="sticky-header-col" onClick={() => handleFeedbackSort('feature')} style={{ width: '280px', minWidth: '280px', maxWidth: '280px', cursor: 'pointer' }}>Feature / Call Agenda {feedbackSortField === 'feature' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
@@ -8855,6 +9068,7 @@ export const AdminCallsTable: React.FC = () => {
                 }))}
               </tbody>
             </table>
+            </div>
             {/* Pagination Controls for Feedback */}
             {feedbackTotalItems > 0 && (
               <div style={{
@@ -9345,8 +9559,9 @@ export const TarunSirMeetingsTable: React.FC = () => {
         </div>
 
         {subTab === 'schedule' ? (
-          <div className="table-responsive" style={{ display: 'flex', flexDirection: 'column' }}>
-            <table className="grid-table">
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0, minWidth: 0, width: '100%' }}>
+            <div className="table-responsive" style={{ flex: 1, minHeight: 0 }}>
+              <table className="grid-table">
               <thead>
                 <tr>
                   <th onClick={() => handleMeetingSort('date')} style={{ width: '150px', cursor: 'pointer' }}>Meeting Date {meetingSortField === 'date' ? (meetingSortAsc ? '▲' : '▼') : ''}</th>
@@ -10077,6 +10292,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                 }))}
               </tbody>
             </table>
+            </div>
             {/* Pagination Controls */}
             {totalItems > 0 && (
               <div style={{
@@ -10157,8 +10373,9 @@ export const TarunSirMeetingsTable: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className="table-responsive" style={{ display: 'flex', flexDirection: 'column' }}>
-            <table className="grid-table">
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0, minWidth: 0, width: '100%' }}>
+            <div className="table-responsive" style={{ flex: 1, minHeight: 0 }}>
+              <table className="grid-table">
               <thead>
                 <tr>
                   <th className="sticky-header-col" onClick={() => handleFeedbackSort('feature')} style={{ width: '280px', minWidth: '280px', maxWidth: '280px', cursor: 'pointer' }}>Feature / Meeting Agenda {feedbackSortField === 'feature' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
@@ -10553,6 +10770,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                 }))}
               </tbody>
             </table>
+            </div>
             {/* Pagination Controls for Feedback */}
             {feedbackTotalItems > 0 && (
               <div style={{
@@ -11329,10 +11547,12 @@ export const ProductWiseSheet: React.FC = () => {
   const NO_GROUP_TAB = 'No Product Group Assigned';
   const allTabs = [...products, NO_GROUP_TAB];
   const pocList = speakers.map(s => s.name);
-  const [productCounts, setProductCounts] = useState<Record<string, number>>({});
+  const [productCounts, setProductCounts] = useState<Record<string, { total: number; completed: number }>>({});
 
   const getProductFeatureCount = (prodName: string) => {
-    return productCounts[prodName] || 0;
+    const val = productCounts[prodName];
+    if (!val) return '0/0';
+    return `${val.completed}/${val.total}`;
   };
 
   const [activeProductTab, setActiveProductTab] = useState<string>('');
@@ -11347,7 +11567,6 @@ export const ProductWiseSheet: React.FC = () => {
   const [pageSize, setPageSize] = useState(20);
   const [paginatedFeatures, setPaginatedFeatures] = useState<BreakdownFeature[]>([]);
   const [totalItems, setTotalItems] = useState(0);
-  const [completedItems, setCompletedItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isFetchingData, setIsFetchingData] = useState(false);
 
@@ -11473,7 +11692,6 @@ export const ProductWiseSheet: React.FC = () => {
 
       setPaginatedFeatures(mapped);
       setTotalItems(res.totalItems || 0);
-      setCompletedItems(res.completedItems || 0);
       setTotalPages(res.totalPages || 1);
       if (res.productCounts) {
         setProductCounts(res.productCounts);
@@ -11481,7 +11699,6 @@ export const ProductWiseSheet: React.FC = () => {
     } else {
       setPaginatedFeatures([]);
       setTotalItems(0);
-      setCompletedItems(0);
       setTotalPages(1);
     }
     setIsFetchingData(false);
@@ -11760,8 +11977,8 @@ export const ProductWiseSheet: React.FC = () => {
 
           {/* Active Product Details Content - Full Canvas Table */}
           {activeProduct && (
-            <>
-              <div className="table-responsive" style={{ flex: 1, width: '100%', border: 'none', borderRadius: 0, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0, minWidth: 0, width: '100%' }}>
+              <div className="table-responsive" style={{ flex: 1, width: '100%', border: 'none', borderRadius: 0 }}>
                 {(paginatedFeatures.length > 0 || isFetchingData) ? (
                 <table className="grid-table">
                   <thead>
@@ -11774,7 +11991,7 @@ export const ProductWiseSheet: React.FC = () => {
                       <th onClick={() => handleSort('uiux')} style={{ width: '120px', cursor: 'pointer' }}>UI/UX Date {sortField === 'uiux' ? (sortAsc ? '▲' : '▼') : ''}</th>
                       <th onClick={() => handleSort('deadline')} style={{ width: '120px', cursor: 'pointer' }}>Dev Date {sortField === 'deadline' ? (sortAsc ? '▲' : '▼') : ''}</th>
                       <th onClick={() => handleSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>
-                        Release Date ({completedItems}/{totalItems}) {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}
+                        Release Date {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}
                       </th>
                       <th style={{ width: '40px' }}></th>
                     </tr>
@@ -12026,6 +12243,7 @@ export const ProductWiseSheet: React.FC = () => {
                     : 'No priority features mapped to this product.'}
                 </div>
               )}
+              </div>
 
             {/* Pagination Controls */}
             {totalItems > 0 && (
@@ -12189,8 +12407,7 @@ export const ProductWiseSheet: React.FC = () => {
               </div>
             )}
             </div>
-          </>
-        )}
+          )}
       </>
     )}
   </div>
@@ -12485,7 +12702,7 @@ export const IssuesTable: React.FC = () => {
         </div>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0, minWidth: 0, width: '100%' }}>
         <div className="table-responsive" style={{ flex: 1, overflow: 'auto' }}>
           <table className="grid-table">
             <thead>
@@ -12712,7 +12929,7 @@ export const FeatureRequestsTable: React.FC = () => {
         </div>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0, minWidth: 0, width: '100%' }}>
         <div className="table-responsive" style={{ flex: 1, overflow: 'auto' }}>
           <table className="grid-table">
             <thead>

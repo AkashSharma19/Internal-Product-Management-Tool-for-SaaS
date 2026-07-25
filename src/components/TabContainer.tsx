@@ -96,7 +96,7 @@ export const TabContainer: React.FC<TabContainerProps> = ({
       </div>
 
       <div 
-        style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}
+        style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, width: '100%', overflow: 'hidden' }}
         onDoubleClickCapture={(e) => {
           if (!canUserEdit) {
             e.stopPropagation();

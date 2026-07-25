@@ -227,7 +227,7 @@ interface DashboardContextType {
     pocs?: string[];
     sortField?: string;
     sortAsc?: boolean;
-  }) => Promise<{ success: boolean; data: any[]; totalItems: number; totalPages: number; productCounts?: Record<string, number>; completedItems?: number }>;
+  }) => Promise<{ success: boolean; data: any[]; totalItems: number; totalPages: number; productCounts?: Record<string, { total: number; completed: number }>; completedItems?: number }>;
   fetchPaginatedMeetingsData: (options: {
     type: 'amaSessions' | 'adminCalls' | 'tarunSirMeetings' | 'amaFeedback' | 'adminFeedback' | 'tarunFeedback' | 'dailyIssues' | 'featureRequests';
     page: number;
