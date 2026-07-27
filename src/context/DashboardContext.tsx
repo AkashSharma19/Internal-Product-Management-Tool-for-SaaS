@@ -992,10 +992,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
 
   const fetchDashboardCounts = useCallback(async (dateRangeType: string, customStartDate?: string, customEndDate?: string, statusType?: string) => {
-    setDashboardCounts((prev: any) => {
-      if (!prev) setIsLoadingCounts(true);
-      return prev;
-    });
+    setIsLoadingCounts(true);
     setSyncStatus('syncing');
     try {
       const params = new URLSearchParams();
@@ -1838,30 +1835,31 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             const updatedP = {
               ...p,
               feature: updatedItem.title,
-              description: updatedItem.description || p.description,
-              priority: (updatedItem.priority as any) || p.priority,
-              poc: updatedItem.poc || p.poc,
+              description: updatedItem.description !== undefined ? updatedItem.description : p.description,
+              priority: (updatedItem.priority as any) !== undefined ? (updatedItem.priority || '') : p.priority,
+              poc: updatedItem.poc !== undefined ? updatedItem.poc : p.poc,
               status: (
                 updatedItem.status === 'Delivered' || (updatedItem.status as string) === 'Completed' ? 'Completed' :
                 updatedItem.status === 'Cancelled' || (updatedItem.status as string) === 'On Hold' ? 'On Hold' :
                 updatedItem.status === 'In-Progress' || (updatedItem.status as string) === 'In Progress' ? 'In Progress' :
-                updatedItem.status || ''
+                updatedItem.status !== undefined ? (updatedItem.status || '') : (p.status || '')
               ) as any,
-              clickupStatus: updatedItem.clickupStatus || p.clickupStatus,
-              productDeadline: updatedItem.productDeadline || p.productDeadline,
-              uiux: updatedItem.uiux || p.uiux,
-              deadline: updatedItem.deadline || p.deadline,
-              finalRelease: updatedItem.finalRelease || p.finalRelease,
+              clickupStatus: updatedItem.clickupStatus !== undefined ? updatedItem.clickupStatus : p.clickupStatus,
+              productDeadline: updatedItem.productDeadline !== undefined ? updatedItem.productDeadline : p.productDeadline,
+              uiux: updatedItem.uiux !== undefined ? updatedItem.uiux : p.uiux,
+              deadline: updatedItem.deadline !== undefined ? updatedItem.deadline : p.deadline,
+              finalRelease: updatedItem.finalRelease !== undefined ? updatedItem.finalRelease : p.finalRelease,
               raisedByTarunSir: updatedItem.raisedByTarunSir !== undefined ? updatedItem.raisedByTarunSir : p.raisedByTarunSir,
               tarunSirApproval: updatedItem.tarunSirApproval !== undefined ? updatedItem.tarunSirApproval : p.tarunSirApproval,
-              product: updatedItem.product || p.product,
+              product: updatedItem.product !== undefined ? updatedItem.product : p.product,
               productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : p.productDeadlineCompleted,
               uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : p.uiuxCompleted,
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
               finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted,
-              createdAt: updatedItem.createdAt || p.createdAt,
+              createdAt: updatedItem.createdAt !== undefined ? updatedItem.createdAt : p.createdAt,
               clickupSubtasksCount: updatedItem.clickupSubtasksCount !== undefined ? updatedItem.clickupSubtasksCount : p.clickupSubtasksCount,
-              clickupAssignee: updatedItem.clickupAssignee || p.clickupAssignee
+              clickupAssignee: updatedItem.clickupAssignee !== undefined ? updatedItem.clickupAssignee : p.clickupAssignee,
+              taskLink: updatedItem.taskLink !== undefined ? updatedItem.taskLink : p.taskLink
             };
             persistChange('update', 'products', p.id, updatedP);
             return updatedP;

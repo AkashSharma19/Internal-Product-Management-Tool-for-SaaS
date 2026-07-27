@@ -234,7 +234,16 @@ export default async function handler(req: any, res: any) {
             } else {
               const rawItems = await modelsMap[key].find({}).lean();
               if (key === 'products') {
-                results[key] = rawItems.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+                results[key] = rawItems.map((item: any) => {
+                  const hasLink = item.taskLink && item.taskLink.trim() !== '';
+                  return {
+                    ...item,
+                    id: item.id || String(item._id),
+                    clickupStatus: hasLink ? (item.clickupStatus || '') : '',
+                    clickupAssignee: hasLink ? (item.clickupAssignee || '') : '',
+                    clickupSubtasksCount: hasLink ? (item.clickupSubtasksCount || 0) : 0
+                  };
+                });
               } else {
                 results[key] = rawItems;
               }
@@ -330,12 +339,13 @@ export default async function handler(req: any, res: any) {
                 : isBreakdown 
                   ? 'Product Breakdown' 
                   : 'Priority Requests';
+              const hasLink = item.taskLink && item.taskLink.trim() !== '';
               return {
                 id: item.id,
                 poc: item.poc || '',
                 product: item.product || '',
                 status: toProductStatus(item.status),
-                clickupStatus: item.clickupStatus || '',
+                clickupStatus: hasLink ? (item.clickupStatus || '') : '',
                 taskLink: item.taskLink || '',
                 date: item.deadline || item.productDeadline || '',
                 feature: item.feature || '',
@@ -345,58 +355,70 @@ export default async function handler(req: any, res: any) {
               };
             });
 
-          const projectTasks = projects.map((item: any) => ({
-            id: item.id,
-            poc: item.poc || '',
-            product: item.product || '',
-            status: toProductStatus(item.status),
-            clickupStatus: item.clickupStatus || '',
-            taskLink: item.taskLink || '',
-            date: item.deadline || item.productDeadline || item.completeInfoDate || '',
-            feature: item.title || '',
-            source: 'Student Projects',
-            finalReleaseCompleted: !!item.finalReleaseCompleted
-          }));
+          const projectTasks = projects.map((item: any) => {
+            const hasLink = item.taskLink && item.taskLink.trim() !== '';
+            return {
+              id: item.id,
+              poc: item.poc || '',
+              product: item.product || '',
+              status: toProductStatus(item.status),
+              clickupStatus: hasLink ? (item.clickupStatus || '') : '',
+              taskLink: item.taskLink || '',
+              date: item.deadline || item.productDeadline || item.completeInfoDate || '',
+              feature: item.title || '',
+              source: 'Student Projects',
+              finalReleaseCompleted: !!item.finalReleaseCompleted
+            };
+          });
 
-          const contentTasks = content.map((item: any) => ({
-            id: item.id,
-            poc: item.poc || '',
-            product: item.product || '',
-            status: toProductStatus(item.status),
-            clickupStatus: item.clickupStatus || '',
-            taskLink: item.draftLink || '',
-            date: item.deadline || item.productDeadline || item.publishDate || '',
-            feature: item.module || '',
-            source: 'Content Pipeline',
-            finalReleaseCompleted: !!item.finalReleaseCompleted
-          }));
+          const contentTasks = content.map((item: any) => {
+            const hasLink = item.draftLink && item.draftLink.trim() !== '';
+            return {
+              id: item.id,
+              poc: item.poc || '',
+              product: item.product || '',
+              status: toProductStatus(item.status),
+              clickupStatus: hasLink ? (item.clickupStatus || '') : '',
+              taskLink: item.draftLink || '',
+              date: item.deadline || item.productDeadline || item.publishDate || '',
+              feature: item.module || '',
+              source: 'Content Pipeline',
+              finalReleaseCompleted: !!item.finalReleaseCompleted
+            };
+          });
 
-          const issueTasks = issues.map((item: any) => ({
-            id: item.id,
-            poc: item.poc || item.contact || '',
-            product: item.product || '',
-            status: toProductStatus(item.status),
-            clickupStatus: item.clickupStatus || '',
-            taskLink: item.taskLink || '',
-            date: item.deadline || item.productDeadline || '',
-            feature: item.module || `Issue #${item.id}`,
-            source: 'Daily Issues Log',
-            finalReleaseCompleted: !!item.finalReleaseCompleted
-          }));
+          const issueTasks = issues.map((item: any) => {
+            const hasLink = item.taskLink && item.taskLink.trim() !== '';
+            return {
+              id: item.id,
+              poc: item.poc || item.contact || '',
+              product: item.product || '',
+              status: toProductStatus(item.status),
+              clickupStatus: hasLink ? (item.clickupStatus || '') : '',
+              taskLink: item.taskLink || '',
+              date: item.deadline || item.productDeadline || '',
+              feature: item.module || `Issue #${item.id}`,
+              source: 'Daily Issues Log',
+              finalReleaseCompleted: !!item.finalReleaseCompleted
+            };
+          });
 
-          const meetingTasks = meetings.map((item: any) => ({
-            id: item.id,
-            poc: item.poc || '',
-            product: item.product || '',
-            status: toProductStatus(item.status),
-            clickupStatus: item.clickupStatus || '',
-            taskLink: item.taskLink || '',
-            date: item.deadline || item.productDeadline || item.date || '',
-            feature: item.cohort || '',
-            notes: item.notes || '',
-            source: 'AMA & Meetings',
-            finalReleaseCompleted: !!item.finalReleaseCompleted
-          }));
+          const meetingTasks = meetings.map((item: any) => {
+            const hasLink = item.taskLink && item.taskLink.trim() !== '';
+            return {
+              id: item.id,
+              poc: item.poc || '',
+              product: item.product || '',
+              status: toProductStatus(item.status),
+              clickupStatus: hasLink ? (item.clickupStatus || '') : '',
+              taskLink: item.taskLink || '',
+              date: item.deadline || item.productDeadline || item.date || '',
+              feature: item.cohort || '',
+              notes: item.notes || '',
+              source: 'AMA & Meetings',
+              finalReleaseCompleted: !!item.finalReleaseCompleted
+            };
+          });
 
           const allUnifiedTasks = [
             ...mainProductTasks,
@@ -426,11 +448,31 @@ export default async function handler(req: any, res: any) {
             unique.sort((a: string, b: string) => orderWeight(a) - orderWeight(b) || a.localeCompare(b));
             
             const getClickupColor = (status: string) => {
-              const s = status.toLowerCase();
-              if (s === 'closed' || s === 'done' || s === 'completed' || s === 'delivered') return '#10b981';
-              if (s === 'open' || s === 'todo' || s === 'to do' || s === 'backlog') return '#6b7280';
-              if (s === 'in progress' || s === 'active' || s === 'development') return '#3b82f6';
-              return '#8b5cf6';
+              const s = status.toLowerCase().trim();
+              if (['closed', 'done', 'completed', 'delivered', 'complete', 'resolved'].includes(s)) return '#10b981'; // Green
+              if (['open', 'todo', 'to do', 'backlog', 'unstarted'].includes(s)) return '#6b7280'; // Grey
+              if (['in progress', 'active', 'development', 'dev', 'in design', 'design', 'building'].includes(s)) return '#3b82f6'; // Blue
+              if (['under review', 'review', 'discuss', 'discussing', 'discuss/review', 'in review', 'to review'].includes(s)) return '#f97316'; // Orange / Amber
+              if (['testing', 'tested', 'qa', 'quality assurance', 'bug verification'].includes(s)) return '#a855f7'; // Purple / Violet
+              if (['on hold', 'hold', 'paused', 'blocked', 'stuck', 'cancelled'].includes(s)) return '#ef4444'; // Red
+              
+              // Fallback to a stable hex color using hash
+              let hash = 0;
+              for (let i = 0; i < s.length; i++) {
+                hash = s.charCodeAt(i) + ((hash << 5) - hash);
+              }
+              const hexColors = [
+                '#7c3aed', // Purple
+                '#db2777', // Pink
+                '#0284c7', // Cyan
+                '#059669', // Emerald
+                '#ea580c', // Orange
+                '#e11d48', // Rose
+                '#4f46e5', // Indigo
+                '#0891b2', // Teal
+                '#ca8a04'  // Yellow
+              ];
+              return hexColors[Math.abs(hash) % hexColors.length];
             };
 
             activeStatuses = unique.map((status: string, idx: number) => ({
@@ -796,7 +838,8 @@ export default async function handler(req: any, res: any) {
               }
 
               const date = item.deadline || item.productDeadline || '';
-              const statusMatch = getStatusFilter(toProductStatus(item.status), item.clickupStatus, item.taskLink);
+              const hasLink = item.taskLink && item.taskLink.trim() !== '';
+              const statusMatch = getStatusFilter(toProductStatus(item.status), hasLink ? item.clickupStatus : '', item.taskLink);
               
               return getPocFilter(item.poc) && 
                      getProductGroupFilter(item.product) && 
@@ -815,9 +858,10 @@ export default async function handler(req: any, res: any) {
             const raw = await StudentProjectModel.find({}).lean();
             const matched = raw.filter((item: any) => {
               const date = item.deadline || item.productDeadline || item.completeInfoDate || '';
+              const hasLink = item.taskLink && item.taskLink.trim() !== '';
               return getPocFilter(item.poc) && 
                      getProductGroupFilter(item.product) && 
-                     getStatusFilter(toProductStatus(item.status), item.clickupStatus, item.taskLink) && 
+                     getStatusFilter(toProductStatus(item.status), hasLink ? item.clickupStatus : '', item.taskLink) && 
                      isWithinDateRange(date, filterStart, filterEnd);
             });
             items.push(...matched.map((item: any) => ({
@@ -832,9 +876,10 @@ export default async function handler(req: any, res: any) {
             const raw = await ContentItemModel.find({}).lean();
             const matched = raw.filter((item: any) => {
               const date = item.deadline || item.productDeadline || item.publishDate || '';
+              const hasLink = item.draftLink && item.draftLink.trim() !== '';
               return getPocFilter(item.poc) && 
                      getProductGroupFilter(item.product) && 
-                     getStatusFilter(toProductStatus(item.status), item.clickupStatus, item.draftLink) && 
+                     getStatusFilter(toProductStatus(item.status), hasLink ? item.clickupStatus : '', item.draftLink) && 
                      isWithinDateRange(date, filterStart, filterEnd);
             });
             items.push(...matched.map((item: any) => ({
@@ -850,9 +895,10 @@ export default async function handler(req: any, res: any) {
             const raw = await DailyIssueModel.find({}).lean();
             const matched = raw.filter((item: any) => {
               const date = item.deadline || item.productDeadline || '';
+              const hasLink = item.taskLink && item.taskLink.trim() !== '';
               return getPocFilter(item.poc || item.contact) && 
                      getProductGroupFilter(item.product) && 
-                     getStatusFilter(toProductStatus(item.status), item.clickupStatus, item.taskLink) && 
+                     getStatusFilter(toProductStatus(item.status), hasLink ? item.clickupStatus : '', item.taskLink) && 
                      isWithinDateRange(date, filterStart, filterEnd);
             });
             items.push(...matched.map((item: any) => ({
@@ -867,9 +913,10 @@ export default async function handler(req: any, res: any) {
             const raw = await StudentMeetingModel.find({}).lean();
             const matched = raw.filter((item: any) => {
               const date = item.deadline || item.productDeadline || item.date || '';
+              const hasLink = item.taskLink && item.taskLink.trim() !== '';
               return getPocFilter(item.poc) && 
                      getProductGroupFilter(item.product) && 
-                     getStatusFilter(toProductStatus(item.status), item.clickupStatus, item.taskLink) && 
+                     getStatusFilter(toProductStatus(item.status), hasLink ? item.clickupStatus : '', item.taskLink) && 
                      isWithinDateRange(date, filterStart, filterEnd);
             });
             items.push(...matched.map((item: any) => ({
@@ -880,7 +927,22 @@ export default async function handler(req: any, res: any) {
             })));
           }
 
-          return res.status(200).json({ success: true, data: items });
+          const sanitizedItems = items.map((item: any) => {
+            const hasLink = item.source === 'Content Pipeline' 
+              ? (item.draftLink && item.draftLink.trim() !== '') 
+              : (item.taskLink && item.taskLink.trim() !== '');
+            if (!hasLink) {
+              return {
+                ...item,
+                clickupStatus: '',
+                clickupAssignee: '',
+                clickupSubtasksCount: 0
+              };
+            }
+            return item;
+          });
+
+          return res.status(200).json({ success: true, data: sanitizedItems });
         }
 
         if (action === 'calendar-events') {
@@ -1301,9 +1363,13 @@ export default async function handler(req: any, res: any) {
             })
             .map((item: any) => {
               const itemId = item.id || `prod-db-${item._id}`;
+              const hasLink = item.taskLink && item.taskLink.trim() !== '';
               return {
                 ...item,
                 id: itemId,
+                clickupStatus: hasLink ? (item.clickupStatus || '') : '',
+                clickupAssignee: hasLink ? (item.clickupAssignee || '') : '',
+                clickupSubtasksCount: hasLink ? (item.clickupSubtasksCount || 0) : 0,
                 productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatusLocal(item.status),
                 uiuxCompleted: item.uiuxCompleted || isCompletedStatusLocal(item.status),
                 deadlineCompleted: item.deadlineCompleted || isCompletedStatusLocal(item.status),
@@ -1320,156 +1386,171 @@ export default async function handler(req: any, res: any) {
             });
 
           const mappedProjects = studentProjects
-            .map((item: any) => ({
-              id: `breakdown-project-${item.id || item._id}`,
-              feature: item.title,
-              description: item.description || item.thingsWeBuild || '',
-              tarunSirApproval: item.tarunSirApproval || false,
-              raisedByTarunSir: item.raisedByTarunSir || false,
-              priority: item.priority || '',
-              poc: item.poc || '',
-              status: toProductStatus(item.status),
-              clickupStatus: item.clickupStatus || item.status || '',
-              taskLink: item.taskLink || '',
-              blocker: item.blocker || '',
-              deadline: item.deadline || item.completeInfoDate || '',
-              notes: item.thingsWeBuild || '',
-              product: item.product || '',
-              module: item.module || '',
-              type: item.type || 'Student Project',
-              uiux: item.uiux || '',
-              finalRelease: item.finalRelease || '',
-              productDeadline: item.productDeadline || '',
-              productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatusLocal(item.status),
-              uiuxCompleted: item.uiuxCompleted || isCompletedStatusLocal(item.status),
-              deadlineCompleted: item.deadlineCompleted || isCompletedStatusLocal(item.status),
-              finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatusLocal(item.status),
-              sourceLabel: 'Student Projects',
-              sourceId: item.id || item._id,
-              canDelete: false
-            }));
+            .map((item: any) => {
+              const hasLink = item.taskLink && item.taskLink.trim() !== '';
+              return {
+                id: `breakdown-project-${item.id || item._id}`,
+                feature: item.title,
+                description: item.description || item.thingsWeBuild || '',
+                tarunSirApproval: item.tarunSirApproval || false,
+                raisedByTarunSir: item.raisedByTarunSir || false,
+                priority: item.priority || '',
+                poc: item.poc || '',
+                status: toProductStatus(item.status),
+                clickupStatus: hasLink ? (item.clickupStatus || item.status || '') : '',
+                taskLink: item.taskLink || '',
+                blocker: item.blocker || '',
+                deadline: item.deadline || item.completeInfoDate || '',
+                notes: item.thingsWeBuild || '',
+                product: item.product || '',
+                module: item.module || '',
+                type: item.type || 'Student Project',
+                uiux: item.uiux || '',
+                finalRelease: item.finalRelease || '',
+                productDeadline: item.productDeadline || '',
+                productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatusLocal(item.status),
+                uiuxCompleted: item.uiuxCompleted || isCompletedStatusLocal(item.status),
+                deadlineCompleted: item.deadlineCompleted || isCompletedStatusLocal(item.status),
+                finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatusLocal(item.status),
+                sourceLabel: 'Student Projects',
+                sourceId: item.id || item._id,
+                canDelete: false
+              };
+            });
 
           const mappedContent = contentItems
-            .map((item: any) => ({
-              id: `breakdown-content-${item.id || item._id}`,
-              feature: item.module,
-              description: `Content topic: ${item.module}. Subject: ${item.subject || ''}. Type: ${item.type || ''}.`,
-              tarunSirApproval: false,
-              raisedByTarunSir: false,
-              priority: item.priority || '',
-              poc: item.poc || '',
-              status: toProductStatus(item.status),
-              clickupStatus: item.clickupStatus || item.status || '',
-              taskLink: item.draftLink || '',
-              blocker: '',
-              deadline: item.deadline || '',
-              notes: item.subject || '',
-              product: item.product || '',
-              module: item.module || '',
-              type: item.type || 'Content',
-              uiux: item.uiux || '',
-              finalRelease: item.finalRelease || item.publishDate || '',
-              productDeadline: item.productDeadline || '',
-              productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatusLocal(item.status),
-              uiuxCompleted: item.uiuxCompleted || isCompletedStatusLocal(item.status),
-              deadlineCompleted: item.deadlineCompleted || isCompletedStatusLocal(item.status),
-              finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatusLocal(item.status),
-              sourceLabel: 'Content Pipeline',
-              sourceId: item.id || item._id,
-              canDelete: false
-            }));
+            .map((item: any) => {
+              const hasLink = item.draftLink && item.draftLink.trim() !== '';
+              return {
+                id: `breakdown-content-${item.id || item._id}`,
+                feature: item.module,
+                description: `Content topic: ${item.module}. Subject: ${item.subject || ''}. Type: ${item.type || ''}.`,
+                tarunSirApproval: false,
+                raisedByTarunSir: false,
+                priority: item.priority || '',
+                poc: item.poc || '',
+                status: toProductStatus(item.status),
+                clickupStatus: hasLink ? (item.clickupStatus || item.status || '') : '',
+                taskLink: item.draftLink || '',
+                blocker: '',
+                deadline: item.deadline || '',
+                notes: item.subject || '',
+                product: item.product || '',
+                module: item.module || '',
+                type: item.type || 'Content',
+                uiux: item.uiux || '',
+                finalRelease: item.finalRelease || item.publishDate || '',
+                productDeadline: item.productDeadline || '',
+                productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatusLocal(item.status),
+                uiuxCompleted: item.uiuxCompleted || isCompletedStatusLocal(item.status),
+                deadlineCompleted: item.deadlineCompleted || isCompletedStatusLocal(item.status),
+                finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatusLocal(item.status),
+                sourceLabel: 'Content Pipeline',
+                sourceId: item.id || item._id,
+                canDelete: false
+              };
+            });
 
           const mappedMeetings = studentMeetings
-            .map((item: any) => ({
-              id: `breakdown-meeting-${item.id || item._id}`,
-              feature: item.cohort,
-              description: item.summary || '',
-              tarunSirApproval: item.tarunSirApproval || false,
-              raisedByTarunSir: item.raisedByTarunSir || false,
-              priority: item.priority || '',
-              poc: item.poc || '',
-              status: toProductStatus(item.status),
-              clickupStatus: item.clickupStatus || item.status || '',
-              taskLink: item.taskLink || '',
-              blocker: item.blocker || '',
-              deadline: item.deadline || '',
-              notes: item.notes || item.summary || '',
-              product: item.product || '',
-              module: item.module || '',
-              type: item.type || 'Student Meeting',
-              uiux: item.uiux || '',
-              finalRelease: item.finalRelease || '',
-              productDeadline: item.productDeadline || '',
-              productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatusLocal(item.status),
-              uiuxCompleted: item.uiuxCompleted || isCompletedStatusLocal(item.status),
-              deadlineCompleted: item.deadlineCompleted || isCompletedStatusLocal(item.status),
-              finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatusLocal(item.status),
-              sourceLabel: 'Student Meetings',
-              sourceId: item.id || item._id,
-              canDelete: false
-            }));
+            .map((item: any) => {
+              const hasLink = item.taskLink && item.taskLink.trim() !== '';
+              return {
+                id: `breakdown-meeting-${item.id || item._id}`,
+                feature: item.cohort,
+                description: item.summary || '',
+                tarunSirApproval: item.tarunSirApproval || false,
+                raisedByTarunSir: item.raisedByTarunSir || false,
+                priority: item.priority || '',
+                poc: item.poc || '',
+                status: toProductStatus(item.status),
+                clickupStatus: hasLink ? (item.clickupStatus || item.status || '') : '',
+                taskLink: item.taskLink || '',
+                blocker: item.blocker || '',
+                deadline: item.deadline || '',
+                notes: item.notes || item.summary || '',
+                product: item.product || '',
+                module: item.module || '',
+                type: item.type || 'Student Meeting',
+                uiux: item.uiux || '',
+                finalRelease: item.finalRelease || '',
+                productDeadline: item.productDeadline || '',
+                productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatusLocal(item.status),
+                uiuxCompleted: item.uiuxCompleted || isCompletedStatusLocal(item.status),
+                deadlineCompleted: item.deadlineCompleted || isCompletedStatusLocal(item.status),
+                finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatusLocal(item.status),
+                sourceLabel: 'Student Meetings',
+                sourceId: item.id || item._id,
+                canDelete: false
+              };
+            });
 
           const mappedIssues = dailyIssues
             .filter((item: any) => item.type !== 'Feature Gap' && item.type !== 'Enhancement')
-            .map((item: any) => ({
-              id: `breakdown-issue-${item.id || item._id}`,
-              feature: item.module || `Issue #${item.id || item._id}`,
-              description: item.issues || '',
-              tarunSirApproval: item.tarunSirApproval || false,
-              raisedByTarunSir: item.raisedByTarunSir || false,
-              priority: item.priority || '',
-              poc: item.poc || item.contact || '',
-              status: item.status || '',
-              clickupStatus: item.clickupStatus || item.type || '',
-              taskLink: item.taskLink || '',
-              blocker: item.blocker || '',
-              deadline: item.deadline || '',
-              notes: item.notes || item.issues || '',
-              product: item.product || '',
-              module: item.module || '',
-              type: item.type || 'Daily Issue',
-              uiux: item.uiux || '',
-              finalRelease: item.finalRelease || '',
-              productDeadline: item.productDeadline || '',
-              productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatusLocal(item.status),
-              uiuxCompleted: item.uiuxCompleted || isCompletedStatusLocal(item.status),
-              deadlineCompleted: item.deadlineCompleted || isCompletedStatusLocal(item.status),
-              finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatusLocal(item.status),
-              sourceLabel: 'Daily Issues',
-              sourceId: item.id || item._id,
-              canDelete: false
-            }));
+            .map((item: any) => {
+              const hasLink = item.taskLink && item.taskLink.trim() !== '';
+              return {
+                id: `breakdown-issue-${item.id || item._id}`,
+                feature: item.module || `Issue #${item.id || item._id}`,
+                description: item.issues || '',
+                tarunSirApproval: item.tarunSirApproval || false,
+                raisedByTarunSir: item.raisedByTarunSir || false,
+                priority: item.priority || '',
+                poc: item.poc || item.contact || '',
+                status: item.status || '',
+                clickupStatus: hasLink ? (item.clickupStatus || item.type || '') : '',
+                taskLink: item.taskLink || '',
+                blocker: item.blocker || '',
+                deadline: item.deadline || '',
+                notes: item.notes || item.issues || '',
+                product: item.product || '',
+                module: item.module || '',
+                type: item.type || 'Daily Issue',
+                uiux: item.uiux || '',
+                finalRelease: item.finalRelease || '',
+                productDeadline: item.productDeadline || '',
+                productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatusLocal(item.status),
+                uiuxCompleted: item.uiuxCompleted || isCompletedStatusLocal(item.status),
+                deadlineCompleted: item.deadlineCompleted || isCompletedStatusLocal(item.status),
+                finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatusLocal(item.status),
+                sourceLabel: 'Daily Issues',
+                sourceId: item.id || item._id,
+                canDelete: false
+              };
+            });
 
           const mappedRequests = dailyIssues
             .filter((item: any) => item.type === 'Feature Gap' || item.type === 'Enhancement')
-            .map((item: any) => ({
-              id: `breakdown-request-${item.id || item._id}`,
-              feature: item.module || `Request #${item.id || item._id}`,
-              description: item.issues || '',
-              tarunSirApproval: item.tarunSirApproval || false,
-              raisedByTarunSir: item.raisedByTarunSir || false,
-              priority: item.priority || '',
-              poc: item.poc || '',
-              status: item.status || '',
-              clickupStatus: item.clickupStatus || '',
-              taskLink: item.taskLink || '',
-              blocker: item.blocker || '',
-              deadline: item.deadline || '',
-              notes: item.notes || item.issues || '',
-              product: item.product || '',
-              module: item.module || '',
-              type: item.type || 'Feature Gap',
-              uiux: item.uiux || '',
-              finalRelease: item.finalRelease || '',
-              productDeadline: item.productDeadline || '',
-              productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatusLocal(item.status),
-              uiuxCompleted: item.uiuxCompleted || isCompletedStatusLocal(item.status),
-              deadlineCompleted: item.deadlineCompleted || isCompletedStatusLocal(item.status),
-              finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatusLocal(item.status),
-              sourceLabel: 'Feature Request',
-              sourceId: item.id || item._id,
-              canDelete: false
-            }));
+            .map((item: any) => {
+              const hasLink = item.taskLink && item.taskLink.trim() !== '';
+              return {
+                id: `breakdown-request-${item.id || item._id}`,
+                feature: item.module || `Request #${item.id || item._id}`,
+                description: item.issues || '',
+                tarunSirApproval: item.tarunSirApproval || false,
+                raisedByTarunSir: item.raisedByTarunSir || false,
+                priority: item.priority || '',
+                poc: item.poc || '',
+                status: item.status || '',
+                clickupStatus: hasLink ? (item.clickupStatus || '') : '',
+                taskLink: item.taskLink || '',
+                blocker: item.blocker || '',
+                deadline: item.deadline || '',
+                notes: item.notes || item.issues || '',
+                product: item.product || '',
+                module: item.module || '',
+                type: item.type || 'Feature Gap',
+                uiux: item.uiux || '',
+                finalRelease: item.finalRelease || '',
+                productDeadline: item.productDeadline || '',
+                productDeadlineCompleted: item.productDeadlineCompleted || isCompletedStatusLocal(item.status),
+                uiuxCompleted: item.uiuxCompleted || isCompletedStatusLocal(item.status),
+                deadlineCompleted: item.deadlineCompleted || isCompletedStatusLocal(item.status),
+                finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatusLocal(item.status),
+                sourceLabel: 'Feature Request',
+                sourceId: item.id || item._id,
+                canDelete: false
+              };
+            });
 
           const allFeatures = [
             ...mappedProducts,
@@ -2059,9 +2140,13 @@ export default async function handler(req: any, res: any) {
           }
           const item: any = await modelsMap['products'].findOne(query).lean();
           if (item) {
+            const hasLink = item.taskLink && item.taskLink.trim() !== '';
             const mappedItem = {
               ...item,
-              id: item.id || `prod-db-${item._id}`
+              id: item.id || `prod-db-${item._id}`,
+              clickupStatus: hasLink ? (item.clickupStatus || '') : '',
+              clickupAssignee: hasLink ? (item.clickupAssignee || '') : '',
+              clickupSubtasksCount: hasLink ? (item.clickupSubtasksCount || 0) : 0
             };
             return res.status(200).json({ success: true, data: mappedItem });
           }
@@ -2316,7 +2401,23 @@ export default async function handler(req: any, res: any) {
           if (!type || !modelsMap[type]) {
             return res.status(400).json({ success: false, error: `Invalid entity type: ${type}` });
           }
-          const items = await modelsMap[type].find({}).lean();
+          const rawItems = await modelsMap[type].find({}).lean();
+          const items = rawItems.map((item: any) => {
+            const hasLink = type === 'plans' 
+              ? (item.link && item.link.trim() !== '') 
+              : type === 'contentItems' 
+                ? (item.draftLink && item.draftLink.trim() !== '') 
+                : (item.taskLink && item.taskLink.trim() !== '');
+            if (!hasLink) {
+              return {
+                ...item,
+                clickupStatus: '',
+                clickupAssignee: '',
+                clickupSubtasksCount: 0
+              };
+            }
+            return item;
+          });
           return res.status(200).json({ success: true, data: items });
         }
 

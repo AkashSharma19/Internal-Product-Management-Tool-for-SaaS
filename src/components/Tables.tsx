@@ -529,19 +529,44 @@ export const getClickupBadgeStyle = (status: string) => {
     'todo': { h: 215, s: 15, l: 60 },
     'to do': { h: 215, s: 15, l: 60 },
     'backlog': { h: 215, s: 15, l: 60 },
+    'unstarted': { h: 215, s: 15, l: 60 },
     
     'in progress': { h: 205, s: 85, l: 55 },
     'in-progress': { h: 205, s: 85, l: 55 },
     'active': { h: 205, s: 85, l: 55 },
     'development': { h: 205, s: 85, l: 55 },
+    'dev': { h: 205, s: 85, l: 55 },
+    'in design': { h: 205, s: 85, l: 55 },
+    'design': { h: 205, s: 85, l: 55 },
+    'building': { h: 205, s: 85, l: 55 },
     
-    'testing': { h: 290, s: 80, l: 60 },
-    'review': { h: 290, s: 80, l: 60 },
+    'under review': { h: 28, s: 90, l: 55 },
+    'review': { h: 28, s: 90, l: 55 },
+    'discuss': { h: 28, s: 90, l: 55 },
+    'discussing': { h: 28, s: 90, l: 55 },
+    'discuss/review': { h: 28, s: 90, l: 55 },
+    'in review': { h: 28, s: 90, l: 55 },
+    'to review': { h: 28, s: 90, l: 55 },
+    
+    'testing': { h: 270, s: 75, l: 60 },
+    'tested': { h: 270, s: 75, l: 60 },
+    'qa': { h: 270, s: 75, l: 60 },
+    'quality assurance': { h: 270, s: 75, l: 60 },
+    'bug verification': { h: 270, s: 75, l: 60 },
+    
+    'on hold': { h: 0, s: 80, l: 60 },
+    'hold': { h: 0, s: 80, l: 60 },
+    'paused': { h: 0, s: 80, l: 60 },
+    'blocked': { h: 0, s: 80, l: 60 },
+    'stuck': { h: 0, s: 80, l: 60 },
+    'cancelled': { h: 0, s: 80, l: 60 },
     
     'closed': { h: 142, s: 70, l: 45 },
     'done': { h: 142, s: 70, l: 45 },
     'completed': { h: 142, s: 70, l: 45 },
     'delivered': { h: 142, s: 70, l: 45 },
+    'complete': { h: 142, s: 70, l: 45 },
+    'resolved': { h: 142, s: 70, l: 45 },
   };
 
   let colorParts = { h: 260, s: 75, l: 60 }; // Default violet for custom/other statuses
@@ -1869,11 +1894,23 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
   const getClickupStatusColor = (status: string) => {
     if (!status) return 'var(--text-secondary)';
-    const s = status.toLowerCase();
-    if (s === 'closed' || s === 'done' || s === 'completed') return '#10b981';
-    if (s === 'open' || s === 'todo') return '#6b7280';
-    if (s === 'in progress' || s === 'active') return '#3b82f6';
-    return '#8b5cf6';
+    const s = status.toLowerCase().trim();
+    if (['closed', 'done', 'completed', 'delivered', 'complete', 'resolved'].includes(s)) return '#10b981'; // Green
+    if (['open', 'todo', 'to do', 'backlog', 'unstarted'].includes(s)) return '#6b7280'; // Grey
+    if (['in progress', 'active', 'development', 'dev', 'in design', 'design', 'building'].includes(s)) return '#3b82f6'; // Blue
+    if (['under review', 'review', 'discuss', 'discussing', 'discuss/review', 'in review', 'to review'].includes(s)) return '#f97316'; // Orange
+    if (['testing', 'tested', 'qa', 'quality assurance', 'bug verification'].includes(s)) return '#a855f7'; // Purple
+    if (['on hold', 'hold', 'paused', 'blocked', 'stuck', 'cancelled'].includes(s)) return '#ef4444'; // Red
+    
+    // Fallback to a stable hex color using hash
+    let hash = 0;
+    for (let i = 0; i < s.length; i++) {
+      hash = s.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hexColors = [
+      '#7c3aed', '#db2777', '#0284c7', '#059669', '#ea580c', '#e11d48', '#4f46e5', '#0891b2', '#ca8a04'
+    ];
+    return hexColors[Math.abs(hash) % hexColors.length];
   };
 
   const getPriorityFlagColor = (prio: string) => {
