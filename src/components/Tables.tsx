@@ -2030,6 +2030,37 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {canUserEdit && (
+            <button
+              onClick={() => {
+                if (window.confirm("Are you sure you want to delete this feature?")) {
+                  deleteProductItem(item.id);
+                  onBack();
+                }
+              }}
+              style={{
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                borderRadius: '6px',
+                padding: '4px 10px',
+                fontSize: '0.725rem',
+                fontWeight: 600,
+                color: '#ef4444',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                marginRight: '0.5rem'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.2)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'; }}
+              title="Delete Feature"
+            >
+              <Trash2 size={12} />
+              Delete
+            </button>
+          )}
           <span style={{
             backgroundColor: 'var(--background-alt)',
             border: '1px solid var(--border)',

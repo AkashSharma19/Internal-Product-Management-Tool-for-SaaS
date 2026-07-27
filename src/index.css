@@ -2961,6 +2961,13 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 8px;
+  background-color: hsla(215, 15%, 50%, 0.12);
+  color: hsl(215, 15%, 45%);
+}
+
+.dashboard-date-badge-source.tarun-meetings {
+  background-color: hsla(168, 70%, 45%, 0.12);
+  color: hsl(168, 65%, 35%);
 }
 
 .dashboard-date-badge-source.priority-requests {

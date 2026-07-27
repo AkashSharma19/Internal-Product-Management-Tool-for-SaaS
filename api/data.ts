@@ -846,12 +846,25 @@ export default async function handler(req: any, res: any) {
                      statusMatch && 
                      isWithinDateRange(date, filterStart, filterEnd);
             });
-            items.push(...matched.map((item: any) => ({
-              ...item,
-              id: item.id || String(item._id),
-              feature: item.feature || item.module || item.title || item.issues || 'Unnamed Task',
-              source: 'Priority Requests'
-            })));
+            items.push(...matched.map((item: any) => {
+              const itemId = item.id || String(item._id);
+              let itemSource = 'Priority Requests';
+              if (itemId.startsWith('prod-ama-')) {
+                itemSource = 'AMA & Meetings';
+              } else if (itemId.startsWith('prod-call-')) {
+                itemSource = 'Admin Calls';
+              } else if (itemId.startsWith('prod-tarun-')) {
+                itemSource = 'Tarun Sir Meetings';
+              } else if (itemId.startsWith('prod-breakdown-')) {
+                itemSource = 'Product Breakdown';
+              }
+              return {
+                ...item,
+                id: itemId,
+                feature: item.feature || item.module || item.title || item.issues || 'Unnamed Task',
+                source: itemSource
+              };
+            }));
           }
 
           if (!source || source === 'Student Projects') {
