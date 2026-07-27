@@ -1,11 +1,209 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import { TabContainer } from './TabContainer';
-import { Video, PhoneCall, Crown, ExternalLink, ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import { Video, PhoneCall, Crown, ChevronLeft, ChevronRight, Star, Table2, LayoutGrid } from 'lucide-react';
 const isSameStatus = (s1: string | undefined, s2: string | undefined) => {
   if (!s1 || !s2) return false;
   return s1.toLowerCase().trim() === s2.toLowerCase().trim();
 };
+
+const parseDateToYYYYMMDD = (dateStr: string | undefined): string => {
+  if (!dateStr) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+  
+  if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
+    const [d, m, y] = dateStr.split('-');
+    return `${y}-${m}-${d}`;
+  }
+
+  const parts = dateStr.trim().split(/\s+/);
+  if (parts.length === 3) {
+    const day = parts[0].padStart(2, '0');
+    const monthStr = parts[1].toLowerCase();
+    const year = parts[2];
+    
+    const months: Record<string, string> = {
+      jan: '01', january: '01',
+      feb: '02', february: '02',
+      mar: '03', march: '03',
+      apr: '04', april: '04',
+      may: '05',
+      jun: '06', june: '06',
+      jul: '07', july: '07',
+      aug: '08', august: '08',
+      sep: '09', september: '09',
+      oct: '10', october: '10',
+      nov: '11', november: '11',
+      dec: '12', december: '12'
+    };
+    
+    const month = months[monthStr] || '01';
+    return `${year}-${month}-${day}`;
+  }
+  
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+  } catch(e) {}
+  
+  return dateStr;
+};
+
+const getDateSpanStyle = (dateStr: string | undefined, isCompleted: boolean | undefined) => {
+  if (!dateStr) return {};
+  if (isCompleted) {
+    return {
+      backgroundColor: 'rgba(16, 185, 129, 0.15)',
+      color: '#10b981',
+      fontWeight: 600,
+      padding: '2px 6px',
+      borderRadius: '4px',
+      display: 'inline-block'
+    };
+  }
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const parsed = parseDateToYYYYMMDD(dateStr);
+    if (parsed) {
+      const target = new Date(parsed);
+      target.setHours(0, 0, 0, 0);
+      if (target < today) {
+        return {
+          backgroundColor: 'var(--danger-bg)',
+          color: 'var(--danger)',
+          fontWeight: 600,
+          padding: '2px 6px',
+          borderRadius: '4px',
+          display: 'inline-block'
+        };
+      }
+    }
+  } catch (e) {}
+  return {};
+};
+
+const getDateDiffDays = (dateStr1: string | undefined, dateStr2: string | undefined): string => {
+  if (!dateStr1 || !dateStr2) return '';
+  try {
+    const d1 = new Date(parseDateToYYYYMMDD(dateStr1));
+    const d2 = new Date(parseDateToYYYYMMDD(dateStr2));
+    if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return '';
+    
+    d1.setHours(12, 0, 0, 0);
+    d2.setHours(12, 0, 0, 0);
+    
+    const diffTime = d2.getTime() - d1.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays >= 0 ? `+${diffDays}d` : `${diffDays}d`;
+  } catch (e) {
+    return '';
+  }
+};
+
+const formatDateToUserPattern = (dateStr: string | undefined): string => {
+  if (!dateStr) return '';
+  
+  const monthsFull = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  try {
+    const d = new Date(parseDateToYYYYMMDD(dateStr));
+    if (!isNaN(d.getTime())) {
+      const year = d.getFullYear().toString();
+      const monthIndex = d.getMonth();
+      const day = d.getDate().toString();
+      const formattedDate = `${day} ${monthsFull[monthIndex]} ${year}`;
+      
+      if (dateStr.includes('T') || dateStr.includes(':')) {
+        let hours = d.getHours();
+        const minutes = d.getMinutes().toString().padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        return `${formattedDate} @ ${hours}:${minutes} ${ampm}`;
+      }
+      return formattedDate;
+    }
+  } catch (e) {}
+  
+  return dateStr;
+};
+
+const DateDiffBadge: React.FC<{ prevDate?: string; currentDate?: string }> = ({ prevDate, currentDate }) => {
+  if (!prevDate || !currentDate) return null;
+  const diffText = getDateDiffDays(prevDate, currentDate);
+  if (!diffText) return null;
+  
+  const isPositive = diffText.startsWith('+');
+  return (
+    <span 
+      style={{
+        position: 'absolute',
+        left: '0',
+        top: '50%',
+        transform: 'translate(-50%, -50%)',
+        fontSize: '0.62rem',
+        padding: '1px 5px',
+        borderRadius: '8px',
+        fontWeight: 700,
+        backgroundColor: 'var(--panel-bg)',
+        border: '1px solid var(--border-light)',
+        color: isPositive ? '#3b82f6' : '#ef4444',
+        lineHeight: 1,
+        whiteSpace: 'nowrap',
+        zIndex: 10,
+        boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+      }}
+    >
+      {diffText}
+    </span>
+  );
+};
+const getClickupColor = (status: string) => {
+  const s = status.toLowerCase().trim();
+  if (['closed', 'done', 'completed', 'delivered', 'complete', 'resolved'].includes(s)) return '#10b981';
+  if (['open', 'todo', 'to do', 'backlog', 'unstarted'].includes(s)) return '#6b7280';
+  if (['in progress', 'active', 'development', 'dev', 'in design', 'design', 'building'].includes(s)) return '#3b82f6';
+  if (['under review', 'review', 'discuss', 'discussing', 'discuss/review', 'in review', 'to review'].includes(s)) return '#f97316';
+  if (['testing', 'tested', 'qa', 'quality assurance', 'bug verification'].includes(s)) return '#a855f7';
+  if (['on hold', 'hold', 'paused', 'blocked', 'stuck', 'cancelled'].includes(s)) return '#ef4444';
+  
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) {
+    hash = s.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hexColors = ['#7c3aed', '#db2777', '#0284c7', '#059669', '#ea580c', '#e11d48', '#4f46e5', '#0891b2', '#ca8a04'];
+  return hexColors[Math.abs(hash) % hexColors.length];
+};
+
+const getClickupBadgeStyleLocal = (status: string) => {
+  if (!status) return {};
+  const color = getClickupColor(status);
+  return {
+    backgroundColor: color + '20',
+    color: color,
+    borderColor: color + '30',
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    padding: '2px 6px',
+    borderRadius: '4px',
+    fontSize: '0.65rem',
+    fontWeight: 600,
+    display: 'inline-flex',
+    alignItems: 'center',
+    lineHeight: 1
+  };
+};
+
 
 const DashboardSkeleton = () => {
   return (
@@ -125,6 +323,7 @@ export const DashboardOverview: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [popupData, setPopupData] = useState<{ title: string; tasks: any[] } | null>(null);
   const [isPopupLoading, setIsPopupLoading] = useState(false);
+  const [popupViewMode, setPopupViewMode] = useState<'card' | 'table'>('table');
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);
@@ -270,6 +469,7 @@ export const DashboardOverview: React.FC = () => {
       'AMA & Meetings': 'ama-meetings',
       'Product Breakdown': 'product-breakdown',
       'Admin Calls': 'admin-calls',
+      'Tarun Sir Meetings': 'tarun-meetings',
       'Daily Issues Log': 'daily-issues',
       'Requested Features': 'priority-requests',
     };
@@ -1338,7 +1538,7 @@ export const DashboardOverview: React.FC = () => {
             className="dashboard-popup-drawer"
             onClick={(e) => e.stopPropagation()}
             style={{
-              width: '500px',
+              width: popupViewMode === 'table' ? 'min(1150px, 95vw)' : '500px',
               maxWidth: '100%',
               height: '100%',
               backgroundColor: 'var(--panel-bg)',
@@ -1347,7 +1547,8 @@ export const DashboardOverview: React.FC = () => {
               display: 'flex',
               flexDirection: 'column',
               animation: 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-              position: 'relative'
+              position: 'relative',
+              transition: 'width 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
             }}
           >
             {/* Header */}
@@ -1367,27 +1568,80 @@ export const DashboardOverview: React.FC = () => {
                   {popupData.tasks.length} task{popupData.tasks.length !== 1 ? 's' : ''} found
                 </span>
               </div>
-              <button 
-                onClick={() => setPopupData(null)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--text-muted)',
-                  fontSize: '1.5rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  transition: 'background-color 0.2s'
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--background-alt)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-              >
-                &times;
-              </button>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                {/* View Mode Toggle */}
+                <div style={{
+                  display: 'inline-flex',
+                  backgroundColor: 'var(--background)',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: '6px',
+                  padding: '2px'
+                }}>
+                  <button
+                    onClick={() => setPopupViewMode('table')}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      borderRadius: '4px',
+                      border: 'none',
+                      backgroundColor: popupViewMode === 'table' ? 'var(--panel-bg-alt)' : 'transparent',
+                      color: popupViewMode === 'table' ? 'var(--text-primary)' : 'var(--text-muted)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      boxShadow: popupViewMode === 'table' ? 'var(--shadow-sm)' : 'none'
+                    }}
+                  >
+                    <Table2 size={12} />
+                    Table
+                  </button>
+                  <button
+                    onClick={() => setPopupViewMode('card')}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      borderRadius: '4px',
+                      border: 'none',
+                      backgroundColor: popupViewMode === 'card' ? 'var(--panel-bg-alt)' : 'transparent',
+                      color: popupViewMode === 'card' ? 'var(--text-primary)' : 'var(--text-muted)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      boxShadow: popupViewMode === 'card' ? 'var(--shadow-sm)' : 'none'
+                    }}
+                  >
+                    <LayoutGrid size={12} />
+                    Cards
+                  </button>
+                </div>
+
+                <button 
+                  onClick={() => setPopupData(null)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    fontSize: '1.5rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--background-alt)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                >
+                  &times;
+                </button>
+              </div>
             </div>
 
             {/* List of Tasks */}
@@ -1434,6 +1688,111 @@ export const DashboardOverview: React.FC = () => {
                 }}>
                   No tasks found.
                 </div>
+              ) : popupViewMode === 'table' ? (
+                <div className="table-responsive" style={{ overflowX: 'auto', width: '100%', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                  <table className="grid-table" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', backgroundColor: 'var(--panel-bg)' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ textAlign: 'left', padding: '12px 10px', width: '320px', minWidth: '320px', maxWidth: '320px', backgroundColor: 'var(--background-alt)' }}>Task Name | Product Name</th>
+                        <th style={{ textAlign: 'left', padding: '12px 10px', width: '110px', minWidth: '110px', maxWidth: '110px', backgroundColor: 'var(--background-alt)' }}>Status</th>
+                        <th style={{ textAlign: 'left', padding: '12px 10px', width: '120px', minWidth: '120px', maxWidth: '120px', backgroundColor: 'var(--background-alt)' }}>Clickup Status</th>
+                        <th style={{ textAlign: 'left', padding: '12px 10px', width: '130px', minWidth: '130px', maxWidth: '130px', backgroundColor: 'var(--background-alt)' }}>Spec Date</th>
+                        <th style={{ textAlign: 'left', padding: '12px 10px', width: '130px', minWidth: '130px', maxWidth: '130px', backgroundColor: 'var(--background-alt)' }}>UIUX</th>
+                        <th style={{ textAlign: 'left', padding: '12px 10px', width: '130px', minWidth: '130px', maxWidth: '130px', backgroundColor: 'var(--background-alt)' }}>Dev</th>
+                        <th style={{ textAlign: 'left', padding: '12px 10px', width: '130px', minWidth: '130px', maxWidth: '130px', backgroundColor: 'var(--background-alt)' }}>Release</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {popupData.tasks.map((task, idx) => (
+                        <tr 
+                          key={`${task.id}-${idx}`}
+                          onClick={() => {
+                            handlePopupTaskClick(task);
+                            setPopupData(null);
+                          }}
+                          style={{ cursor: 'pointer', borderBottom: '1px solid var(--border-light)' }}
+                          className="table-row-hover"
+                        >
+                          {/* Task Name | Product Name */}
+                          <td style={{ padding: '12px 10px', textAlign: 'left', width: '320px', minWidth: '320px', maxWidth: '320px' }}>
+                            <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: '2px', lineHeight: '1.4', wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                              {task.feature}
+                            </div>
+                            {task.product && (
+                              <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', fontWeight: 600, wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                                {task.product}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Status */}
+                          <td style={{ padding: '12px 10px', textAlign: 'left', verticalAlign: 'middle' }}>
+                            {task.status ? (
+                              <span style={{
+                                fontSize: '0.65rem',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontWeight: 600,
+                                backgroundColor: (configStatuses.find(s => isSameStatus(s.label, task.status))?.color || '#8b5cf6') + '20',
+                                color: configStatuses.find(s => isSameStatus(s.label, task.status))?.color || '#8b5cf6'
+                              }}>
+                                {task.status}
+                              </span>
+                            ) : '—'}
+                          </td>
+
+                          {/* Clickup Status */}
+                          <td style={{ padding: '12px 10px', textAlign: 'left', verticalAlign: 'middle' }}>
+                            {task.clickupStatus ? (
+                              <span style={getClickupBadgeStyleLocal(task.clickupStatus)}>
+                                {task.clickupStatus}
+                              </span>
+                            ) : '—'}
+                          </td>
+
+                          {/* Spec Date */}
+                          <td style={{ padding: '12px 10px', fontSize: '0.75rem', color: 'var(--text-secondary)', verticalAlign: 'middle', position: 'relative' }}>
+                            {task.productDeadline ? (
+                              <span style={getDateSpanStyle(task.productDeadline, task.productDeadlineCompleted)}>
+                                {formatDateToUserPattern(task.productDeadline)}
+                              </span>
+                            ) : '—'}
+                          </td>
+
+                          {/* UIUX */}
+                          <td style={{ padding: '12px 10px', fontSize: '0.75rem', color: 'var(--text-secondary)', verticalAlign: 'middle', position: 'relative' }}>
+                            <DateDiffBadge prevDate={task.productDeadline} currentDate={task.uiux} />
+                            {task.uiux ? (
+                              <span style={getDateSpanStyle(task.uiux, task.uiuxCompleted)}>
+                                {formatDateToUserPattern(task.uiux)}
+                              </span>
+                            ) : '—'}
+                          </td>
+
+                          {/* Dev */}
+                          <td style={{ padding: '12px 10px', fontSize: '0.75rem', color: 'var(--text-secondary)', verticalAlign: 'middle', position: 'relative' }}>
+                            <DateDiffBadge prevDate={task.uiux || task.productDeadline} currentDate={task.deadline} />
+                            {task.deadline ? (
+                              <span style={getDateSpanStyle(task.deadline, task.deadlineCompleted)}>
+                                {formatDateToUserPattern(task.deadline)}
+                              </span>
+                            ) : '—'}
+                          </td>
+
+                          {/* Release */}
+                          <td style={{ padding: '12px 10px', fontSize: '0.75rem', color: 'var(--text-secondary)', verticalAlign: 'middle', position: 'relative' }}>
+                            <DateDiffBadge prevDate={task.deadline || task.uiux || task.productDeadline} currentDate={task.finalRelease} />
+                            {task.finalRelease ? (
+                              <span style={getDateSpanStyle(task.finalRelease, task.finalReleaseCompleted)}>
+                                {formatDateToUserPattern(task.finalRelease)}
+                              </span>
+                            ) : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               ) : (
                 popupData.tasks.map((task, idx) => (
                   <div 
@@ -1460,30 +1819,6 @@ export const DashboardOverview: React.FC = () => {
                       <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>
                         {task.feature}
                       </div>
-                      {task.taskLink && (
-                        <a 
-                          href={task.taskLink} 
-                          target="_blank" 
-                          rel="noreferrer" 
-                          onClick={(e) => e.stopPropagation()}
-                          style={{
-                            color: 'var(--info)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            padding: '6px',
-                            borderRadius: '6px',
-                            backgroundColor: 'var(--background-alt)',
-                            border: '1px solid var(--border-light)',
-                            transition: 'all 0.2s'
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--border-light)'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--background-alt)'; }}
-                          title="Open ClickUp Task"
-                        >
-                          <ExternalLink size={14} />
-                        </a>
-                      )}
                     </div>
 
                     {task.description && (
