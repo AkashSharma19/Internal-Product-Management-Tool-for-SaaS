@@ -1712,7 +1712,7 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({ value, onChange, produc
 };
 
 export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBack, onUpdate }) => {
-  const { studentProjects, speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser, productItems, setActiveSubtasksTaskLink, setPreviewProductId, deleteProductItem, comments, addComment } = useDashboard();
+  const { studentProjects, speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser, productItems, setActiveSubtasksTaskLink, setPreviewProductId, deleteProductItem, comments, addComment, confirm } = useDashboard();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [copiedClickup, setCopiedClickup] = useState(false);
@@ -2060,8 +2060,9 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           {canUserEdit && (
             <button
-              onClick={() => {
-                if (window.confirm("Are you sure you want to delete this feature?")) {
+              onClick={async () => {
+                const confirmed = await confirm("Are you sure you want to delete this feature?", "Delete Feature");
+                if (confirmed) {
                   deleteProductItem(item.id);
                   onBack();
                 }
