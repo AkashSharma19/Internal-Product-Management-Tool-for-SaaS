@@ -259,11 +259,11 @@ export default async function handler(req: any, res: any) {
           const statusType = url.searchParams.get('statusType') || 'my';
 
           const [productsRaw, projectsRaw, contentRaw, issuesRaw, meetingsRaw, speakers, productGroups, configStatuses, amaSessionsRaw, adminCallsRaw, tarunSirMeetingsRaw, formConfigs, feedbackSubmissions] = await Promise.all([
-            ProductItemModel.find({}, 'id poc product status clickupStatus taskLink deadline productDeadline finalRelease notes finalReleaseCompleted').lean(),
-            StudentProjectModel.find({}, 'id poc product status clickupStatus taskLink deadline productDeadline completeInfoDate title thingsWeBuild finalReleaseCompleted').lean(),
-            ContentItemModel.find({}, 'id poc product status clickupStatus draftLink deadline productDeadline publishDate module subject type finalReleaseCompleted').lean(),
-            DailyIssueModel.find({}, 'id poc contact product status clickupStatus taskLink deadline module issues notes type finalReleaseCompleted').lean(),
-            StudentMeetingModel.find({}, 'id poc product status clickupStatus taskLink deadline productDeadline date cohort summary notes finalReleaseCompleted').lean(),
+            ProductItemModel.find({}, 'id poc product status clickupStatus taskLink deadline productDeadline finalRelease notes finalReleaseCompleted createdAt updatedAt').lean(),
+            StudentProjectModel.find({}, 'id poc product status clickupStatus taskLink deadline productDeadline completeInfoDate title thingsWeBuild finalRelease finalReleaseCompleted createdAt updatedAt').lean(),
+            ContentItemModel.find({}, 'id poc product status clickupStatus draftLink deadline productDeadline publishDate module subject type finalRelease finalReleaseCompleted createdAt updatedAt').lean(),
+            DailyIssueModel.find({}, 'id poc contact product status clickupStatus taskLink deadline module issues notes type finalRelease finalReleaseCompleted createdAt updatedAt').lean(),
+            StudentMeetingModel.find({}, 'id poc product status clickupStatus taskLink deadline productDeadline date cohort summary notes finalRelease finalReleaseCompleted createdAt updatedAt').lean(),
             ConfigSpeakerModel.find({}, 'name').lean(),
             ConfigProductGroupModel.find({}).lean(),
             ConfigStatusModel.find({}).lean(),
@@ -351,7 +351,10 @@ export default async function handler(req: any, res: any) {
                 feature: item.feature || '',
                 notes: item.notes || '',
                 source: itemSource,
-                finalReleaseCompleted: !!item.finalReleaseCompleted
+                finalReleaseCompleted: !!item.finalReleaseCompleted,
+                finalRelease: item.finalRelease || '',
+                createdAt: item.createdAt,
+                updatedAt: item.updatedAt
               };
             });
 
@@ -367,7 +370,10 @@ export default async function handler(req: any, res: any) {
               date: item.deadline || item.productDeadline || item.completeInfoDate || '',
               feature: item.title || '',
               source: 'Student Projects',
-              finalReleaseCompleted: !!item.finalReleaseCompleted
+              finalReleaseCompleted: !!item.finalReleaseCompleted,
+              finalRelease: item.finalRelease || '',
+              createdAt: item.createdAt,
+              updatedAt: item.updatedAt
             };
           });
 
@@ -383,7 +389,10 @@ export default async function handler(req: any, res: any) {
               date: item.deadline || item.productDeadline || item.publishDate || '',
               feature: item.module || '',
               source: 'Content Pipeline',
-              finalReleaseCompleted: !!item.finalReleaseCompleted
+              finalReleaseCompleted: !!item.finalReleaseCompleted,
+              finalRelease: item.finalRelease || '',
+              createdAt: item.createdAt,
+              updatedAt: item.updatedAt
             };
           });
 
@@ -399,7 +408,10 @@ export default async function handler(req: any, res: any) {
               date: item.deadline || item.productDeadline || '',
               feature: item.module || `Issue #${item.id}`,
               source: 'Daily Issues Log',
-              finalReleaseCompleted: !!item.finalReleaseCompleted
+              finalReleaseCompleted: !!item.finalReleaseCompleted,
+              finalRelease: item.finalRelease || '',
+              createdAt: item.createdAt,
+              updatedAt: item.updatedAt
             };
           });
 
@@ -416,7 +428,10 @@ export default async function handler(req: any, res: any) {
               feature: item.cohort || '',
               notes: item.notes || '',
               source: 'AMA & Meetings',
-              finalReleaseCompleted: !!item.finalReleaseCompleted
+              finalReleaseCompleted: !!item.finalReleaseCompleted,
+              finalRelease: item.finalRelease || '',
+              createdAt: item.createdAt,
+              updatedAt: item.updatedAt
             };
           });
 
@@ -693,6 +708,53 @@ export default async function handler(req: any, res: any) {
             ? validItems.filter(item => !item.status || item.status.trim() === '' || !activeStatuses.some(status => isSameStatus(item.status, status.label))).length
             : validItems.filter(item => !item.clickupStatus || item.clickupStatus.trim() === '' || !activeStatuses.some(status => (item.clickupStatus || '').toLowerCase().trim() === status.label.toLowerCase().trim())).length;
 
+          // Last 30 Days Metrics calculation
+          const isTaskCompleted = (statusStr: string) => {
+            if (!statusStr) return false;
+            const s = statusStr.toLowerCase().trim();
+            return ['completed', 'delivered', 'done', 'closed', 'tested', 'released'].includes(s);
+          };
+
+          const parseToDateString = (dateStr: string | undefined): string => {
+            if (!dateStr) return '';
+            if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+            if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
+              const [d, m, y] = dateStr.split('-');
+              return `${y}-${m}-${d}`;
+            }
+            try {
+              const d = new Date(dateStr);
+              if (!isNaN(d.getTime())) {
+                return d.toISOString().split('T')[0];
+              }
+            } catch(e) {}
+            return dateStr;
+          };
+
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+          const doneInLast30DaysCount = allUnifiedTasks.filter((item: any) => {
+            if (!isTaskCompleted(item.status)) return false;
+            if (!item.updatedAt) return false;
+            const updatedDate = new Date(item.updatedAt);
+            return updatedDate >= thirtyDaysAgo;
+          }).length;
+
+          const releasedInLast30DaysCount = allUnifiedTasks.filter((item: any) => {
+            if (!item.finalRelease || !item.finalReleaseCompleted) return false;
+            try {
+              const releaseDate = new Date(parseToDateString(item.finalRelease));
+              if (isNaN(releaseDate.getTime())) return false;
+              const today = new Date();
+              today.setHours(23, 59, 59, 999);
+              return releaseDate >= thirtyDaysAgo && releaseDate <= today;
+            } catch (e) {
+              return false;
+            }
+          }).length;
+
           return res.status(200).json({
             success: true,
             data: {
@@ -704,7 +766,9 @@ export default async function handler(req: any, res: any) {
               overallClickup,
               overallStatusTotals,
               overallNoStatus,
-              overallReleased
+              overallReleased,
+              doneInLast30DaysCount,
+              releasedInLast30DaysCount
             }
           });
         }
@@ -719,8 +783,188 @@ export default async function handler(req: any, res: any) {
           const dateRangeType = url.searchParams.get('dateRangeType') || 'all';
           const customStartDate = url.searchParams.get('startDate') || '';
           const customEndDate = url.searchParams.get('endDate') || '';
+          const doneLast30 = url.searchParams.get('doneLast30') === 'true';
+          const releaseLast30 = url.searchParams.get('releaseLast30') === 'true';
 
-          console.log('DASHBOARD-LIST PARAMS:', { source, poc, status, statusType, productGroup, meetingCategory, dateRangeType, customStartDate, customEndDate });
+          console.log('DASHBOARD-LIST PARAMS:', { source, poc, status, statusType, productGroup, meetingCategory, dateRangeType, customStartDate, customEndDate, doneLast30, releaseLast30 });
+
+          if (doneLast30 || releaseLast30) {
+            const [productsRaw, projectsRaw, contentRaw, issuesRaw, meetingsRaw] = await Promise.all([
+              ProductItemModel.find({}, 'id feature poc product status clickupStatus taskLink deadline productDeadline finalRelease notes finalReleaseCompleted createdAt updatedAt').lean(),
+              StudentProjectModel.find({}, 'id poc product status clickupStatus taskLink deadline productDeadline completeInfoDate title thingsWeBuild finalRelease finalReleaseCompleted createdAt updatedAt').lean(),
+              ContentItemModel.find({}, 'id poc product status clickupStatus draftLink deadline productDeadline publishDate module subject type finalRelease finalReleaseCompleted createdAt updatedAt').lean(),
+              DailyIssueModel.find({}, 'id poc contact product status clickupStatus taskLink deadline module issues notes type finalRelease finalReleaseCompleted createdAt updatedAt').lean(),
+              StudentMeetingModel.find({}, 'id poc product status clickupStatus taskLink deadline productDeadline date cohort summary notes finalRelease finalReleaseCompleted createdAt updatedAt').lean(),
+            ]);
+
+            const products = productsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+            const projects = projectsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+            const content = contentRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+            const issues = issuesRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+            const meetings = meetingsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+
+            const mainProductTasks = products.map((item: any) => {
+              const isRelatedFeature = item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-');
+              const isBreakdown = item.id.startsWith('prod-breakdown-');
+              const itemSource = isRelatedFeature ? 'AMA & Meetings' : isBreakdown ? 'Product Breakdown' : 'Priority Requests';
+              const hasLink = item.taskLink && item.taskLink.trim() !== '';
+              return {
+                id: item.id,
+                poc: item.poc || '',
+                product: item.product || '',
+                status: toProductStatus(item.status),
+                clickupStatus: hasLink ? (item.clickupStatus || '') : '',
+                taskLink: item.taskLink || '',
+                date: item.deadline || item.productDeadline || '',
+                feature: item.feature || '',
+                notes: item.notes || '',
+                source: itemSource,
+                finalReleaseCompleted: !!item.finalReleaseCompleted,
+                finalRelease: item.finalRelease || '',
+                createdAt: item.createdAt,
+                updatedAt: item.updatedAt
+              };
+            });
+
+            const projectTasks = projects.map((item: any) => {
+              const hasLink = item.taskLink && item.taskLink.trim() !== '';
+              return {
+                id: item.id,
+                poc: item.poc || '',
+                product: item.product || '',
+                status: toProductStatus(item.status),
+                clickupStatus: hasLink ? (item.clickupStatus || '') : '',
+                taskLink: item.taskLink || '',
+                date: item.deadline || item.productDeadline || item.completeInfoDate || '',
+                feature: item.title || '',
+                source: 'Student Projects',
+                finalReleaseCompleted: !!item.finalReleaseCompleted,
+                finalRelease: item.finalRelease || '',
+                createdAt: item.createdAt,
+                updatedAt: item.updatedAt
+              };
+            });
+
+            const contentTasks = content.map((item: any) => {
+              const hasLink = item.draftLink && item.draftLink.trim() !== '';
+              return {
+                id: item.id,
+                poc: item.poc || '',
+                product: item.product || '',
+                status: toProductStatus(item.status),
+                clickupStatus: hasLink ? (item.clickupStatus || '') : '',
+                taskLink: item.draftLink || '',
+                date: item.deadline || item.productDeadline || item.publishDate || '',
+                feature: item.module || '',
+                source: 'Content Pipeline',
+                finalReleaseCompleted: !!item.finalReleaseCompleted,
+                finalRelease: item.finalRelease || '',
+                createdAt: item.createdAt,
+                updatedAt: item.updatedAt
+              };
+            });
+
+            const issueTasks = issues.map((item: any) => {
+              const hasLink = item.taskLink && item.taskLink.trim() !== '';
+              return {
+                id: item.id,
+                poc: item.poc || item.contact || '',
+                product: item.product || '',
+                status: toProductStatus(item.status),
+                clickupStatus: hasLink ? (item.clickupStatus || '') : '',
+                taskLink: item.taskLink || '',
+                date: item.deadline || item.productDeadline || '',
+                feature: item.module || `Issue #${item.id}`,
+                source: 'Daily Issues Log',
+                finalReleaseCompleted: !!item.finalReleaseCompleted,
+                finalRelease: item.finalRelease || '',
+                createdAt: item.createdAt,
+                updatedAt: item.updatedAt
+              };
+            });
+
+            const meetingTasks = meetings.map((item: any) => {
+              const hasLink = item.taskLink && item.taskLink.trim() !== '';
+              return {
+                id: item.id,
+                poc: item.poc || '',
+                product: item.product || '',
+                status: toProductStatus(item.status),
+                clickupStatus: hasLink ? (item.clickupStatus || '') : '',
+                taskLink: item.taskLink || '',
+                date: item.deadline || item.productDeadline || item.date || '',
+                feature: item.cohort || '',
+                notes: item.notes || '',
+                source: 'AMA & Meetings',
+                finalReleaseCompleted: !!item.finalReleaseCompleted,
+                finalRelease: item.finalRelease || '',
+                createdAt: item.createdAt,
+                updatedAt: item.updatedAt
+              };
+            });
+
+            const allTasks = [
+              ...mainProductTasks,
+              ...projectTasks,
+              ...contentTasks,
+              ...issueTasks,
+              ...meetingTasks
+            ];
+
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+            const isTaskCompleted = (statusStr: string) => {
+              if (!statusStr) return false;
+              const s = statusStr.toLowerCase().trim();
+              return ['completed', 'delivered', 'done', 'closed', 'tested', 'released'].includes(s);
+            };
+
+            const parseToDateString = (dateStr: string | undefined): string => {
+              if (!dateStr) return '';
+              if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+              if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
+                const [d, m, y] = dateStr.split('-');
+                return `${y}-${m}-${d}`;
+              }
+              try {
+                const d = new Date(dateStr);
+                if (!isNaN(d.getTime())) {
+                  return d.toISOString().split('T')[0];
+                }
+              } catch(e) {}
+              return dateStr;
+            };
+
+            let filteredTasks: any[] = [];
+            if (doneLast30) {
+              filteredTasks = allTasks.filter((item: any) => {
+                if (!isTaskCompleted(item.status)) return false;
+                if (!item.updatedAt) return false;
+                const updatedDate = new Date(item.updatedAt);
+                return updatedDate >= thirtyDaysAgo;
+              });
+            } else if (releaseLast30) {
+              filteredTasks = allTasks.filter((item: any) => {
+                if (!item.finalRelease || !item.finalReleaseCompleted) return false;
+                try {
+                  const releaseDate = new Date(parseToDateString(item.finalRelease));
+                  if (isNaN(releaseDate.getTime())) return false;
+                  const today = new Date();
+                  today.setHours(23, 59, 59, 999);
+                  return releaseDate >= thirtyDaysAgo && releaseDate <= today;
+                } catch (e) {
+                  return false;
+                }
+              });
+            }
+
+            return res.status(200).json({
+              success: true,
+              data: filteredTasks
+            });
+          }
 
           const getPocFilter = (itemPoc?: string) => {
             if (!poc) return true;

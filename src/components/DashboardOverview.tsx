@@ -384,10 +384,16 @@ export const DashboardOverview: React.FC = () => {
     statusType?: string;
     productGroup?: string;
     meetingCategory?: string;
+    doneLast30?: string;
+    releaseLast30?: string;
   }) => {
     setPopupData({ title, tasks: [] });
     setIsPopupLoading(true);
     try {
+      const extraParams: Record<string, string> = {};
+      if (filters.doneLast30) extraParams.doneLast30 = filters.doneLast30;
+      if (filters.releaseLast30) extraParams.releaseLast30 = filters.releaseLast30;
+
       const tasks = await fetchDashboardList(
         filters.source || '',
         filters.poc || '',
@@ -397,7 +403,8 @@ export const DashboardOverview: React.FC = () => {
         filters.meetingCategory || '',
         dateRangeType,
         customStartDate,
-        customEndDate
+        customEndDate,
+        extraParams
       );
       setPopupData({ title, tasks });
     } catch (e) {
@@ -629,6 +636,48 @@ export const DashboardOverview: React.FC = () => {
               ClickUp Status
             </button>
           </div>
+
+          {/* Release in Last 30 Days note */}
+          <div 
+            onClick={() => {
+              if ((dashboardCounts as any)?.releasedInLast30DaysCount > 0) {
+                openPopupList("Tasks Released in Last 30 Days", { releaseLast30: 'true' });
+              }
+            }}
+            style={{ 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              gap: '0.35rem', 
+              fontSize: '0.75rem', 
+              color: 'var(--text-secondary)',
+              cursor: ((dashboardCounts as any)?.releasedInLast30DaysCount > 0) ? 'pointer' : 'default',
+              transition: 'all 0.2s ease',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              backgroundColor: 'var(--background-alt)',
+              border: '1px solid var(--border-light)',
+              fontWeight: 600,
+              userSelect: 'none',
+              height: '32px',
+              marginLeft: '0.25rem'
+            }}
+            className="dashboard-header-release-note"
+            onMouseEnter={e => {
+              if ((dashboardCounts as any)?.releasedInLast30DaysCount > 0) {
+                e.currentTarget.style.color = 'var(--primary)';
+                e.currentTarget.style.borderColor = 'var(--primary)';
+                e.currentTarget.style.backgroundColor = 'var(--panel-bg)';
+              }
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = 'var(--text-secondary)';
+              e.currentTarget.style.borderColor = 'var(--border-light)';
+              e.currentTarget.style.backgroundColor = 'var(--background-alt)';
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>🚀 <span>Release (Last 30 Days):</span></span>
+            <strong style={{ color: 'var(--text-primary)' }}>{(dashboardCounts as any)?.releasedInLast30DaysCount || 0}</strong>
+          </div>
         </div>
       }
     >
@@ -816,6 +865,7 @@ export const DashboardOverview: React.FC = () => {
 
           </div>
         </div>
+
 
         {/* POC Breakdown Table */}
 

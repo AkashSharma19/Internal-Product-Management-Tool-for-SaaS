@@ -210,7 +210,7 @@ interface DashboardContextType {
   dashboardCounts: any;
   isLoadingCounts: boolean;
   fetchDashboardCounts: (dateRangeType: string, customStartDate?: string, customEndDate?: string, statusType?: string) => Promise<void>;
-  fetchDashboardList: (source: string, poc: string, status: string, statusType: string, productGroup: string, meetingCategory: string, dateRangeType: string, customStartDate?: string, customEndDate?: string) => Promise<any[]>;
+  fetchDashboardList: (source: string, poc: string, status: string, statusType: string, productGroup: string, meetingCategory: string, dateRangeType: string, customStartDate?: string, customEndDate?: string, extraParams?: Record<string, string>) => Promise<any[]>;
   calendarEvents: any[];
   isLoadingCalendar: boolean;
   loadCalendarMonth: (year: number, month: number) => Promise<void>;
@@ -1042,7 +1042,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     meetingCategory: string,
     dateRangeType: string,
     customStartDate?: string,
-    customEndDate?: string
+    customEndDate?: string,
+    extraParams?: Record<string, string>
   ): Promise<any[]> => {
     setSyncStatus('syncing');
     try {
@@ -1057,6 +1058,11 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (dateRangeType) params.append('dateRangeType', dateRangeType);
       if (customStartDate) params.append('startDate', customStartDate);
       if (customEndDate) params.append('endDate', customEndDate);
+      if (extraParams) {
+        Object.entries(extraParams).forEach(([k, v]) => {
+          if (v) params.append(k, v);
+        });
+      }
 
       const headers: Record<string, string> = {};
       const savedUserId = localStorage.getItem('logged-in-user-id');
