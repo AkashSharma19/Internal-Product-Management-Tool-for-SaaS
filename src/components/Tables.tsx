@@ -2129,7 +2129,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
           onChange={(e) => setFeatureText(e.target.value)}
           placeholder="Task name"
         />
-        {isFocused && similarTasks.length > 0 && (
+        {isFocused && (similarTasks.length > 0 || isSearching) && (
           <div style={{
             position: 'absolute',
             top: '100%',
@@ -2158,102 +2158,131 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
               <span>Similar Tasks Found ({similarTasks.length})</span>
               {isSearching && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 400 }}>Searching DB...</span>}
             </div>
-            {similarTasks.map(t => {
-              const isAlreadyLinked = sessionInfo && t.notes && t.notes.includes(sessionInfo.fullTag);
-              return (
-                <div 
-                  key={t.id}
-                  style={{
-                    padding: '8px 12px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    borderBottom: '1px solid var(--border)',
-                    transition: 'background-color 0.15s ease'
-                  }}
-                  className="similar-task-item"
-                >
+            {isSearching && similarTasks.length === 0 ? (
+              <div style={{
+                padding: '20px',
+                textAlign: 'center',
+                color: 'var(--text-muted)',
+                fontSize: '0.8rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}>
+                <style>{`
+                  @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                  }
+                `}</style>
+                <div className="spinner-loader" style={{
+                  width: '14px',
+                  height: '14px',
+                  border: '2px solid var(--text-muted)',
+                  borderTop: '2px solid var(--primary)',
+                  borderRadius: '50%',
+                  animation: 'spin 0.8s linear infinite'
+                }} />
+                <span>Searching similar features...</span>
+              </div>
+            ) : (
+              similarTasks.map(t => {
+                const isAlreadyLinked = sessionInfo && t.notes && t.notes.includes(sessionInfo.fullTag);
+                return (
                   <div 
-                    onMouseDown={(e) => {
-                      e.preventDefault(); // Prevents input from blurring
-                      setPreviewProductId(t.id);
+                    key={t.id}
+                    style={{
+                      padding: '8px 12px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      borderBottom: '1px solid var(--border)',
+                      transition: 'background-color 0.15s ease'
                     }}
-                    style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxWidth: '65%', cursor: 'pointer' }}
-                    title="Click to view task details"
+                    className="similar-task-item"
                   >
-                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                      {t.feature}
-                    </span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      Product: {t.product || '—'}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    {t.status && (
-                      <span className={`badge badge-${t.status.toLowerCase().replace(/\s+/g, '-')}`} style={{ fontSize: '0.65rem' }}>
-                        {t.status}
-                      </span>
-                    )}
-                    {sessionInfo && (
-                      isAlreadyLinked ? (
-                        <span 
-                          style={{
-                            padding: '3px 8px',
-                            fontSize: '0.7rem',
-                            borderRadius: '4px',
-                            backgroundColor: 'var(--background-alt)',
-                            color: 'var(--text-muted)',
-                            border: '1px solid var(--border)',
-                            fontWeight: 600,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}
-                        >
-                          🔗 Linked
-                        </span>
-                      ) : (
-                        <button
-                          onMouseDown={(e) => {
-                            e.preventDefault(); // Prevents input from blurring
-                            handleLinkTask(t);
-                          }}
-                          className="btn btn-primary"
-                          style={{
-                            padding: '3px 8px',
-                            fontSize: '0.7rem',
-                            borderRadius: '4px',
-                            fontWeight: 600,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          🔗 Link Task
-                        </button>
-                      )
-                    )}
-                    <button
+                    <div 
                       onMouseDown={(e) => {
-                        e.preventDefault();
+                        e.preventDefault(); // Prevents input from blurring
                         setPreviewProductId(t.id);
                       }}
-                      className="btn btn-secondary"
-                      style={{
-                        padding: '3px 8px',
-                        fontSize: '0.7rem',
-                        borderRadius: '4px',
-                        fontWeight: 600,
-                        cursor: 'pointer'
-                      }}
+                      style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxWidth: '65%', cursor: 'pointer' }}
+                      title="Click to view task details"
                     >
-                      View &rarr;
-                    </button>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {t.feature}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        Product: {t.product || '—'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      {t.status && (
+                        <span className={`badge badge-${t.status.toLowerCase().replace(/\s+/g, '-')}`} style={{ fontSize: '0.65rem' }}>
+                          {t.status}
+                        </span>
+                      )}
+                      {sessionInfo && (
+                        isAlreadyLinked ? (
+                          <span 
+                            style={{
+                              padding: '3px 8px',
+                              fontSize: '0.7rem',
+                              borderRadius: '4px',
+                              backgroundColor: 'var(--background-alt)',
+                              color: 'var(--text-muted)',
+                              border: '1px solid var(--border)',
+                              fontWeight: 600,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            🔗 Linked
+                          </span>
+                        ) : (
+                          <button
+                            onMouseDown={(e) => {
+                              e.preventDefault(); // Prevents input from blurring
+                              handleLinkTask(t);
+                            }}
+                            className="btn btn-primary"
+                            style={{
+                              padding: '3px 8px',
+                              fontSize: '0.7rem',
+                              borderRadius: '4px',
+                              fontWeight: 600,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            🔗 Link Task
+                          </button>
+                        )
+                      )}
+                      <button
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setPreviewProductId(t.id);
+                        }}
+                        className="btn btn-secondary"
+                        style={{
+                          padding: '3px 8px',
+                          fontSize: '0.7rem',
+                          borderRadius: '4px',
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        View &rarr;
+                      </button>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         )}
       </div>
