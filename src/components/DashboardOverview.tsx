@@ -1836,6 +1836,19 @@ export const DashboardOverview: React.FC = () => {
                               <span style={getDateSpanStyle(task.finalRelease, task.finalReleaseCompleted)}>
                                 {formatDateToUserPattern(task.finalRelease)}
                               </span>
+                            ) : task.finalReleaseCompleted ? (
+                              <span style={{
+                                fontSize: '0.68rem',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontWeight: 700,
+                                backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                color: '#10b981',
+                                display: 'inline-block',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                Delivered
+                              </span>
                             ) : '—'}
                           </td>
                         </tr>

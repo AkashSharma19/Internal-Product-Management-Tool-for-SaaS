@@ -1775,13 +1775,41 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     setFeatureText(item.feature || '');
   }, [item.feature]);
 
-  const similarTasks = useMemo(() => {
-    const query = featureText.trim().toLowerCase();
-    if (query.length < 3) return [];
-    return productItems
-      .filter(p => p.id !== item.id && p.feature && p.feature.toLowerCase().includes(query))
-      .slice(0, 5);
-  }, [featureText, productItems, item.id]);
+  const [similarTasks, setSimilarTasks] = useState<ProductItem[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    const query = featureText.trim();
+    if (query.length < 3) {
+      setSimilarTasks([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const headers: Record<string, string> = {};
+        const savedUserId = localStorage.getItem('logged-in-user-id');
+        if (savedUserId) {
+          headers['x-user-id'] = savedUserId;
+        }
+
+        const response = await fetch(`/api/data?action=suggest-similar&query=${encodeURIComponent(query)}&excludeId=${item.id}`, { headers });
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success && resData.data) {
+            setSimilarTasks(resData.data);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch similar task suggestions:', err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [featureText, item.id]);
 
   const sessionInfo = useMemo(() => {
     const notesStr = item.notes || '';
@@ -2122,9 +2150,13 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
               textTransform: 'uppercase',
               color: 'var(--text-secondary)',
               borderBottom: '1px solid var(--border)',
-              backgroundColor: 'var(--background-alt)'
+              backgroundColor: 'var(--background-alt)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
             }}>
-              Similar Tasks Found ({similarTasks.length})
+              <span>Similar Tasks Found ({similarTasks.length})</span>
+              {isSearching && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 400 }}>Searching DB...</span>}
             </div>
             {similarTasks.map(t => {
               const isAlreadyLinked = sessionInfo && t.notes && t.notes.includes(sessionInfo.fullTag);
@@ -3608,6 +3640,19 @@ export const ProductTable: React.FC = () => {
                     {item.finalRelease ? (
                       <span style={getDateSpanStyle(item.finalRelease, item.finalReleaseCompleted)}>
                         {formatDateToUserPattern(item.finalRelease)}
+                      </span>
+                    ) : item.finalReleaseCompleted ? (
+                      <span style={{
+                        fontSize: '0.68rem',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontWeight: 700,
+                        backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                        color: '#10b981',
+                        display: 'inline-block',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        Delivered
                       </span>
                     ) : '—'}
                   </td>
@@ -5317,6 +5362,19 @@ export const StudentProjectsTable: React.FC = () => {
                       <span style={getDateSpanStyle(p.finalRelease, isCompletedStatus(p.status) || !!matchedProduct?.finalReleaseCompleted)}>
                         {formatDateToUserPattern(p.finalRelease)}
                       </span>
+                    ) : (isCompletedStatus(p.status) || !!matchedProduct?.finalReleaseCompleted) ? (
+                      <span style={{
+                        fontSize: '0.68rem',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontWeight: 700,
+                        backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                        color: '#10b981',
+                        display: 'inline-block',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        Delivered
+                      </span>
                     ) : '—'}
                   </td>
 
@@ -6702,6 +6760,19 @@ export const StudentMeetingsTable: React.FC = () => {
                                               <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
                                                 {formatDateToUserPattern(feat.finalRelease)}
                                               </span>
+                                            ) : feat.finalReleaseCompleted ? (
+                                              <span style={{
+                                                fontSize: '0.68rem',
+                                                padding: '2px 6px',
+                                                borderRadius: '4px',
+                                                fontWeight: 700,
+                                                backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                                color: '#10b981',
+                                                display: 'inline-block',
+                                                whiteSpace: 'nowrap'
+                                              }}>
+                                                Delivered
+                                              </span>
                                             ) : '—'}
                                           </td>
                                           <td>
@@ -7368,6 +7439,19 @@ export const StudentMeetingsTable: React.FC = () => {
                         {feat.finalRelease ? (
                           <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
                             {formatDateToUserPattern(feat.finalRelease)}
+                          </span>
+                        ) : feat.finalReleaseCompleted ? (
+                          <span style={{
+                            fontSize: '0.68rem',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            fontWeight: 700,
+                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                            color: '#10b981',
+                            display: 'inline-block',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            Delivered
                           </span>
                         ) : '—'}
                       </td>
@@ -8579,6 +8663,19 @@ export const AdminCallsTable: React.FC = () => {
                                                 <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
                                                   {formatDateToUserPattern(feat.finalRelease)}
                                                 </span>
+                                              ) : feat.finalReleaseCompleted ? (
+                                                <span style={{
+                                                  fontSize: '0.68rem',
+                                                  padding: '2px 6px',
+                                                  borderRadius: '4px',
+                                                  fontWeight: 700,
+                                                  backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                                  color: '#10b981',
+                                                  display: 'inline-block',
+                                                  whiteSpace: 'nowrap'
+                                                }}>
+                                                  Delivered
+                                                </span>
                                               ) : '—'}
                                             </td>
                                             <td>
@@ -9105,6 +9202,19 @@ export const AdminCallsTable: React.FC = () => {
                         {feat.finalRelease ? (
                           <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
                             {formatDateToUserPattern(feat.finalRelease)}
+                          </span>
+                        ) : feat.finalReleaseCompleted ? (
+                          <span style={{
+                            fontSize: '0.68rem',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            fontWeight: 700,
+                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                            color: '#10b981',
+                            display: 'inline-block',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            Delivered
                           </span>
                         ) : '—'}
                       </td>
@@ -10275,10 +10385,23 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                             <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                                               <DateDiffBadge prevDate={feat.deadline || feat.uiux || feat.productDeadline} currentDate={feat.finalRelease} />
                                               {feat.finalRelease ? (
-                                                <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
-                                                  {formatDateToUserPattern(feat.finalRelease)}
-                                                </span>
-                                              ) : '—'}
+                                                  <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
+                                                    {formatDateToUserPattern(feat.finalRelease)}
+                                                  </span>
+                                                ) : feat.finalReleaseCompleted ? (
+                                                  <span style={{
+                                                    fontSize: '0.68rem',
+                                                    padding: '2px 6px',
+                                                    borderRadius: '4px',
+                                                    fontWeight: 700,
+                                                    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                                    color: '#10b981',
+                                                    display: 'inline-block',
+                                                    whiteSpace: 'nowrap'
+                                                  }}>
+                                                    Delivered
+                                                  </span>
+                                                ) : '—'}
                                             </td>
                                             <td>
                                               <button 
@@ -10805,10 +10928,23 @@ export const TarunSirMeetingsTable: React.FC = () => {
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                         <DateDiffBadge prevDate={feat.deadline || feat.uiux || feat.productDeadline} currentDate={feat.finalRelease} />
                         {feat.finalRelease ? (
-                          <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
-                            {formatDateToUserPattern(feat.finalRelease)}
-                          </span>
-                        ) : '—'}
+                                                  <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
+                                                    {formatDateToUserPattern(feat.finalRelease)}
+                                                  </span>
+                                                ) : feat.finalReleaseCompleted ? (
+                                                  <span style={{
+                                                    fontSize: '0.68rem',
+                                                    padding: '2px 6px',
+                                                    borderRadius: '4px',
+                                                    fontWeight: 700,
+                                                    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                                    color: '#10b981',
+                                                    display: 'inline-block',
+                                                    whiteSpace: 'nowrap'
+                                                  }}>
+                                                    Delivered
+                                                  </span>
+                                                ) : '—'}
                       </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
@@ -11550,8 +11686,20 @@ export const ContentTable: React.FC = () => {
                     title="Click to edit Release Date"
                   >
                     <DateDiffBadge prevDate={item.deadline || item.uiux || item.productDeadline} currentDate={item.finalRelease} />
-                    <span style={{ ...getDateSpanStyle(item.finalRelease, item.finalReleaseCompleted), borderBottom: '1px dashed var(--text-muted)' }}>
-                      {item.finalRelease ? formatDateToShortPattern(item.finalRelease) : 'Set Date'}
+                    <span style={{ 
+                      ...(item.finalRelease ? getDateSpanStyle(item.finalRelease, item.finalReleaseCompleted) : item.finalReleaseCompleted ? {
+                        fontSize: '0.68rem',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontWeight: 700,
+                        backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                        color: '#10b981',
+                        display: 'inline-block',
+                        whiteSpace: 'nowrap'
+                      } : {}), 
+                      borderBottom: '1px dashed var(--text-muted)' 
+                    }}>
+                      {item.finalRelease ? formatDateToShortPattern(item.finalRelease) : item.finalReleaseCompleted ? 'Delivered' : 'Set Date'}
                     </span>
                     {editingReleaseDateId === item.id && (
                       <CustomDatePicker
@@ -12282,6 +12430,19 @@ export const ProductWiseSheet: React.FC = () => {
                           {item.finalRelease ? (
                             <span style={getDateSpanStyle(item.finalRelease, item.finalReleaseCompleted)}>
                               {formatDateToUserPattern(item.finalRelease)}
+                            </span>
+                          ) : item.finalReleaseCompleted ? (
+                            <span style={{
+                              fontSize: '0.68rem',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontWeight: 700,
+                              backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                              color: '#10b981',
+                              display: 'inline-block',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              Delivered
                             </span>
                           ) : '—'}
                         </td>

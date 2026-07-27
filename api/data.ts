@@ -252,6 +252,28 @@ export default async function handler(req: any, res: any) {
           return res.status(200).json({ success: true, data: results });
         }
 
+        if (action === 'suggest-similar') {
+          const query = url.searchParams.get('query') || '';
+          const excludeId = url.searchParams.get('excludeId') || '';
+          
+          if (!query.trim() || query.trim().length < 3) {
+            return res.status(200).json({ success: true, data: [] });
+          }
+
+          const similar = await ProductItemModel.find({
+            id: { $ne: excludeId },
+            feature: { $regex: query, $options: 'i' }
+          }, 'id feature product status clickupStatus taskLink deadline productDeadline finalRelease notes finalReleaseCompleted').limit(5).lean();
+
+          return res.status(200).json({ 
+            success: true, 
+            data: similar.map((item: any) => ({
+              ...item,
+              id: item.id || String(item._id)
+            }))
+          });
+        }
+
         if (action === 'dashboard-counts') {
           const dateRangeType = url.searchParams.get('dateRangeType') || 'all';
           const customStartDate = url.searchParams.get('startDate') || '';
