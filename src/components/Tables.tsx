@@ -1759,14 +1759,46 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
   const [isLinkingSearchOpen, setIsLinkingSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchedTasks, setSearchedTasks] = useState<ProductItem[]>([]);
+  const [searchTotal, setSearchTotal] = useState(0);
+  const [searchPage, setSearchPage] = useState(1);
+  const [isSearchingLink, setIsSearchingLink] = useState(false);
+  const SEARCH_PAGE_SIZE = 5;
 
-  const searchedTasks = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (q.length < 2) return [];
-    return productItems
-      .filter(p => p.id !== item.id && p.feature && p.feature.toLowerCase().includes(q))
-      .slice(0, 8);
-  }, [searchQuery, productItems, item.id]);
+  // DB-backed search with debounce + pagination for the "Link to Task" widget
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSearchedTasks([]);
+      setSearchTotal(0);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setIsSearchingLink(true);
+      try {
+        const headers: Record<string, string> = {};
+        const savedUserId = localStorage.getItem('logged-in-user-id');
+        if (savedUserId) headers['x-user-id'] = savedUserId;
+        const res = await fetch(
+          `/api/data?action=suggest-similar&query=${encodeURIComponent(q)}&excludeId=${item.id}&page=${searchPage}`,
+          { headers }
+        );
+        if (!cancelled && res.ok) {
+          const json = await res.json();
+          if (json.success) {
+            setSearchedTasks(json.data || []);
+            setSearchTotal(json.total ?? 0);
+          }
+        }
+      } catch (err) {
+        console.error('Link search failed:', err);
+      } finally {
+        if (!cancelled) setIsSearchingLink(false);
+      }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [searchQuery, searchPage, item.id]);
 
   const [featureText, setFeatureText] = useState(item.feature || '');
   const [isFocused, setIsFocused] = useState(false);
@@ -1836,47 +1868,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     deleteProductItem(item.id);
   };
 
-  const handleUnlinkSession = (linkType: string, linkId: string) => {
-    const notesStr = item.notes || '';
-    const chunks = notesStr.split(/\s*\|\s*/);
-    let filteredChunks: string[] = [];
-    let skipNextCohort = false;
-    
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
-      if (linkType === 'AMA & Meetings' && chunk.startsWith(`AMA Session ID: ${linkId}`)) {
-        skipNextCohort = true;
-        continue;
-      }
-      if (linkType === 'Admin Calls' && chunk.startsWith(`Admin Call ID: ${linkId}`)) {
-        skipNextCohort = true;
-        continue;
-      }
-      if (linkType === 'Tarun Sir Meetings' && chunk.startsWith(`Tarun Sir Meeting ID: ${linkId}`)) {
-        skipNextCohort = true;
-        continue;
-      }
-      
-      if (skipNextCohort && (chunk.startsWith('AMA Cohort:') || chunk.startsWith('Admin Call:') || chunk.startsWith('Meeting:'))) {
-        skipNextCohort = false;
-        continue;
-      }
-      
-      skipNextCohort = false;
-      filteredChunks.push(chunk);
-    }
-    
-    let updatedNotes = filteredChunks.join(' | ');
-    const hasAnySessionLeft = updatedNotes.includes("AMA Session ID:") || 
-                              updatedNotes.includes("Admin Call ID:") || 
-                              updatedNotes.includes("Tarun Sir Meeting ID:");
-    if (!hasAnySessionLeft) {
-      filteredChunks = filteredChunks.filter(c => c !== "Linked Task: true");
-      updatedNotes = filteredChunks.join(' | ');
-    }
-    
-    onUpdate(item.id, { notes: updatedNotes });
-  };
+
 
   const pocList = configSpeakers.map(s => s.name);
   const productList = productGroups.map(g => g.name);
@@ -2033,11 +2025,86 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
   
 
+  const steps = [
+    {
+      label: 'Created',
+      date: item.createdAt,
+      dateVal: item.createdAt ? formatDateToShortPattern(item.createdAt) : 'Set Date',
+      completed: true,
+      classStr: 'completed',
+      isEditing: isEditingCreatedAt,
+      setIsEditing: setIsEditingCreatedAt,
+      icon: <CheckCircle size={14} />,
+      historyField: null,
+      completedKey: null
+    },
+    {
+      label: 'Specs Date',
+      date: item.productDeadline,
+      dateVal: item.productDeadline ? formatDateToShortPattern(item.productDeadline) : 'Set Date',
+      completed: !!item.productDeadlineCompleted,
+      classStr: item.productDeadlineCompleted ? 'completed' : specsOverdue ? 'overdue' : 'active',
+      isEditing: isEditingSpecsDate,
+      setIsEditing: setIsEditingSpecsDate,
+      icon: item.productDeadlineCompleted ? <Check size={14} /> : <Calendar size={14} />,
+      historyField: 'productDeadline',
+      historyLabel: 'Specs Date',
+      completedKey: 'productDeadlineCompleted',
+      diffDays: item.productDeadline ? getDateDiffDays(item.createdAt, item.productDeadline) : null,
+      diffTitle: 'Days since Created Date'
+    },
+    {
+      label: 'UI/UX Date',
+      date: item.uiux,
+      dateVal: item.uiux ? formatDateToShortPattern(item.uiux) : 'Set Date',
+      completed: !!item.uiuxCompleted,
+      classStr: item.uiuxCompleted ? 'completed' : uiuxOverdue ? 'overdue' : (item.productDeadlineCompleted ? 'active' : 'pending'),
+      isEditing: isEditingUiuxDate,
+      setIsEditing: setIsEditingUiuxDate,
+      icon: item.uiuxCompleted ? <Check size={14} /> : <Palette size={14} />,
+      historyField: 'uiux',
+      historyLabel: 'UI/UX Date',
+      completedKey: 'uiuxCompleted',
+      diffDays: item.uiux ? getDateDiffDays(item.productDeadline, item.uiux) : null,
+      diffTitle: 'Days since Specs Date'
+    },
+    {
+      label: 'Dev Date',
+      date: item.deadline,
+      dateVal: item.deadline ? formatDateToShortPattern(item.deadline) : 'Set Date',
+      completed: !!item.deadlineCompleted,
+      classStr: item.deadlineCompleted ? 'completed' : devOverdue ? 'overdue' : (item.uiuxCompleted ? 'active' : 'pending'),
+      isEditing: isEditingDevDate,
+      setIsEditing: setIsEditingDevDate,
+      icon: item.deadlineCompleted ? <Check size={14} /> : <Code size={14} />,
+      historyField: 'deadline',
+      historyLabel: 'Dev Date',
+      completedKey: 'deadlineCompleted',
+      diffDays: item.deadline && (item.uiux || item.productDeadline) ? getDateDiffDays(item.uiux || item.productDeadline, item.deadline) : null,
+      diffTitle: item.uiux ? 'Days since UI/UX Date' : 'Days since Specs Date'
+    },
+    {
+      label: 'Release Date',
+      date: item.finalRelease,
+      dateVal: item.finalRelease ? formatDateToShortPattern(item.finalRelease) : 'Set Date',
+      completed: !!item.finalReleaseCompleted,
+      classStr: item.finalReleaseCompleted ? 'completed' : releaseOverdue ? 'overdue' : (item.deadlineCompleted ? 'active' : 'pending'),
+      isEditing: isEditingReleaseDate,
+      setIsEditing: setIsEditingReleaseDate,
+      icon: item.finalReleaseCompleted ? <Check size={14} /> : <Sparkles size={14} />,
+      historyField: 'finalRelease',
+      historyLabel: 'Release Date',
+      completedKey: 'finalReleaseCompleted',
+      diffDays: item.finalRelease && (item.deadline || item.uiux || item.productDeadline) ? getDateDiffDays(item.deadline || item.uiux || item.productDeadline, item.finalRelease) : null,
+      diffTitle: item.deadline ? 'Days since Dev Date' : item.uiux ? 'Days since UI/UX Date' : 'Days since Specs Date'
+    }
+  ];
+
   return (
-    <div className="premium-workspace animate-fade-in" key={item.id} style={{ display: 'block', padding: '1.5rem', overflowY: 'auto' }}>
+    <div className="premium-workspace animate-fade-in" key={item.id} style={{ display: 'flex', flexDirection: 'column', padding: '1.5rem', height: '100%', overflow: 'hidden' }}>
       
       {/* Top Navigation & Breadcrumbs */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem', flexShrink: 0 }}>
         <div className="premium-breadcrumb">
           <button className="btn-back" style={{ width: '24px', height: '24px', borderRadius: '6px', marginRight: '0.25rem' }} onClick={onBack} title="Back to Table">
             <ArrowLeft size={12} />
@@ -2107,1114 +2174,840 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
         </div>
       </div>
 
-      <div style={{ pointerEvents: canUserEdit ? 'auto' : 'none', opacity: canUserEdit ? 1 : 0.95 }}>
-      {/* Task Title (Editable) */}
-      <div style={{ marginTop: '0.75rem', position: 'relative' }}>
-        <input
-          type="text"
-          className="premium-title-input"
-          style={{ paddingLeft: 0, fontSize: '1.75rem', borderBottom: '2px solid transparent', width: '100%' }}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => {
-            setIsFocused(false);
-            if (featureText.trim() && featureText !== item.feature) {
-              handleFieldUpdate('feature', featureText.trim());
-            }
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.currentTarget.blur();
-            }
-          }}
-          value={featureText}
-          onChange={(e) => setFeatureText(e.target.value)}
-          placeholder="Task name"
-        />
-        {isFocused && (similarTasks.length > 0 || isSearching) && (
-          <div style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            right: 0,
-            backgroundColor: 'var(--panel-bg)',
-            border: '1.5px solid var(--border)',
-            borderRadius: '8px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
-            zIndex: 1000,
-            marginTop: '4px',
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              padding: '6px 12px',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              color: 'var(--text-secondary)',
-              borderBottom: '1px solid var(--border)',
-              backgroundColor: 'var(--background-alt)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <span>Similar Tasks Found ({similarTasks.length})</span>
-              {isSearching && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 400 }}>Searching DB...</span>}
-            </div>
-            {isSearching && similarTasks.length === 0 ? (
-              <div style={{
-                padding: '20px',
-                textAlign: 'center',
-                color: 'var(--text-muted)',
-                fontSize: '0.8rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px'
-              }}>
-                <style>{`
-                  @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
+      {/* TWO COLUMN CONTENT LAYOUT */}
+      <div style={{ display: 'flex', gap: '1.5rem', flex: 1, minHeight: 0, marginTop: '1rem' }}>
+        
+        {/* LEFT COLUMN: Main details (scrollable) */}
+        <div style={{ flex: '1 1 0%', overflowY: 'auto', paddingRight: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', minWidth: 0 }}>
+          <div style={{ pointerEvents: canUserEdit ? 'auto' : 'none', opacity: canUserEdit ? 1 : 0.95, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            
+            {/* Task Title (Editable) + inline link button */}
+            <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                className="premium-title-input"
+                style={{ paddingLeft: 0, fontSize: '1.5rem', borderBottom: '2px solid transparent', width: '100%' }}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => {
+                  setIsFocused(false);
+                  if (featureText.trim() && featureText !== item.feature) {
+                    handleFieldUpdate('feature', featureText.trim());
                   }
-                `}</style>
-                <div className="spinner-loader" style={{
-                  width: '14px',
-                  height: '14px',
-                  border: '2px solid var(--text-muted)',
-                  borderTop: '2px solid var(--primary)',
-                  borderRadius: '50%',
-                  animation: 'spin 0.8s linear infinite'
-                }} />
-                <span>Searching similar features...</span>
-              </div>
-            ) : (
-              similarTasks.map(t => {
-                const isAlreadyLinked = sessionInfo && t.notes && t.notes.includes(sessionInfo.fullTag);
-                return (
-                  <div 
-                    key={t.id}
-                    style={{
-                      padding: '8px 12px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      borderBottom: '1px solid var(--border)',
-                      transition: 'background-color 0.15s ease'
-                    }}
-                    className="similar-task-item"
-                  >
-                    <div 
-                      onMouseDown={(e) => {
-                        e.preventDefault(); // Prevents input from blurring
-                        setPreviewProductId(t.id);
-                      }}
-                      style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxWidth: '65%', cursor: 'pointer' }}
-                      title="Click to view task details"
-                    >
-                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                        {t.feature}
-                      </span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        Product: {t.product || '—'}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      {t.status && (
-                        <span className={`badge badge-${t.status.toLowerCase().replace(/\s+/g, '-')}`} style={{ fontSize: '0.65rem' }}>
-                          {t.status}
-                        </span>
-                      )}
-                      {sessionInfo && (
-                        isAlreadyLinked ? (
-                          <span 
-                            style={{
-                              padding: '3px 8px',
-                              fontSize: '0.7rem',
-                              borderRadius: '4px',
-                              backgroundColor: 'var(--background-alt)',
-                              color: 'var(--text-muted)',
-                              border: '1px solid var(--border)',
-                              fontWeight: 600,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px'
-                            }}
-                          >
-                            🔗 Linked
-                          </span>
-                        ) : (
-                          <button
-                            onMouseDown={(e) => {
-                              e.preventDefault(); // Prevents input from blurring
-                              handleLinkTask(t);
-                            }}
-                            className="btn btn-primary"
-                            style={{
-                              padding: '3px 8px',
-                              fontSize: '0.7rem',
-                              borderRadius: '4px',
-                              fontWeight: 600,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            🔗 Link Task
-                          </button>
-                        )
-                      )}
-                      <button
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          setPreviewProductId(t.id);
-                        }}
-                        className="btn btn-secondary"
-                        style={{
-                          padding: '3px 8px',
-                          fontSize: '0.7rem',
-                          borderRadius: '4px',
-                          fontWeight: 600,
-                          cursor: 'pointer'
-                        }}
-                      >
-                        View &rarr;
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Inline Search & Link Widget */}
-      {isLinkingSearchOpen ? (
-        <div style={{
-          marginTop: '0.75rem',
-          padding: '10px 14px',
-          borderRadius: '8px',
-          border: '1.5px dashed var(--primary-light)',
-          backgroundColor: 'var(--primary-glow)',
-          position: 'relative'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)' }}>
-              🔗 Search & Link Any Task
-            </span>
-            <button
-              onClick={() => {
-                setIsLinkingSearchOpen(false);
-                setSearchQuery('');
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-secondary)',
-                cursor: 'pointer',
-                fontSize: '0.75rem',
-                fontWeight: 600
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-          <div style={{ position: 'relative', width: '100%', display: 'block' }}>
-            <input
-              type="text"
-              className="premium-input"
-              style={{ width: '100%', padding: '6px 28px 6px 10px', fontSize: '0.8rem', borderRadius: '6px', border: '1px solid var(--border)', backgroundColor: 'var(--background)' }}
-              placeholder="Type task name to search all tasks..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              autoFocus
-            />
-            {searchQuery && (
-              <button 
-                className="search-clear-btn" 
-                onClick={() => setSearchQuery('')}
-                title="Clear search"
-                style={{
-                  position: 'absolute',
-                  right: '8px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  zIndex: 10,
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: 'var(--text-muted)',
-                  padding: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  outline: 'none'
                 }}
-              >
-                <X size={12} />
-              </button>
-            )}
-          </div>
-          {searchQuery.trim().length >= 2 && (
-            <div style={{
-              marginTop: '6px',
-              backgroundColor: 'var(--panel-bg)',
-              border: '1px solid var(--border)',
-              borderRadius: '6px',
-              maxHeight: '200px',
-              overflowY: 'auto'
-            }}>
-              {searchedTasks.length === 0 ? (
-                <div style={{ padding: '8px 12px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  No tasks found matching "{searchQuery}"
-                </div>
-              ) : (
-                searchedTasks.map(t => {
-                  const isAlreadyLinked = sessionInfo && t.notes && t.notes.includes(sessionInfo.fullTag);
-                  return (
-                    <div
-                      key={t.id}
-                      style={{
-                        padding: '6px 12px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        borderBottom: '1px solid var(--border-light)'
-                      }}
-                    >
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxWidth: '70%' }}>
-                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                          {t.feature}
-                        </span>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                          ID: #{t.id} | Product: {t.product || '—'}
-                        </span>
-                      </div>
-                      <div>
-                        {isAlreadyLinked ? (
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>🔗 Linked</span>
-                        ) : (
-                          <button
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              handleLinkTask(t);
-                              setIsLinkingSearchOpen(false);
-                              setSearchQuery('');
-                            }}
-                            className="btn btn-primary"
-                            style={{ padding: '3px 8px', fontSize: '0.7rem', borderRadius: '4px', cursor: 'pointer' }}
-                          >
-                            Link
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'flex-end' }}>
-          <button
-            onClick={() => setIsLinkingSearchOpen(true)}
-            className="btn btn-secondary"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '0.7rem',
-              padding: '4px 8px',
-              borderRadius: '4px',
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}
-          >
-            🔗 Link to a Task with different name
-          </button>
-        </div>
-      )}
-
-      {/* Parse and display linked sessions if any */}
-      {(() => {
-        const notes = item.notes || '';
-        const links: { type: string; id: string }[] = [];
-        
-        // Find AMA Session IDs
-        const amaMatches = [...notes.matchAll(/AMA Session ID:\s*([^\s|]+)/g)];
-        amaMatches.forEach(m => links.push({ type: 'AMA & Meetings', id: m[1] }));
-        
-        // Find Admin Call IDs
-        const callMatches = [...notes.matchAll(/Admin Call ID:\s*([^\s|]+)/g)];
-        callMatches.forEach(m => links.push({ type: 'Admin Calls', id: m[1] }));
-        
-        // Find Tarun Sir Meeting IDs
-        const meetingMatches = [...notes.matchAll(/Tarun Sir Meeting ID:\s*([^\s|]+)/g)];
-        meetingMatches.forEach(m => links.push({ type: 'Tarun Sir Meetings', id: m[1] }));
-        
-        if (links.length > 0) {
-          return (
-            <div style={{ 
-              marginTop: '0.75rem', 
-              padding: '8px 12px', 
-              borderRadius: '6px', 
-              border: '1px solid var(--border-light)',
-              backgroundColor: 'var(--background-alt)',
-              display: 'flex', 
-              flexWrap: 'wrap', 
-              gap: '6px', 
-              alignItems: 'center' 
-            }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', marginRight: '4px' }}>Linked Sessions:</span>
-              {links.map((link, idx) => (
-                <span 
-                  key={idx}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  }
+                }}
+                value={featureText}
+                onChange={(e) => setFeatureText(e.target.value)}
+                placeholder="Task name"
+              />
+              {/* Inline "Link to task" button — sits right below the title, no separate row */}
+              {!isLinkingSearchOpen && (
+                <button
+                  onClick={() => setIsLinkingSearchOpen(true)}
                   style={{
-                    backgroundColor: 'var(--primary-glow)',
-                    color: 'var(--primary)',
-                    border: '1px solid var(--primary-light)',
-                    borderRadius: '4px',
-                    padding: '2px 8px',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '6px'
+                    gap: '4px',
+                    fontSize: '0.675rem',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    marginTop: '2px',
+                    opacity: 0.65,
+                    transition: 'opacity 0.15s ease'
                   }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '0.65'}
                 >
-                  🔗 {link.type} (ID: {link.id})
-                  {canUserEdit && (
-                    <button
-                      onClick={() => handleUnlinkSession(link.type, link.id)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--primary)',
-                        cursor: 'pointer',
-                        padding: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        opacity: 0.7,
-                        transition: 'opacity 0.15s ease'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                      onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
-                      title={`Unlink from ${link.type}`}
-                    >
+                  🔗 Link to a Task with different name
+                </button>
+              )}
+              {isFocused && (similarTasks.length > 0 || isSearching) && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  backgroundColor: 'var(--panel-bg)',
+                  border: '1.5px solid var(--border)',
+                  borderRadius: '8px',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                  zIndex: 1000,
+                  marginTop: '4px',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{
+                    padding: '6px 12px',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    color: 'var(--text-secondary)',
+                    borderBottom: '1px solid var(--border)',
+                    backgroundColor: 'var(--background-alt)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <span>Similar Tasks Found ({similarTasks.length})</span>
+                    {isSearching && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 400 }}>Searching DB...</span>}
+                  </div>
+                  {isSearching && similarTasks.length === 0 ? (
+                    <div style={{
+                      padding: '20px',
+                      textAlign: 'center',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.8rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px'
+                    }}>
+                      <style>{`
+                        @keyframes spin {
+                          0% { transform: rotate(0deg); }
+                          100% { transform: rotate(360deg); }
+                        }
+                      `}</style>
+                      <div className="spinner-loader" style={{
+                        width: '14px',
+                        height: '14px',
+                        border: '2px solid var(--text-muted)',
+                        borderTop: '2px solid var(--primary)',
+                        borderRadius: '50%',
+                        animation: 'spin 0.8s linear infinite'
+                      }} />
+                      <span>Searching similar features...</span>
+                    </div>
+                  ) : (
+                    similarTasks.map(t => {
+                      const isAlreadyLinked = sessionInfo && t.notes && t.notes.includes(sessionInfo.fullTag);
+                      return (
+                        <div 
+                          key={t.id}
+                          style={{
+                            padding: '8px 12px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            borderBottom: '1px solid var(--border)',
+                            transition: 'background-color 0.15s ease'
+                          }}
+                          className="similar-task-item"
+                        >
+                          <div 
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setPreviewProductId(t.id);
+                            }}
+                            style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxWidth: '65%', cursor: 'pointer' }}
+                            title="Click to view task details"
+                          >
+                            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                              {t.feature}
+                            </span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              Product: {t.product || '—'}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            {t.status && (
+                              <span className={`badge badge-${t.status.toLowerCase().replace(/\s+/g, '-')}`} style={{ fontSize: '0.65rem' }}>
+                                {t.status}
+                              </span>
+                            )}
+                            {sessionInfo && (
+                              isAlreadyLinked ? (
+                                <span style={{ padding: '3px 8px', fontSize: '0.7rem', borderRadius: '4px', backgroundColor: 'var(--background-alt)', color: 'var(--text-muted)', border: '1px solid var(--border)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  🔗 Linked
+                                </span>
+                              ) : (
+                                <button
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    handleLinkTask(t);
+                                  }}
+                                  className="btn btn-primary"
+                                  style={{ padding: '3px 8px', fontSize: '0.7rem', borderRadius: '4px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+                                >
+                                  🔗 Link Task
+                                </button>
+                              )
+                            )}
+                            <button
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                setPreviewProductId(t.id);
+                              }}
+                              className="btn btn-secondary"
+                              style={{ padding: '3px 8px', fontSize: '0.7rem', borderRadius: '4px', fontWeight: 600, cursor: 'pointer' }}
+                            >
+                              View &rarr;
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Inline Search & Link Widget — DB-backed with pagination */}
+            {isLinkingSearchOpen && (
+              <div style={{ padding: '8px 12px', borderRadius: '8px', border: '1.5px dashed var(--primary-light)', backgroundColor: 'var(--primary-glow)', position: 'relative' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)' }}>🔗 Search & Link Any Task</span>
+                  <button
+                    onClick={() => { setIsLinkingSearchOpen(false); setSearchQuery(''); setSearchPage(1); setSearchedTasks([]); setSearchTotal(0); }}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <div style={{ position: 'relative', width: '100%' }}>
+                  <input
+                    type="text"
+                    className="premium-input"
+                    style={{ width: '100%', padding: '6px 28px 6px 10px', fontSize: '0.8rem', borderRadius: '6px', border: '1px solid var(--border)', backgroundColor: 'var(--background)' }}
+                    placeholder="Search across all tasks in DB..."
+                    value={searchQuery}
+                    onChange={(e) => { setSearchQuery(e.target.value); setSearchPage(1); }}
+                    autoFocus
+                  />
+                  {isSearchingLink && (
+                    <div style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', width: '12px', height: '12px', border: '2px solid var(--border)', borderTop: '2px solid var(--primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  )}
+                  {searchQuery && !isSearchingLink && (
+                    <button className="search-clear-btn" onClick={() => { setSearchQuery(''); setSearchPage(1); setSearchedTasks([]); setSearchTotal(0); }} title="Clear search" style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', zIndex: 10, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', outline: 'none' }}>
                       <X size={12} />
                     </button>
                   )}
-                </span>
-              ))}
-            </div>
-          );
-        }
-        return null;
-      })()}
-
-      {/* 3-COLUMN PROPERTIES GRID DASHBOARD */}
-      <div className="premium-properties-dashboard">
-        
-        {/* PANEL 1: Lifecycle & Integration */}
-        <div className="properties-panel">
-          <h4 className="properties-panel-title">Lifecycle & Integration</h4>
-
-          {/* Product Group */}
-          <div className="property-row-flat">
-            <span className="premium-property-label" style={{ color: !item.product ? '#f97316' : undefined, fontWeight: !item.product ? '700' : undefined }}>
-              <Layers size={13} style={{ color: !item.product ? '#f97316' : undefined }} /> Product Group
-            </span>
-            <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <div className={`premium-select-pill ${!item.product ? 'warning-highlight' : ''}`}>
-                <select
-                  value={item.product || ''}
-                  onChange={(e) => handleFieldUpdate('product', e.target.value)}
-                >
-                  <option value="">— Select Product Group —</option>
-                  {productList.map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                  {item.product && !productList.includes(item.product) && (
-                    <option value={item.product}>{item.product}</option>
-                  )}
-                </select>
+                </div>
+                {searchQuery.trim().length >= 2 && (
+                  <div style={{ marginTop: '6px', backgroundColor: 'var(--panel-bg)', border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
+                    {isSearchingLink && searchedTasks.length === 0 ? (
+                      <div style={{ padding: '16px 12px', fontSize: '0.775rem', color: 'var(--text-muted)', textAlign: 'center' }}>Searching…</div>
+                    ) : searchedTasks.length === 0 ? (
+                      <div style={{ padding: '10px 12px', fontSize: '0.775rem', color: 'var(--text-muted)' }}>No tasks found matching "{searchQuery}"</div>
+                    ) : (
+                      <>
+                        {searchedTasks.map(t => {
+                          const isAlreadyLinked = sessionInfo && t.notes && t.notes.includes(sessionInfo.fullTag);
+                          return (
+                            <div key={t.id} style={{ padding: '7px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', transition: 'background 0.1s' }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--background-alt)'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = ''}
+                            >
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', maxWidth: '72%' }}>
+                                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.feature}</span>
+                                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                  #{t.id} · {t.product || '—'}
+                                  {t.status ? <span style={{ marginLeft: '6px', backgroundColor: 'var(--background-alt)', border: '1px solid var(--border-light)', borderRadius: '3px', padding: '0 4px', fontSize: '0.65rem', fontWeight: 600 }}>{t.status}</span> : null}
+                                </span>
+                              </div>
+                              <div>
+                                {isAlreadyLinked ? (
+                                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>🔗 Linked</span>
+                                ) : (
+                                  <button onMouseDown={(e) => { e.preventDefault(); handleLinkTask(t); setIsLinkingSearchOpen(false); setSearchQuery(''); setSearchPage(1); setSearchedTasks([]); setSearchTotal(0); }} className="btn btn-primary" style={{ padding: '3px 10px', fontSize: '0.7rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}>Link</button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {/* Pagination bar */}
+                        {searchTotal > SEARCH_PAGE_SIZE && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 12px', borderTop: '1px solid var(--border)', backgroundColor: 'var(--background-alt)' }}>
+                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                              {((searchPage - 1) * SEARCH_PAGE_SIZE) + 1}–{Math.min(searchPage * SEARCH_PAGE_SIZE, searchTotal)} of {searchTotal}
+                            </span>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <button
+                                disabled={searchPage <= 1 || isSearchingLink}
+                                onClick={() => setSearchPage(p => Math.max(1, p - 1))}
+                                style={{ padding: '2px 8px', fontSize: '0.7rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--background)', color: searchPage <= 1 ? 'var(--text-muted)' : 'var(--text-primary)', cursor: searchPage <= 1 ? 'default' : 'pointer', fontWeight: 600, opacity: searchPage <= 1 ? 0.5 : 1 }}
+                              >← Prev</button>
+                              <button
+                                disabled={searchPage * SEARCH_PAGE_SIZE >= searchTotal || isSearchingLink}
+                                onClick={() => setSearchPage(p => p + 1)}
+                                style={{ padding: '2px 8px', fontSize: '0.7rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--background)', color: searchPage * SEARCH_PAGE_SIZE >= searchTotal ? 'var(--text-muted)' : 'var(--text-primary)', cursor: searchPage * SEARCH_PAGE_SIZE >= searchTotal ? 'default' : 'pointer', fontWeight: 600, opacity: searchPage * SEARCH_PAGE_SIZE >= searchTotal ? 0.5 : 1 }}
+                              >Next →</button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
-              {!item.product && (
-                <span className="animate-pulse" style={{ color: '#f97316', fontSize: '0.65rem', fontWeight: 'bold' }}>Required</span>
-              )}
+            )}
+
+            {/* HORIZONTAL TIMELINE FOR MILESTONES */}
+            <div className="premium-timeline-container">
+              <h4 className="premium-timeline-title">Milestone Checkpoints</h4>
+              <div className="premium-timeline-track-wrapper">
+                <div className="premium-timeline-line-connector">
+                  <div 
+                    className="premium-timeline-progress-line" 
+                    style={{ 
+                      width: (() => {
+                        const stepStates = [
+                          true,
+                          !!item.productDeadlineCompleted,
+                          !!item.uiuxCompleted,
+                          !!item.deadlineCompleted,
+                          !!item.finalReleaseCompleted
+                        ];
+                        const completedCount = stepStates.filter(Boolean).length;
+                        return `${((completedCount - 1) / (stepStates.length - 1)) * 100}%`;
+                      })() 
+                    }} 
+                  />
+                </div>
+                <div className="premium-timeline-track">
+                  {steps.map((step, idx) => (
+                    <div key={idx} className={`premium-timeline-node ${step.classStr}`}>
+                      <div 
+                        className="premium-timeline-circle"
+                        onClick={() => step.setIsEditing(true)}
+                        title={`Click to edit ${step.label}`}
+                      >
+                        {step.icon}
+                      </div>
+                      <div className="premium-timeline-content">
+                        <span className="premium-timeline-label" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          {step.label.replace(' Date', '')}
+                          {step.historyField && (
+                            <span 
+                              title="View Change History" 
+                              style={{ display: 'inline-flex', cursor: 'pointer', opacity: 0.6 }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setHistoryField({ name: step.historyField!, label: step.historyLabel! });
+                              }}
+                            >
+                              <History size={10} />
+                            </span>
+                          )}
+                        </span>
+                        
+                        <span 
+                          className="premium-timeline-date" 
+                          onClick={() => step.setIsEditing(true)}
+                        >
+                          {step.label === 'Created' ? (item.createdAt ? formatDateToShortPattern(item.createdAt) : 'Set Date') : step.dateVal}
+                        </span>
+
+                        {step.isEditing && (
+                          <CustomDatePicker
+                            value={step.label === 'Created' ? (item.createdAt ? item.createdAt.substring(0, 10) : '') : (step.date || '')}
+                            onChange={(date) => handleFieldUpdate(step.label === 'Created' ? 'createdAt' : step.historyField as any, date)}
+                            onClose={() => step.setIsEditing(false)}
+                            align="right"
+                          />
+                        )}
+
+                        <div className="premium-timeline-meta">
+                          {step.completedKey && (
+                            <input
+                              type="checkbox"
+                              className="premium-timeline-checkbox"
+                              checked={step.completed}
+                              onChange={(e) => handleFieldUpdate(step.completedKey as any, e.target.checked)}
+                              title={`Mark ${step.label} as Completed`}
+                            />
+                          )}
+                          {step.diffDays && (
+                            <span className={`premium-timeline-diff-tag ${step.classStr === 'overdue' ? 'overdue' : ''}`} title={step.diffTitle}>
+                              {step.diffDays}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
 
+            {/* 2-COLUMN PROPERTIES GRID DASHBOARD */}
+            <div className="premium-properties-dashboard">
+              
+              {/* PANEL 1: Lifecycle & Integration */}
+              <div className="properties-panel">
+                <h4 className="properties-panel-title">Lifecycle & Integration</h4>
 
+                {/* Product Group */}
+                <div className="property-row-flat">
+                  <span className="premium-property-label" style={{ color: !item.product ? '#f97316' : undefined, fontWeight: !item.product ? '700' : undefined }}>
+                    <Layers size={13} style={{ color: !item.product ? '#f97316' : undefined }} /> Product Group
+                  </span>
+                  <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div className={`premium-select-pill ${!item.product ? 'warning-highlight' : ''}`}>
+                      <select
+                        value={item.product || ''}
+                        onChange={(e) => handleFieldUpdate('product', e.target.value)}
+                      >
+                        <option value="">— Select Product Group —</option>
+                        {productList.map(p => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                        {item.product && !productList.includes(item.product) && (
+                          <option value={item.product}>{item.product}</option>
+                        )}
+                      </select>
+                    </div>
+                    {!item.product && (
+                      <span className="animate-pulse" style={{ color: '#f97316', fontSize: '0.65rem', fontWeight: 'bold' }}>Required</span>
+                    )}
+                  </div>
+                </div>
 
+                {/* Status */}
+                <div className="property-row-flat">
+                  <span className="premium-property-label">
+                    <CheckSquare size={13} /> status
+                  </span>
+                  <div className="premium-property-value">
+                    <StatusDropdown
+                      value={item.status}
+                      onChange={(val) => handleFieldUpdate('status', val)}
+                      productStatuses={productStatuses}
+                    />
+                  </div>
+                </div>
 
-          
-          {/* Status */}
-          <div className="property-row-flat">
-            <span className="premium-property-label">
-              <CheckSquare size={13} /> status
-            </span>
-            <div className="premium-property-value">
-              <StatusDropdown
-                value={item.status}
-                onChange={(val) => handleFieldUpdate('status', val)}
-                productStatuses={productStatuses}
-              />
+                {/* ClickUp Task Link */}
+                <div className="property-row-flat">
+                  <span className="premium-property-label">
+                    <Link size={13} /> ClickUp Task
+                  </span>
+                  <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <input
+                      type="text"
+                      style={{ 
+                        color: 'var(--accent)', 
+                        width: '160px', 
+                        textAlign: 'right', 
+                        fontWeight: 500,
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden'
+                      }}
+                      placeholder="Empty Link"
+                      onBlur={(e) => {
+                        const val = e.target.value.trim();
+                        if (val !== item.taskLink) {
+                          handleFieldUpdate('taskLink', val);
+                          if (val) {
+                            handleSyncClickup(val);
+                          }
+                        }
+                      }}
+                      defaultValue={item.taskLink}
+                    />
+                    {item.taskLink && (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', pointerEvents: 'auto', marginLeft: '6px' }}>
+                        <a href={item.taskLink} target="_blank" rel="noreferrer" title="Open ClickUp Task" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                          <ExternalLink size={11} style={{ color: 'var(--text-muted)' }} />
+                        </a>
+                        <button
+                          onClick={handleCopyClickupLink}
+                          title={copiedClickup ? "Copied!" : "Copy ClickUp Link"}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            padding: 0,
+                            color: copiedClickup ? '#10b981' : 'var(--text-muted)',
+                            transition: 'color 0.15s ease'
+                          }}
+                        >
+                          {copiedClickup ? <Check size={11} /> : <Copy size={11} />}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ClickUp Status */}
+                {item.taskLink && (
+                  <div className="property-row-flat">
+                    <span className="premium-property-label">
+                      <RefreshCw size={13} /> ClickUp Status
+                    </span>
+                    <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span
+                        className="premium-clickup-badge"
+                        style={{ 
+                          borderColor: getClickupStatusColor(item.clickupStatus), 
+                          color: getClickupStatusColor(item.clickupStatus),
+                          fontSize: '0.675rem',
+                          padding: '3px 8px',
+                          width: 'auto',
+                          minWidth: '70px',
+                          textAlign: 'center',
+                          fontWeight: 700,
+                          borderRadius: '6px',
+                          backgroundColor: 'var(--background)',
+                          border: '1px solid',
+                          display: 'inline-block'
+                        }}
+                      >
+                        {item.clickupStatus || 'None'}
+                      </span>
+                      {item.clickupSubtasksCount !== undefined && item.clickupSubtasksCount > 0 && (
+                        <span 
+                          onClick={() => setActiveSubtasksTaskLink(item.taskLink)}
+                          style={{ fontSize: '0.75rem', color: 'var(--primary)', marginLeft: '4px', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}
+                          title="Click to view subtasks breakdown"
+                        >
+                          ({item.clickupSubtasksCount} subtasks)
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleSyncClickup(item.taskLink)}
+                        disabled={isSyncing || !clickupApiKey}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: (isSyncing || !clickupApiKey) ? 'not-allowed' : 'pointer',
+                          color: 'var(--text-muted)',
+                          padding: '1px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          opacity: !clickupApiKey ? 0.3 : 1
+                        }}
+                        title={!clickupApiKey ? "Configure API Key in Settings to sync" : "Sync status with ClickUp"}
+                      >
+                        <RefreshCw size={11} style={{ animation: isSyncing ? 'spin 1s linear infinite' : 'none' }} />
+                      </button>
+                      {syncError && (
+                        <span style={{ color: 'var(--danger)', display: 'inline-flex', alignItems: 'center', cursor: 'help' }} title={syncError}>
+                          <AlertCircle size={11} />
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* ClickUp Assignee */}
+                {item.taskLink && (
+                  <div className="property-row-flat">
+                    <span className="premium-property-label">
+                      <User size={13} /> ClickUp Assignee
+                    </span>
+                    <div className="premium-property-value">
+                      {item.clickupAssignee ? (
+                        <div className="cu-tooltip-container" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                          <span style={{ 
+                            fontSize: '0.8rem', 
+                            fontWeight: 500,
+                            color: 'var(--text-primary)',
+                            borderBottom: '1px dashed var(--text-muted)',
+                            cursor: 'help'
+                          }}>
+                            {formatClickupAssignee(item.clickupAssignee)}
+                          </span>
+                          <span className="cu-tooltip-text" style={{ left: 'auto', right: '105%', transform: 'translateY(-50%) translateX(4px)' }}>
+                            {item.clickupAssignee.split(',').map(s => s.trim()).join('\n')}
+                          </span>
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Unassigned</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* PANEL 2: Governance & Ownership */}
+              <div className="properties-panel">
+                <h4 className="properties-panel-title">Governance & Ownership</h4>
+                
+                {/* Assignees */}
+                <div className="property-row-flat">
+                  <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <User size={13} /> assignees
+                    <span title="View Change History" style={{ display: 'inline-flex' }}>
+                      <History 
+                        size={12} 
+                        style={{ cursor: 'pointer', opacity: 0.6 }} 
+                        onClick={() => setHistoryField({ name: 'poc', label: 'POC Owner' })}
+                      />
+                    </span>
+                  </span>
+                  <div className="premium-property-value">
+                    <div className="premium-select-pill" style={{ paddingLeft: '4px' }}>
+                      <div 
+                        className="clickup-avatar-circle" 
+                        style={{ 
+                          backgroundColor: getAssigneeColor(item.poc),
+                          width: '18px',
+                          height: '18px',
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.65rem',
+                          fontWeight: 700,
+                          color: 'white',
+                          flexShrink: 0
+                        }}
+                      >
+                        {getInitials(item.poc)}
+                      </div>
+                      <select
+                        value={item.poc || ''}
+                        onChange={(e) => handleFieldUpdate('poc', e.target.value)}
+                      >
+                        <option value="">— Select POC —</option>
+                        {pocList.map(p => (
+                          <option key={p} value={p}>
+                            {p}
+                          </option>
+                        ))}
+                        {item.poc && !pocList.includes(item.poc) && (
+                          <option value={item.poc}>{item.poc}</option>
+                        )}
+                      </select>
+                    </div>
+                    {item.poc && (
+                      <span 
+                        style={{ 
+                          fontSize: '0.65rem', 
+                          marginLeft: '6px', 
+                          backgroundColor: 'var(--primary-glow)', 
+                          border: '1px solid var(--primary-border)', 
+                          borderRadius: '10px', 
+                          padding: '2px 8px',
+                          color: 'var(--primary)',
+                          fontWeight: 700
+                        }}
+                        title="Total active tasks managed by this POC"
+                      >
+                        {pocActiveTaskCounts[item.poc] || 0} active
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Blockers */}
+                <div className="property-row-flat">
+                  <span className="premium-property-label" style={{ color: item.blocker ? 'var(--danger)' : 'var(--text-muted)' }}>
+                    <AlertCircle size={13} /> blockers
+                  </span>
+                  <div className="premium-property-value">
+                    <input
+                      type="text"
+                      style={{ color: item.blocker ? 'var(--danger)' : 'var(--text-primary)', width: '120px', textAlign: 'right', fontWeight: 600 }}
+                      placeholder="None"
+                      onBlur={(e) => {
+                        if (e.target.value !== item.blocker) {
+                          handleFieldUpdate('blocker', e.target.value);
+                        }
+                      }}
+                      defaultValue={item.blocker}
+                    />
+                  </div>
+                </div>
+
+                {/* Tarun Sir Verified */}
+                <div className="property-row-flat">
+                  <span className="premium-property-label">
+                    <CheckSquare size={13} /> Tarun Sir verified
+                  </span>
+                  <div className="premium-property-value">
+                    <label 
+                      className="premium-toggle-wrapper"
+                      style={{ opacity: isCurrentUserAdmin ? 1 : 0.6, cursor: isCurrentUserAdmin ? 'pointer' : 'not-allowed' }}
+                      title={isCurrentUserAdmin ? 'Toggle verification status' : 'Only admins can toggle Tarun Sir verification'}
+                    >
+                      <input 
+                        type="checkbox" 
+                        className="premium-toggle-checkbox" 
+                        checked={item.tarunSirApproval} 
+                        disabled={!isCurrentUserAdmin}
+                        onChange={(e) => handleFieldUpdate('tarunSirApproval', e.target.checked)} 
+                      />
+                      <span className="premium-toggle-slider" />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Raised by Tarun Sir */}
+                <div className="property-row-flat">
+                  <span className="premium-property-label">
+                    <Star size={13} /> raised by Tarun Sir
+                  </span>
+                  <div className="premium-property-value">
+                    <label className="premium-toggle-wrapper">
+                      <input 
+                        type="checkbox" 
+                        className="premium-toggle-checkbox" 
+                        checked={item.raisedByTarunSir} 
+                        onChange={(e) => handleFieldUpdate('raisedByTarunSir', e.target.checked)} 
+                      />
+                      <span className="premium-toggle-slider" />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Priority */}
+                <div className="property-row-flat">
+                  <span className="premium-property-label">
+                    <Flag size={13} /> priority
+                  </span>
+                  <div className="premium-property-value">
+                    <div className="premium-select-pill">
+                      <Flag size={11} fill={getPriorityFlagColor(item.priority)} color={getPriorityFlagColor(item.priority)} style={{ marginRight: '2px' }} />
+                      <select
+                        value={item.priority || ''}
+                        onChange={(e) => handleFieldUpdate('priority', e.target.value as any)}
+                      >
+                        <option value="">— Select Priority —</option>
+                        <option value="P0">P0 (Critical)</option>
+                        <option value="P1">P1 (High)</option>
+                        <option value="P2">P2 (Medium)</option>
+                        <option value="P3">P3 (Normal)</option>
+                        <option value="P4">P4 (Low)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             </div>
-          </div>
 
+            {/* Blocker Alert Banner */}
+            {item.blocker && (
+              <div style={{ backgroundColor: 'var(--danger-bg)', border: '1px solid rgba(239, 68, 68, 0.15)', borderLeft: '4px solid var(--danger)', borderRadius: '6px', padding: '0.4rem 0.65rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <span style={{ fontSize: '1rem' }}>🛑</span>
+                <p style={{ margin: 0, fontSize: '0.725rem', color: 'var(--text-secondary)', fontWeight: 500, lineHeight: 1.3 }}>
+                  <strong style={{ color: 'var(--danger)' }}>Blocker active:</strong> {item.blocker}
+                </p>
+              </div>
+            )}
 
-
-          {/* ClickUp Task Link */}
-          <div className="property-row-flat">
-            <span className="premium-property-label">
-              <Link size={13} /> ClickUp Task
-            </span>
-            <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <input
-                type="text"
-                style={{ 
-                  color: 'var(--accent)', 
-                  width: '160px', 
-                  textAlign: 'right', 
-                  fontWeight: 500,
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden'
+            {/* Description card */}
+            <div>
+              <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', borderBottom: '1px solid var(--border)', paddingBottom: '0.25rem', margin: '0 0 0.5rem 0' }}>
+                Description
+              </p>
+              <textarea
+                ref={descriptionRef}
+                className="premium-textarea"
+                style={{ minHeight: '120px', overflowY: 'hidden', resize: 'none' }}
+                placeholder="Enter feature description..."
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = 'auto';
+                  target.style.height = `${target.scrollHeight}px`;
                 }}
-                placeholder="Empty Link"
                 onBlur={(e) => {
-                  const val = e.target.value.trim();
-                  if (val !== item.taskLink) {
-                    handleFieldUpdate('taskLink', val);
-                    if (val) {
-                      handleSyncClickup(val);
-                    }
+                  if (e.target.value !== item.description) {
+                    handleFieldUpdate('description', e.target.value);
                   }
                 }}
-                defaultValue={item.taskLink}
+                defaultValue={item.description}
               />
-              {item.taskLink && (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', pointerEvents: 'auto', marginLeft: '6px' }}>
-                  <a href={item.taskLink} target="_blank" rel="noreferrer" title="Open ClickUp Task" style={{ display: 'inline-flex', alignItems: 'center' }}>
-                    <ExternalLink size={11} style={{ color: 'var(--text-muted)' }} />
-                  </a>
-                  <button
-                    onClick={handleCopyClickupLink}
-                    title={copiedClickup ? "Copied!" : "Copy ClickUp Link"}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      padding: 0,
-                      color: copiedClickup ? '#10b981' : 'var(--text-muted)',
-                      transition: 'color 0.15s ease'
-                    }}
-                  >
-                    {copiedClickup ? <Check size={11} /> : <Copy size={11} />}
-                  </button>
-                </div>
-              )}
             </div>
+
+            {isProject && (
+              <>
+                <hr style={{ border: 'none', borderTop: '1px solid var(--border)' }} />
+                <AttendeeFeedbackDetails itemId={realProjectId} category="student-projects" />
+              </>
+            )}
+
           </div>
+        </div>
 
-          {/* ClickUp Status */}
-          {item.taskLink && (
-            <div className="property-row-flat">
-              <span className="premium-property-label">
-                <RefreshCw size={13} /> ClickUp Status
+        {/* RIGHT COLUMN: Pinned Chat / Discussion sidebar */}
+        <div style={{ width: '380px', flexShrink: 0, height: '100%', minHeight: 0 }}>
+          <div className="premium-discussion-sidebar">
+            <div className="discussion-sidebar-header">
+              <h4 className="discussion-sidebar-title">Discussion</h4>
+              <span className="discussion-sidebar-count">
+                {(() => {
+                  const taskComments = comments.filter((c: any) => c.itemId === item.id);
+                  return taskComments.length;
+                })()}
               </span>
-              <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span
-                  className="premium-clickup-badge"
-                  style={{ 
-                    borderColor: getClickupStatusColor(item.clickupStatus), 
-                    color: getClickupStatusColor(item.clickupStatus),
-                    fontSize: '0.675rem',
-                    padding: '3px 8px',
-                    width: 'auto',
-                    minWidth: '70px',
-                    textAlign: 'center',
-                    fontWeight: 700,
-                    borderRadius: '6px',
-                    backgroundColor: 'var(--background)',
-                    border: '1px solid',
-                    display: 'inline-block'
-                  }}
-                >
-                  {item.clickupStatus || 'None'}
-                </span>
-                {item.clickupSubtasksCount !== undefined && item.clickupSubtasksCount > 0 && (
-                  <span 
-                    onClick={() => setActiveSubtasksTaskLink(item.taskLink)}
-                    style={{ fontSize: '0.75rem', color: 'var(--primary)', marginLeft: '4px', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}
-                    title="Click to view subtasks breakdown"
-                  >
-                    ({item.clickupSubtasksCount} subtasks)
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => handleSyncClickup(item.taskLink)}
-                  disabled={isSyncing || !clickupApiKey}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: (isSyncing || !clickupApiKey) ? 'not-allowed' : 'pointer',
-                    color: 'var(--text-muted)',
-                    padding: '1px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    opacity: !clickupApiKey ? 0.3 : 1
-                  }}
-                  title={!clickupApiKey ? "Configure API Key in Settings to sync" : "Sync status with ClickUp"}
-                >
-                  <RefreshCw size={11} style={{ animation: isSyncing ? 'spin 1s linear infinite' : 'none' }} />
-                </button>
-                {syncError && (
-                  <span style={{ color: 'var(--danger)', display: 'inline-flex', alignItems: 'center', cursor: 'help' }} title={syncError}>
-                    <AlertCircle size={11} />
-                  </span>
-                )}
-              </div>
             </div>
-          )}
 
-          {/* ClickUp Assignee */}
-          {item.taskLink && (
-            <div className="property-row-flat">
-              <span className="premium-property-label">
-                <User size={13} /> ClickUp Assignee
-              </span>
-              <div className="premium-property-value">
-                {item.clickupAssignee ? (
-                  <div className="cu-tooltip-container" style={{ display: 'inline-flex', alignItems: 'center' }}>
-                    <span style={{ 
-                      fontSize: '0.8rem', 
-                      fontWeight: 500,
-                      color: 'var(--text-primary)',
-                      borderBottom: '1px dashed var(--text-muted)',
-                      cursor: 'help'
-                    }}>
-                      {formatClickupAssignee(item.clickupAssignee)}
-                    </span>
-                    <span className="cu-tooltip-text" style={{ left: 'auto', right: '105%', transform: 'translateY(-50%) translateX(4px)' }}>
-                      {item.clickupAssignee.split(',').map(s => s.trim()).join('\n')}
-                    </span>
+            {/* Comments list */}
+            <div className="discussion-messages-container">
+              {(() => {
+                const taskComments = comments.filter((c: any) => c.itemId === item.id);
+                return taskComments.length === 0 ? (
+                  <div style={{
+                    padding: '1.5rem',
+                    background: 'var(--background-alt)',
+                    borderRadius: '8px',
+                    border: '1px dashed var(--border-light)',
+                    color: 'var(--text-muted)',
+                    fontSize: '0.775rem',
+                    textAlign: 'center',
+                    margin: 'auto 0'
+                  }}>
+                    No comments yet on this task.
                   </div>
                 ) : (
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Unassigned</span>
-                )}
-              </div>
+                  taskComments.map((comment: any) => (
+                    <div key={comment.id} className="discussion-message-card">
+                      <div className="discussion-message-header">
+                        <span className="discussion-message-author">
+                          {comment.authorName}
+                        </span>
+                        <span className="discussion-message-time">
+                          {new Date(comment.createdAt).toLocaleDateString('default', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <div className="discussion-message-content">
+                        {comment.content}
+                      </div>
+                    </div>
+                  ))
+                );
+              })()}
             </div>
-          )}
-        </div>
 
-        {/* PANEL 2: Milestone Checkpoints */}
-        <div className="properties-panel">
-          <h4 className="properties-panel-title">Milestone Checkpoints</h4>
-          
-          {/* Created Date */}
-          <div className="property-row-flat" style={{ position: 'relative' }}>
-            <span className="premium-property-label">
-              <Calendar size={13} /> Created Date
-            </span>
-            <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span 
-                style={{ cursor: 'pointer', fontWeight: 600, borderBottom: '1px dashed var(--text-muted)' }}
-                onClick={() => setIsEditingCreatedAt(true)}
-                title="Click to edit Created Date"
-              >
-                {item.createdAt ? formatDateToShortPattern(item.createdAt) : 'Set Date'}
-              </span>
-              {isEditingCreatedAt && (
-                <CustomDatePicker
-                  value={item.createdAt ? item.createdAt.substring(0, 10) : ''}
-                  onChange={(date) => handleFieldUpdate('createdAt', date)}
-                  onClose={() => setIsEditingCreatedAt(false)}
-                  align="right"
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Specs Date */}
-          <div className="property-row-flat" style={{ position: 'relative' }}>
-            <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Calendar size={13} /> Specs Date
-              <span title="View Change History" style={{ display: 'inline-flex' }}>
-                <History 
-                  size={12} 
-                  style={{ cursor: 'pointer', opacity: 0.6 }} 
-                  onClick={() => setHistoryField({ name: 'productDeadline', label: 'Specs Date' })}
-                />
-              </span>
-            </span>
-            <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span 
-                onClick={() => setIsEditingSpecsDate(true)}
-                style={{ cursor: 'pointer', fontWeight: 600, color: specsOverdue ? 'var(--danger)' : 'var(--text-primary)', borderBottom: specsOverdue ? '1px dashed var(--danger)' : '1px dashed var(--text-muted)' }}
-                title={specsOverdue ? "Overdue milestone!" : "Click to edit Specs Date"}
-              >
-                {item.productDeadline ? formatDateToShortPattern(item.productDeadline) : 'Set Date'}
-              </span>
-              {item.productDeadline && getDateDiffDays(item.createdAt, item.productDeadline) && (
-                <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', backgroundColor: 'var(--primary-glow)', color: 'var(--primary)', fontWeight: 600 }} title="Days since Created Date">
-                  {getDateDiffDays(item.createdAt, item.productDeadline)}
+            {/* Add comment textarea */}
+            <div className="discussion-input-area">
+              <textarea
+                className="discussion-textarea"
+                placeholder="Post a reply..."
+                value={newCommentText}
+                onChange={(e) => setNewCommentText(e.target.value)}
+                rows={2}
+              />
+              {commentError && (
+                <span style={{ fontSize: '0.725rem', color: 'var(--danger, #ef4444)' }}>
+                  {commentError}
                 </span>
               )}
-              {isEditingSpecsDate && (
-                <CustomDatePicker
-                  value={item.productDeadline || ''}
-                  onChange={(date) => handleFieldUpdate('productDeadline', date)}
-                  onClose={() => setIsEditingSpecsDate(false)}
-                  align="right"
-                />
-              )}
-              <input
-                type="checkbox"
-                checked={!!item.productDeadlineCompleted}
-                onChange={(e) => handleFieldUpdate('productDeadlineCompleted', e.target.checked)}
-                style={{ width: '13px', height: '13px', cursor: 'pointer' }}
-                title="Mark Product Specs as Completed"
-              />
-            </div>
-          </div>
-
-          {/* UI/UX Date */}
-          <div className="property-row-flat" style={{ position: 'relative' }}>
-            <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Palette size={13} /> UI/UX Date
-              <span title="View Change History" style={{ display: 'inline-flex' }}>
-                <History 
-                  size={12} 
-                  style={{ cursor: 'pointer', opacity: 0.6 }} 
-                  onClick={() => setHistoryField({ name: 'uiux', label: 'UI/UX Date' })}
-                />
-              </span>
-            </span>
-            <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span 
-                onClick={() => setIsEditingUiuxDate(true)}
-                style={{ cursor: 'pointer', fontWeight: 600, color: uiuxOverdue ? 'var(--danger)' : 'var(--text-primary)', borderBottom: uiuxOverdue ? '1px dashed var(--danger)' : '1px dashed var(--text-muted)' }}
-                title={uiuxOverdue ? "Overdue milestone!" : "Click to edit UI/UX Date"}
+              <button
+                onClick={handlePostComment}
+                disabled={isPostingComment || !newCommentText.trim()}
+                className="btn btn-primary discussion-submit-btn"
               >
-                {item.uiux ? formatDateToShortPattern(item.uiux) : 'Set Date'}
-              </span>
-              {item.uiux && getDateDiffDays(item.productDeadline, item.uiux) && (
-                <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', backgroundColor: 'var(--primary-glow)', color: 'var(--primary)', fontWeight: 600 }} title="Days since Specs Date">
-                  {getDateDiffDays(item.productDeadline, item.uiux)}
-                </span>
-              )}
-              {isEditingUiuxDate && (
-                <CustomDatePicker
-                  value={item.uiux || ''}
-                  onChange={(date) => handleFieldUpdate('uiux', date)}
-                  onClose={() => setIsEditingUiuxDate(false)}
-                  align="right"
-                />
-              )}
-              <input
-                type="checkbox"
-                checked={!!item.uiuxCompleted}
-                onChange={(e) => handleFieldUpdate('uiuxCompleted', e.target.checked)}
-                style={{ width: '13px', height: '13px', cursor: 'pointer' }}
-                title="Mark UI/UX Design as Completed"
-              />
-            </div>
-          </div>
-
-          {/* Dev Date */}
-          <div className="property-row-flat" style={{ position: 'relative' }}>
-            <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Code size={13} /> Dev Date
-              <span title="View Change History" style={{ display: 'inline-flex' }}>
-                <History 
-                  size={12} 
-                  style={{ cursor: 'pointer', opacity: 0.6 }} 
-                  onClick={() => setHistoryField({ name: 'deadline', label: 'Dev Date' })}
-                />
-              </span>
-            </span>
-            <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span 
-                onClick={() => setIsEditingDevDate(true)}
-                style={{ cursor: 'pointer', fontWeight: 600, color: devOverdue ? 'var(--danger)' : 'var(--text-primary)', borderBottom: devOverdue ? '1px dashed var(--danger)' : '1px dashed var(--text-muted)' }}
-                title={devOverdue ? "Overdue milestone!" : "Click to edit Dev Date"}
-              >
-                {item.deadline ? formatDateToShortPattern(item.deadline) : 'Set Date'}
-              </span>
-              {item.deadline && (item.uiux || item.productDeadline) && getDateDiffDays(item.uiux || item.productDeadline, item.deadline) && (
-                <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', backgroundColor: 'var(--primary-glow)', color: 'var(--primary)', fontWeight: 600 }} title={item.uiux ? "Days since UI/UX Date" : "Days since Specs Date"}>
-                  {getDateDiffDays(item.uiux || item.productDeadline, item.deadline)}
-                </span>
-              )}
-              {isEditingDevDate && (
-                <CustomDatePicker
-                  value={item.deadline || ''}
-                  onChange={(date) => handleFieldUpdate('deadline', date)}
-                  onClose={() => setIsEditingDevDate(false)}
-                  align="right"
-                />
-              )}
-              <input
-                type="checkbox"
-                checked={!!item.deadlineCompleted}
-                onChange={(e) => handleFieldUpdate('deadlineCompleted', e.target.checked)}
-                style={{ width: '13px', height: '13px', cursor: 'pointer' }}
-                title="Mark Dev Deadline as Completed"
-              />
-            </div>
-          </div>
-
-          {/* Release Date */}
-          <div className="property-row-flat" style={{ position: 'relative' }}>
-            <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Sparkles size={13} /> Release Date
-              <span title="View Change History" style={{ display: 'inline-flex' }}>
-                <History 
-                  size={12} 
-                  style={{ cursor: 'pointer', opacity: 0.6 }} 
-                  onClick={() => setHistoryField({ name: 'finalRelease', label: 'Release Date' })}
-                />
-              </span>
-            </span>
-            <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span 
-                onClick={() => setIsEditingReleaseDate(true)}
-                style={{ cursor: 'pointer', fontWeight: 600, color: releaseOverdue ? 'var(--danger)' : 'var(--text-primary)', borderBottom: releaseOverdue ? '1px dashed var(--danger)' : '1px dashed var(--text-muted)' }}
-                title={releaseOverdue ? "Overdue milestone!" : "Click to edit Release Date"}
-              >
-                {item.finalRelease ? formatDateToShortPattern(item.finalRelease) : 'Set Date'}
-              </span>
-              {item.finalRelease && (item.deadline || item.uiux || item.productDeadline) && getDateDiffDays(item.deadline || item.uiux || item.productDeadline, item.finalRelease) && (
-                <span style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', backgroundColor: 'var(--primary-glow)', color: 'var(--primary)', fontWeight: 600 }} title={item.deadline ? "Days since Dev Date" : item.uiux ? "Days since UI/UX Date" : "Days since Specs Date"}>
-                  {getDateDiffDays(item.deadline || item.uiux || item.productDeadline, item.finalRelease)}
-                </span>
-              )}
-              {isEditingReleaseDate && (
-                <CustomDatePicker
-                  value={item.finalRelease || ''}
-                  onChange={(date) => handleFieldUpdate('finalRelease', date)}
-                  onClose={() => setIsEditingReleaseDate(false)}
-                  align="right"
-                />
-              )}
-              <input
-                type="checkbox"
-                checked={!!item.finalReleaseCompleted}
-                onChange={(e) => handleFieldUpdate('finalReleaseCompleted', e.target.checked)}
-                style={{ width: '13px', height: '13px', cursor: 'pointer' }}
-                title="Mark Final Release as Completed"
-              />
+                {isPostingComment ? 'Posting...' : 'Post Reply'}
+              </button>
             </div>
           </div>
         </div>
 
-        {/* PANEL 3: Governance & Ownership */}
-        <div className="properties-panel">
-          <h4 className="properties-panel-title">Governance & Ownership</h4>
-          
-          {/* Assignees */}
-          <div className="property-row-flat">
-            <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <User size={13} /> assignees
-              <span title="View Change History" style={{ display: 'inline-flex' }}>
-                <History 
-                  size={12} 
-                  style={{ cursor: 'pointer', opacity: 0.6 }} 
-                  onClick={() => setHistoryField({ name: 'poc', label: 'POC Owner' })}
-                />
-              </span>
-            </span>
-            <div className="premium-property-value">
-              <div className="premium-select-pill" style={{ paddingLeft: '4px' }}>
-                <div 
-                  className="clickup-avatar-circle" 
-                  style={{ 
-                    backgroundColor: getAssigneeColor(item.poc),
-                    width: '18px',
-                    height: '18px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '0.65rem',
-                    fontWeight: 700,
-                    color: 'white',
-                    flexShrink: 0
-                  }}
-                >
-                  {getInitials(item.poc)}
-                </div>
-                <select
-                  value={item.poc || ''}
-                  onChange={(e) => handleFieldUpdate('poc', e.target.value)}
-                >
-                  <option value="">— Select POC —</option>
-                  {pocList.map(p => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                  {item.poc && !pocList.includes(item.poc) && (
-                    <option value={item.poc}>{item.poc}</option>
-                  )}
-                </select>
-              </div>
-              {item.poc && (
-                <span 
-                  style={{ 
-                    fontSize: '0.65rem', 
-                    marginLeft: '6px', 
-                    backgroundColor: 'var(--primary-glow)', 
-                    border: '1px solid var(--primary-border)', 
-                    borderRadius: '10px', 
-                    padding: '2px 8px',
-                    color: 'var(--primary)',
-                    fontWeight: 700
-                  }}
-                  title="Total active tasks managed by this POC"
-                >
-                  {pocActiveTaskCounts[item.poc] || 0} active
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Blockers */}
-          <div className="property-row-flat">
-            <span className="premium-property-label" style={{ color: item.blocker ? 'var(--danger)' : 'var(--text-muted)' }}>
-              <AlertCircle size={13} /> blockers
-            </span>
-            <div className="premium-property-value">
-              <input
-                type="text"
-                style={{ color: item.blocker ? 'var(--danger)' : 'var(--text-primary)', width: '120px', textAlign: 'right', fontWeight: 600 }}
-                placeholder="None"
-                onBlur={(e) => {
-                  if (e.target.value !== item.blocker) {
-                    handleFieldUpdate('blocker', e.target.value);
-                  }
-                }}
-                defaultValue={item.blocker}
-              />
-            </div>
-          </div>
-
-          {/* Tarun Sir Verified */}
-          <div className="property-row-flat">
-            <span className="premium-property-label">
-              <CheckSquare size={13} /> Tarun Sir verified
-            </span>
-            <div className="premium-property-value">
-              <label 
-                className="premium-toggle-wrapper"
-                style={{ opacity: isCurrentUserAdmin ? 1 : 0.6, cursor: isCurrentUserAdmin ? 'pointer' : 'not-allowed' }}
-                title={isCurrentUserAdmin ? 'Toggle verification status' : 'Only admins can toggle Tarun Sir verification'}
-              >
-                <input 
-                  type="checkbox" 
-                  className="premium-toggle-checkbox" 
-                  checked={item.tarunSirApproval} 
-                  disabled={!isCurrentUserAdmin}
-                  onChange={(e) => handleFieldUpdate('tarunSirApproval', e.target.checked)} 
-                />
-                <span className="premium-toggle-slider" />
-              </label>
-            </div>
-          </div>
-
-          {/* Raised by Tarun Sir */}
-          <div className="property-row-flat">
-            <span className="premium-property-label">
-              <Star size={13} /> raised by Tarun Sir
-            </span>
-            <div className="premium-property-value">
-              <label className="premium-toggle-wrapper">
-                <input 
-                  type="checkbox" 
-                  className="premium-toggle-checkbox" 
-                  checked={item.raisedByTarunSir} 
-                  onChange={(e) => handleFieldUpdate('raisedByTarunSir', e.target.checked)} 
-                />
-                <span className="premium-toggle-slider" />
-              </label>
-            </div>
-          </div>
-
-          {/* Priority */}
-          <div className="property-row-flat">
-            <span className="premium-property-label">
-              <Flag size={13} /> priority
-            </span>
-            <div className="premium-property-value">
-              <div className="premium-select-pill">
-                <Flag size={11} fill={getPriorityFlagColor(item.priority)} color={getPriorityFlagColor(item.priority)} style={{ marginRight: '2px' }} />
-                <select
-                  value={item.priority || ''}
-                  onChange={(e) => handleFieldUpdate('priority', e.target.value as any)}
-                >
-                  <option value="">— Select Priority —</option>
-                  <option value="P0">P0 (Critical)</option>
-                  <option value="P1">P1 (High)</option>
-                  <option value="P2">P2 (Medium)</option>
-                  <option value="P3">P3 (Normal)</option>
-                  <option value="P4">P4 (Low)</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-
-
-      {/* Blocker Alert Banner */}
-      {item.blocker && (
-        <div style={{ backgroundColor: 'var(--danger-bg)', border: '1px solid rgba(239, 68, 68, 0.15)', borderLeft: '4px solid var(--danger)', borderRadius: '6px', padding: '0.4rem 0.65rem', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1.25rem' }}>
-          <span style={{ fontSize: '1rem' }}>🛑</span>
-          <p style={{ margin: 0, fontSize: '0.725rem', color: 'var(--text-secondary)', fontWeight: 500, lineHeight: 1.3 }}>
-            <strong style={{ color: 'var(--danger)' }}>Blocker active:</strong> {item.blocker}
-          </p>
-        </div>
-      )}
-
-      {/* Description card */}
-      <div style={{ marginTop: '0.5rem' }}>
-        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', borderBottom: '1px solid var(--border)', paddingBottom: '0.25rem', margin: '0 0 0.5rem 0' }}>
-          Description
-        </p>
-        <textarea
-          ref={descriptionRef}
-          className="premium-textarea"
-          style={{ minHeight: '120px', overflowY: 'hidden', resize: 'none' }}
-          placeholder="Enter feature description..."
-          onInput={(e) => {
-            const target = e.target as HTMLTextAreaElement;
-            target.style.height = 'auto';
-            target.style.height = `${target.scrollHeight}px`;
-          }}
-          onBlur={(e) => {
-            if (e.target.value !== item.description) {
-              handleFieldUpdate('description', e.target.value);
-            }
-          }}
-          defaultValue={item.description}
-        />
-      </div>
-
-
-
-      {isProject && (
-        <>
-          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '1.5rem 0' }} />
-          <AttendeeFeedbackDetails itemId={realProjectId} category="student-projects" />
-        </>
-      )}
-
-      {/* Comments / Discussion Section */}
-      <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '1.5rem 0' }} />
-      <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <h4 style={{ margin: 0, fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Discussion ({(() => {
-            const taskComments = comments.filter((c: any) => c.itemId === item.id);
-            return taskComments.length;
-          })()})
-        </h4>
-
-        {/* Comments list */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '300px', overflowY: 'auto' }}>
-          {(() => {
-            const taskComments = comments.filter((c: any) => c.itemId === item.id);
-            return taskComments.length === 0 ? (
-              <div style={{
-                padding: '1.5rem',
-                background: 'var(--background-alt)',
-                borderRadius: '8px',
-                border: '1px dashed var(--border-light)',
-                color: 'var(--text-muted)',
-                fontSize: '0.775rem',
-                textAlign: 'center'
-              }}>
-                No comments yet on this task.
-              </div>
-            ) : (
-              taskComments.map((comment: any) => (
-                <div 
-                  key={comment.id}
-                  style={{
-                    background: 'var(--background-alt)',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--border-light)',
-                    fontSize: '0.8rem',
-                    lineHeight: 1.4
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '0.725rem' }}>
-                    <span style={{ fontWeight: 800, color: 'var(--primary)' }}>
-                      {comment.authorName} ({comment.authorEmail})
-                    </span>
-                    <span style={{ color: 'var(--text-muted)' }}>
-                      {new Date(comment.createdAt).toLocaleDateString('default', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                  <div style={{ color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
-                    {comment.content}
-                  </div>
-                </div>
-              ))
-            );
-          })()}
-        </div>
-
-        {/* Add comment textarea */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '0.5rem' }}>
-          <textarea
-            placeholder="Post a reply or add notes to this conversation..."
-            value={newCommentText}
-            onChange={(e) => setNewCommentText(e.target.value)}
-            rows={2}
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              fontSize: '0.8rem',
-              borderRadius: '8px',
-              background: 'var(--background-alt)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-primary)',
-              resize: 'none',
-              fontFamily: 'inherit',
-              boxSizing: 'border-box'
-            }}
-          />
-          {commentError && (
-            <span style={{ fontSize: '0.725rem', color: 'var(--danger, #ef4444)' }}>
-              {commentError}
-            </span>
-          )}
-          <button
-            onClick={handlePostComment}
-            disabled={isPostingComment || !newCommentText.trim()}
-            className="btn btn-primary"
-            style={{
-              alignSelf: 'flex-end',
-              padding: '8px 16px',
-              fontSize: '0.775rem',
-              fontWeight: 700,
-              borderRadius: '8px',
-              cursor: 'pointer'
-            }}
-          >
-            {isPostingComment ? 'Posting...' : 'Post Reply'}
-          </button>
-        </div>
       </div>
 
       {historyField && (
@@ -3225,7 +3018,6 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
           onClose={() => setHistoryField(null)}
         />
       )}
-      </div>
     </div>
   );
 };

@@ -3052,10 +3052,10 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: var(--shadow-sm);
 }
 
-/* 3-COLUMN PROPERTIES DASHBOARD */
+/* 2-COLUMN PROPERTIES DASHBOARD */
 .premium-properties-dashboard {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 1.25rem;
   margin-top: 1rem;
   margin-bottom: 1.5rem;
@@ -3994,3 +3994,292 @@ body.read-only-mode .btn:has(svg.lucide-plus) {
   color: var(--text-primary);
 }
 
+/* PREMIUM HORIZONTAL TIMELINE */
+.premium-timeline-container {
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0.25rem 0 1rem 0;
+  box-shadow: none;
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.premium-timeline-title {
+  font-size: 0.725rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 0 0 1rem 0;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.4rem;
+}
+
+.premium-timeline-track-wrapper {
+  position: relative;
+  margin: 1.25rem 0 0.5rem 0;
+  padding: 0 16px;
+}
+
+.premium-timeline-track {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  position: relative;
+}
+
+.premium-timeline-line-connector {
+  position: absolute;
+  top: 18px; /* aligns with node circle center */
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--border);
+  z-index: 1;
+}
+
+.premium-timeline-progress-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary) 0%, var(--primary-glow) 100%);
+  transition: width 0.3s ease;
+}
+
+.premium-timeline-node {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 2;
+  text-align: center;
+  width: 90px;
+}
+
+.premium-timeline-circle {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background-color: var(--background);
+  border: 2.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
+}
+
+.premium-timeline-circle:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 0 4px var(--primary-glow);
+}
+
+.premium-timeline-node.completed .premium-timeline-circle {
+  background-color: var(--background);
+  border-color: #10b981;
+  color: #10b981;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+}
+
+.premium-timeline-node.active .premium-timeline-circle {
+  border-color: var(--primary);
+  color: var(--primary);
+  box-shadow: 0 0 12px var(--primary-glow);
+}
+
+.premium-timeline-node.overdue .premium-timeline-circle {
+  border-color: var(--danger);
+  color: var(--danger);
+  background-color: var(--danger-bg);
+}
+
+.premium-timeline-content {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.premium-timeline-label {
+  font-size: 0.775rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.premium-timeline-date {
+  font-size: 0.725rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  border-bottom: 1px dashed var(--text-muted);
+  cursor: pointer;
+  padding: 1px 2px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.premium-timeline-date:hover {
+  color: var(--primary);
+  background-color: var(--background-alt);
+}
+
+.premium-timeline-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.premium-timeline-checkbox {
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+  margin: 0;
+}
+
+.premium-timeline-diff-tag {
+  font-size: 0.65rem;
+  padding: 1px 5px;
+  border-radius: 10px;
+  background-color: var(--primary-glow);
+  color: var(--primary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.premium-timeline-diff-tag.overdue {
+  background-color: var(--danger-bg);
+  color: var(--danger);
+}
+
+/* SIDEBAR DISCUSSION / CHAT */
+.premium-discussion-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background-color: var(--panel-bg-alt);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  padding: 1.25rem;
+  gap: 1rem;
+}
+
+.discussion-sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+  flex-shrink: 0;
+}
+
+.discussion-sidebar-title {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.discussion-sidebar-count {
+  font-size: 0.7rem;
+  background-color: var(--primary-glow);
+  color: var(--primary);
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.discussion-messages-container {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-right: 4px;
+}
+
+.discussion-message-card {
+  background: var(--background-alt);
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  font-size: 0.775rem;
+  line-height: 1.4;
+  transition: transform 0.15s ease;
+}
+
+.discussion-message-card:hover {
+  transform: translateY(-1px);
+  border-color: var(--border);
+}
+
+.discussion-message-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-size: 0.7rem;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.discussion-message-author {
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.discussion-message-time {
+  color: var(--text-muted);
+}
+
+.discussion-message-content {
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.discussion-input-area {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+  flex-shrink: 0;
+}
+
+.discussion-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 0.775rem;
+  border-radius: 6px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  resize: none;
+  font-family: inherit;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.discussion-textarea:focus {
+  border-color: var(--primary);
+}
+
+.discussion-submit-btn {
+  align-self: flex-end;
+  padding: 6px 12px;
+  font-size: 0.725rem;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+}

@@ -255,22 +255,33 @@ export default async function handler(req: any, res: any) {
         if (action === 'suggest-similar') {
           const query = url.searchParams.get('query') || '';
           const excludeId = url.searchParams.get('excludeId') || '';
+          const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+          const pageSize = 5;
+          const skip = (page - 1) * pageSize;
           
           if (!query.trim() || query.trim().length < 3) {
-            return res.status(200).json({ success: true, data: [] });
+            return res.status(200).json({ success: true, data: [], total: 0, page: 1, pageSize });
           }
 
-          const similar = await ProductItemModel.find({
+          const filter = {
             id: { $ne: excludeId },
             feature: { $regex: query, $options: 'i' }
-          }, 'id feature product status clickupStatus taskLink deadline productDeadline finalRelease notes finalReleaseCompleted').limit(5).lean();
+          };
+
+          const [similar, total] = await Promise.all([
+            ProductItemModel.find(filter, 'id feature product status clickupStatus taskLink deadline productDeadline finalRelease notes finalReleaseCompleted').skip(skip).limit(pageSize).lean(),
+            ProductItemModel.countDocuments(filter)
+          ]);
 
           return res.status(200).json({ 
             success: true, 
             data: similar.map((item: any) => ({
               ...item,
               id: item.id || String(item._id)
-            }))
+            })),
+            total,
+            page,
+            pageSize
           });
         }
 
