@@ -18,6 +18,8 @@ env:
   AWS_REGION: ap-south-1
   AWS_ACCOUNT_ID: '770014814665'
   ECR_REPOSITORY: akash_ipmt
+  ECS_CLUSTER: akash_ipmt
+  ECS_SERVICE: akash_ipmt-service
   IMAGE_TAG: latest
   AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
 
@@ -95,3 +97,20 @@ jobs:
         run: |
           echo "Pushed ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
           echo "Digest ${{ steps.docker-build.outputs.digest }}"
+
+      - name: Force new ECS deployment
+        run: |
+          aws ecs update-service \
+            --region "$AWS_REGION" \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --force-new-deployment \
+            --query 'service.deployments[?status==`PRIMARY`].[id,status,rolloutState]' \
+            --output table
+
+      - name: Wait for ECS service stability
+        run: |
+          aws ecs wait services-stable \
+            --region "$AWS_REGION" \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE"
