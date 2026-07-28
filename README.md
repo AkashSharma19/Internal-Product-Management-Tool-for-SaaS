@@ -233,3 +233,4 @@ Built for the **IIMA Ventures / Coach LMS** product & operations team.
 | Akash Sharma | Product & Engineering |
 | Anushka | UI/UX Design |
 | Nikhil | Content & Engineering |
+| Adil |DevOps|
