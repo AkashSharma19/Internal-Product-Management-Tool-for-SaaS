@@ -1016,7 +1016,7 @@ export const DashboardOverview: React.FC = () => {
                   </th>
 
                   <th style={{ textAlign: 'center', width: '120px', fontWeight: 700, padding: '10px' }}>ClickUp Linked</th>
-                  <th style={{ width: '150px', fontWeight: 700, padding: '10px', textAlign: 'left' }}>Release Rate</th>
+                  {!hideReleased && <th style={{ width: '150px', fontWeight: 700, padding: '10px', textAlign: 'left' }}>Release Rate</th>}
                 </tr>
               </thead>
               <tbody>
@@ -1090,33 +1090,35 @@ export const DashboardOverview: React.FC = () => {
                         </div>
                       </td>
 
-                      <td style={{ padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{
-                            flex: 1,
-                            height: '6px',
-                            backgroundColor: 'var(--background-alt)',
-                            borderRadius: '3px',
-                            overflow: 'hidden',
-                            border: '1px solid var(--border-light)'
-                          }}>
+                      {!hideReleased && (
+                        <td style={{ padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <div style={{
-                              width: `${releasePercent}%`,
-                              height: '100%',
-                              backgroundColor: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)',
+                              flex: 1,
+                              height: '6px',
+                              backgroundColor: 'var(--background-alt)',
                               borderRadius: '3px',
-                              transition: 'width 0.5s ease-out'
-                            }} />
+                              overflow: 'hidden',
+                              border: '1px solid var(--border-light)'
+                            }}>
+                              <div style={{
+                                width: `${releasePercent}%`,
+                                height: '100%',
+                                backgroundColor: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)',
+                                borderRadius: '3px',
+                                transition: 'width 0.5s ease-out'
+                              }} />
+                            </div>
+                            <span style={{
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              minWidth: '32px',
+                              textAlign: 'right',
+                              color: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)'
+                            }}>{releasePercent}%</span>
                           </div>
-                          <span style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            minWidth: '32px',
-                            textAlign: 'right',
-                            color: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)'
-                          }}>{releasePercent}%</span>
-                        </div>
-                      </td>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -1154,32 +1156,34 @@ export const DashboardOverview: React.FC = () => {
                   >
                     {overallClickup} <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)' }}>/ {overallTotal}</span>
                   </td>
-                  <td style={{ padding: '12px 10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{
-                        flex: 1,
-                        height: '6px',
-                        backgroundColor: 'var(--background)',
-                        borderRadius: '3px',
-                        overflow: 'hidden',
-                        border: '1px solid var(--border-light)'
-                      }}>
+                  {!hideReleased && (
+                    <td style={{ padding: '12px 10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <div style={{
-                          width: `${releaseRate}%`,
-                          height: '100%',
-                          backgroundColor: releaseRate > 75 ? 'var(--success)' : releaseRate > 40 ? 'var(--warning)' : 'var(--danger)',
-                          borderRadius: '3px'
-                        }} />
+                          flex: 1,
+                          height: '6px',
+                          backgroundColor: 'var(--background)',
+                          borderRadius: '3px',
+                          overflow: 'hidden',
+                          border: '1px solid var(--border-light)'
+                        }}>
+                          <div style={{
+                            width: `${releaseRate}%`,
+                            height: '100%',
+                            backgroundColor: releaseRate > 75 ? 'var(--success)' : releaseRate > 40 ? 'var(--warning)' : 'var(--danger)',
+                            borderRadius: '3px'
+                          }} />
+                        </div>
+                        <span style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 800,
+                          minWidth: '32px',
+                          textAlign: 'right',
+                          color: releaseRate > 75 ? 'var(--success)' : releaseRate > 40 ? 'var(--warning)' : 'var(--danger)'
+                        }}>{releaseRate}%</span>
                       </div>
-                      <span style={{
-                        fontSize: '0.75rem',
-                        fontWeight: 800,
-                        minWidth: '32px',
-                        textAlign: 'right',
-                        color: releaseRate > 75 ? 'var(--success)' : releaseRate > 40 ? 'var(--warning)' : 'var(--danger)'
-                      }}>{releaseRate}%</span>
-                    </div>
-                  </td>
+                    </td>
+                  )}
                 </tr>
               </tfoot>
             </table>
@@ -1233,7 +1237,7 @@ export const DashboardOverview: React.FC = () => {
                   </th>
 
                   <th style={{ textAlign: 'center', width: '120px', fontWeight: 700, padding: '10px' }}>ClickUp Linked</th>
-                  <th style={{ width: '150px', fontWeight: 700, padding: '10px', textAlign: 'left' }}>Release Rate</th>
+                  {!hideReleased && <th style={{ width: '150px', fontWeight: 700, padding: '10px', textAlign: 'left' }}>Release Rate</th>}
                 </tr>
               </thead>
               <tbody>
@@ -1308,33 +1312,35 @@ export const DashboardOverview: React.FC = () => {
                         </div>
                       </td>
 
-                      <td style={{ padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{
-                            flex: 1,
-                            height: '6px',
-                            backgroundColor: 'var(--background-alt)',
-                            borderRadius: '3px',
-                            overflow: 'hidden',
-                            border: '1px solid var(--border-light)'
-                          }}>
+                      {!hideReleased && (
+                        <td style={{ padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <div style={{
-                              width: `${releasePercent}%`,
-                              height: '100%',
-                              backgroundColor: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)',
+                              flex: 1,
+                              height: '6px',
+                              backgroundColor: 'var(--background-alt)',
                               borderRadius: '3px',
-                              transition: 'width 0.5s ease-out'
-                            }} />
+                              overflow: 'hidden',
+                              border: '1px solid var(--border-light)'
+                            }}>
+                              <div style={{
+                                width: `${releasePercent}%`,
+                                height: '100%',
+                                backgroundColor: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)',
+                                borderRadius: '3px',
+                                transition: 'width 0.5s ease-out'
+                              }} />
+                            </div>
+                            <span style={{
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              minWidth: '32px',
+                              textAlign: 'right',
+                              color: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)'
+                            }}>{releasePercent}%</span>
                           </div>
-                          <span style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            minWidth: '32px',
-                            textAlign: 'right',
-                            color: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)'
-                          }}>{releasePercent}%</span>
-                        </div>
-                      </td>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -1372,32 +1378,34 @@ export const DashboardOverview: React.FC = () => {
                   >
                     {overallClickup} <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)' }}>/ {overallTotal}</span>
                   </td>
-                  <td style={{ padding: '12px 10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{
-                        flex: 1,
-                        height: '6px',
-                        backgroundColor: 'var(--background)',
-                        borderRadius: '3px',
-                        overflow: 'hidden',
-                        border: '1px solid var(--border-light)'
-                      }}>
+                  {!hideReleased && (
+                    <td style={{ padding: '12px 10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <div style={{
-                          width: `${releaseRate}%`,
-                          height: '100%',
-                          backgroundColor: releaseRate > 75 ? 'var(--success)' : releaseRate > 40 ? 'var(--warning)' : 'var(--danger)',
-                          borderRadius: '3px'
-                        }} />
+                          flex: 1,
+                          height: '6px',
+                          backgroundColor: 'var(--background)',
+                          borderRadius: '3px',
+                          overflow: 'hidden',
+                          border: '1px solid var(--border-light)'
+                        }}>
+                          <div style={{
+                            width: `${releaseRate}%`,
+                            height: '100%',
+                            backgroundColor: releaseRate > 75 ? 'var(--success)' : releaseRate > 40 ? 'var(--warning)' : 'var(--danger)',
+                            borderRadius: '3px'
+                          }} />
+                        </div>
+                        <span style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 800,
+                          minWidth: '32px',
+                          textAlign: 'right',
+                          color: releaseRate > 75 ? 'var(--success)' : releaseRate > 40 ? 'var(--warning)' : 'var(--danger)'
+                        }}>{releaseRate}%</span>
                       </div>
-                      <span style={{
-                        fontSize: '0.75rem',
-                        fontWeight: 800,
-                        minWidth: '32px',
-                        textAlign: 'right',
-                        color: releaseRate > 75 ? 'var(--success)' : releaseRate > 40 ? 'var(--warning)' : 'var(--danger)'
-                      }}>{releaseRate}%</span>
-                    </div>
-                  </td>
+                    </td>
+                  )}
                 </tr>
               </tfoot>
             </table>
