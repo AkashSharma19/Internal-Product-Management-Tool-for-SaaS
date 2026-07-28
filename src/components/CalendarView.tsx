@@ -7,7 +7,9 @@ import {
   Calendar,
   Search,
   X,
-  RefreshCw
+  RefreshCw,
+  Copy,
+  Check
 } from 'lucide-react';
 import { getClickupBadgeStyle } from './Tables';
 import type { ProductItem } from '../types';
@@ -221,6 +223,15 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPublicEvent, setSelectedPublicEvent] = useState<CalendarEvent | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyLink = (e: React.MouseEvent, id: string, link: string) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(link).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 1800);
+    });
+  };
   const [newCommentText, setNewCommentText] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [commentError, setCommentError] = useState('');
@@ -873,11 +884,39 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
                             {task.source}
                           </span>
                         </div>
-                        {task.poc && (
-                          <div style={{ fontSize: '0.675rem', color: 'var(--text-secondary)', marginTop: '4px', textAlign: 'right', fontWeight: 600 }}>
-                            POC: {task.poc.split(' ')[0]}
-                          </div>
-                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
+                          {task.poc && (
+                            <div style={{ fontSize: '0.675rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                              POC: {task.poc.split(' ')[0]}
+                            </div>
+                          )}
+                          {task.taskLink && (
+                            <button
+                              onClick={(e) => handleCopyLink(e, task.id, task.taskLink!)}
+                              title={copiedId === task.id ? 'Copied!' : 'Copy ClickUp link'}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                background: copiedId === task.id ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
+                                border: `1px solid ${copiedId === task.id ? 'rgba(16, 185, 129, 0.4)' : 'var(--border-light)'}`,
+                                borderRadius: '4px',
+                                padding: '2px 6px',
+                                cursor: 'pointer',
+                                fontSize: '0.55rem',
+                                fontWeight: 700,
+                                color: copiedId === task.id ? '#10b981' : 'var(--text-secondary)',
+                                transition: 'all 0.2s',
+                                flexShrink: 0,
+                                marginLeft: 'auto'
+                              }}
+                            >
+                              {copiedId === task.id
+                                ? <><Check size={9} /> Copied</>
+                                : <><Copy size={9} /> ClickUp</>}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1198,6 +1237,31 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
                           <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>
                             {evt.source}
                           </span>
+                          {(evt.taskLink || evt.rawItem?.taskLink) && (
+                            <button
+                              onClick={(e) => handleCopyLink(e, evt.id, evt.taskLink || evt.rawItem?.taskLink)}
+                              title={copiedId === evt.id ? 'Copied!' : 'Copy ClickUp link'}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                background: copiedId === evt.id ? 'rgba(16, 185, 129, 0.12)' : 'var(--background-alt)',
+                                border: `1px solid ${copiedId === evt.id ? 'rgba(16, 185, 129, 0.4)' : 'var(--border-light)'}`,
+                                borderRadius: '4px',
+                                padding: '1px 5px',
+                                cursor: 'pointer',
+                                fontSize: '0.55rem',
+                                fontWeight: 700,
+                                color: copiedId === evt.id ? '#10b981' : 'var(--text-secondary)',
+                                transition: 'all 0.2s',
+                                flexShrink: 0
+                              }}
+                            >
+                              {copiedId === evt.id
+                                ? <><Check size={9} /> Copied</>  
+                                : <><Copy size={9} /> ClickUp</>}
+                            </button>
+                          )}
                         </div>
                       </td>
                       <td style={{ 
