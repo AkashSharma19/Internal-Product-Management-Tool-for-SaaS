@@ -477,7 +477,20 @@ export default async function handler(req: any, res: any) {
           ];
 
           const { start: filterStart, end: filterEnd } = getFilterDates(dateRangeType, customStartDate, customEndDate);
-          const validItems = allUnifiedTasks.filter((item: any) => isWithinDateRange(item.date, filterStart, filterEnd));
+          let validItems = allUnifiedTasks.filter((item: any) => isWithinDateRange(item.date, filterStart, filterEnd));
+
+          const hideReleased = url.searchParams.get('hideReleased') === 'true';
+          if (hideReleased) {
+            const isTaskCompleted = (statusStr: string) => {
+              if (!statusStr) return false;
+              const s = statusStr.toLowerCase().trim();
+              return ['completed', 'delivered', 'done', 'closed', 'tested', 'released'].includes(s);
+            };
+            validItems = validItems.filter((item: any) => {
+              const isReleased = isTaskCompleted(item.status) || isTaskCompleted(item.clickupStatus) || !!item.finalReleaseCompleted;
+              return !isReleased;
+            });
+          }
 
           const productStatuses = configStatuses.filter((s: any) => s.scope === 'product' || s.scope === 'all');
           
@@ -819,6 +832,12 @@ export default async function handler(req: any, res: any) {
           const doneLast30 = url.searchParams.get('doneLast30') === 'true';
           const releaseLast30 = url.searchParams.get('releaseLast30') === 'true';
 
+          const isTaskCompleted = (statusStr: string) => {
+            if (!statusStr) return false;
+            const s = statusStr.toLowerCase().trim();
+            return ['completed', 'delivered', 'done', 'closed', 'tested', 'released'].includes(s);
+          };
+
           console.log('DASHBOARD-LIST PARAMS:', { source, poc, status, statusType, productGroup, meetingCategory, dateRangeType, customStartDate, customEndDate, doneLast30, releaseLast30 });
 
           if (doneLast30 || releaseLast30) {
@@ -948,11 +967,7 @@ export default async function handler(req: any, res: any) {
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
             thirtyDaysAgo.setHours(0, 0, 0, 0);
 
-            const isTaskCompleted = (statusStr: string) => {
-              if (!statusStr) return false;
-              const s = statusStr.toLowerCase().trim();
-              return ['completed', 'delivered', 'done', 'closed', 'tested', 'released'].includes(s);
-            };
+            // isTaskCompleted helper defined at outer block scope
 
             const parseToDateString = (dateStr: string | undefined): string => {
               if (!dateStr) return '';
@@ -993,9 +1008,24 @@ export default async function handler(req: any, res: any) {
               });
             }
 
+            // Sort tasks: put completed/released tasks at the bottom
+            const sortedTasks = [...filteredTasks].sort((a, b) => {
+              const aReleased = isTaskCompleted(a.status) || isTaskCompleted(a.clickupStatus) || !!a.finalReleaseCompleted;
+              const bReleased = isTaskCompleted(b.status) || isTaskCompleted(b.clickupStatus) || !!b.finalReleaseCompleted;
+              if (aReleased && !bReleased) return 1;
+              if (!aReleased && bReleased) return -1;
+              return 0;
+            });
+
+            const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+            const limit = Math.max(1, parseInt(url.searchParams.get('limit') || '10', 10));
+            const startIndex = (page - 1) * limit;
+            const paginated = sortedTasks.slice(startIndex, startIndex + limit);
+
             return res.status(200).json({
               success: true,
-              data: filteredTasks
+              data: paginated,
+              total: sortedTasks.length
             });
           }
 
@@ -1232,7 +1262,34 @@ export default async function handler(req: any, res: any) {
             return item;
           });
 
-          return res.status(200).json({ success: true, data: sanitizedItems });
+          // Sort tasks: put completed/released tasks at the bottom
+          const sortedTasks = [...sanitizedItems].sort((a, b) => {
+            const aReleased = isTaskCompleted(a.status) || isTaskCompleted(a.clickupStatus) || !!a.finalReleaseCompleted;
+            const bReleased = isTaskCompleted(b.status) || isTaskCompleted(b.clickupStatus) || !!b.finalReleaseCompleted;
+            if (aReleased && !bReleased) return 1;
+            if (!aReleased && bReleased) return -1;
+            return 0;
+          });
+
+          const hideReleased = url.searchParams.get('hideReleased') === 'true';
+          let finalTasksList = sortedTasks;
+          if (hideReleased) {
+            finalTasksList = sortedTasks.filter((item: any) => {
+              const isReleased = isTaskCompleted(item.status) || isTaskCompleted(item.clickupStatus) || !!item.finalReleaseCompleted;
+              return !isReleased;
+            });
+          }
+
+          const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+          const limit = Math.max(1, parseInt(url.searchParams.get('limit') || '10', 10));
+          const startIndex = (page - 1) * limit;
+          const paginated = finalTasksList.slice(startIndex, startIndex + limit);
+
+          return res.status(200).json({ 
+            success: true, 
+            data: paginated, 
+            total: finalTasksList.length 
+          });
         }
 
         if (action === 'calendar-events') {

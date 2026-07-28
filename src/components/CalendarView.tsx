@@ -213,10 +213,15 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
     // Scalable additions
     calendarEvents,
     isLoadingCalendar,
-    loadCalendarMonth
+    loadCalendarMonth,
+    calendarMonth,
+    setCalendarMonth
   } = useDashboard();
 
-  const [currentMonth, setCurrentMonth] = useState<Date>(() => new Date());
+  // Persist calendar month selection globally across routes/drawers
+  const currentMonth = calendarMonth;
+  const setCurrentMonth = setCalendarMonth;
+
   const [selectedDateStr, setSelectedDateStr] = useState<string>(() => {
     return toLocalDateStr(new Date());
   });

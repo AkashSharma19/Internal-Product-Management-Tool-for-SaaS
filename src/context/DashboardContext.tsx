@@ -209,8 +209,27 @@ interface DashboardContextType {
   // Scalable additions
   dashboardCounts: any;
   isLoadingCounts: boolean;
-  fetchDashboardCounts: (dateRangeType: string, customStartDate?: string, customEndDate?: string, statusType?: string) => Promise<void>;
-  fetchDashboardList: (source: string, poc: string, status: string, statusType: string, productGroup: string, meetingCategory: string, dateRangeType: string, customStartDate?: string, customEndDate?: string, extraParams?: Record<string, string>) => Promise<any[]>;
+  fetchDashboardCounts: (
+    dateRangeType: string, 
+    customStartDate?: string, 
+    customEndDate?: string, 
+    statusType?: string,
+    hideReleased?: boolean
+  ) => Promise<void>;
+  fetchDashboardList: (
+    source: string, 
+    poc: string, 
+    status: string, 
+    statusType: string, 
+    productGroup: string, 
+    meetingCategory: string, 
+    dateRangeType: string, 
+    customStartDate?: string, 
+    customEndDate?: string, 
+    extraParams?: Record<string, string>,
+    page?: number,
+    limit?: number
+  ) => Promise<{ tasks: any[]; total: number }>;
   calendarEvents: any[];
   isLoadingCalendar: boolean;
   loadCalendarMonth: (year: number, month: number) => Promise<void>;
@@ -249,6 +268,8 @@ interface DashboardContextType {
   meetingSearchQuery: string;
   setMeetingSearchQuery: (query: string) => void;
   loadedTabs: string[];
+  calendarMonth: Date;
+  setCalendarMonth: React.Dispatch<React.SetStateAction<Date>>;
 }
 
 
@@ -922,6 +943,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [loadedTabs, setLoadedTabs] = useState<string[]>([]);
   const [highlightedCallId, setHighlightedCallId] = useState<string | null>(null);
   const [meetingSearchQuery, setMeetingSearchQuery] = useState<string>('');
+  const [calendarMonth, setCalendarMonth] = useState<Date>(() => new Date());
 
   // Helper to load tab dataset on-demand
   const loadTabData = useCallback(async (tabName: string) => {
@@ -991,7 +1013,13 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [activeTab]);
 
 
-  const fetchDashboardCounts = useCallback(async (dateRangeType: string, customStartDate?: string, customEndDate?: string, statusType?: string) => {
+  const fetchDashboardCounts = useCallback(async (
+    dateRangeType: string, 
+    customStartDate?: string, 
+    customEndDate?: string, 
+    statusType?: string,
+    hideReleased?: boolean
+  ) => {
     setIsLoadingCounts(true);
     setSyncStatus('syncing');
     try {
@@ -1001,6 +1029,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (statusType) params.append('statusType', statusType);
       if (customStartDate) params.append('startDate', customStartDate);
       if (customEndDate) params.append('endDate', customEndDate);
+      if (hideReleased) params.append('hideReleased', 'true');
 
       const headers: Record<string, string> = {};
       const savedUserId = localStorage.getItem('logged-in-user-id');
@@ -1043,8 +1072,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     dateRangeType: string,
     customStartDate?: string,
     customEndDate?: string,
-    extraParams?: Record<string, string>
-  ): Promise<any[]> => {
+    extraParams?: Record<string, string>,
+    page = 1,
+    limit = 10
+  ): Promise<{ tasks: any[]; total: number }> => {
     setSyncStatus('syncing');
     try {
       const params = new URLSearchParams();
@@ -1058,6 +1089,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (dateRangeType) params.append('dateRangeType', dateRangeType);
       if (customStartDate) params.append('startDate', customStartDate);
       if (customEndDate) params.append('endDate', customEndDate);
+      params.append('page', String(page));
+      params.append('limit', String(limit));
       if (extraParams) {
         Object.entries(extraParams).forEach(([k, v]) => {
           if (v) params.append(k, v);
@@ -1075,15 +1108,15 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const resData = await response.json();
         setSyncStatus('synced');
         if (resData.success && resData.data) {
-          return resData.data;
+          return { tasks: resData.data, total: resData.total || 0 };
         }
       }
       setSyncStatus('error');
-      return [];
+      return { tasks: [], total: 0 };
     } catch (err) {
       console.error('Failed to fetch dashboard list:', err);
       setSyncStatus('error');
-      return [];
+      return { tasks: [], total: 0 };
     }
   }, []);
 
@@ -2512,6 +2545,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setHighlightedCallId,
       meetingSearchQuery,
       setMeetingSearchQuery,
+      calendarMonth,
+      setCalendarMonth,
       digestRecipient,
       updateDigestRecipient,
       digestSMTPHost,

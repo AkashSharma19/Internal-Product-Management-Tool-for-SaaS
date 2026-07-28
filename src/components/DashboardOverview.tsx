@@ -321,14 +321,37 @@ export const DashboardOverview: React.FC = () => {
   };
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [popupData, setPopupData] = useState<{ title: string; tasks: any[] } | null>(null);
+  const [popupFilters, setPopupFilters] = useState<{
+    title: string;
+    filters: {
+      source?: string;
+      poc?: string;
+      status?: string;
+      statusType?: string;
+      productGroup?: string;
+      meetingCategory?: string;
+      doneLast30?: string;
+      releaseLast30?: string;
+    };
+  } | null>(null);
+
+  const [popupTasks, setPopupTasks] = useState<any[]>([]);
+  const [popupTotalItems, setPopupTotalItems] = useState(0);
   const [isPopupLoading, setIsPopupLoading] = useState(false);
   const [popupViewMode, setPopupViewMode] = useState<'card' | 'table'>('table');
+  const [popupPage, setPopupPage] = useState(1);
+  const [popupPageSize, setPopupPageSize] = useState(10);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);
+  const popupTasksListRef = useRef<HTMLDivElement>(null);
   const [stripCanScrollLeft, setStripCanScrollLeft] = useState(false);
   const [stripCanScrollRight, setStripCanScrollRight] = useState(false);
+
+  const totalItems = popupTotalItems;
+  const totalPages = Math.ceil(totalItems / popupPageSize);
+  const startIndex = (popupPage - 1) * popupPageSize;
+  const endIndex = Math.min(popupPage * popupPageSize, totalItems);
 
   const handleStripScroll = () => {
     const el = stripRef.current;
@@ -369,12 +392,13 @@ export const DashboardOverview: React.FC = () => {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [statusType, setStatusType] = useState<'my' | 'clickup'>('my');
+  const [hideReleased, setHideReleased] = useState(false);
 
   // Trigger counts load when filters change
   useEffect(() => {
     if (isLoading) return;
-    fetchDashboardCounts(dateRangeType, customStartDate, customEndDate, statusType);
-  }, [dateRangeType, customStartDate, customEndDate, statusType, isLoading]);
+    fetchDashboardCounts(dateRangeType, customStartDate, customEndDate, statusType, hideReleased);
+  }, [dateRangeType, customStartDate, customEndDate, statusType, hideReleased, isLoading, fetchDashboardCounts]);
 
   // Dynamic popup loader
   const openPopupList = async (title: string, filters: {
@@ -387,32 +411,58 @@ export const DashboardOverview: React.FC = () => {
     doneLast30?: string;
     releaseLast30?: string;
   }) => {
-    setPopupData({ title, tasks: [] });
-    setIsPopupLoading(true);
-    try {
-      const extraParams: Record<string, string> = {};
-      if (filters.doneLast30) extraParams.doneLast30 = filters.doneLast30;
-      if (filters.releaseLast30) extraParams.releaseLast30 = filters.releaseLast30;
-
-      const tasks = await fetchDashboardList(
-        filters.source || '',
-        filters.poc || '',
-        filters.status || '',
-        filters.statusType || statusType,
-        filters.productGroup || '',
-        filters.meetingCategory || '',
-        dateRangeType,
-        customStartDate,
-        customEndDate,
-        extraParams
-      );
-      setPopupData({ title, tasks });
-    } catch (e) {
-      console.error('Failed to load popup list:', e);
-    } finally {
-      setIsPopupLoading(false);
-    }
+    setPopupTasks([]);
+    setPopupTotalItems(0);
+    setPopupPage(1);
+    setPopupPageSize(10);
+    setPopupFilters({ title, filters });
   };
+
+  useEffect(() => {
+    if (!popupFilters) return;
+
+    let active = true;
+    const loadPopupData = async () => {
+      setIsPopupLoading(true);
+      try {
+        const extraParams: Record<string, string> = {};
+        if (popupFilters.filters.doneLast30) extraParams.doneLast30 = popupFilters.filters.doneLast30;
+        if (popupFilters.filters.releaseLast30) extraParams.releaseLast30 = popupFilters.filters.releaseLast30;
+        if (hideReleased) extraParams.hideReleased = 'true';
+
+        const res = await fetchDashboardList(
+          popupFilters.filters.source || '',
+          popupFilters.filters.poc || '',
+          popupFilters.filters.status || '',
+          popupFilters.filters.statusType || statusType,
+          popupFilters.filters.productGroup || '',
+          popupFilters.filters.meetingCategory || '',
+          dateRangeType,
+          customStartDate,
+          customEndDate,
+          extraParams,
+          popupPage,
+          popupPageSize
+        );
+
+        if (active) {
+          setPopupTasks(res.tasks);
+          setPopupTotalItems(res.total);
+        }
+      } catch (e) {
+        console.error('Failed to load popup list:', e);
+      } finally {
+        if (active) {
+          setIsPopupLoading(false);
+        }
+      }
+    };
+
+    loadPopupData();
+    return () => {
+      active = false;
+    };
+  }, [popupFilters, popupPage, popupPageSize, dateRangeType, customStartDate, customEndDate, statusType, hideReleased, fetchDashboardList]);
 
   const handlePopupTaskClick = (task: any) => {
     if (task.source === 'Student Projects') {
@@ -637,6 +687,56 @@ export const DashboardOverview: React.FC = () => {
               ClickUp Status
             </button>
           </div>
+
+        {/* Hide Released Tasks Toggle */}
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          height: '32px',
+          backgroundColor: 'var(--background-alt)',
+          border: '1px solid var(--border)',
+          borderRadius: '8px',
+          padding: '0 10px',
+          cursor: 'pointer',
+          userSelect: 'none',
+          transition: 'all 0.2s',
+          fontSize: '0.75rem',
+          fontWeight: 600,
+          color: hideReleased ? 'var(--text-primary)' : 'var(--text-secondary)'
+        }}
+        onClick={() => setHideReleased(!hideReleased)}
+        onMouseEnter={e => {
+          e.currentTarget.style.borderColor = 'var(--primary)';
+          e.currentTarget.style.backgroundColor = 'var(--panel-bg)';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.borderColor = 'var(--border)';
+          e.currentTarget.style.backgroundColor = 'var(--background-alt)';
+        }}
+        >
+          <div style={{
+            width: '28px',
+            height: '16px',
+            backgroundColor: hideReleased ? 'var(--success)' : 'var(--border-dark)',
+            borderRadius: '9px',
+            position: 'relative',
+            transition: 'background-color 0.2s'
+          }}>
+            <div style={{
+              width: '12px',
+              height: '12px',
+              backgroundColor: '#fff',
+              borderRadius: '50%',
+              position: 'absolute',
+              top: '2px',
+              left: hideReleased ? '14px' : '2px',
+              transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+            }} />
+          </div>
+          <span>Hide Released Tasks</span>
+        </div>
 
           {/* Release in Last 30 Days note */}
           <div 
@@ -1567,10 +1667,10 @@ export const DashboardOverview: React.FC = () => {
           </>
         )}
 
-      {popupData && (
+      {popupFilters && (
         <div 
           className="dashboard-popup-backdrop"
-          onClick={() => setPopupData(null)}
+          onClick={() => setPopupFilters(null)}
           style={{
             position: 'fixed',
             top: 0,
@@ -1613,10 +1713,10 @@ export const DashboardOverview: React.FC = () => {
             }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'Outfit, sans-serif' }}>
-                  {popupData.title}
+                  {popupFilters.title}
                 </h3>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  {popupData.tasks.length} task{popupData.tasks.length !== 1 ? 's' : ''} found
+                  {popupTotalItems} task{popupTotalItems !== 1 ? 's' : ''} found
                 </span>
               </div>
               
@@ -1672,7 +1772,7 @@ export const DashboardOverview: React.FC = () => {
                 </div>
 
                 <button 
-                  onClick={() => setPopupData(null)}
+                  onClick={() => setPopupFilters(null)}
                   style={{
                     background: 'none',
                     border: 'none',
@@ -1696,17 +1796,20 @@ export const DashboardOverview: React.FC = () => {
             </div>
 
             {/* List of Tasks */}
-            <div style={{
-              flex: 1,
-              overflowY: 'auto',
-              padding: '1.5rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '1rem',
-              backgroundColor: 'var(--background)',
-              justifyContent: 'flex-start',
-              alignItems: 'stretch'
-            }}>
+            <div 
+              ref={popupTasksListRef}
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '1.5rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem',
+                backgroundColor: 'var(--background)',
+                justifyContent: 'flex-start',
+                alignItems: 'stretch'
+              }}
+            >
               {isPopupLoading ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
                   {[1, 2, 3, 4].map(idx => (
@@ -1731,7 +1834,7 @@ export const DashboardOverview: React.FC = () => {
                     </div>
                   ))}
                 </div>
-              ) : popupData.tasks.length === 0 ? (
+              ) : popupTotalItems === 0 ? (
                 <div style={{
                   padding: '3rem 1rem',
                   textAlign: 'center',
@@ -1754,12 +1857,12 @@ export const DashboardOverview: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {popupData.tasks.map((task, idx) => (
+                      {popupTasks.map((task, idx) => (
                         <tr 
                           key={`${task.id}-${idx}`}
                           onClick={() => {
                             handlePopupTaskClick(task);
-                            setPopupData(null);
+                            setPopupFilters(null);
                           }}
                           style={{ cursor: 'pointer', borderBottom: '1px solid var(--border-light)' }}
                           className="table-row-hover"
@@ -1858,12 +1961,12 @@ export const DashboardOverview: React.FC = () => {
                   </table>
                 </div>
               ) : (
-                popupData.tasks.map((task, idx) => (
+                popupTasks.map((task, idx) => (
                   <div 
                     key={`${task.id}-${idx}`}
                     onClick={() => {
                       handlePopupTaskClick(task);
-                      setPopupData(null); // Close pop-up drawer
+                      setPopupFilters(null); // Close pop-up drawer
                     }}
                     style={{
                       padding: '1rem',
@@ -1949,6 +2052,97 @@ export const DashboardOverview: React.FC = () => {
                 ))
               )}
             </div>
+
+            {/* Pagination Controls */}
+            {popupFilters && popupTotalItems > 0 && (
+              <div style={{
+                zIndex: 10,
+                boxShadow: '0 -4px 12px rgba(0,0,0,0.05)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.75rem 1.5rem',
+                backgroundColor: 'var(--panel-bg)',
+                borderTop: '1px solid var(--border-light)',
+                flexShrink: 0
+              }}>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  Showing {totalItems === 0 ? 0 : startIndex + 1} to {endIndex} of {totalItems} entries
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  {/* Page Size Selector */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    <span>Per page:</span>
+                    <select
+                      value={popupPageSize}
+                      onChange={(e) => {
+                        setPopupPageSize(Number(e.target.value));
+                        setPopupPage(1);
+                      }}
+                      className="form-control"
+                      style={{
+                        padding: '2px 6px',
+                        fontSize: '0.8rem',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border)',
+                        backgroundColor: 'var(--background)',
+                        color: 'var(--text-primary)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+
+                  {/* Prev / Page / Next Controls */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => {
+                        setPopupPage(prev => Math.max(prev - 1, 1));
+                        if (popupTasksListRef.current) {
+                          popupTasksListRef.current.scrollTop = 0;
+                        }
+                      }}
+                      disabled={popupPage === 1 || totalItems === 0}
+                      style={{ 
+                        padding: '2px 8px', 
+                        fontSize: '0.75rem', 
+                        opacity: (popupPage === 1 || totalItems === 0) ? 0.5 : 1, 
+                        cursor: (popupPage === 1 || totalItems === 0) ? 'not-allowed' : 'pointer' 
+                      }}
+                    >
+                      Previous
+                    </button>
+                    <span style={{ minWidth: '45px', textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      Page {popupPage} of {totalPages}
+                    </span>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => {
+                        setPopupPage(prev => Math.min(prev + 1, totalPages));
+                        if (popupTasksListRef.current) {
+                          popupTasksListRef.current.scrollTop = 0;
+                        }
+                      }}
+                      disabled={popupPage === totalPages || totalItems === 0}
+                      style={{ 
+                        padding: '2px 8px', 
+                        fontSize: '0.75rem', 
+                        opacity: (popupPage === totalPages || totalItems === 0) ? 0.5 : 1, 
+                        cursor: (popupPage === totalPages || totalItems === 0) ? 'not-allowed' : 'pointer' 
+                      }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
