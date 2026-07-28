@@ -1444,7 +1444,16 @@ export default async function handler(req: any, res: any) {
             }
           });
 
-          return res.status(200).json({ success: true, data: list });
+          // Deduplicate by event ID — a task linked to multiple meetings or with
+          // overlapping date fields could otherwise appear more than once.
+          const seen = new Set<string>();
+          const deduped = list.filter(evt => {
+            if (seen.has(evt.id)) return false;
+            seen.add(evt.id);
+            return true;
+          });
+
+          return res.status(200).json({ success: true, data: deduped });
         }
 
         if (action === 'sprint-planning-data') {
@@ -3553,6 +3562,32 @@ export default async function handler(req: any, res: any) {
         const releasedTotal = totalTasksList.length;
         const releasedCompleted = totalTasksList.filter((item: any) => item.finalReleaseCompleted || isCompletedStatusLocal(item.status)).length;
 
+        // Released in last 30 days — same logic as dashboard releasedInLast30DaysCount
+        const thirtyDaysAgoDigest = new Date();
+        thirtyDaysAgoDigest.setDate(thirtyDaysAgoDigest.getDate() - 30);
+        thirtyDaysAgoDigest.setHours(0, 0, 0, 0);
+        const parseReleaseDateLocal = (dateStr: string | undefined): Date | null => {
+          if (!dateStr) return null;
+          const cleaned = dateStr.trim();
+          let iso = cleaned;
+          if (/^\d{2}-\d{2}-\d{4}$/.test(cleaned)) {
+            const [d, m, y] = cleaned.split('-');
+            iso = `${y}-${m}-${d}`;
+          } else if (!/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+            try { iso = new Date(cleaned).toISOString().slice(0, 10); } catch { return null; }
+          }
+          const d = new Date(iso);
+          return isNaN(d.getTime()) ? null : d;
+        };
+        const releasedInLast30DaysCount = totalTasksList.filter((item: any) => {
+          if (!item.finalRelease || !item.finalReleaseCompleted) return false;
+          const releaseDate = parseReleaseDateLocal(item.finalRelease);
+          if (!releaseDate) return false;
+          const today = new Date();
+          today.setHours(23, 59, 59, 999);
+          return releaseDate >= thirtyDaysAgoDigest && releaseDate <= today;
+        }).length;
+
         // Feedback submissions
         const configs = await modelsMap['formConfigs'].find({ enabled: true }).lean();
         const amaConfig = configs.find((c: any) => c.category === 'ama-meetings');
@@ -3702,7 +3737,7 @@ export default async function handler(req: any, res: any) {
                               </div>
 
                               <!-- Progress Bar Track -->
-                              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: ${isMetricsGood ? '#dcfce7' : '#fecaca'}; border-radius: 10px; height: 10px; overflow: hidden; margin-bottom: 14px;">
+                              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: ${isMetricsGood ? '#dcfce7' : '#fecaca'}; border-radius: 10px; height: 10px; overflow: hidden; margin-bottom: 8px;">
                                 <tr>
                                   <!-- Progress Bar Fill -->
                                   <td width="${releasedPercent}%" style="background-color: ${isMetricsGood ? '#16a34a' : '#dc2626'}; border-radius: 10px; height: 10px; font-size: 0; line-height: 0;">&nbsp;</td>
@@ -3710,6 +3745,11 @@ export default async function handler(req: any, res: any) {
                                   <td width="${100 - releasedPercent}%" style="font-size: 0; line-height: 0;">&nbsp;</td>
                                 </tr>
                               </table>
+
+                              <!-- Released (Total Tasks) stat -->
+                              <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 12px; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                                🚀 Released (Total Tasks): <span style="color: ${isMetricsGood ? '#16a34a' : '#dc2626'};">${releasedCompleted} / ${releasedTotal}</span>
+                              </div>
 
                               <!-- Status Description Message -->
                               <div style="font-size: 13px; line-height: 1.5; color: #334155; max-width: 400px; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
@@ -3791,16 +3831,16 @@ export default async function handler(req: any, res: any) {
                             </td>
                           </tr>
 
-                          <!-- Total Released -->
-                          <tr>
-                            <td align="left" style="padding: 12px 14px; font-size: 12px; font-weight: 700; color: #16a34a; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-                              🚀 Released (Total Tasks)
+                          <!-- Released (Last 30 Days) Row -->
+                          <tr style="background-color: #faf5ff;">
+                            <td align="left" style="padding: 12px 14px; font-size: 12px; font-weight: 700; color: #7c3aed; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                              🚀 Released (Last 30 Days)
                             </td>
-                            <td align="right" style="padding: 12px 14px; font-size: 12px; font-weight: 700; color: #16a34a; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-                              ${releasedCompleted} / ${releasedTotal} released
+                            <td align="right" style="padding: 12px 14px; font-size: 13px; font-weight: 800; color: #7c3aed; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                              ${releasedInLast30DaysCount} tasks
                             </td>
-                            <td align="right" style="padding: 12px 14px; font-size: 12px; font-weight: 800; color: #16a34a; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-                              ${releasedPercent}%
+                            <td align="right" style="padding: 12px 14px; font-size: 11px; font-weight: 600; color: #a78bfa; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+                              &nbsp;
                             </td>
                           </tr>
                         </table>

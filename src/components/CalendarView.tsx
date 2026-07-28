@@ -329,12 +329,21 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
   }, [currentMonth, loadCalendarMonth]);
 
   // 1. Get monthly events from DashboardContext (calendarEvents)
+  // Deduplicate by event id as a safety net (a task linked to multiple sessions
+  // could otherwise appear more than once).
   const allEvents = useMemo<CalendarEvent[]>(() => {
-    return (calendarEvents || []).sort((a, b) => {
-      if (a.isCompleted && !b.isCompleted) return 1;
-      if (!a.isCompleted && b.isCompleted) return -1;
-      return 0;
-    });
+    const seen = new Set<string>();
+    return (calendarEvents || [])
+      .filter((evt: CalendarEvent) => {
+        if (seen.has(evt.id)) return false;
+        seen.add(evt.id);
+        return true;
+      })
+      .sort((a: CalendarEvent, b: CalendarEvent) => {
+        if (a.isCompleted && !b.isCompleted) return 1;
+        if (!a.isCompleted && b.isCompleted) return -1;
+        return 0;
+      });
   }, [calendarEvents]);
 
   // 1b. Collect tasks with no date (Only calculated for public view)

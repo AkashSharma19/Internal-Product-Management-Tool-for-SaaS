@@ -486,6 +486,7 @@ export const DashboardOverview: React.FC = () => {
   const activeStatuses = dashboardCounts?.activeStatuses || [];
   const rows = dashboardCounts?.rows || [];
   const filteredRows = rows.filter((row: any) => {
+    if (row.total === 0) return false; // hide POCs with no tasks
     if (searchQuery.trim() !== '') {
       return row.poc.toLowerCase().includes(searchQuery.toLowerCase());
     }

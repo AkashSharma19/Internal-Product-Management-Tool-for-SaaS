@@ -2619,9 +2619,14 @@ const EmailDigestSettingsSection: React.FC = () => {
                     </div>
 
                     {/* Progress Bar Track */}
-                    <div style={{ backgroundColor: '#fecaca', borderRadius: '10px', height: '8px', overflow: 'hidden', marginBottom: '12px', display: 'flex' }}>
+                    <div style={{ backgroundColor: '#fecaca', borderRadius: '10px', height: '8px', overflow: 'hidden', marginBottom: '8px', display: 'flex' }}>
                       {/* Progress Bar Fill */}
                       <div style={{ width: '50%', backgroundColor: '#dc2626', borderRadius: '10px', height: '8px' }} />
+                    </div>
+
+                    {/* Released (Total Tasks) stat */}
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a', marginBottom: '10px', fontFamily: "'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}>
+                      🚀 Released (Total Tasks): <span style={{ color: '#dc2626' }}>10 / 20</span>
                     </div>
 
                     {/* Status Description Message */}
@@ -2713,21 +2718,14 @@ const EmailDigestSettingsSection: React.FC = () => {
                         </div>
                       </td>
                     </tr>
-                    <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '10px 8px', fontWeight: 600, color: '#10b981' }}>
-                        🚀 Released (Total Tasks)
+                    <tr style={{ backgroundColor: '#faf5ff' }}>
+                      <td style={{ padding: '10px 8px', fontWeight: 700, color: '#7c3aed' }}>
+                        🚀 Released (Last 30 Days)
                       </td>
-                      <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 700, color: '#10b981' }}>
-                        10 / 20 released
+                      <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 800, color: '#7c3aed', fontSize: '13px' }}>
+                        5 tasks
                       </td>
-                      <td style={{ padding: '10px 12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <div style={{ flex: 1, backgroundColor: '#f1f5f9', borderRadius: '3px', height: '5px', overflow: 'hidden' }}>
-                            <div style={{ width: '50%', backgroundColor: '#10b981', height: '100%', borderRadius: '3px' }} />
-                          </div>
-                          <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 600 }}>50%</span>
-                        </div>
-                      </td>
+                      <td style={{ padding: '10px 12px' }} />
                     </tr>
                   </tbody>
                 </table>
