@@ -593,89 +593,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [dailyIssues, setDailyIssues] = useState<DailyIssue[]>([]);
   const [featureAdoptions, setFeatureAdoptions] = useState<FeatureAdoption[]>([]);
 
-  // PWA App Badge Overdue Count Calculator
-  const totalOverdueCount = useMemo(() => {
-    let overdue = 0;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
 
-    const isCompletedStatusLocal = (status?: string): boolean => {
-      if (!status) return false;
-      const s = status.toLowerCase().trim();
-      return ['completed', 'delivered', 'done', 'closed', 'tested', 'used', 'published'].includes(s);
-    };
-
-    const parseDateToYYYYMMDDLocal = (dateStr: string | undefined): string => {
-      if (!dateStr) return '';
-      const cleaned = dateStr.trim();
-      if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) return cleaned;
-      if (/^\d{2}-\d{2}-\d{4}$/.test(cleaned)) {
-        const [d, m, y] = cleaned.split('-');
-        return `${y}-${m}-${d}`;
-      }
-      try {
-        const d = new Date(cleaned);
-        if (!isNaN(d.getTime())) {
-          const y = d.getFullYear();
-          const m = String(d.getMonth() + 1).padStart(2, '0');
-          const day = String(d.getDate()).padStart(2, '0');
-          return `${y}-${m}-${day}`;
-        }
-      } catch (e) {}
-      return '';
-    };
-
-    const checkOverdue = (dateStr: string | undefined, isDone: boolean) => {
-      if (isDone) return;
-      const parsed = parseDateToYYYYMMDDLocal(dateStr);
-      if (!parsed) return;
-      const evtDate = new Date(parsed);
-      evtDate.setHours(0, 0, 0, 0);
-      if (evtDate < today) {
-        overdue++;
-      }
-    };
-
-    productItems.forEach((item: any) => {
-      if (item.id.startsWith('prod-temp-')) return;
-      checkOverdue(item.productDeadline, !!item.productDeadlineCompleted || isCompletedStatusLocal(item.status));
-      checkOverdue(item.uiux, !!item.uiuxCompleted || isCompletedStatusLocal(item.status));
-      checkOverdue(item.deadline, !!item.deadlineCompleted || isCompletedStatusLocal(item.status));
-      checkOverdue(item.finalRelease, !!item.finalReleaseCompleted || isCompletedStatusLocal(item.status));
-    });
-
-    studentProjects.forEach((item: any) => {
-      checkOverdue(item.finalRelease, !!item.finalReleaseCompleted || isCompletedStatusLocal(item.status));
-    });
-
-    contentItems.forEach((item: any) => {
-      checkOverdue(item.publishDate, isCompletedStatusLocal(item.status));
-    });
-
-    dailyIssues.forEach((item: any) => {
-      if (item.type === 'Feature Gap' || item.type === 'Enhancement') {
-        checkOverdue(item.finalRelease, !!item.finalReleaseCompleted || isCompletedStatusLocal(item.status));
-      } else {
-        checkOverdue(item.deadline, !!item.deadlineCompleted || isCompletedStatusLocal(item.status));
-      }
-    });
-
-    return overdue;
-  }, [productItems, studentProjects, contentItems, dailyIssues]);
-
-  useEffect(() => {
-    if (typeof navigator !== 'undefined' && 'setAppBadge' in navigator) {
-      if (totalOverdueCount > 0) {
-        navigator.setAppBadge(totalOverdueCount).catch(err => {
-          console.error('Failed to set app badge:', err);
-        });
-      } else {
-        navigator.clearAppBadge().catch(err => {
-          console.error('Failed to clear app badge:', err);
-        });
-      }
-    }
-  }, [totalOverdueCount]);
 
   // Config state
   const [speakers, setSpeakers] = useState<ConfigSpeaker[]>(() => {
@@ -1364,6 +1282,46 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, []);
 
+  // PWA App Badge Overdue Count Calculator
+  const totalOverdueCount = useMemo(() => {
+    const seen = new Set<string>();
+    const allEvts = (calendarEvents || [])
+      .filter((evt: any) => {
+        if (seen.has(evt.id)) return false;
+        seen.add(evt.id);
+        return true;
+      });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return allEvts.filter(evt => {
+      if (evt.isCompleted) return false;
+      const evtDate = new Date(evt.dateStr);
+      evtDate.setHours(0, 0, 0, 0);
+      return evtDate < today;
+    }).length;
+  }, [calendarEvents]);
+
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && 'setAppBadge' in navigator) {
+      if (totalOverdueCount > 0) {
+        navigator.setAppBadge(totalOverdueCount).catch(err => {
+          console.error('Failed to set app badge:', err);
+        });
+      } else {
+        navigator.clearAppBadge().catch(err => {
+          console.error('Failed to clear app badge:', err);
+        });
+      }
+    }
+  }, [totalOverdueCount]);
+
+  // Keep calendarEvents updated when data arrays are modified
+  useEffect(() => {
+    if (isLoading) return;
+    loadCalendarMonth(calendarMonth.getFullYear(), calendarMonth.getMonth());
+  }, [productItems, studentProjects, contentItems, dailyIssues, calendarMonth, loadCalendarMonth, isLoading]);
+
   const loadCommentsForTask = useCallback(async (itemId: string) => {
     setSyncStatus('syncing');
     try {
@@ -1566,11 +1524,14 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const host = window.location.host || '';
         const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('3000') || host.includes('5173');
         if (savedUserId || isLocalhost) {
+          // Always preload calendar events for overdue badge accuracy
+          const today = new Date();
+          loadCalendarMonth(today.getFullYear(), today.getMonth());
+
           if (activeTab === 'dashboard') {
             // DashboardOverview component handles fetching counts via its useEffect
           } else if (activeTab === 'calendar') {
-            const today = new Date();
-            loadCalendarMonth(today.getFullYear(), today.getMonth());
+            // Handled by preloading above
           } else {
             loadTabData(activeTab);
           }
