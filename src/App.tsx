@@ -1490,11 +1490,28 @@ const DashboardContent: React.FC = () => {
         <div className="logo-section" style={{ display: 'flex', width: '100%', justifyContent: isCollapsed ? 'center' : 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', padding: '0.5rem 0.25rem' }}>
           {!isCollapsed && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden' }}>
-              <div className="logo-icon" style={{ flexShrink: 0 }}>PS</div>
-              <div className="logo-text" style={{ display: 'flex', flexDirection: 'column' }}>
-                <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800, letterSpacing: '-0.01em', textTransform: 'uppercase' }}>Product Ship</p>
-                <p style={{ margin: 0, fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', marginTop: '1px' }}>Roadmap & Delivery</p>
-              </div>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                <defs>
+                  <linearGradient id="logo-grad-expanded" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="var(--primary)" />
+                    <stop offset="100%" stopColor="#06b6d4" />
+                  </linearGradient>
+                </defs>
+                <rect x="2" y="2" width="20" height="20" rx="6" fill="url(#logo-grad-expanded)" />
+                <path d="M12 7V17M12 7L8 11M12 7L16 11" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M8 17H16" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              <span style={{ 
+                fontSize: '0.9rem', 
+                fontWeight: 800, 
+                color: 'var(--text-primary)', 
+                fontFamily: 'Outfit, sans-serif',
+                letterSpacing: '-0.01em',
+                textTransform: 'uppercase',
+                whiteSpace: 'nowrap'
+              }}>
+                Product Ship
+              </span>
             </div>
           )}
           <button 

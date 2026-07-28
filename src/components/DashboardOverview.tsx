@@ -391,8 +391,8 @@ export const DashboardOverview: React.FC = () => {
   const [dateRangeType, setDateRangeType] = useState('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
-  const [statusType, setStatusType] = useState<'my' | 'clickup'>('my');
-  const [hideReleased, setHideReleased] = useState(false);
+  const [statusType, setStatusType] = useState<'my' | 'clickup'>('clickup');
+  const [hideReleased, setHideReleased] = useState(true);
 
   // Trigger counts load when filters change
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { AlertCircle, CheckCircle, Info } from 'lucide-react';
 import { triggerReleaseConfetti } from '../utils/confetti';
 import type { 
@@ -593,6 +593,90 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [dailyIssues, setDailyIssues] = useState<DailyIssue[]>([]);
   const [featureAdoptions, setFeatureAdoptions] = useState<FeatureAdoption[]>([]);
 
+  // PWA App Badge Overdue Count Calculator
+  const totalOverdueCount = useMemo(() => {
+    let overdue = 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const isCompletedStatusLocal = (status?: string): boolean => {
+      if (!status) return false;
+      const s = status.toLowerCase().trim();
+      return ['completed', 'delivered', 'done', 'closed', 'tested', 'used', 'published'].includes(s);
+    };
+
+    const parseDateToYYYYMMDDLocal = (dateStr: string | undefined): string => {
+      if (!dateStr) return '';
+      const cleaned = dateStr.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) return cleaned;
+      if (/^\d{2}-\d{2}-\d{4}$/.test(cleaned)) {
+        const [d, m, y] = cleaned.split('-');
+        return `${y}-${m}-${d}`;
+      }
+      try {
+        const d = new Date(cleaned);
+        if (!isNaN(d.getTime())) {
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${y}-${m}-${day}`;
+        }
+      } catch (e) {}
+      return '';
+    };
+
+    const checkOverdue = (dateStr: string | undefined, isDone: boolean) => {
+      if (isDone) return;
+      const parsed = parseDateToYYYYMMDDLocal(dateStr);
+      if (!parsed) return;
+      const evtDate = new Date(parsed);
+      evtDate.setHours(0, 0, 0, 0);
+      if (evtDate < today) {
+        overdue++;
+      }
+    };
+
+    productItems.forEach((item: any) => {
+      if (item.id.startsWith('prod-temp-')) return;
+      checkOverdue(item.productDeadline, !!item.productDeadlineCompleted || isCompletedStatusLocal(item.status));
+      checkOverdue(item.uiux, !!item.uiuxCompleted || isCompletedStatusLocal(item.status));
+      checkOverdue(item.deadline, !!item.deadlineCompleted || isCompletedStatusLocal(item.status));
+      checkOverdue(item.finalRelease, !!item.finalReleaseCompleted || isCompletedStatusLocal(item.status));
+    });
+
+    studentProjects.forEach((item: any) => {
+      checkOverdue(item.finalRelease, !!item.finalReleaseCompleted || isCompletedStatusLocal(item.status));
+    });
+
+    contentItems.forEach((item: any) => {
+      checkOverdue(item.publishDate, isCompletedStatusLocal(item.status));
+    });
+
+    dailyIssues.forEach((item: any) => {
+      if (item.type === 'Feature Gap' || item.type === 'Enhancement') {
+        checkOverdue(item.finalRelease, !!item.finalReleaseCompleted || isCompletedStatusLocal(item.status));
+      } else {
+        checkOverdue(item.deadline, !!item.deadlineCompleted || isCompletedStatusLocal(item.status));
+      }
+    });
+
+    return overdue;
+  }, [productItems, studentProjects, contentItems, dailyIssues]);
+
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && 'setAppBadge' in navigator) {
+      if (totalOverdueCount > 0) {
+        navigator.setAppBadge(totalOverdueCount).catch(err => {
+          console.error('Failed to set app badge:', err);
+        });
+      } else {
+        navigator.clearAppBadge().catch(err => {
+          console.error('Failed to clear app badge:', err);
+        });
+      }
+    }
+  }, [totalOverdueCount]);
+
   // Config state
   const [speakers, setSpeakers] = useState<ConfigSpeaker[]>(() => {
     const data = localStorage.getItem('config-speakers');
@@ -1058,7 +1142,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Refresh dashboard counts when user navigates to the dashboard tab
   useEffect(() => {
     if (activeTab === 'dashboard' && !isLoading) {
-      fetchDashboardCounts('all', '', '', 'my');
+      fetchDashboardCounts('all', '', '', 'clickup', true);
     }
   }, [activeTab, isLoading, fetchDashboardCounts]);
 

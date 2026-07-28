@@ -1,0 +1,17 @@
+﻿{
+  "name": "Product Ship",
+  "short_name": "Product Ship",
+  "description": "Product Ship Internal Management and Operations Control",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -5678,14 +5678,15 @@ export const StudentMeetingsTable: React.FC = () => {
   const [isFetchingFeedback, setIsFetchingFeedback] = useState(false);
 
   useEffect(() => {
-    if (subTab !== 'feedback') return;
     let active = true;
     const load = async () => {
-      setIsFetchingFeedback(true);
+      if (subTab === 'feedback') {
+        setIsFetchingFeedback(true);
+      }
       const res = await fetchPaginatedMeetingsData({
         type: 'amaFeedback',
-        page: currentPage,
-        limit: pageSize,
+        page: subTab === 'feedback' ? currentPage : 1,
+        limit: subTab === 'feedback' ? pageSize : 1,
         search: searchQuery,
         superPriority: filterSuperPriorityOnly,
         statuses: filterStatuses,
@@ -5696,12 +5697,16 @@ export const StudentMeetingsTable: React.FC = () => {
       });
       if (active) {
         if (res.success) {
-          setPaginatedFeedbackFeatures(res.data);
+          if (subTab === 'feedback') {
+            setPaginatedFeedbackFeatures(res.data);
+            setFeedbackTotalPages(res.totalPages);
+          }
           setFeedbackTotalItems(res.totalItems);
           setFeedbackCompletedItems(res.completedItems || 0);
-          setFeedbackTotalPages(res.totalPages);
         }
-        setIsFetchingFeedback(false);
+        if (subTab === 'feedback') {
+          setIsFetchingFeedback(false);
+        }
       }
     };
     load();
@@ -5719,6 +5724,7 @@ export const StudentMeetingsTable: React.FC = () => {
     filterPocs,
     feedbackSortField,
     feedbackSortAsc,
+    productItems,
     fetchPaginatedMeetingsData
   ]);
 
@@ -5845,7 +5851,7 @@ export const StudentMeetingsTable: React.FC = () => {
               outline: 'none'
             }}
           >
-            Feedback
+            Feedback {feedbackTotalItems > 0 ? `(${feedbackCompletedItems}/${feedbackTotalItems})` : ''}
           </button>
         </div>
 
@@ -6782,7 +6788,7 @@ export const StudentMeetingsTable: React.FC = () => {
                   <th onClick={() => handleFeedbackSort('uiux')} style={{ width: '120px', cursor: 'pointer' }}>UI/UX Date {feedbackSortField === 'uiux' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('deadline')} style={{ width: '120px', cursor: 'pointer' }}>Dev Date {feedbackSortField === 'deadline' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>
-                    Release Date ({feedbackCompletedItems}/{feedbackTotalItems}) {feedbackSortField === 'finalRelease' ? (feedbackSortAsc ? '▲' : '▼') : ''}
+                    Release Date {feedbackSortField === 'finalRelease' ? (feedbackSortAsc ? '▲' : '▼') : ''}
                   </th>
                   <th style={{ width: '40px' }}></th>
                 </tr>
@@ -7653,14 +7659,15 @@ export const AdminCallsTable: React.FC = () => {
   const [isFetchingFeedback, setIsFetchingFeedback] = useState(false);
 
   useEffect(() => {
-    if (subTab !== 'feedback') return;
     let active = true;
     const load = async () => {
-      setIsFetchingFeedback(true);
+      if (subTab === 'feedback') {
+        setIsFetchingFeedback(true);
+      }
       const res = await fetchPaginatedMeetingsData({
         type: 'adminFeedback',
-        page: currentPage,
-        limit: pageSize,
+        page: subTab === 'feedback' ? currentPage : 1,
+        limit: subTab === 'feedback' ? pageSize : 1,
         search: searchQuery,
         superPriority: filterSuperPriorityOnly,
         statuses: filterStatuses,
@@ -7671,12 +7678,16 @@ export const AdminCallsTable: React.FC = () => {
       });
       if (active) {
         if (res.success) {
-          setPaginatedFeedbackFeatures(res.data);
+          if (subTab === 'feedback') {
+            setPaginatedFeedbackFeatures(res.data);
+            setFeedbackTotalPages(res.totalPages);
+          }
           setFeedbackTotalItems(res.totalItems);
           setFeedbackCompletedItems(res.completedItems || 0);
-          setFeedbackTotalPages(res.totalPages);
         }
-        setIsFetchingFeedback(false);
+        if (subTab === 'feedback') {
+          setIsFetchingFeedback(false);
+        }
       }
     };
     load();
@@ -7694,6 +7705,7 @@ export const AdminCallsTable: React.FC = () => {
     filterPocs,
     feedbackSortField,
     feedbackSortAsc,
+    productItems,
     fetchPaginatedMeetingsData
   ]);
 
@@ -7797,7 +7809,7 @@ export const AdminCallsTable: React.FC = () => {
               outline: 'none'
             }}
           >
-            Feedback
+            Feedback {feedbackTotalItems > 0 ? `(${feedbackCompletedItems}/${feedbackTotalItems})` : ''}
           </button>
         </div>
 
@@ -8679,7 +8691,7 @@ export const AdminCallsTable: React.FC = () => {
                   <th onClick={() => handleFeedbackSort('uiux')} style={{ width: '120px', cursor: 'pointer' }}>UI/UX Date {feedbackSortField === 'uiux' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('deadline')} style={{ width: '120px', cursor: 'pointer' }}>Dev Date {feedbackSortField === 'deadline' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>
-                    Release Date ({feedbackCompletedItems}/{feedbackTotalItems}) {feedbackSortField === 'finalRelease' ? (feedbackSortAsc ? '▲' : '▼') : ''}
+                    Release Date {feedbackSortField === 'finalRelease' ? (feedbackSortAsc ? '▲' : '▼') : ''}
                   </th>
                   <th style={{ width: '40px' }}></th>
                 </tr>
@@ -9332,14 +9344,15 @@ export const TarunSirMeetingsTable: React.FC = () => {
   const [isFetchingFeedback, setIsFetchingFeedback] = useState(false);
 
   useEffect(() => {
-    if (subTab !== 'feedback') return;
     let active = true;
     const load = async () => {
-      setIsFetchingFeedback(true);
+      if (subTab === 'feedback') {
+        setIsFetchingFeedback(true);
+      }
       const res = await fetchPaginatedMeetingsData({
         type: 'tarunFeedback',
-        page: currentPage,
-        limit: pageSize,
+        page: subTab === 'feedback' ? currentPage : 1,
+        limit: subTab === 'feedback' ? pageSize : 1,
         search: searchQuery,
         superPriority: filterSuperPriorityOnly,
         statuses: filterStatuses,
@@ -9350,12 +9363,16 @@ export const TarunSirMeetingsTable: React.FC = () => {
       });
       if (active) {
         if (res.success) {
-          setPaginatedFeedbackFeatures(res.data);
+          if (subTab === 'feedback') {
+            setPaginatedFeedbackFeatures(res.data);
+            setFeedbackTotalPages(res.totalPages);
+          }
           setFeedbackTotalItems(res.totalItems);
           setFeedbackCompletedItems(res.completedItems || 0);
-          setFeedbackTotalPages(res.totalPages);
         }
-        setIsFetchingFeedback(false);
+        if (subTab === 'feedback') {
+          setIsFetchingFeedback(false);
+        }
       }
     };
     load();
@@ -9373,6 +9390,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
     filterPocs,
     feedbackSortField,
     feedbackSortAsc,
+    productItems,
     fetchPaginatedMeetingsData
   ]);
 
@@ -9554,7 +9572,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
               outline: 'none'
             }}
           >
-            Feedback
+            Feedback {feedbackTotalItems > 0 ? `(${feedbackCompletedItems}/${feedbackTotalItems})` : ''}
           </button>
         </div>
 
@@ -10402,7 +10420,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                   <th onClick={() => handleFeedbackSort('uiux')} style={{ width: '120px', cursor: 'pointer' }}>UI/UX Date {feedbackSortField === 'uiux' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('deadline')} style={{ width: '120px', cursor: 'pointer' }}>Dev Date {feedbackSortField === 'deadline' ? (feedbackSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleFeedbackSort('finalRelease')} style={{ width: '120px', cursor: 'pointer' }}>
-                    Release Date ({feedbackCompletedItems}/{feedbackTotalItems}) {feedbackSortField === 'finalRelease' ? (feedbackSortAsc ? '▲' : '▼') : ''}
+                    Release Date {feedbackSortField === 'finalRelease' ? (feedbackSortAsc ? '▲' : '▼') : ''}
                   </th>
                   <th style={{ width: '40px' }}></th>
                 </tr>
