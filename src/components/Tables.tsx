@@ -484,7 +484,7 @@ const FeedbackDrawer: React.FC<{
           alignItems: 'center',
           background: 'var(--background-alt)'
         }}>
-          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'Outfit' }}>
+          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif" }}>
             Feedback Submissions Drawer
           </h3>
           <button 
@@ -3638,7 +3638,7 @@ const PlanDetailModal: React.FC<PlanDetailModalProps> = ({ item, onClose, onUpda
     <div className="detail-overlay" onClick={onClose}>
       <div className="detail-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3 className="modal-title" style={{ fontFamily: 'Outfit', color: 'var(--primary)' }}>
+          <h3 className="modal-title" style={{ fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif", color: 'var(--primary)' }}>
             {isEditing ? 'Edit Planned Task' : 'Planned Task Details'}
           </h3>
           <button className="modal-close" onClick={onClose}><X size={18} /></button>
@@ -5292,7 +5292,7 @@ export const StudentMeetingDetailModal: React.FC<StudentMeetingDetailModalProps>
     <div className="detail-overlay" onClick={onClose}>
       <div className="detail-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3 className="modal-title" style={{ fontFamily: 'Outfit', color: 'var(--primary)' }}>
+          <h3 className="modal-title" style={{ fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif", color: 'var(--primary)' }}>
             {isEditing ? 'Edit Meeting feedback' : 'Cohort Feedback details'}
           </h3>
           <button className="modal-close" onClick={onClose}><X size={18} /></button>

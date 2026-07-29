@@ -902,7 +902,8 @@ export const DashboardOverview: React.FC = () => {
                       color: 'var(--text-secondary)',
                       whiteSpace: 'nowrap',
                       textOverflow: 'ellipsis',
-                      overflow: 'hidden'
+                      overflow: 'hidden',
+                      textTransform: 'uppercase'
                     }}>
                       {status.label}
                     </span>
@@ -949,7 +950,8 @@ export const DashboardOverview: React.FC = () => {
                   color: 'var(--text-secondary)',
                   whiteSpace: 'nowrap',
                   textOverflow: 'ellipsis',
-                  overflow: 'hidden'
+                  overflow: 'hidden',
+                  textTransform: 'uppercase'
                 }}>
                   {statusType === 'my' ? 'No Status' : 'No ClickUp Status'}
                 </span>
@@ -1720,7 +1722,7 @@ export const DashboardOverview: React.FC = () => {
               backgroundColor: 'var(--background-alt)'
             }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'Outfit, sans-serif' }}>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif" }}>
                   {popupFilters.title}
                 </h3>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>

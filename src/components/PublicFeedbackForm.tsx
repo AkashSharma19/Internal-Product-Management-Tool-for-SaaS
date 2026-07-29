@@ -254,7 +254,7 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
       <div style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         height: '100vh', overflowY: 'auto', background: 'var(--background)', color: 'var(--text-primary)',
-        fontFamily: 'Outfit, sans-serif'
+        fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif"
       }}>
         <div style={{
           width: '40px', height: '40px', border: '3px solid var(--border)',
@@ -274,7 +274,7 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         height: '100vh', overflowY: 'auto', background: 'linear-gradient(180deg, var(--background-alt) 0%, var(--background) 100%)',
-        fontFamily: 'Outfit, sans-serif', padding: '1.5rem'
+        fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif", padding: '1.5rem'
       }}>
         <div style={{
           background: 'var(--panel-bg)', border: '1px solid var(--border-light)', borderRadius: '24px',
@@ -307,7 +307,7 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         height: '100vh', overflowY: 'auto', background: 'linear-gradient(180deg, var(--background-alt) 0%, var(--background) 100%)',
-        fontFamily: 'Outfit, sans-serif', padding: '1.5rem'
+        fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif", padding: '1.5rem'
       }}>
         <div style={{
           background: 'var(--panel-bg)', border: '1px solid var(--border-light)', borderRadius: '24px',
@@ -377,7 +377,7 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         height: '100vh', overflowY: 'auto', background: 'linear-gradient(180deg, var(--background-alt) 0%, var(--background) 100%)',
-        fontFamily: 'Outfit, sans-serif', padding: '1.5rem'
+        fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif", padding: '1.5rem'
       }}>
         <div style={{
           background: 'var(--panel-bg)', border: '1px solid var(--border-light)', borderRadius: '24px',
@@ -421,7 +421,7 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
     <div style={{
       display: 'flex', flexDirection: 'column', height: '100vh', overflowY: 'auto',
       background: 'linear-gradient(180deg, var(--background-alt) 0%, var(--background) 100%)',
-      fontFamily: 'Outfit, sans-serif', padding: '2rem 1rem'
+      fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif", padding: '2rem 1rem'
     }}>
       <div style={{
         width: '100%', maxWidth: '520px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem',

@@ -67,7 +67,7 @@ const SectionCard: React.FC<{
           {icon}
         </div>
         <div>
-          <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'Outfit, sans-serif' }}>{title}</h3>
+          <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif" }}>{title}</h3>
           <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>{subtitle}</p>
         </div>
       </div>
@@ -879,7 +879,7 @@ const ProgramsSection: React.FC = () => {
                       }}
                     />
                   ) : (
-                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--primary)', fontFamily: 'Outfit' }}>{p.name}</span>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--primary)', fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif" }}>{p.name}</span>
                   )}
                 </td>
 
@@ -2624,17 +2624,17 @@ const EmailDigestSettingsSection: React.FC = () => {
                     boxSizing: 'border-box'
                   }}>
                     {/* Badge */}
-                    <div style={{ display: 'inline-block', backgroundColor: '#dc2626', color: '#ffffff', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', padding: '3px 10px', borderRadius: '20px', fontFamily: "'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", marginBottom: '10px' }}>
+                    <div style={{ display: 'inline-block', backgroundColor: '#dc2626', color: '#ffffff', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', padding: '3px 10px', borderRadius: '20px', fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", marginBottom: '10px' }}>
                       ⚠️ Attention Required
                     </div>
                     
                     {/* Main Metric Percentage */}
-                    <div style={{ fontSize: '42px', fontWeight: 800, color: '#0f172a', lineHeight: 1, margin: '2px 0', fontFamily: "'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}>
+                    <div style={{ fontSize: '42px', fontWeight: 800, color: '#0f172a', lineHeight: 1, margin: '2px 0', fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}>
                       50%
                     </div>
                     
                     {/* Label */}
-                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', fontFamily: "'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}>
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px', fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}>
                       Overall Task Release Rate
                     </div>
 
@@ -2645,12 +2645,12 @@ const EmailDigestSettingsSection: React.FC = () => {
                     </div>
 
                     {/* Released (Total Tasks) stat */}
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a', marginBottom: '10px', fontFamily: "'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a', marginBottom: '10px', fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}>
                       🚀 Released (Total Tasks): <span style={{ color: '#dc2626' }}>10 / 20</span>
                     </div>
 
                     {/* Status Description Message */}
-                    <div style={{ fontSize: '11.5px', lineHeight: 1.4, color: '#334155', maxWidth: '380px', margin: '0 auto', fontFamily: "'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}>
+                    <div style={{ fontSize: '11.5px', lineHeight: 1.4, color: '#334155', maxWidth: '380px', margin: '0 auto', fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}>
                       System status is warm. Release rate is below target. Action needed to resolve blockers and accelerate pending tasks.
                     </div>
                   </div>

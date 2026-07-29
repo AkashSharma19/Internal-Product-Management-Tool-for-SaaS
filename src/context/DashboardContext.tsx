@@ -2724,7 +2724,7 @@ const UnifiedDialogModal: React.FC<{
             {variantStyles.icon}
           </div>
           
-          <h3 style={{ margin: 0, fontFamily: 'Outfit', fontSize: '1.35rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+          <h3 style={{ margin: 0, fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif", fontSize: '1.35rem', color: 'var(--text-primary)', fontWeight: 600 }}>
             {title}
           </h3>
           

@@ -1,5 +1,18 @@
 @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
 
+@font-face {
+  font-family: 'WF Visual Sans Variable';
+  src: local('WF Visual Sans Variable'), local('WF Visual Sans');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-family-base: 'WF Visual Sans Variable', 'WF Visual Sans', 'Google Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-family-heading: 'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', 'Google Sans', sans-serif;
+}
+
 /* CSS VARIABLES - DESIGN TOKENS */
 :root[data-theme='dark'] {
   --background: hsl(224, 71%, 4%);
@@ -152,7 +165,7 @@ input, select, textarea, button {
 }
 
 body {
-  font-family: 'Google Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-family-base);
   font-size: 13px; /* Compact base size */
   background-color: var(--background);
   color: var(--text-primary);
@@ -164,7 +177,7 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Google Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-family-heading);
   font-weight: 600;
   letter-spacing: -0.02em;
 }
@@ -244,7 +257,7 @@ h1, h2, h3, h4, h5, h6 {
   justify-content: center;
   font-weight: 800;
   font-size: 1.25rem;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-family-heading);
   box-shadow: var(--shadow-sm);
   transition: all 0.3s;
 }
@@ -516,7 +529,7 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 1.75rem;
   font-weight: 700;
   color: var(--text-primary);
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-family-heading);
   line-height: 1;
 }
 
@@ -852,7 +865,7 @@ h1, h2, h3, h4, h5, h6 {
   gap: 0.6rem;
   box-shadow: var(--shadow);
   z-index: 9999;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-family-heading);
   font-size: 0.85rem;
   font-weight: 500;
   color: var(--text-primary);
@@ -2763,7 +2776,7 @@ h1, h2, h3, h4, h5, h6 {
 .kanban-column-header.release { border-top: 3px solid var(--success); }
 
 .kanban-column-title {
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-family-heading);
   font-size: 0.85rem;
   font-weight: 700;
   color: var(--text-primary);
@@ -2936,7 +2949,7 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 1rem;
   font-weight: 700;
   color: var(--text-primary);
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-family-heading);
 }
 
 .dashboard-date-count-badge {

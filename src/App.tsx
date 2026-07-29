@@ -115,7 +115,7 @@ const LoginView: React.FC = () => {
       justifyContent: 'center',
       minHeight: '100vh',
       background: 'linear-gradient(180deg, var(--background-alt) 0%, var(--background) 100%)',
-      fontFamily: 'Outfit, sans-serif',
+      fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif",
       color: 'var(--text-primary)',
       padding: '1rem',
       position: 'relative',
@@ -1039,7 +1039,7 @@ const DashboardContent: React.FC = () => {
   if (isPublicCalendar) {
     if (isLoading) {
       return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--background)', fontFamily: 'Outfit, sans-serif', color: 'var(--text-primary)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--background)', fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif", color: 'var(--text-primary)' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
             <RefreshCw size={28} className="animate-spin" style={{ color: 'var(--primary)' }} />
             <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Loading Calendar...</span>
@@ -1053,7 +1053,7 @@ const DashboardContent: React.FC = () => {
           <header className="public-calendar-header" style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             padding: '0.75rem 1.5rem', background: 'var(--panel-bg)', borderBottom: '1px solid var(--border)',
-            fontFamily: 'Outfit, sans-serif', height: '56px', boxSizing: 'border-box'
+            fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif", height: '56px', boxSizing: 'border-box'
           }}>
             <h2 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
               <span style={{ display: 'inline-flex', padding: '4px', borderRadius: '6px', background: 'var(--primary-glow)', color: 'var(--primary)' }}>
@@ -1120,7 +1120,7 @@ const DashboardContent: React.FC = () => {
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             backgroundColor: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(8px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999,
-            fontFamily: 'Outfit, sans-serif',
+            fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif",
             animation: 'fadeIn 0.25s ease'
           }}>
             <div style={{
@@ -1254,7 +1254,7 @@ const DashboardContent: React.FC = () => {
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             backgroundColor: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999,
-            fontFamily: 'Outfit, sans-serif'
+            fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif"
           }}>
             <div style={{
               background: 'var(--panel-bg)', border: '1px solid var(--border)',
@@ -1529,7 +1529,7 @@ const DashboardContent: React.FC = () => {
                 fontSize: '0.9rem', 
                 fontWeight: 800, 
                 color: 'var(--text-primary)', 
-                fontFamily: 'Outfit, sans-serif',
+                fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif",
                 letterSpacing: '-0.01em',
                 textTransform: 'uppercase',
                 whiteSpace: 'nowrap'
