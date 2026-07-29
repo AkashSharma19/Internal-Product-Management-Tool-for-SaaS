@@ -14,8 +14,7 @@ import {
   FeatureRequestsTable,
   AdoptionTable,
   ProductDetailView,
-  ClickupSubtasksModal,
-  ContactsTable
+  ClickupSubtasksModal
 } from './components/Tables';
 import { ConfigSection } from './components/ConfigSection';
 import { DashboardOverview } from './components/DashboardOverview';
@@ -46,8 +45,7 @@ import {
   CheckCircle,
   Lightbulb,
   Volume2,
-  VolumeX,
-  Users
+  VolumeX
 } from 'lucide-react';
 import { isAudioMuted, toggleAudioMute, playPopSound } from './utils/audio';
 import PixelBlast from './components/common/PixelBlast';
@@ -1455,7 +1453,6 @@ const DashboardContent: React.FC = () => {
     {
       title: "Operations & Logs",
       items: [
-        { id: 'contacts', label: 'Team & Contacts', icon: <Users size={18} /> },
         { id: 'projects', label: 'Student Projects', icon: <FolderGit size={18} /> },
         { id: 'tarun-meetings', label: 'Tarun Sir Meetings', icon: <Crown size={18} /> },
         { id: 'meetings', label: 'AMA & Meetings', icon: <Video size={18} /> },
@@ -1480,8 +1477,6 @@ const DashboardContent: React.FC = () => {
         return <DashboardOverview />;
       case 'calendar':
         return <CalendarView />;
-      case 'contacts':
-        return <ContactsTable />;
       case 'product':
         return <ProductTable />;
       case 'plan':
