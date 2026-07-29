@@ -272,4 +272,38 @@ export interface FeedbackSubmission {
   createdAt?: string; // ISO string
 }
 
+export interface TeamContact {
+  id: string;
+  name: string;
+  email: string;
+  mobile: string;
+  whatsappUrl?: string;
+  programs: string[];
+  cohorts: string[];
+  role?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface MatrixContact {
+  id: string;
+  name: string;
+  email: string;
+  mobile: string;
+  whatsappUrl?: string;
+}
+
+export interface ProgramCohortRow {
+  id: string;
+  program: string;
+  cohort: string;
+  department: string;
+  l0: MatrixContact[];
+  l1: MatrixContact[];
+  l2: MatrixContact[];
+  groupEmail: string;
+  createdAt?: string;
+}
+
 

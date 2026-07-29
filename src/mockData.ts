@@ -13,7 +13,9 @@ import type {
   ConfigProductGroup,
   ConfigStatus,
   ConfigProgram,
-  ConfigCohort
+  ConfigCohort,
+  TeamContact,
+  ProgramCohortRow
 } from './types';
 
 export const initialProductItems: ProductItem[] = [];
@@ -47,3 +49,7 @@ export const initialStatuses: ConfigStatus[] = [];
 export const initialPrograms: ConfigProgram[] = [];
 
 export const initialCohorts: ConfigCohort[] = [];
+
+export const initialTeamContacts: TeamContact[] = [];
+
+export const initialProgramCohortRows: ProgramCohortRow[] = [];

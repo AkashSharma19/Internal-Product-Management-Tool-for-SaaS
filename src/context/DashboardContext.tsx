@@ -18,14 +18,18 @@ import type {
   ConfigProgram,
   ConfigCohort,
   FeedbackFormConfig,
-  FeedbackSubmission
+  FeedbackSubmission,
+  TeamContact,
+  ProgramCohortRow
 } from '../types';
 import {
   initialSpeakers,
   initialProductGroups,
   initialStatuses,
   initialPrograms,
-  initialCohorts
+  initialCohorts,
+  initialTeamContacts,
+  initialProgramCohortRows
 } from '../mockData';
 
 interface DashboardContextType {
@@ -91,6 +95,18 @@ interface DashboardContextType {
   updateFeatureAdoption: (id: string, updated: Partial<FeatureAdoption>) => void;
   addFeatureAdoption: (item: FeatureAdoption) => void;
   deleteFeatureAdoption: (id: string) => void;
+
+  teamContacts: TeamContact[];
+  setTeamContacts: React.Dispatch<React.SetStateAction<TeamContact[]>>;
+  updateTeamContact: (id: string, updated: Partial<TeamContact>) => void;
+  addTeamContact: (item: TeamContact) => void;
+  deleteTeamContact: (id: string) => void;
+
+  programCohortRows: ProgramCohortRow[];
+  setProgramCohortRows: React.Dispatch<React.SetStateAction<ProgramCohortRow[]>>;
+  updateProgramCohortRow: (id: string, updated: Partial<ProgramCohortRow>) => void;
+  addProgramCohortRow: (item: ProgramCohortRow) => void;
+  deleteProgramCohortRow: (id: string) => void;
 
 
   previewProductId: string | null;
@@ -595,6 +611,53 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [dailyIssues, setDailyIssues] = useState<DailyIssue[]>([]);
   const [featureAdoptions, setFeatureAdoptions] = useState<FeatureAdoption[]>([]);
 
+  const [teamContacts, setTeamContacts] = useState<TeamContact[]>(() => {
+    const data = localStorage.getItem('team-contacts');
+    return data ? JSON.parse(data) : initialTeamContacts;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('team-contacts', JSON.stringify(teamContacts));
+  }, [teamContacts]);
+
+  const updateTeamContact = (id: string, updated: Partial<TeamContact>) => {
+    setTeamContacts(prev => {
+      const updatedItem = prev.find(item => item.id === id);
+      if (updatedItem) persistChange('update', 'teamContacts' as any, id, { ...updatedItem, ...updated });
+      return prev.map(item => item.id === id ? { ...item, ...updated, updatedAt: new Date().toISOString() } : item);
+    });
+  };
+
+  const addTeamContact = (item: TeamContact) => {
+    setTeamContacts(prev => [item, ...prev]);
+    persistChange('create', 'teamContacts' as any, null, item);
+  };
+
+  const deleteTeamContact = (id: string) => {
+    setTeamContacts(prev => prev.filter(item => item.id !== id));
+    persistChange('delete', 'teamContacts' as any, id, null);
+  };
+
+  const [programCohortRows, setProgramCohortRows] = useState<ProgramCohortRow[]>(() => {
+    const data = localStorage.getItem('program-cohort-rows');
+    return data ? JSON.parse(data) : initialProgramCohortRows;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('program-cohort-rows', JSON.stringify(programCohortRows));
+  }, [programCohortRows]);
+
+  const updateProgramCohortRow = (id: string, updated: Partial<ProgramCohortRow>) => {
+    setProgramCohortRows(prev => prev.map(item => item.id === id ? { ...item, ...updated } : item));
+  };
+
+  const addProgramCohortRow = (item: ProgramCohortRow) => {
+    setProgramCohortRows(prev => [...prev, item]);
+  };
+
+  const deleteProgramCohortRow = (id: string) => {
+    setProgramCohortRows(prev => prev.filter(item => item.id !== id));
+  };
 
 
   // Config state
@@ -2556,6 +2619,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       contentItems, setContentItems, updateContentItem, addContentItem, deleteContentItem,
       dailyIssues, setDailyIssues, updateDailyIssue, addDailyIssue, deleteDailyIssue,
       featureAdoptions, setFeatureAdoptions, updateFeatureAdoption, addFeatureAdoption, deleteFeatureAdoption,
+      teamContacts, setTeamContacts, updateTeamContact, addTeamContact, deleteTeamContact,
+      programCohortRows, setProgramCohortRows, updateProgramCohortRow, addProgramCohortRow, deleteProgramCohortRow,
       previewProductId, setPreviewProductId, openPreviewForFeature,
       activeSubtasksTaskLink, setActiveSubtasksTaskLink,
       previousTab, setPreviousTab,
