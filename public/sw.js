@@ -1,4 +1,4 @@
-﻿const CACHE_NAME = 'product-ship-v1';
+const CACHE_NAME = 'product-ship-v1';
 const ASSETS = [
   '/',
   '/index.html',
@@ -30,6 +30,11 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Only handle HTTP and HTTPS GET requests; ignore chrome-extension://, moz-extension://, etc.
+  if (!event.request.url.startsWith('http://') && !event.request.url.startsWith('https://')) {
+    return;
+  }
+
   if (event.request.url.includes('/api/')) {
     return;
   }
@@ -43,7 +48,9 @@ self.addEventListener('fetch', (event) => {
         if (event.request.method === 'GET' && response.status === 200) {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
+            cache.put(event.request, responseClone).catch(() => {
+              // Ignore cache put failures for unsupported requests
+            });
           });
         }
         return response;
