@@ -10,6 +10,7 @@ interface TabContainerProps {
   onAddClick?: () => void;
   addLabel?: string;
   onExportCSV?: () => void;
+  onExportFeedbackCSV?: () => void;
   onImportCSVClick?: () => void;
   filterComponent?: React.ReactNode;
   children: React.ReactNode;
@@ -23,6 +24,7 @@ export const TabContainer: React.FC<TabContainerProps> = ({
   onAddClick,
   addLabel = 'Add New',
   onExportCSV,
+  onExportFeedbackCSV,
   onImportCSVClick,
   filterComponent,
   children
@@ -80,8 +82,14 @@ export const TabContainer: React.FC<TabContainerProps> = ({
               <Upload size={14} /> Import CSV
             </button>
           )}
-          
-          {onExportCSV && (
+
+          {onExportFeedbackCSV && (
+            <button className="btn btn-secondary btn-sm" onClick={onExportFeedbackCSV} title="Download Overall Feedback Excel">
+              <Download size={14} /> Download Feedback Excel
+            </button>
+          )}
+
+          {onExportCSV && !onExportFeedbackCSV && (
             <button className="btn btn-secondary btn-sm" onClick={onExportCSV} title="Download CSV backup">
               <Download size={14} /> Export CSV
             </button>

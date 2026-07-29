@@ -1999,7 +1999,7 @@ export const DashboardOverview: React.FC = () => {
                     </div>
 
                     {task.description && (
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.4', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                      <div title={task.description} style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.4', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                         {task.description}
                       </div>
                     )}

@@ -33,7 +33,9 @@ import {
   Layers,
   ClipboardList,
   Copy,
-  History
+  History,
+  Eye,
+  Download
 } from 'lucide-react';
 import type { 
   ProductItem, 
@@ -45,7 +47,10 @@ import type {
   TarunSirMeeting,
   ContentItem, 
   DailyIssue, 
-  FeatureAdoption 
+  FeatureAdoption,
+  FeedbackSubmission,
+  FeedbackFormField,
+  FeedbackFormConfig
 } from '../types';
 
 const isTaskLinked = (notes: string | undefined, taskId?: string): boolean => {
@@ -139,12 +144,395 @@ const getPOCBadgeStyle = (name: string) => {
   };
 };
 
+export const downloadCSV = (filename: string, headers: string[], rows: (string | number | boolean | null | undefined)[][]) => {
+  const BOM = '\uFEFF';
+  const csvContent = [
+    headers.map(h => `"${String(h ?? '').replace(/"/g, '""')}"`).join(','),
+    ...rows.map(row => 
+      row.map(cell => {
+        if (cell === null || cell === undefined) return '""';
+        const str = String(cell).replace(/"/g, '""');
+        return `"${str}"`;
+      }).join(',')
+    )
+  ].join('\r\n');
+
+  const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
+
+export const exportItemFeedbackToExcel = (
+  itemId: string,
+  category: 'admin-calls' | 'ama-meetings' | 'student-projects',
+  feedbackSubmissions: FeedbackSubmission[],
+  formConfigs: FeedbackFormConfig[]
+) => {
+  const config = formConfigs.find(c => c.category === category);
+  if (!config || !config.fields || config.fields.length === 0) {
+    alert('No form configuration found for this category.');
+    return;
+  }
+
+  const sortedFields = [...config.fields].sort((a, b) => a.order - b.order);
+  const submissions = feedbackSubmissions.filter(sub => sub.itemId === itemId);
+
+  if (submissions.length === 0) {
+    alert('No feedback submissions to export for this item.');
+    return;
+  }
+
+  const headers = [
+    'Submission ID',
+    'Respondent Name',
+    'Respondent Email',
+    'Submitted At',
+    ...sortedFields.map(f => f.label)
+  ];
+
+  const rows = submissions.map(sub => {
+    const fieldAnswers = sortedFields.map(f => {
+      const val = sub.answers[f.id];
+      if (val === undefined || val === null) return '';
+      if (Array.isArray(val)) return val.join(', ');
+      return String(val);
+    });
+
+    return [
+      sub.id,
+      sub.submittedBy || 'Anonymous',
+      sub.submittedByEmail || '',
+      sub.createdAt ? new Date(sub.createdAt).toLocaleString() : '',
+      ...fieldAnswers
+    ];
+  });
+
+  const fileName = `Feedback_${itemId}_${new Date().toISOString().slice(0, 10)}.csv`;
+  downloadCSV(fileName, headers, rows);
+};
+
+export const exportAttendeeFeedbackToExcel = (
+  category: 'admin-calls' | 'ama-meetings' | 'student-projects',
+  feedbackSubmissions: FeedbackSubmission[],
+  formConfigs: FeedbackFormConfig[],
+  adminCalls: AdminCall[] = [],
+  studentMeetings: any[] = [],
+  studentProjects: StudentProject[] = []
+) => {
+  const config = formConfigs.find(c => c.category === category);
+  if (!config || !config.fields || config.fields.length === 0) {
+    alert('No form configuration found for this category.');
+    return;
+  }
+
+  const sortedFields = [...config.fields].sort((a, b) => a.order - b.order);
+  const submissions = feedbackSubmissions.filter(sub => sub.category === category);
+
+  if (submissions.length === 0) {
+    alert(`No attendee feedback submissions found for ${category.replace('-', ' ')}.`);
+    return;
+  }
+
+  const headers = [
+    'Submission ID',
+    'Item ID',
+    'Item Name / Topic',
+    'Date / POC',
+    'Program',
+    'Respondent Name',
+    'Respondent Email',
+    'Submitted At',
+    ...sortedFields.map(f => f.label)
+  ];
+
+  const rows = submissions.map(sub => {
+    let itemName = sub.itemId;
+    let itemMeta = '';
+    let itemProgram = '';
+
+    if (category === 'admin-calls') {
+      const call = adminCalls.find(c => c.id === sub.itemId);
+      if (call) {
+        itemName = call.cohortTopic;
+        itemMeta = `${call.date} • ${call.adminPoc}`;
+        itemProgram = call.program || '';
+      }
+    } else if (category === 'ama-meetings') {
+      const meeting = studentMeetings.find(m => m.id === sub.itemId);
+      if (meeting) {
+        itemName = meeting.cohort || meeting.topic || sub.itemId;
+        itemMeta = `${meeting.date || ''} • ${meeting.poc || meeting.speaker || ''}`;
+        itemProgram = meeting.program || '';
+      }
+    } else if (category === 'student-projects') {
+      const project = studentProjects.find(p => p.id === sub.itemId);
+      if (project) {
+        itemName = project.title;
+        itemMeta = `${project.poc || ''}`;
+        itemProgram = (project as any).program || '';
+      }
+    }
+
+    const fieldAnswers = sortedFields.map(f => {
+      const val = sub.answers[f.id];
+      if (val === undefined || val === null) return '';
+      if (Array.isArray(val)) return val.join(', ');
+      return String(val);
+    });
+
+    return [
+      sub.id,
+      sub.itemId,
+      itemName,
+      itemMeta,
+      itemProgram,
+      sub.submittedBy || 'Anonymous',
+      sub.submittedByEmail || '',
+      sub.createdAt ? new Date(sub.createdAt).toLocaleString() : '',
+      ...fieldAnswers
+    ];
+  });
+
+  const categoryLabel = category === 'admin-calls' ? 'Admin_Calls' : category === 'ama-meetings' ? 'AMA_Meetings' : 'Student_Projects';
+  const fileName = `Overall_Feedback_${categoryLabel}_${new Date().toISOString().slice(0, 10)}.csv`;
+  downloadCSV(fileName, headers, rows);
+};
+
+const ExpandableTextCell: React.FC<{ text: string; maxLength?: number }> = ({ text, maxLength = 75 }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  if (!text || text.trim() === '') return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+
+  const isLong = text.length > maxLength || text.includes('\n');
+
+  return (
+    <div 
+      style={{ 
+        minWidth: '180px', 
+        maxWidth: isExpanded ? '500px' : '300px', 
+        position: 'relative',
+        transition: 'max-width 0.2s ease-in-out'
+      }} 
+      title={isExpanded ? '' : text}
+    >
+      <div style={{ 
+        display: isExpanded ? 'block' : '-webkit-box',
+        WebkitLineClamp: isExpanded ? 'none' : 3,
+        WebkitBoxOrient: 'vertical',
+        overflow: isExpanded ? 'visible' : 'hidden',
+        whiteSpace: isExpanded ? 'pre-wrap' : 'normal',
+        wordBreak: 'break-word',
+        lineHeight: 1.45,
+        fontSize: '0.75rem',
+        color: 'var(--text-primary)'
+      }}>
+        {text}
+      </div>
+      {isLong && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsExpanded(!isExpanded);
+          }}
+          style={{
+            background: 'rgba(99, 102, 241, 0.08)',
+            border: '1px solid rgba(99, 102, 241, 0.2)',
+            borderRadius: '4px',
+            padding: '2px 7px',
+            fontSize: '0.65rem',
+            fontWeight: 650,
+            color: 'var(--primary)',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '3px',
+            marginTop: '4px',
+            transition: 'all 0.15s'
+          }}
+        >
+          {isExpanded ? (
+            <>
+              <ChevronUp size={10} /> Show less
+            </>
+          ) : (
+            <>
+              <ChevronDown size={10} /> Read full description
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  );
+};
+
+const FeedbackSubmissionModal: React.FC<{
+  submission: FeedbackSubmission | null;
+  fields: FeedbackFormField[];
+  onClose: () => void;
+}> = ({ submission, fields, onClose }) => {
+  if (!submission) return null;
+
+  const sortedFields = [...fields].sort((a, b) => a.order - b.order);
+
+  return (
+    <div 
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backdropFilter: 'blur(4px)',
+        zIndex: 10000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1.5rem'
+      }}
+      onClick={onClose}
+    >
+      <div 
+        style={{
+          width: '100%',
+          maxWidth: '650px',
+          maxHeight: '85vh',
+          backgroundColor: 'var(--panel-bg)',
+          borderRadius: '12px',
+          border: '1px solid var(--border)',
+          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header */}
+        <div style={{
+          padding: '1.25rem 1.5rem',
+          borderBottom: '1px solid var(--border)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          background: 'var(--background-alt)'
+        }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ClipboardList size={18} color="var(--primary)" /> Feedback Submission Details
+            </h3>
+            <p style={{ margin: '4px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Submitted by <strong>{submission.submittedBy || 'Anonymous'}</strong> {submission.submittedByEmail && `(${submission.submittedByEmail})`} on {submission.createdAt ? new Date(submission.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
+            </p>
+          </div>
+          <button 
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text-secondary)',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '6px',
+              borderRadius: '50%',
+              transition: 'background-color 0.15s'
+            }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div style={{
+          padding: '1.25rem 1.5rem',
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1rem'
+        }}>
+          {sortedFields.map((field) => {
+            const ans = submission.answers[field.id];
+            return (
+              <div 
+                key={field.id} 
+                style={{ 
+                  background: 'var(--background-alt)', 
+                  border: '1px solid var(--border)', 
+                  borderRadius: '8px', 
+                  padding: '1rem' 
+                }}
+              >
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                  {field.label}
+                </div>
+                <div>
+                  {ans === undefined || ans === null || ans === '' ? (
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>No response provided</span>
+                  ) : field.type === 'rating' ? (
+                    <span style={{ color: '#d97706', fontWeight: 800, fontSize: '1rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      {ans} <Star size={14} fill="#fbbf24" color="#fbbf24" />
+                    </span>
+                  ) : Array.isArray(ans) ? (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {ans.map((item: string, i: number) => (
+                        <span key={i} className="badge" style={{ fontSize: '0.75rem', background: 'var(--panel-bg)', border: '1px solid var(--border)' }}>{item}</span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ 
+                      fontSize: '0.825rem', 
+                      color: 'var(--text-primary)', 
+                      lineHeight: '1.55',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      background: 'var(--panel-bg)',
+                      padding: '0.75rem',
+                      borderRadius: '6px',
+                      border: '1px solid var(--border)'
+                    }}>
+                      {String(ans)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Modal Footer */}
+        <div style={{
+          padding: '1rem 1.5rem',
+          borderTop: '1px solid var(--border)',
+          background: 'var(--background-alt)',
+          display: 'flex',
+          justifyContent: 'flex-end'
+        }}>
+          <button
+            onClick={onClose}
+            className="btn btn-secondary"
+            style={{ fontSize: '0.8rem', padding: '6px 16px' }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AttendeeFeedbackDetails: React.FC<{
   itemId: string;
   category: 'admin-calls' | 'ama-meetings' | 'student-projects';
 }> = ({ itemId, category }) => {
   const { formConfigs, feedbackSubmissions, currentUser, confirm, deleteFeedbackSubmission } = useDashboard();
   const [copied, setCopied] = useState(false);
+  const [viewingSubmission, setViewingSubmission] = useState<FeedbackSubmission | null>(null);
   const isCurrentUserAdmin = currentUser ? (currentUser.isAdmin !== false) : false;
 
   const config = formConfigs.find(c => c.category === category);
@@ -203,26 +591,53 @@ const AttendeeFeedbackDetails: React.FC<{
             Share the link below with participants to collect feedback.
           </p>
         </div>
-        <button
-          onClick={handleCopyLink}
-          style={{
-            background: copied ? 'var(--success-bg)' : 'var(--primary)',
-            color: copied ? 'var(--success)' : '#fff',
-            border: copied ? '1px solid var(--success)' : 'none',
-            padding: '6px 12px',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '0.75rem',
-            fontWeight: 650,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '4px',
-            transition: 'all 0.2s'
-          }}
-        >
-          {copied ? <Check size={12} /> : <Link size={12} />}
-          {copied ? 'Link Copied!' : 'Copy Feedback Link'}
-        </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {submissions.length > 0 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                exportItemFeedbackToExcel(itemId, category, feedbackSubmissions, formConfigs);
+              }}
+              style={{
+                background: 'var(--panel-bg)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border)',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.75rem',
+                fontWeight: 650,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                transition: 'all 0.2s'
+              }}
+              title="Download Feedback as Excel (CSV)"
+            >
+              <Download size={12} /> Download Feedback Excel
+            </button>
+          )}
+          <button
+            onClick={handleCopyLink}
+            style={{
+              background: copied ? 'var(--success-bg)' : 'var(--primary)',
+              color: copied ? 'var(--success)' : '#fff',
+              border: copied ? '1px solid var(--success)' : 'none',
+              padding: '6px 12px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '0.75rem',
+              fontWeight: 650,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              transition: 'all 0.2s'
+            }}
+          >
+            {copied ? <Check size={12} /> : <Link size={12} />}
+            {copied ? 'Link Copied!' : 'Copy Feedback Link'}
+          </button>
+        </div>
       </div>
 
       {/* Ratings Summary Cards */}
@@ -255,24 +670,22 @@ const AttendeeFeedbackDetails: React.FC<{
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
             <thead>
               <tr style={{ background: 'var(--panel-bg)', borderBottom: '2px solid var(--border)' }}>
-                <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap', borderRight: '1px solid var(--border)', position: 'sticky', left: 0, background: 'var(--panel-bg)', zIndex: 1, minWidth: '100px' }}>Respondent</th>
+                <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap', borderRight: '1px solid var(--border)', position: 'sticky', left: 0, background: 'var(--panel-bg)', zIndex: 1, minWidth: '110px' }}>Respondent</th>
                 <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap', borderRight: '1px solid var(--border)', minWidth: '110px' }}>Date</th>
                 {sortedFields.map(field => (
-                  <th key={field.id} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap', borderRight: '1px solid var(--border)', minWidth: field.type === 'rating' ? '70px' : '120px' }}>
+                  <th key={field.id} title={field.label} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text-secondary)', borderRight: '1px solid var(--border)', minWidth: field.type === 'rating' ? '70px' : '220px', maxWidth: '320px', lineHeight: '1.35' }}>
                     {field.label}
                   </th>
                 ))}
-                {isCurrentUserAdmin && (
-                  <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap', minWidth: '60px' }}>
-                    Actions
-                  </th>
-                )}
+                <th style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap', minWidth: '95px' }}>
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {submissions.map((sub, idx) => (
                 <tr key={sub.id} style={{ borderBottom: '1px solid var(--border)', background: idx % 2 === 0 ? 'var(--background)' : 'var(--background-alt)' }}>
-                  <td style={{ padding: '7px 10px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', borderRight: '1px solid var(--border)', position: 'sticky', left: 0, background: idx % 2 === 0 ? 'var(--background)' : 'var(--background-alt)', zIndex: 1 }}>
+                  <td style={{ padding: '7px 10px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', borderRight: '1px solid var(--border)', position: 'sticky', left: 0, background: idx % 2 === 0 ? 'var(--background)' : 'var(--background-alt)', zIndex: 1, verticalAlign: 'top' }}>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                       <span>{sub.submittedBy || 'Anonymous'}</span>
                       {sub.submittedByEmail && (
@@ -280,13 +693,13 @@ const AttendeeFeedbackDetails: React.FC<{
                       )}
                     </div>
                   </td>
-                  <td style={{ padding: '7px 10px', color: 'var(--text-muted)', whiteSpace: 'nowrap', borderRight: '1px solid var(--border)' }}>
+                  <td style={{ padding: '7px 10px', color: 'var(--text-muted)', whiteSpace: 'nowrap', borderRight: '1px solid var(--border)', verticalAlign: 'top' }}>
                     {sub.createdAt ? new Date(sub.createdAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : '—'}
                   </td>
                   {sortedFields.map(field => {
                     const ans = sub.answers[field.id];
                     return (
-                      <td key={field.id} style={{ padding: '7px 10px', borderRight: '1px solid var(--border)', color: 'var(--text-primary)' }}>
+                      <td key={field.id} style={{ padding: '7px 10px', borderRight: '1px solid var(--border)', color: 'var(--text-primary)', verticalAlign: 'top' }}>
                         {ans === undefined || ans === null || ans === '' ? (
                           <span style={{ color: 'var(--text-muted)' }}>—</span>
                         ) : field.type === 'rating' ? (
@@ -296,50 +709,83 @@ const AttendeeFeedbackDetails: React.FC<{
                         ) : Array.isArray(ans) ? (
                           <span>{ans.join(', ')}</span>
                         ) : (
-                          <span style={{ maxWidth: '200px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{ans}</span>
+                          <ExpandableTextCell text={String(ans)} maxLength={75} />
                         )}
                       </td>
                     );
                   })}
-                  {isCurrentUserAdmin && (
-                    <td style={{ padding: '7px 10px', textAlign: 'center' }}>
+                  <td style={{ padding: '7px 10px', textAlign: 'center', verticalAlign: 'top' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                       <button
-                        onClick={async (e) => {
+                        onClick={(e) => {
                           e.stopPropagation();
-                          const confirmed = await confirm(
-                            'Are you sure you want to delete this feedback submission?',
-                            'Delete Feedback',
-                            'Delete',
-                            'Cancel',
-                            'danger'
-                          );
-                          if (confirmed) {
-                            await deleteFeedbackSubmission(sub.id);
-                          }
+                          setViewingSubmission(sub);
                         }}
                         style={{
-                          background: 'none',
-                          border: 'none',
+                          background: 'rgba(99, 102, 241, 0.1)',
+                          border: '1px solid rgba(99, 102, 241, 0.25)',
                           cursor: 'pointer',
-                          color: 'var(--danger)',
+                          color: 'var(--primary)',
                           display: 'inline-flex',
                           alignItems: 'center',
-                          justifyContent: 'center',
-                          padding: '4px',
+                          gap: '3px',
+                          padding: '4px 8px',
                           borderRadius: '4px',
-                          transition: 'background-color 0.15s'
+                          fontSize: '0.675rem',
+                          fontWeight: 650,
+                          transition: 'all 0.15s'
                         }}
-                        title="Delete submission"
+                        title="View full submission details"
                       >
-                        <Trash2 size={13} />
+                        <Eye size={12} /> View
                       </button>
-                    </td>
-                  )}
+                      {isCurrentUserAdmin && (
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const confirmed = await confirm(
+                              'Are you sure you want to delete this feedback submission?',
+                              'Delete Feedback',
+                              'Delete',
+                              'Cancel',
+                              'danger'
+                            );
+                            if (confirmed) {
+                              await deleteFeedbackSubmission(sub.id);
+                            }
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: 'var(--danger)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '4px',
+                            borderRadius: '4px',
+                            transition: 'background-color 0.15s'
+                          }}
+                          title="Delete submission"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {viewingSubmission && (
+        <FeedbackSubmissionModal
+          submission={viewingSubmission}
+          fields={config.fields}
+          onClose={() => setViewingSubmission(null)}
+        />
       )}
     </div>
   );
@@ -465,7 +911,8 @@ const FeedbackDrawer: React.FC<{
       <div 
         style={{
           width: '100%',
-          maxWidth: '65vw',
+          maxWidth: '78vw',
+          minWidth: '600px',
           height: '100%',
           backgroundColor: 'var(--panel-bg)',
           boxShadow: '-4px 0 24px rgba(0, 0, 0, 0.15)',
@@ -5402,7 +5849,8 @@ export const StudentMeetingsTable: React.FC = () => {
     speakers: configSpeakers, statuses, currentUser, confirm,
     programs, fetchPaginatedMeetingsData,
     meetingSearchQuery, setMeetingSearchQuery,
-    highlightedCallId, setHighlightedCallId
+    highlightedCallId, setHighlightedCallId,
+    feedbackSubmissions, formConfigs
   } = useDashboard();
 
   // Derive speakers list from configuration context (live — updates when Config tab changes)
@@ -5762,6 +6210,9 @@ export const StudentMeetingsTable: React.FC = () => {
         setSearchQuery={setSearchQuery}
         onAddClick={subTab === 'schedule' ? handleAddNew : undefined}
         addLabel={subTab === 'schedule' ? 'Add AMA Session' : undefined}
+        onExportFeedbackCSV={() => {
+          exportAttendeeFeedbackToExcel('ama-meetings', feedbackSubmissions, formConfigs, [], amaSessions);
+        }}
         searchPlaceholder={subTab === 'schedule' ? 'Search AMA sessions...' : 'Search feedback features...'}
         filterComponent={
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -7410,7 +7861,8 @@ export const AdminCallsTable: React.FC = () => {
     speakers: configSpeakers, statuses, currentUser, confirm,
     programs, fetchPaginatedMeetingsData,
     meetingSearchQuery, setMeetingSearchQuery,
-    highlightedCallId, setHighlightedCallId
+    highlightedCallId, setHighlightedCallId,
+    feedbackSubmissions, formConfigs
   } = useDashboard();
   
   const speakersList = configSpeakers.map(s => s.name);
@@ -7723,6 +8175,20 @@ export const AdminCallsTable: React.FC = () => {
         setSearchQuery={setSearchQuery}
         onAddClick={subTab === 'schedule' ? handleAddNew : undefined}
         addLabel={subTab === 'schedule' ? 'Add Admin Call' : undefined}
+        onExportFeedbackCSV={() => {
+          exportAttendeeFeedbackToExcel('admin-calls', feedbackSubmissions, formConfigs, adminCalls);
+        }}
+        onExportCSV={() => {
+          if (subTab === 'schedule') {
+            const headers = ['ID', 'Date', 'Admin POC', 'Program', 'Cohort / Topic', 'Status', 'Discussion', 'Actions'];
+            const rows = adminCalls.map(c => [c.id, c.date, c.adminPoc, c.program || '', c.cohortTopic, c.status, c.discussion, c.actions]);
+            downloadCSV(`Admin_Calls_Schedule_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+          } else {
+            const headers = ['ID', 'Feature', 'POC', 'Status', 'Clickup Status', 'Priority', 'Blocker', 'Notes', 'Deadline'];
+            const rows = productItems.map(p => [p.id, p.feature, p.poc || '', p.status, p.clickupStatus || '', p.priority || '', p.blocker || '', p.notes || '', p.deadline || '']);
+            downloadCSV(`Admin_Calls_Feedback_Requests_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+          }
+        }}
         searchPlaceholder={subTab === 'schedule' ? 'Search admin calls...' : 'Search feedback features...'}
         filterComponent={
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -9177,7 +9643,8 @@ export const TarunSirMeetingsTable: React.FC = () => {
     speakers: configSpeakers, statuses, currentUser, confirm,
     programs, fetchPaginatedMeetingsData,
     meetingSearchQuery, setMeetingSearchQuery,
-    highlightedCallId, setHighlightedCallId
+    highlightedCallId, setHighlightedCallId,
+    feedbackSubmissions, formConfigs
   } = useDashboard();
   
   const speakersList = configSpeakers.map(s => s.name);
@@ -9487,6 +9954,10 @@ export const TarunSirMeetingsTable: React.FC = () => {
         setSearchQuery={setSearchQuery}
         onAddClick={subTab === 'schedule' ? handleAddNew : undefined}
         addLabel={subTab === 'schedule' ? 'Add Meeting' : undefined}
+        onExportFeedbackCSV={() => {
+          // Export attendee feedback for meetings category
+          exportAttendeeFeedbackToExcel('admin-calls', feedbackSubmissions, formConfigs, [], []);
+        }}
         searchPlaceholder={subTab === 'schedule' ? 'Search meetings...' : 'Search feedback features...'}
         filterComponent={
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
