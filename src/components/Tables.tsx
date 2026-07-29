@@ -3299,7 +3299,7 @@ export const ProductTable: React.FC = () => {
                       setPreviewProductId(item.id);
                     }
                   }} 
-                  className={deletingIds.has(item.id) ? 'row-deleting' : ''}
+                  className={`${deletingIds.has(item.id) ? 'row-deleting' : ''} ${item.blocker ? 'row-blocked' : ''}`}
                   style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
                 >
                   <td className="sticky-col" style={{ fontWeight: 600, width: '280px', minWidth: '280px', maxWidth: '280px', whiteSpace: 'normal' }}>
@@ -5032,6 +5032,7 @@ export const StudentProjectsTable: React.FC = () => {
                         } as Partial<ProductItem>);
                       }
                     }} 
+                    className={p.blocker ? 'row-blocked' : ''}
                     style={{ cursor: 'pointer' }}
                   >
                   <td className="sticky-col" style={{ fontWeight: 600, width: '280px', minWidth: '280px', maxWidth: '280px', whiteSpace: 'normal' }}>
@@ -6825,6 +6826,7 @@ export const StudentMeetingsTable: React.FC = () => {
                   return (
                     <tr 
                       key={feat.id} 
+                      className={feat.blocker ? 'row-blocked' : ''}
                       onClick={() => {
                         if (
                           editingFeedbackFeatureId !== feat.id &&
@@ -8726,6 +8728,7 @@ export const AdminCallsTable: React.FC = () => {
                   return (
                     <tr 
                       key={feat.id} 
+                      className={feat.blocker ? 'row-blocked' : ''}
                       onClick={() => {
                         if (
                           editingFeedbackFeatureId !== feat.id &&
@@ -12071,7 +12074,7 @@ export const ProductWiseSheet: React.FC = () => {
                         </tr>
                       ))
                     ) : paginatedFeatures.map(item => (
-                      <tr key={item.id} onClick={() => {
+                      <tr key={item.id} className={item.blocker ? 'row-blocked' : ''} onClick={() => {
                         if (editingFeatureId !== item.id) {
                           item.openPreview();
                         }
@@ -12638,6 +12641,7 @@ export const IssuesTable: React.FC = () => {
     return (
       <tr 
         key={item.id} 
+        className={item.blocker ? 'row-blocked' : ''}
         onClick={() => setPreviewProductId(item.id)} 
         style={{ cursor: 'pointer' }}
       >

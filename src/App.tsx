@@ -738,6 +738,30 @@ const DashboardContent: React.FC = () => {
   } = useDashboard();
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [isRefreshingClickup, setIsRefreshingClickup] = useState(false);
+
+  // Toast state for auto-save notifications
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const prevSyncStatusRef = useRef(syncStatus);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (prevSyncStatusRef.current === 'syncing' && syncStatus === 'synced') {
+      setToastMessage('Changes saved to cloud');
+      setToastType('success');
+      setShowToast(true);
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+      toastTimeoutRef.current = setTimeout(() => setShowToast(false), 3000);
+    } else if (syncStatus === 'error') {
+      setToastMessage('Sync failed. Offline mode active.');
+      setToastType('error');
+      setShowToast(true);
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+      toastTimeoutRef.current = setTimeout(() => setShowToast(false), 4000);
+    }
+    prevSyncStatusRef.current = syncStatus;
+  }, [syncStatus]);
   const [isRefreshingData, setIsRefreshingData] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(isAudioMuted());
@@ -2062,6 +2086,12 @@ const DashboardContent: React.FC = () => {
           onClose={() => setActiveSubtasksTaskLink(null)} 
         />
       )}
+      <div className={`micro-toast ${showToast ? 'show' : ''}`}>
+        <div className={`micro-toast-icon ${toastType}`}>
+          {toastType === 'success' ? <CheckCircle size={14} /> : <AlertTriangle size={14} />}
+        </div>
+        <span>{toastMessage}</span>
+      </div>
     </div>
   );
 };

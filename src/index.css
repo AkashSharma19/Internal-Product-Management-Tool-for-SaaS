@@ -830,6 +830,64 @@ h1, h2, h3, h4, h5, h6 {
   background-color: var(--background-alt) !important;
 }
 
+/* Active Blocker Row Indicator */
+.grid-table tr.row-blocked td {
+  background-color: var(--danger-bg) !important;
+}
+.grid-table tr.row-blocked td:first-child {
+  border-left: 3px solid var(--danger) !important;
+}
+
+/* Micro Toast Notification */
+.micro-toast {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  background-color: var(--panel-bg);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  box-shadow: var(--shadow);
+  z-index: 9999;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  transform: translateY(100px);
+  opacity: 0;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.micro-toast.show {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.micro-toast-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.micro-toast-icon.success {
+  background-color: var(--success-bg);
+  color: var(--success);
+}
+
+.micro-toast-icon.error {
+  background-color: var(--danger-bg);
+  color: var(--danger);
+}
+
 
 /* EDITABLE CELL INPUT */
 .editable-cell {
