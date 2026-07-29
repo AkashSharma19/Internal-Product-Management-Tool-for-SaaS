@@ -3496,6 +3496,7 @@ export default async function handler(req: any, res: any) {
         // 1. Fetch SMTP settings from DB
         const GlobalSettings = modelsMap['settings'];
         const recipientSet = await GlobalSettings.findOne({ key: 'digestRecipient' }).lean();
+        const appUrlSet = await GlobalSettings.findOne({ key: 'digestAppUrl' }).lean();
         const smtpHostSet = await GlobalSettings.findOne({ key: 'digestSMTPHost' }).lean();
         const smtpPortSet = await GlobalSettings.findOne({ key: 'digestSMTPPort' }).lean();
         const smtpUserSet = await GlobalSettings.findOne({ key: 'digestSMTPUser' }).lean();
@@ -3708,8 +3709,25 @@ export default async function handler(req: any, res: any) {
         const amaPercent = amaTotal > 0 ? Math.round(((amaTotal - amaPending) / amaTotal) * 100) : 100;
         const issuesPercent = issuesTotal > 0 ? Math.round(((issuesTotal - issuesPending) / issuesTotal) * 100) : 100;
         const releasedPercent = releasedTotal > 0 ? Math.round((releasedCompleted / releasedTotal) * 100) : 100;
-
-        const protocol = req.headers['x-forwarded-proto'] || 'http';
+        // Resolve application base URL
+        let appUrl = appUrlSet?.value || (process as any).env.APP_URL || '';
+        
+        // Fallback to VERCEL_URL if available
+        if (!appUrl && (process as any).env.VERCEL_URL) {
+          appUrl = `https://${(process as any).env.VERCEL_URL}`;
+        }
+        
+        // If still not set, default to request headers
+        if (!appUrl) {
+          const protocol = req.headers['x-forwarded-proto'] || 'http';
+          const host = req.headers.host || '';
+          appUrl = `${protocol}://${host}`;
+        } else {
+          // Clean up appUrl to ensure it starts with http:// or https://
+          if (!/^https?:\/\//i.test(appUrl)) {
+            appUrl = `https://${appUrl}`;
+          }
+        }
 
         const isMetricsGood = releasedPercent >= 75;
 
@@ -3969,7 +3987,7 @@ export default async function handler(req: any, res: any) {
                     <!-- Call To Action Button -->
                     <tr>
                       <td style="padding: 24px 30px; text-align: center; border-top: 1px solid #f1f5f9; background-color: #fafbfc;">
-                        <a href="${protocol}://${host}" style="background-color: #7c3aed; color: #ffffff; text-decoration: none; padding: 10px 24px; border-radius: 6px; font-weight: 700; font-size: 13px; display: inline-block; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; letter-spacing: -0.2px;">
+                        <a href="${appUrl}" style="background-color: #7c3aed; color: #ffffff; text-decoration: none; padding: 10px 24px; border-radius: 6px; font-weight: 700; font-size: 13px; display: inline-block; font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; letter-spacing: -0.2px;">
                           Open Product Ship
                         </a>
                       </td>

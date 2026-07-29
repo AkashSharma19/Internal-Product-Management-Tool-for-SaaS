@@ -152,6 +152,8 @@ interface DashboardContextType {
   // Email Digest Settings
   digestRecipient: string;
   updateDigestRecipient: (val: string) => void;
+  digestAppUrl: string;
+  updateDigestAppUrl: (val: string) => void;
   digestSMTPHost: string;
   updateDigestSMTPHost: (val: string) => void;
   digestSMTPPort: string;
@@ -644,6 +646,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [digestRecipient, setDigestRecipient] = useState<string>(() => {
     return localStorage.getItem('config-digest-recipient') || '';
   });
+  const [digestAppUrl, setDigestAppUrl] = useState<string>(() => {
+    return localStorage.getItem('config-digest-app-url') || '';
+  });
   const [digestSMTPHost, setDigestSMTPHost] = useState<string>(() => {
     return localStorage.getItem('config-digest-smtp-host') || '';
   });
@@ -880,6 +885,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     localStorage.setItem('config-digest-recipient', digestRecipient);
   }, [digestRecipient]);
+
+  useEffect(() => {
+    localStorage.setItem('config-digest-app-url', digestAppUrl);
+  }, [digestAppUrl]);
 
   useEffect(() => {
     localStorage.setItem('config-digest-smtp-host', digestSMTPHost);
@@ -1316,11 +1325,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [totalOverdueCount]);
 
-  // Keep calendarEvents updated when data arrays are modified
-  useEffect(() => {
-    if (isLoading) return;
-    loadCalendarMonth(calendarMonth.getFullYear(), calendarMonth.getMonth());
-  }, [productItems, studentProjects, contentItems, dailyIssues, calendarMonth, loadCalendarMonth, isLoading]);
+
 
   const loadCommentsForTask = useCallback(async (itemId: string) => {
     setSyncStatus('syncing');
@@ -1496,6 +1501,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
           const recipientSetting = db.settings.find((s: any) => s.key === 'digestRecipient');
           if (recipientSetting) setDigestRecipient(recipientSetting.value || '');
+
+          const appUrlSetting = db.settings.find((s: any) => s.key === 'digestAppUrl');
+          if (appUrlSetting) setDigestAppUrl(appUrlSetting.value || '');
 
           const smtpHostSetting = db.settings.find((s: any) => s.key === 'digestSMTPHost');
           if (smtpHostSetting) setDigestSMTPHost(smtpHostSetting.value || '');
@@ -1692,6 +1700,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const updateDigestRecipient = (val: string) => {
     setDigestRecipient(val);
     persistChange('update', 'settings', 'digestRecipient', { id: 'digestRecipient', key: 'digestRecipient', value: val });
+  };
+  const updateDigestAppUrl = (val: string) => {
+    setDigestAppUrl(val);
+    persistChange('update', 'settings', 'digestAppUrl', { id: 'digestAppUrl', key: 'digestAppUrl', value: val });
   };
   const updateDigestSMTPHost = (val: string) => {
     setDigestSMTPHost(val);
@@ -2594,6 +2606,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setCalendarMonth,
       digestRecipient,
       updateDigestRecipient,
+      digestAppUrl,
+      updateDigestAppUrl,
       digestSMTPHost,
       updateDigestSMTPHost,
       digestSMTPPort,

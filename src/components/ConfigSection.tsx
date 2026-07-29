@@ -2199,6 +2199,7 @@ const CalendarConfigSection: React.FC = () => {
 const EmailDigestSettingsSection: React.FC = () => {
   const {
     digestRecipient, updateDigestRecipient,
+    digestAppUrl, updateDigestAppUrl,
     digestSMTPHost, updateDigestSMTPHost,
     digestSMTPPort, updateDigestSMTPPort,
     digestSMTPUser, updateDigestSMTPUser,
@@ -2211,6 +2212,7 @@ const EmailDigestSettingsSection: React.FC = () => {
   } = useDashboard();
 
   const [recipient, setRecipient] = useState(digestRecipient);
+  const [appUrl, setAppUrl] = useState(digestAppUrl);
   const [smtpHost, setSmtpHost] = useState(digestSMTPHost);
   const [smtpPort, setSmtpPort] = useState(digestSMTPPort);
   const [smtpUser, setSmtpUser] = useState(digestSMTPUser);
@@ -2224,6 +2226,7 @@ const EmailDigestSettingsSection: React.FC = () => {
 
   useEffect(() => {
     setRecipient(digestRecipient);
+    setAppUrl(digestAppUrl);
     setSmtpHost(digestSMTPHost);
     setSmtpPort(digestSMTPPort);
     setSmtpUser(digestSMTPUser);
@@ -2231,11 +2234,12 @@ const EmailDigestSettingsSection: React.FC = () => {
     setFrequency(digestFrequency);
     setDeliveryTime(digestTime);
     setDayOfWeek(digestDayOfWeek);
-  }, [digestRecipient, digestSMTPHost, digestSMTPPort, digestSMTPUser, digestSMTPPass, digestFrequency, digestTime, digestDayOfWeek]);
+  }, [digestRecipient, digestAppUrl, digestSMTPHost, digestSMTPPort, digestSMTPUser, digestSMTPPass, digestFrequency, digestTime, digestDayOfWeek]);
 
   const handleSave = () => {
     if (!canUserEdit) return;
     updateDigestRecipient(recipient.trim());
+    updateDigestAppUrl(appUrl.trim());
     updateDigestSMTPHost(smtpHost.trim());
     updateDigestSMTPPort(smtpPort.trim());
     updateDigestSMTPUser(smtpUser.trim());
@@ -2304,6 +2308,22 @@ const EmailDigestSettingsSection: React.FC = () => {
               />
               <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
                 Multiple emails can be separated by commas
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Application Base URL
+              </label>
+              <input
+                type="text"
+                className="config-input"
+                placeholder="e.g. https://productship-console.vercel.app"
+                value={appUrl}
+                onChange={(e) => setAppUrl(e.target.value)}
+              />
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                Live URL of the console used for links in email digests (falls back to request host if empty)
               </span>
             </div>
 
