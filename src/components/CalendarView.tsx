@@ -713,12 +713,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
           status: evt.rawItem.status as any 
         });
       } else if (evt.source === 'Content Pipeline') {
-        openPreviewForFeature(evt.title, { 
-          type: evt.rawItem.type, 
-          poc: evt.rawItem.poc, 
-          status: evt.rawItem.status as any, 
-          notes: evt.rawItem.subject 
-        });
+        setPreviewProductId(evt.rawItem.id);
       } else if (evt.source === 'Daily Issues Log') {
         setPreviewProductId(evt.rawItem.id);
       }

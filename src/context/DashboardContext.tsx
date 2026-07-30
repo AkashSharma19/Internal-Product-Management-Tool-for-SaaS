@@ -483,8 +483,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
     const cleanName = clean(name);
     
-    // 1. Check exact ID match if fallbackData.id is provided
-    let match = fallbackData?.id ? productItems.find(item => item.id === fallbackData.id) : undefined;
+    // 1. Check exact ID match if fallbackData.id is provided (including temporary IDs)
+    let match = fallbackData?.id ? productItems.find(item => item.id === fallbackData.id || item.id === `prod-temp-${fallbackData.id}`) : undefined;
 
     // 2. Check exact or substring match in productItems
     if (!match && cleanName) {

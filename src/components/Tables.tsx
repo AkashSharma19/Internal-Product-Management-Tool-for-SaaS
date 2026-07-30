@@ -11369,11 +11369,9 @@ export const TarunSirMeetingsTable: React.FC = () => {
 
 export const ContentTable: React.FC = () => {
   const { 
-    contentItems, updateContentItem, addContentItem, deleteContentItem, 
-    openPreviewForFeature, speakers: configSpeakers, productGroups, statuses: configStatuses, currentUser, confirm
+    contentItems, addContentItem, deleteContentItem, 
+    setPreviewProductId, statuses: configStatuses, currentUser, confirm
   } = useDashboard();
-  
-  const speakersList = configSpeakers.map(s => s.name);
   const contentStatuses = configStatuses;
   const statusOptions = contentStatuses.length > 0 
     ? contentStatuses.map(s => s.label) 
@@ -11402,66 +11400,7 @@ export const ContentTable: React.FC = () => {
   const [sortAsc, setSortAsc] = useState(true);
 
 
-  // Inline editing states for Content Table
-  const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
-  const [inlineModuleValue, setInlineModuleValue] = useState('');
-  const editModuleInputRef = useRef<HTMLInputElement>(null);
 
-  const [_editingSubjectId, _setEditingSubjectId] = useState<string | null>(null);
-  const [_inlineSubjectValue, _setInlineSubjectValue] = useState('');
-  const editSubjectInputRef = useRef<HTMLInputElement>(null);
-
-  const [editingPocId, setEditingPocId] = useState<string | null>(null);
-  const [inlinePocValue, setInlinePocValue] = useState('');
-
-  const [_editingDateId, _setEditingDateId] = useState<string | null>(null); // targetDate / publishDate
-  const [_inlineDateValue, _setInlineDateValue] = useState('');
-  const editDateInputRef = useRef<HTMLInputElement>(null);
-
-  // Aligned fields inline editing states
-  const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const [inlineProductValue, setInlineProductValue] = useState('');
-
-  const [_editingPriorityId, _setEditingPriorityId] = useState<string | null>(null);
-  const [_inlinePriorityValue, _setInlinePriorityValue] = useState('');
-
-  const [editingClickupStatusId, setEditingClickupStatusId] = useState<string | null>(null);
-  const [inlineClickupStatusValue, setInlineClickupStatusValue] = useState('');
-  const editClickupStatusInputRef = useRef<HTMLInputElement>(null);
-
-  const [editingSpecsDateId, setEditingSpecsDateId] = useState<string | null>(null);
-  const [editingUiuxDateId, setEditingUiuxDateId] = useState<string | null>(null);
-  const [editingDevDateId, setEditingDevDateId] = useState<string | null>(null);
-  const [editingReleaseDateId, setEditingReleaseDateId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (editingModuleId && editModuleInputRef.current) {
-      editModuleInputRef.current.focus();
-      editModuleInputRef.current.select();
-    }
-  }, [editingModuleId]);
-
-  useEffect(() => {
-    if (_editingSubjectId && editSubjectInputRef.current) {
-      editSubjectInputRef.current.focus();
-      editSubjectInputRef.current.select();
-    }
-  }, [_editingSubjectId]);
-
-  useEffect(() => {
-    if (_editingDateId && editDateInputRef.current) {
-      editDateInputRef.current.focus();
-    }
-  }, [_editingDateId]);
-
-
-
-  useEffect(() => {
-    if (editingClickupStatusId && editClickupStatusInputRef.current) {
-      editClickupStatusInputRef.current.focus();
-      editClickupStatusInputRef.current.select();
-    }
-  }, [editingClickupStatusId]);
 
 
 
@@ -11493,23 +11432,7 @@ export const ContentTable: React.FC = () => {
     };
     addContentItem(newItem);
     setTimeout(() => {
-      openPreviewForFeature(newItem.module, { 
-        description: `Content topic: ${newItem.module}. Subject: ${newItem.subject || ''}. Type: ${newItem.type}.`, 
-        status: newItem.status as any, 
-        clickupStatus: newItem.clickupStatus || 'open',
-        priority: newItem.priority || '',
-        poc: newItem.poc || '',
-        product: newItem.product || '',
-        productDeadline: newItem.productDeadline || '',
-        uiux: newItem.uiux || '',
-        deadline: newItem.deadline || '',
-        finalRelease: newItem.finalRelease || '',
-        productDeadlineCompleted: newItem.productDeadlineCompleted || false,
-        uiuxCompleted: newItem.uiuxCompleted || false,
-        deadlineCompleted: newItem.deadlineCompleted || false,
-        finalReleaseCompleted: newItem.finalReleaseCompleted || false,
-        raisedByTarunSir: newItem.raisedByTarunSir || false
-      });
+      setPreviewProductId(newItem.id);
     }, 50);
   };
 
@@ -11620,388 +11543,103 @@ export const ContentTable: React.FC = () => {
               {sorted.map(item => (
                 <tr 
                   key={item.id} 
-                  onClick={() => {
-                    if (
-                      editingModuleId !== item.id &&
-                      _editingSubjectId !== item.id &&
-                      editingPocId !== item.id &&
-                      _editingDateId !== item.id &&
-                      editingProductId !== item.id &&
-                      _editingPriorityId !== item.id &&
-                      editingClickupStatusId !== item.id &&
-                      editingSpecsDateId !== item.id &&
-                      editingUiuxDateId !== item.id &&
-                      editingDevDateId !== item.id &&
-                      editingReleaseDateId !== item.id
-                    ) {
-                      openPreviewForFeature(item.module, { 
-                        id: item.id,
-                        description: `Content topic: ${item.module}. Subject: ${item.subject || ''}. Type: ${item.type}.`, 
-                        status: item.status as any, 
-                        clickupStatus: item.clickupStatus || 'open',
-                        priority: item.priority || '',
-                        poc: item.poc || '',
-                        product: item.product || '',
-                        productDeadline: item.productDeadline || '',
-                        uiux: item.uiux || '',
-                        deadline: item.deadline || '',
-                        finalRelease: item.finalRelease || '',
-                        productDeadlineCompleted: item.productDeadlineCompleted || false,
-                        uiuxCompleted: item.uiuxCompleted || false,
-                        deadlineCompleted: item.deadlineCompleted || false,
-                        finalReleaseCompleted: item.finalReleaseCompleted || false,
-                        raisedByTarunSir: item.raisedByTarunSir || false
-                      });
-                    }
-                  }} 
+                  onClick={() => setPreviewProductId(item.id)} 
                   style={{ cursor: 'pointer' }}
                 >
                   {/* Module Name (Feature) */}
                   <td 
                     className="sticky-col" 
-                    onDoubleClick={(e) => {
-                      e.stopPropagation();
-                      setEditingModuleId(item.id);
-                      setInlineModuleValue(item.module || '');
-                    }}
                     style={{ fontWeight: 600, width: '250px', minWidth: '250px', maxWidth: '250px', whiteSpace: 'normal' }}
-                    title="Double click to edit Title"
                   >
-                    {editingModuleId === item.id ? (
-                      <input
-                        ref={editModuleInputRef}
-                        type="text"
-                        value={inlineModuleValue}
-                        onChange={(e) => setInlineModuleValue(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            const finalVal = inlineModuleValue.trim() || 'New Topic';
-                            updateContentItem(item.id, { module: finalVal });
-                            setEditingModuleId(null);
-                          } else if (e.key === 'Escape') {
-                            e.preventDefault();
-                            setEditingModuleId(null);
-                          }
-                        }}
-                        onBlur={() => {
-                          const finalVal = inlineModuleValue.trim() || 'New Topic';
-                          updateContentItem(item.id, { module: finalVal });
-                          setEditingModuleId(null);
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '4px 6px',
-                          backgroundColor: 'var(--background)',
-                          border: '1.5px solid var(--primary)',
-                          borderRadius: '6px',
-                          color: 'var(--text-primary)',
-                          fontSize: '0.8rem',
-                          fontWeight: 600,
-                          outline: 'none',
-                        }}
-                      />
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', width: '100%' }}>
-                        <span>{item.module || <span style={{ color: 'var(--text-muted)' }}>— (No topic)</span>}</span>
-                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
-                          {item.priority && (
-                            <span className={`badge badge-${item.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
-                              {item.priority}
-                            </span>
-                          )}
-                          {item.raisedByTarunSir && (
-                            <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                              <Sparkles size={10} /> Super Priority
-                            </span>
-                          )}
-                        </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', width: '100%' }}>
+                      <span>{item.module || <span style={{ color: 'var(--text-muted)' }}>— (No topic)</span>}</span>
+                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
+                        {item.priority && (
+                          <span className={`badge badge-${item.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
+                            {item.priority}
+                          </span>
+                        )}
+                        {item.raisedByTarunSir && (
+                          <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                            <Sparkles size={10} /> Super Priority
+                          </span>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </td>
 
                   {/* Product Group */}
-                  <td
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingProductId(item.id);
-                      setInlineProductValue(item.product || '');
-                    }}
-                    title="Click to edit Product Group"
-                  >
-                    {editingProductId === item.id ? (
-                      <select
-                        autoFocus
-                        value={inlineProductValue}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setInlineProductValue(val);
-                          updateContentItem(item.id, { product: val });
-                          setEditingProductId(null);
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Escape') {
-                            setEditingProductId(null);
-                          }
-                        }}
-                        onBlur={() => setEditingProductId(null)}
-                        style={{
-                          width: '100%',
-                          padding: '4px 6px',
-                          backgroundColor: 'var(--background)',
-                          border: '1.5px solid var(--primary)',
-                          borderRadius: '6px',
-                          color: 'var(--text-primary)',
-                          fontSize: '0.8rem',
-                          outline: 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <option value="">— Select Product —</option>
-                        {productGroups.map(g => (
-                          <option key={g.id} value={g.name}>{g.name}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      item.product || '—'
-                    )}
+                  <td>
+                    {item.product || '—'}
                   </td>
 
-
-
                   {/* POC Owner */}
-                  <td
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingPocId(item.id);
-                      setInlinePocValue(item.poc || '');
-                    }}
-                    title="Click to edit POC"
-                  >
-                    {editingPocId === item.id ? (
-                      <select
-                        autoFocus
-                        value={inlinePocValue}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setInlinePocValue(val);
-                          updateContentItem(item.id, { poc: val });
-                          setEditingPocId(null);
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Escape') {
-                            setEditingPocId(null);
-                          }
-                        }}
-                        onBlur={() => setEditingPocId(null)}
-                        style={{
-                          width: '100%',
-                          padding: '4px 6px',
-                          backgroundColor: 'var(--background)',
-                          border: '1.5px solid var(--primary)',
-                          borderRadius: '6px',
-                          color: 'var(--text-primary)',
-                          fontSize: '0.8rem',
-                          outline: 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {speakersList.map(s => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                        {inlinePocValue && !speakersList.includes(inlinePocValue) && (
-                          <option value={inlinePocValue}>{inlinePocValue}</option>
-                        )}
-                      </select>
-                    ) : (
-                      item.poc ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
-                            <span style={{ ...getPOCBadgeStyle(item.poc) }}>
-                                {item.poc}
+                  <td>
+                    {item.poc ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                        <span style={getPOCBadgeStyle(item.poc)}>
+                          {item.poc}
+                        </span>
+                        {item.clickupAssignee && (
+                          <div className="cu-tooltip-container">
+                            <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
+                              CU: {formatClickupAssignee(item.clickupAssignee)}
                             </span>
-                          {item.clickupAssignee && (
-                            <div className="cu-tooltip-container">
-                              <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
-                                CU: {formatClickupAssignee(item.clickupAssignee)}
-                              </span>
-                              <span className="cu-tooltip-text">
-                                {item.clickupAssignee.split(',').map(s => s.trim()).join('\n')}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      ) : '—'
-                    )}
+                            <span className="cu-tooltip-text">
+                              {item.clickupAssignee.split(',').map(s => s.trim()).join('\n')}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ) : '—'}
                   </td>
 
                   {/* Status */}
                   <td>
-                    <select
-                      value={item.status || ''}
-                      onChange={(e) => updateContentItem(item.id, { status: e.target.value })}
-                      onClick={(e) => e.stopPropagation()}
-                      className="badge"
-                      style={{ 
-                        border: 'none', 
-                        outline: 'none', 
-                        cursor: 'pointer',
-                        padding: '2px 6px',
-                        fontFamily: 'inherit',
-                        fontWeight: '600',
-                        fontSize: '0.75rem',
-                        borderRadius: '4px',
-                        appearance: 'none',
-                        textAlign: 'center',
-                        backgroundColor: getStatusColor(item.status),
-                        color: '#fff'
-                      }}
-                    >
-                      <option value="" style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>— Select Status —</option>
-                      {statusOptions.map(opt => (
-                        <option key={opt} value={opt} style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>
-                          {opt}
-                        </option>
-                      ))}
-                      {item.status && !statusOptions.includes(item.status) && (
-                        <option value={item.status} style={{ color: 'var(--text-primary)', background: 'var(--panel-bg)' }}>
-                          {item.status}
-                        </option>
-                      )}
-                    </select>
+                    {item.status ? (
+                      <span className="badge" style={{ backgroundColor: getStatusColor(item.status), color: '#fff', padding: '2px 6px', fontSize: '0.75rem', fontWeight: 600, borderRadius: '4px' }}>
+                        {item.status}
+                      </span>
+                    ) : '—'}
                   </td>
 
                   {/* ClickUp Status */}
-                  <td
-                    onDoubleClick={(e) => {
-                      e.stopPropagation();
-                      setEditingClickupStatusId(item.id);
-                      setInlineClickupStatusValue(item.clickupStatus || '');
-                    }}
-                    title="Double click to edit ClickUp Status"
-                  >
-                    {editingClickupStatusId === item.id ? (
-                      <input
-                        ref={editClickupStatusInputRef}
-                        type="text"
-                        value={inlineClickupStatusValue}
-                        onChange={(e) => setInlineClickupStatusValue(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            const finalVal = inlineClickupStatusValue.trim();
-                            updateContentItem(item.id, { clickupStatus: finalVal });
-                            setEditingClickupStatusId(null);
-                          } else if (e.key === 'Escape') {
-                            e.preventDefault();
-                            setEditingClickupStatusId(null);
-                          }
-                        }}
-                        onBlur={() => {
-                          const finalVal = inlineClickupStatusValue.trim();
-                          updateContentItem(item.id, { clickupStatus: finalVal });
-                          setEditingClickupStatusId(null);
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '4px 6px',
-                          backgroundColor: 'var(--background)',
-                          border: '1.5px solid var(--primary)',
-                          borderRadius: '6px',
-                          color: 'var(--text-primary)',
-                          fontSize: '0.8rem',
-                          outline: 'none',
-                        }}
-                      />
-                    ) : (
-                      item.clickupStatus ? (
-                        <span style={getClickupBadgeStyle(item.clickupStatus)}>
-                          {item.clickupStatus}
-                        </span>
-                      ) : '—'
-                    )}
+                  <td>
+                    {item.clickupStatus ? (
+                      <span style={getClickupBadgeStyle(item.clickupStatus)}>
+                        {item.clickupStatus}
+                      </span>
+                    ) : '—'}
                   </td>
 
                   {/* Specs Date (productDeadline) */}
-                  <td
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingSpecsDateId(item.id);
-                    }}
-                    style={{ position: 'relative', cursor: 'pointer' }}
-                    title="Click to edit Specs Date"
-                  >
-                    <span style={{ ...getDateSpanStyle(item.productDeadline, item.productDeadlineCompleted), borderBottom: '1px dashed var(--text-muted)' }}>
-                      {item.productDeadline ? formatDateToShortPattern(item.productDeadline) : 'Set Date'}
+                  <td>
+                    <span style={getDateSpanStyle(item.productDeadline, item.productDeadlineCompleted)}>
+                      {item.productDeadline ? formatDateToShortPattern(item.productDeadline) : '—'}
                     </span>
-                    {editingSpecsDateId === item.id && (
-                      <CustomDatePicker
-                        value={item.productDeadline || ''}
-                        onChange={(date) => updateContentItem(item.id, { productDeadline: date })}
-                        onClose={() => setEditingSpecsDateId(null)}
-                      />
-                    )}
                   </td>
 
                   {/* UI/UX Date */}
-                  <td
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingUiuxDateId(item.id);
-                    }}
-                    style={{ position: 'relative', cursor: 'pointer' }}
-                    title="Click to edit UI/UX Date"
-                  >
-                    <DateDiffBadge prevDate={item.productDeadline} currentDate={item.uiux} />
-                    <span style={{ ...getDateSpanStyle(item.uiux, item.uiuxCompleted), borderBottom: '1px dashed var(--text-muted)' }}>
-                      {item.uiux ? formatDateToShortPattern(item.uiux) : 'Set Date'}
+                  <td>
+                    {item.uiux && <DateDiffBadge prevDate={item.productDeadline} currentDate={item.uiux} />}
+                    <span style={getDateSpanStyle(item.uiux, item.uiuxCompleted)}>
+                      {item.uiux ? formatDateToShortPattern(item.uiux) : '—'}
                     </span>
-                    {editingUiuxDateId === item.id && (
-                      <CustomDatePicker
-                        value={item.uiux || ''}
-                        onChange={(date) => updateContentItem(item.id, { uiux: date })}
-                        onClose={() => setEditingUiuxDateId(null)}
-                      />
-                    )}
                   </td>
 
                   {/* Dev Date */}
-                  <td
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingDevDateId(item.id);
-                    }}
-                    style={{ position: 'relative', cursor: 'pointer' }}
-                    title="Click to edit Dev Date"
-                  >
-                    <DateDiffBadge prevDate={item.uiux || item.productDeadline} currentDate={item.deadline} />
-                    <span style={{ ...getDateSpanStyle(item.deadline, item.deadlineCompleted), borderBottom: '1px dashed var(--text-muted)' }}>
-                      {item.deadline ? formatDateToShortPattern(item.deadline) : 'Set Date'}
+                  <td>
+                    {item.deadline && <DateDiffBadge prevDate={item.uiux || item.productDeadline} currentDate={item.deadline} />}
+                    <span style={getDateSpanStyle(item.deadline, item.deadlineCompleted)}>
+                      {item.deadline ? formatDateToShortPattern(item.deadline) : '—'}
                     </span>
-                    {editingDevDateId === item.id && (
-                      <CustomDatePicker
-                        value={item.deadline || ''}
-                        onChange={(date) => updateContentItem(item.id, { deadline: date })}
-                        onClose={() => setEditingDevDateId(null)}
-                      />
-                    )}
                   </td>
 
                   {/* Release Date */}
-                  <td
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingReleaseDateId(item.id);
-                    }}
-                    style={{ position: 'relative', cursor: 'pointer' }}
-                    title="Click to edit Release Date"
-                  >
-                    <DateDiffBadge prevDate={item.deadline || item.uiux || item.productDeadline} currentDate={item.finalRelease} />
-                    <span style={{ 
-                      ...(item.finalRelease ? getDateSpanStyle(item.finalRelease, item.finalReleaseCompleted) : item.finalReleaseCompleted ? {
+                  <td>
+                    {item.finalRelease && <DateDiffBadge prevDate={item.deadline || item.uiux || item.productDeadline} currentDate={item.finalRelease} />}
+                    <span style={
+                      item.finalRelease ? getDateSpanStyle(item.finalRelease, item.finalReleaseCompleted) : item.finalReleaseCompleted ? {
                         fontSize: '0.68rem',
                         padding: '2px 6px',
                         borderRadius: '4px',
@@ -12010,21 +11648,11 @@ export const ContentTable: React.FC = () => {
                         color: '#10b981',
                         display: 'inline-block',
                         whiteSpace: 'nowrap'
-                      } : {}), 
-                      borderBottom: '1px dashed var(--text-muted)' 
-                    }}>
-                      {item.finalRelease ? formatDateToShortPattern(item.finalRelease) : item.finalReleaseCompleted ? 'Delivered' : 'Set Date'}
+                      } : {}
+                    }>
+                      {item.finalRelease ? formatDateToShortPattern(item.finalRelease) : item.finalReleaseCompleted ? 'Delivered' : '—'}
                     </span>
-                    {editingReleaseDateId === item.id && (
-                      <CustomDatePicker
-                        value={item.finalRelease || ''}
-                        onChange={(date) => updateContentItem(item.id, { finalRelease: date })}
-                        onClose={() => setEditingReleaseDateId(null)}
-                      />
-                    )}
                   </td>
-
-
 
                   {/* Actions */}
                   <td>

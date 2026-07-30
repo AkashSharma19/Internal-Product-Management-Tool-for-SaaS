@@ -4194,6 +4194,25 @@ export default async function handler(req: any, res: any) {
           }
         }
 
+        // Bypassing Mongoose immutable flag for createdAt update
+        if (data && data.createdAt) {
+          try {
+            const existingItem = await Model.findOne(query).lean() as any;
+            if (existingItem && existingItem.createdAt) {
+              const oldTime = new Date(existingItem.createdAt).getTime();
+              const newTime = new Date(data.createdAt).getTime();
+              if (oldTime !== newTime) {
+                await Model.collection.updateOne(
+                  query,
+                  { $set: { createdAt: new Date(data.createdAt) } }
+                );
+              }
+            }
+          } catch (rawErr) {
+            console.error('Failed to update raw createdAt timestamp:', rawErr);
+          }
+        }
+
         const updatedItem = await Model.findOneAndUpdate(query, data, { new: true, upsert: true });
         return res.status(200).json({ success: true, item: updatedItem });
       }

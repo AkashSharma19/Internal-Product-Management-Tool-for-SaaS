@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { DashboardProvider, useDashboard } from './context/DashboardContext';
-import type { ProductItem, DailyIssue } from './types';
+import type { ProductItem, DailyIssue, ContentItem } from './types';
 import {
   ProductTable,
   PlanTable,
@@ -392,12 +392,7 @@ const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         subtitle: `Subject: ${item.subject} • Type: ${item.type} • POC: ${item.poc || 'Unassigned'}`,
         category: 'Content Pipeline',
         tab: 'content',
-        onSelect: () => openPreviewForFeature(item.module, { 
-          type: item.type, 
-          poc: item.poc, 
-          status: item.status as any, 
-          notes: item.subject 
-        }),
+        onSelect: () => setPreviewProductId(item.id),
         searchContent: ''
       });
     });
@@ -466,12 +461,7 @@ const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               setMeetingSearchQuery(raw.cohortTopic);
             };
           } else if (item.category === 'Content Pipeline') {
-            onSelect = () => openPreviewForFeature(raw.module, { 
-              type: raw.type, 
-              poc: raw.poc, 
-              status: raw.status as any, 
-              notes: raw.subject 
-            });
+            onSelect = () => setPreviewProductId(raw.id);
           } else if (item.category === 'Daily Issues Log') {
             onSelect = () => setPreviewProductId(raw.id);
           }
@@ -721,6 +711,7 @@ const DashboardContent: React.FC = () => {
     refreshAllData,
     dailyIssues,
     updateDailyIssue,
+    updateContentItem,
     addDailyIssue,
     productGroups,
     programs,
@@ -1917,6 +1908,81 @@ const DashboardContent: React.FC = () => {
             );
           })()}
           {previewProductId && (() => {
+            const foundContent = contentItems.find(i => i.id === previewProductId);
+            if (foundContent) {
+              const mappedItem: ProductItem = {
+                id: foundContent.id,
+                feature: foundContent.module || '',
+                description: foundContent.subject || '',
+                tarunSirApproval: false,
+                raisedByTarunSir: !!foundContent.raisedByTarunSir,
+                priority: (foundContent.priority as any) || '',
+                poc: foundContent.poc || '',
+                status: (foundContent.status as any) || '',
+                clickupStatus: foundContent.clickupStatus || '',
+                taskLink: foundContent.draftLink || '',
+                blocker: '',
+                deadline: foundContent.deadline || '',
+                notes: `Type: ${foundContent.type || ''}`,
+                product: foundContent.product || '',
+                module: foundContent.module || '',
+                type: foundContent.type || '',
+                uiux: foundContent.uiux || '',
+                finalRelease: foundContent.finalRelease || '',
+                productDeadline: foundContent.productDeadline || '',
+                productDeadlineCompleted: !!foundContent.productDeadlineCompleted,
+                uiuxCompleted: !!foundContent.uiuxCompleted,
+                deadlineCompleted: !!foundContent.deadlineCompleted,
+                finalReleaseCompleted: !!foundContent.finalReleaseCompleted,
+                createdAt: foundContent.createdAt || '',
+                clickupSubtasksCount: foundContent.clickupSubtasksCount,
+                clickupAssignee: foundContent.clickupAssignee || '',
+              };
+
+              const handleUpdateContent = (id: string, updated: Partial<ProductItem>) => {
+                const updatedContent: Partial<ContentItem> = {};
+                if (updated.feature !== undefined) updatedContent.module = updated.feature;
+                if (updated.description !== undefined) updatedContent.subject = updated.description;
+                if (updated.raisedByTarunSir !== undefined) updatedContent.raisedByTarunSir = updated.raisedByTarunSir;
+                if (updated.priority !== undefined) updatedContent.priority = updated.priority as ContentItem['priority'];
+                if (updated.poc !== undefined) updatedContent.poc = updated.poc;
+                if (updated.status !== undefined) updatedContent.status = updated.status;
+                if (updated.clickupStatus !== undefined) updatedContent.clickupStatus = updated.clickupStatus;
+                if (updated.taskLink !== undefined) updatedContent.draftLink = updated.taskLink;
+                if (updated.deadline !== undefined) updatedContent.deadline = updated.deadline;
+                if (updated.product !== undefined) updatedContent.product = updated.product;
+                if (updated.module !== undefined) updatedContent.module = updated.module;
+                if (updated.type !== undefined) updatedContent.type = updated.type as ContentItem['type'];
+                if (updated.uiux !== undefined) updatedContent.uiux = updated.uiux;
+                if (updated.finalRelease !== undefined) updatedContent.finalRelease = updated.finalRelease;
+                if (updated.productDeadline !== undefined) updatedContent.productDeadline = updated.productDeadline;
+                if (updated.productDeadlineCompleted !== undefined) updatedContent.productDeadlineCompleted = updated.productDeadlineCompleted;
+                if (updated.uiuxCompleted !== undefined) updatedContent.uiuxCompleted = updated.uiuxCompleted;
+                if (updated.deadlineCompleted !== undefined) updatedContent.deadlineCompleted = updated.deadlineCompleted;
+                if (updated.finalReleaseCompleted !== undefined) updatedContent.finalReleaseCompleted = updated.finalReleaseCompleted;
+                if (updated.createdAt !== undefined) updatedContent.createdAt = updated.createdAt;
+                if (updated.clickupSubtasksCount !== undefined) updatedContent.clickupSubtasksCount = updated.clickupSubtasksCount;
+                if (updated.clickupAssignee !== undefined) updatedContent.clickupAssignee = updated.clickupAssignee;
+
+                updateContentItem(id, updatedContent);
+              };
+
+              const handleBack = () => {
+                setPreviewProductId(null);
+                if (previousTab) {
+                  setActiveTab(previousTab);
+                }
+              };
+
+              return (
+                <ProductDetailView 
+                  item={mappedItem} 
+                  onBack={handleBack} 
+                  onUpdate={handleUpdateContent} 
+                />
+              );
+            }
+
             const foundIssue = dailyIssues.find(i => i.id === previewProductId);
             if (foundIssue) {
               
