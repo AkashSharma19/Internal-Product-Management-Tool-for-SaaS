@@ -28,6 +28,7 @@ import {
   RefreshCw,
   Search,
   Plus,
+  Pin,
   Rocket,
   MessageSquare,
   Layers,
@@ -71,6 +72,47 @@ const isTaskLinked = (notes: string | undefined, taskId?: string): boolean => {
   }
   
   return false;
+};
+
+interface DiscussionTextAreaProps {
+  initialValue: string;
+  onSave: (val: string) => void;
+  placeholder?: string;
+  style?: React.CSSProperties;
+}
+
+const DiscussionTextArea: React.FC<DiscussionTextAreaProps> = ({ initialValue, onSave, placeholder, style }) => {
+  const [val, setVal] = useState(initialValue);
+  
+  useEffect(() => {
+    setVal(initialValue);
+  }, [initialValue]);
+
+  return (
+    <textarea
+      value={val}
+      onChange={(e) => setVal(e.target.value)}
+      onBlur={() => {
+        if (val !== initialValue) {
+          onSave(val);
+        }
+      }}
+      onInput={(e) => {
+        const target = e.target as HTMLTextAreaElement;
+        target.style.height = 'auto';
+        target.style.height = `${target.scrollHeight}px`;
+      }}
+      ref={(el) => {
+        if (el) {
+          el.style.height = 'auto';
+          el.style.height = `${el.scrollHeight}px`;
+        }
+      }}
+      placeholder={placeholder}
+      style={style}
+      onClick={(e) => e.stopPropagation()}
+    />
+  );
 };
 
 // Global POC/Assignee color mapping and badge styling
@@ -1893,36 +1935,6 @@ const getDateSpanStyle = (dateStr: string | undefined, isCompleted: boolean | un
   return {};
 };
 
-const formatDateWithTimeToUserPattern = (dateStr: string): string => {
-  if (!dateStr) return '';
-  
-  const monthsFull = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-
-  try {
-    const d = new Date(dateStr);
-    if (!isNaN(d.getTime())) {
-      const year = d.getFullYear().toString();
-      const monthIndex = d.getMonth();
-      const day = d.getDate().toString();
-      const formattedDate = `${day} ${monthsFull[monthIndex]} ${year}`;
-      
-      if (dateStr.includes('T') || dateStr.includes(':')) {
-        let hours = d.getHours();
-        const minutes = d.getMinutes().toString().padStart(2, '0');
-        const ampm = hours >= 12 ? 'PM' : 'AM';
-        hours = hours % 12;
-        hours = hours ? hours : 12;
-        return `${formattedDate} @ ${hours}:${minutes} ${ampm}`;
-      }
-      return formattedDate;
-    }
-  } catch (e) {}
-  
-  return dateStr;
-};
 
 const formatToDatetimeLocalValue = (dateStr: string): string => {
   if (!dateStr) return '';
@@ -6365,7 +6377,7 @@ export const StudentMeetingsTable: React.FC = () => {
                         onClick={() => setExpandedAMAId(isExpanded ? null : ama.id)} 
                         style={{ 
                           cursor: 'pointer',
-                          backgroundColor: isExpanded ? 'var(--background-alt)' : 'transparent',
+                          backgroundColor: isExpanded ? 'var(--background-alt)' : (ama.pinned ? 'var(--primary-glow)' : 'transparent'),
                           transition: 'background-color 0.2s ease'
                         }}
                       >
@@ -6382,6 +6394,9 @@ export const StudentMeetingsTable: React.FC = () => {
                               <ChevronUp size={16} style={{ marginRight: '8px', color: 'var(--primary)', flexShrink: 0 }} />
                             ) : (
                               <ChevronDown size={16} style={{ marginRight: '8px', color: 'var(--text-secondary)', flexShrink: 0 }} />
+                            )}
+                            {ama.pinned && (
+                              <Pin size={12} style={{ marginRight: '6px', color: 'var(--primary)', fill: 'var(--primary)', flexShrink: 0 }} />
                             )}
                             {editingAMADateId === ama.id ? (
                               <input
@@ -6417,7 +6432,7 @@ export const StudentMeetingsTable: React.FC = () => {
                                 }}
                               />
                             ) : (
-                              <span>{formatDateWithTimeToUserPattern(ama.date)}</span>
+                              <span>{formatDateToUserPattern(ama.date)}</span>
                             )}
                           </div>
                         </td>
@@ -6764,6 +6779,31 @@ export const StudentMeetingsTable: React.FC = () => {
                         </td>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
+                            <button 
+                              onClick={() => {
+                                updateAMASession(ama.id, { pinned: !ama.pinned });
+                              }} 
+                              style={{ 
+                                background: 'none', 
+                                border: 'none', 
+                                cursor: 'pointer', 
+                                color: ama.pinned ? 'var(--primary)' : 'var(--text-secondary)', 
+                                display: 'flex', 
+                                alignItems: 'center',
+                                padding: '4px',
+                                transition: 'all 0.2s ease'
+                              }}
+                              title={ama.pinned ? "Unpin Session" : "Pin Session"}
+                            >
+                              <Pin 
+                                size={12} 
+                                style={{ 
+                                  transform: ama.pinned ? 'rotate(0deg)' : 'rotate(45deg)',
+                                  fill: ama.pinned ? 'var(--primary)' : 'none',
+                                  transition: 'transform 0.2s/fill 0.2s ease'
+                                }} 
+                              />
+                            </button>
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -7403,7 +7443,7 @@ export const StudentMeetingsTable: React.FC = () => {
                               }}
                             />
                           ) : (
-                            formatDateWithTimeToUserPattern(parentAma.date)
+                            formatDateToUserPattern(parentAma.date)
                           )
                         ) : (
                           '—'
@@ -8340,7 +8380,7 @@ export const AdminCallsTable: React.FC = () => {
                         onClick={() => setExpandedCallId(isExpanded ? null : call.id)} 
                         style={{ 
                           cursor: 'pointer',
-                          backgroundColor: isExpanded ? 'var(--background-alt)' : 'transparent',
+                          backgroundColor: isExpanded ? 'var(--background-alt)' : (call.pinned ? 'var(--primary-glow)' : 'transparent'),
                           transition: 'background-color 0.2s ease'
                         }}
                       >
@@ -8357,6 +8397,9 @@ export const AdminCallsTable: React.FC = () => {
                               <ChevronUp size={16} style={{ marginRight: '8px', color: 'var(--primary)', flexShrink: 0 }} />
                             ) : (
                               <ChevronDown size={16} style={{ marginRight: '8px', color: 'var(--text-secondary)', flexShrink: 0 }} />
+                            )}
+                            {call.pinned && (
+                              <Pin size={12} style={{ marginRight: '6px', color: 'var(--primary)', fill: 'var(--primary)', flexShrink: 0 }} />
                             )}
                             <span style={{ borderBottom: '1px dashed var(--text-muted)' }}>
                               {call.date ? formatDateToShortPattern(call.date) : 'Set Date'}
@@ -8654,6 +8697,31 @@ export const AdminCallsTable: React.FC = () => {
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
                             <button 
+                              onClick={() => {
+                                updateAdminCall(call.id, { pinned: !call.pinned });
+                              }} 
+                              style={{ 
+                                background: 'none', 
+                                border: 'none', 
+                                cursor: 'pointer', 
+                                color: call.pinned ? 'var(--primary)' : 'var(--text-secondary)', 
+                                display: 'flex', 
+                                alignItems: 'center',
+                                padding: '4px',
+                                transition: 'all 0.2s ease'
+                              }}
+                              title={call.pinned ? "Unpin Call" : "Pin Call"}
+                            >
+                              <Pin 
+                                size={12} 
+                                style={{ 
+                                  transform: call.pinned ? 'rotate(0deg)' : 'rotate(45deg)',
+                                  fill: call.pinned ? 'var(--primary)' : 'none',
+                                  transition: 'transform 0.2s/fill 0.2s ease'
+                                }} 
+                              />
+                            </button>
+                            <button 
                               onClick={(e) => {
                                 e.stopPropagation();
                                 const link = `${window.location.origin}/?feedback=${call.id}&category=admin-calls`;
@@ -8734,20 +8802,9 @@ export const AdminCallsTable: React.FC = () => {
                               <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                                 <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                   <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Attendees</label>
-                                  <textarea
-                                    ref={(el) => {
-                                      if (el) {
-                                        el.style.height = 'auto';
-                                        el.style.height = `${el.scrollHeight}px`;
-                                      }
-                                    }}
-                                    value={call.discussion}
-                                    onChange={(e) => updateAdminCall(call.id, { discussion: e.target.value })}
-                                    onInput={(e) => {
-                                      const target = e.target as HTMLTextAreaElement;
-                                      target.style.height = 'auto';
-                                      target.style.height = `${target.scrollHeight}px`;
-                                    }}
+                                  <DiscussionTextArea
+                                    initialValue={call.discussion || ''}
+                                    onSave={(val) => updateAdminCall(call.id, { discussion: val })}
                                     placeholder="Enter discussion details..."
                                     style={{
                                       width: '100%',
@@ -8763,7 +8820,6 @@ export const AdminCallsTable: React.FC = () => {
                                       overflowY: 'hidden',
                                       outline: 'none'
                                     }}
-                                    onClick={(e) => e.stopPropagation()}
                                   />
                                 </div>
                               </div>
@@ -10105,7 +10161,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                         onClick={() => setExpandedMeetingId(isExpanded ? null : meeting.id)} 
                         style={{ 
                           cursor: 'pointer',
-                          backgroundColor: isExpanded ? 'var(--background-alt)' : 'transparent',
+                          backgroundColor: isExpanded ? 'var(--background-alt)' : (meeting.pinned ? 'var(--primary-glow)' : 'transparent'),
                           transition: 'background-color 0.2s ease'
                         }}
                       >
@@ -10122,6 +10178,9 @@ export const TarunSirMeetingsTable: React.FC = () => {
                               <ChevronUp size={16} style={{ marginRight: '8px', color: 'var(--primary)', flexShrink: 0 }} />
                             ) : (
                               <ChevronDown size={16} style={{ marginRight: '8px', color: 'var(--text-secondary)', flexShrink: 0 }} />
+                            )}
+                            {meeting.pinned && (
+                              <Pin size={12} style={{ marginRight: '6px', color: 'var(--primary)', fill: 'var(--primary)', flexShrink: 0 }} />
                             )}
                             <span style={{ borderBottom: '1px dashed var(--text-muted)' }}>
                               {meeting.date ? formatDateToShortPattern(meeting.date) : 'Set Date'}
@@ -10409,6 +10468,31 @@ export const TarunSirMeetingsTable: React.FC = () => {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
                             <button 
                               onClick={() => {
+                                updateTarunSirMeeting(meeting.id, { pinned: !meeting.pinned });
+                              }} 
+                              style={{ 
+                                background: 'none', 
+                                border: 'none', 
+                                cursor: 'pointer', 
+                                color: meeting.pinned ? 'var(--primary)' : 'var(--text-secondary)', 
+                                display: 'flex', 
+                                alignItems: 'center',
+                                padding: '4px',
+                                transition: 'all 0.2s ease'
+                              }}
+                              title={meeting.pinned ? "Unpin Meeting" : "Pin Meeting"}
+                            >
+                              <Pin 
+                                size={12} 
+                                style={{ 
+                                  transform: meeting.pinned ? 'rotate(0deg)' : 'rotate(45deg)',
+                                  fill: meeting.pinned ? 'var(--primary)' : 'none',
+                                  transition: 'transform 0.2s/fill 0.2s ease'
+                                }} 
+                              />
+                            </button>
+                            <button 
+                              onClick={() => {
                                 setEditingMeetingTopicId(meeting.id);
                                 setInlineMeetingTopicValue(meeting.cohortTopic);
                               }} 
@@ -10466,20 +10550,9 @@ export const TarunSirMeetingsTable: React.FC = () => {
                               <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                                 <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                   <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Discussion</label>
-                                  <textarea
-                                    ref={(el) => {
-                                      if (el) {
-                                        el.style.height = 'auto';
-                                        el.style.height = `${el.scrollHeight}px`;
-                                      }
-                                    }}
-                                    value={meeting.discussion}
-                                    onChange={(e) => updateTarunSirMeeting(meeting.id, { discussion: e.target.value })}
-                                    onInput={(e) => {
-                                      const target = e.target as HTMLTextAreaElement;
-                                      target.style.height = 'auto';
-                                      target.style.height = `${target.scrollHeight}px`;
-                                    }}
+                                  <DiscussionTextArea
+                                    initialValue={meeting.discussion || ''}
+                                    onSave={(val) => updateTarunSirMeeting(meeting.id, { discussion: val })}
                                     placeholder="Enter discussion details..."
                                     style={{
                                       width: '100%',
@@ -10495,7 +10568,6 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                       overflowY: 'hidden',
                                       outline: 'none'
                                     }}
-                                    onClick={(e) => e.stopPropagation()}
                                   />
                                 </div>
                               </div>

@@ -83,7 +83,8 @@ const AMASessionSchema = new Schema({
   cohort: { type: String, default: "" },
   link: { type: String, default: "" },
   status: { type: String, default: "Scheduled" },
-  program: { type: String, default: "" }
+  program: { type: String, default: "" },
+  pinned: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // 5. StudentMeeting
@@ -125,7 +126,8 @@ const AdminCallSchema = new Schema({
   discussion: { type: String, default: "" },
   actions: { type: String, default: "" },
   status: { type: String, default: "Scheduled" },
-  program: { type: String, default: "" }
+  program: { type: String, default: "" },
+  pinned: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // 6b. TarunSirMeeting
@@ -137,7 +139,8 @@ const TarunSirMeetingSchema = new Schema({
   discussion: { type: String, default: "" },
   actions: { type: String, default: "" },
   status: { type: String, default: "Scheduled" },
-  program: { type: String, default: "" }
+  program: { type: String, default: "" },
+  pinned: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // 7. ContentItem

@@ -82,6 +82,7 @@ export interface AMASession {
   link: string;
   status: 'Scheduled' | 'Completed' | 'Postponed';
   program?: string;
+  pinned?: boolean;
 }
 
 export interface StudentMeeting {
@@ -123,6 +124,7 @@ export interface AdminCall {
   actions: string;
   status: 'Completed' | 'Pending Actions' | 'Scheduled';
   program?: string;
+  pinned?: boolean;
 }
 
 export interface TarunSirMeeting {
@@ -134,6 +136,7 @@ export interface TarunSirMeeting {
   actions: string;
   status: 'Completed' | 'Pending Actions' | 'Scheduled';
   program?: string;
+  pinned?: boolean;
 }
 
 export interface ContentItem {

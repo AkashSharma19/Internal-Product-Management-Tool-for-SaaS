@@ -300,9 +300,9 @@ export default async function handler(req: any, res: any) {
             ConfigSpeakerModel.find({}, 'name').lean(),
             ConfigProductGroupModel.find({}).lean(),
             ConfigStatusModel.find({}).lean(),
-            AMASessionModel.find({}, 'id date cohort topic speaker link status').lean(),
-            AdminCallModel.find({}, 'id date cohortTopic adminPoc status discussion actions').lean(),
-            TarunSirMeetingModel.find({}, 'id date cohortTopic adminPoc status discussion actions').lean(),
+            AMASessionModel.find({}, 'id date cohort topic speaker link status pinned').lean(),
+            AdminCallModel.find({}, 'id date cohortTopic adminPoc status discussion actions pinned').lean(),
+            TarunSirMeetingModel.find({}, 'id date cohortTopic adminPoc status discussion actions pinned').lean(),
             FeedbackFormConfigModel.find({}).lean(),
             FeedbackSubmissionModel.find({}).lean()
           ]);
@@ -2450,23 +2450,29 @@ export default async function handler(req: any, res: any) {
 
           // 4. Sort items
           const sorted = [...filtered];
-          sorted.sort((a, b) => {
-            const aComp = a.status === 'Completed';
-            const bComp = b.status === 'Completed';
-            if (aComp !== bComp) return aComp ? 1 : -1;
+           sorted.sort((a, b) => {
+             // 1. Pinned status takes absolute priority
+             const aPinned = !!a.pinned;
+             const bPinned = !!b.pinned;
+             if (aPinned !== bPinned) return aPinned ? -1 : 1;
 
-            if (sortField) {
-              const valA = a[sortField] || '';
-              const valB = b[sortField] || '';
-              const strA = String(valA).toLowerCase();
-              const strB = String(valB).toLowerCase();
-              return sortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
-            }
+             // 2. Completed status
+             const aComp = a.status === 'Completed';
+             const bComp = b.status === 'Completed';
+             if (aComp !== bComp) return aComp ? 1 : -1;
 
-            const dateA = a.date || '';
-            const dateB = b.date || '';
-            return dateB.localeCompare(dateA);
-          });
+             if (sortField) {
+               const valA = a[sortField] || '';
+               const valB = b[sortField] || '';
+               const strA = String(valA).toLowerCase();
+               const strB = String(valB).toLowerCase();
+               return sortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
+             }
+
+             const dateA = a.date || '';
+             const dateB = b.date || '';
+             return dateB.localeCompare(dateA);
+           });
 
           // 5. Slice / Paginate
           const totalItems = sorted.length;
