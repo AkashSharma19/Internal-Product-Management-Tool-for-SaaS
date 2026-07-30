@@ -245,6 +245,19 @@ export interface ConfigCohort {
   name: string;
   programId: string;
   active?: boolean; // true = Active, false = Inactive
+  departments?: string[];
+}
+
+export interface DirectoryContact {
+  id: string;
+  name: string;
+  email: string;
+  mobile: string;
+  whatsapp: string;
+  tier: 'L0' | 'L1' | 'L2';
+  programId: string;
+  cohortId: string;
+  department: string;
 }
 
 // ── Feedback & Form Builder Types ──────────────────────────────────────────

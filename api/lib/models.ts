@@ -254,7 +254,8 @@ const ConfigCohortSchema = new Schema({
   id: { type: String, required: true, unique: true },
   name: { type: String, required: true },
   programId: { type: String, required: true },
-  active: { type: Boolean, default: true }
+  active: { type: Boolean, default: true },
+  departments: { type: [String], default: [] }
 });
 
 // Global Settings (ClickUp Key, etc.)
@@ -262,6 +263,18 @@ const GlobalSettingsSchema = new Schema({
   key: { type: String, required: true, unique: true },
   value: { type: String, default: "" }
 });
+
+const DirectoryContactSchema = new Schema({
+  id: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  email: { type: String, default: "" },
+  mobile: { type: String, default: "" },
+  whatsapp: { type: String, default: "" },
+  tier: { type: String, default: "L0" }, // 'L0' | 'L1' | 'L2'
+  programId: { type: String, required: true },
+  cohortId: { type: String, required: true },
+  department: { type: String, required: true }
+}, { timestamps: true });
 
 // Exports
 export const ProductItemModel = mongoose.models.ProductItem || mongoose.model('ProductItem', ProductItemSchema);
@@ -282,6 +295,7 @@ export const ConfigProgramModel = mongoose.models.ConfigProgram || mongoose.mode
 export const ConfigCohortModel = mongoose.models.ConfigCohort || mongoose.model('ConfigCohort', ConfigCohortSchema);
 
 export const GlobalSettingsModel = mongoose.models.GlobalSettings || mongoose.model('GlobalSettings', GlobalSettingsSchema);
+export const DirectoryContactModel = mongoose.models.DirectoryContact || mongoose.model('DirectoryContact', DirectoryContactSchema);
 
 // ── Feedback & Form Builder Schemas ──────────────────────────────────────────
 

@@ -14,7 +14,8 @@ import {
   FeatureRequestsTable,
   AdoptionTable,
   ProductDetailView,
-  ClickupSubtasksModal
+  ClickupSubtasksModal,
+  ContactsDirectoryTable
 } from './components/Tables';
 import { ConfigSection } from './components/ConfigSection';
 import { DashboardOverview } from './components/DashboardOverview';
@@ -45,7 +46,8 @@ import {
   CheckCircle,
   Lightbulb,
   Volume2,
-  VolumeX
+  VolumeX,
+  Users
 } from 'lucide-react';
 import { isAudioMuted, toggleAudioMute, playPopSound } from './utils/audio';
 import PixelBlast from './components/common/PixelBlast';
@@ -1448,6 +1450,7 @@ const DashboardContent: React.FC = () => {
         { id: 'tarun-meetings', label: 'Tarun Sir Meetings', icon: <Crown size={18} /> },
         { id: 'meetings', label: 'AMA & Meetings', icon: <Video size={18} /> },
         { id: 'admin', label: 'Admin Calls', icon: <PhoneCall size={18} /> },
+        { id: 'contacts', label: 'Contacts Directory', icon: <Users size={18} /> },
         { id: 'content', label: 'Content Pipeline', icon: <BookOpen size={18} /> },
         { id: 'issues', label: 'Daily Issues Log', icon: <AlertTriangle size={18} /> },
         { id: 'feature-requests', label: 'Requested Features', icon: <Lightbulb size={18} /> },
@@ -1480,6 +1483,8 @@ const DashboardContent: React.FC = () => {
         return <StudentMeetingsTable />;
       case 'admin':
         return <AdminCallsTable />;
+      case 'contacts':
+        return <ContactsDirectoryTable />;
       case 'content':
         return <ContentTable />;
       case 'product-wise':

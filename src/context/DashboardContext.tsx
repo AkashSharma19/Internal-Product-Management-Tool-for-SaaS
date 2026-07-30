@@ -20,7 +20,8 @@ import type {
   FeedbackFormConfig,
   FeedbackSubmission,
   TeamContact,
-  ProgramCohortRow
+  ProgramCohortRow,
+  DirectoryContact
 } from '../types';
 import {
   initialSpeakers,
@@ -144,6 +145,11 @@ interface DashboardContextType {
   addCohort: (item: ConfigCohort) => void;
   updateCohort: (id: string, updated: Partial<ConfigCohort>) => void;
   deleteCohort: (id: string) => void;
+
+  directoryContacts: DirectoryContact[];
+  addDirectoryContact: (item: DirectoryContact) => void;
+  updateDirectoryContact: (id: string, updated: Partial<DirectoryContact>) => void;
+  deleteDirectoryContact: (id: string) => void;
 
   // ClickUp Integration
   clickupApiKey: string;
@@ -610,6 +616,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [contentItems, setContentItems] = useState<ContentItem[]>([]);
   const [dailyIssues, setDailyIssues] = useState<DailyIssue[]>([]);
   const [featureAdoptions, setFeatureAdoptions] = useState<FeatureAdoption[]>([]);
+  const [directoryContacts, setDirectoryContacts] = useState<DirectoryContact[]>([]);
 
   const [teamContacts, setTeamContacts] = useState<TeamContact[]>(() => {
     const data = localStorage.getItem('team-contacts');
@@ -1506,6 +1513,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (db.contentItems !== undefined)                   { setContentItems(db.contentItems);   updatedSheets++; }
         if (db.dailyIssues !== undefined)                    { setDailyIssues(db.dailyIssues);     updatedSheets++; }
         if (db.featureAdoptions !== undefined)               { setFeatureAdoptions(db.featureAdoptions); updatedSheets++; }
+        if (db.directoryContacts !== undefined)              { setDirectoryContacts(db.directoryContacts); updatedSheets++; }
 
         if (db.speakers !== undefined) {
           setSpeakers(db.speakers);
@@ -2067,6 +2075,23 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
   };
 
+  const updateDirectoryContact = (id: string, updated: Partial<DirectoryContact>) => {
+    setDirectoryContacts(prev => {
+      const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
+      const updatedItem = next.find(item => item.id === id);
+      if (updatedItem) persistChange('update', 'directoryContacts', id, updatedItem);
+      return next;
+    });
+  };
+  const addDirectoryContact = (item: DirectoryContact) => {
+    setDirectoryContacts(prev => [item, ...prev]);
+    persistChange('create', 'directoryContacts', null, item);
+  };
+  const deleteDirectoryContact = (id: string) => {
+    setDirectoryContacts(prev => prev.filter(item => item.id !== id));
+    persistChange('delete', 'directoryContacts', id, null);
+  };
+
   const updateStudentMeeting = (id: string, updated: Partial<StudentMeeting>) => {
     setStudentMeetings(prev => {
       const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
@@ -2620,6 +2645,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       dailyIssues, setDailyIssues, updateDailyIssue, addDailyIssue, deleteDailyIssue,
       featureAdoptions, setFeatureAdoptions, updateFeatureAdoption, addFeatureAdoption, deleteFeatureAdoption,
       teamContacts, setTeamContacts, updateTeamContact, addTeamContact, deleteTeamContact,
+      directoryContacts, updateDirectoryContact, addDirectoryContact, deleteDirectoryContact,
       programCohortRows, setProgramCohortRows, updateProgramCohortRow, addProgramCohortRow, deleteProgramCohortRow,
       previewProductId, setPreviewProductId, openPreviewForFeature,
       activeSubtasksTaskLink, setActiveSubtasksTaskLink,

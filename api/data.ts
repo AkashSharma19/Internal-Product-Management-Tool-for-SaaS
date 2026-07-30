@@ -21,7 +21,8 @@ import {
   FeedbackFormConfigModel,
   FeedbackSubmissionModel,
   CommentModel,
-  ChangeHistoryModel
+  ChangeHistoryModel,
+  DirectoryContactModel
 } from './lib/models.js';
 
 const modelsMap: Record<string, any> = {
@@ -44,7 +45,8 @@ const modelsMap: Record<string, any> = {
   formConfigs: FeedbackFormConfigModel,
   feedbackSubmissions: FeedbackSubmissionModel,
   comments: CommentModel,
-  changeHistories: ChangeHistoryModel
+  changeHistories: ChangeHistoryModel,
+  directoryContacts: DirectoryContactModel
 };
 
 export default async function handler(req: any, res: any) {
