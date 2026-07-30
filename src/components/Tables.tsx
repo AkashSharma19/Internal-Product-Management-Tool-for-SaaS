@@ -13883,7 +13883,7 @@ export const ContactsDirectoryTable: React.FC = () => {
   const {
     directoryContacts = [], addDirectoryContact, updateDirectoryContact, deleteDirectoryContact,
     cohorts = [], addCohort, updateCohort,
-    programs = [], confirm
+    programs = [], confirm, alert
   } = useDashboard();
 
   // Active selected Program Sub-Tab
