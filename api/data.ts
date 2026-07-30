@@ -4130,6 +4130,44 @@ export default async function handler(req: any, res: any) {
         // Use key for settings, and id for all other tables
         const query = type === 'settings' ? { key: id } : { id };
 
+        // --- CASCADING UPDATES FOR PROGRAM & COHORT RENAMES ---
+        if (type === 'programs' || type === 'cohorts') {
+          try {
+            const existing = await Model.findOne(query).lean() as any;
+            if (existing && existing.name && data && data.name && existing.name !== data.name) {
+              const oldName = existing.name;
+              const newName = data.name;
+
+              if (type === 'programs') {
+                await Promise.all([
+                  modelsMap['amaSessions'].updateMany({ program: oldName }, { $set: { program: newName } }),
+                  modelsMap['adminCalls'].updateMany({ program: oldName }, { $set: { program: newName } }),
+                  modelsMap['tarunSirMeetings'].updateMany({ program: oldName }, { $set: { program: newName } }),
+                  modelsMap['featureAdoptions'].updateMany({ program: oldName }, { $set: { program: newName } }),
+                  modelsMap['studentMeetings'].updateMany({ product: oldName }, { $set: { product: newName } }),
+                  modelsMap['dailyIssues'].updateMany({ product: oldName }, { $set: { product: newName } }),
+                  modelsMap['products'].updateMany({ product: oldName }, { $set: { product: newName } }),
+                  modelsMap['projects'].updateMany({ product: oldName }, { $set: { product: newName } }),
+                  modelsMap['contentItems'].updateMany({ product: oldName }, { $set: { product: newName } })
+                ]);
+                console.log(`Cascaded Program rename from "${oldName}" to "${newName}"`);
+              } else if (type === 'cohorts') {
+                await Promise.all([
+                  modelsMap['amaSessions'].updateMany({ cohort: oldName }, { $set: { cohort: newName } }),
+                  modelsMap['adminCalls'].updateMany({ cohortTopic: oldName }, { $set: { cohortTopic: newName } }),
+                  modelsMap['tarunSirMeetings'].updateMany({ cohortTopic: oldName }, { $set: { cohortTopic: newName } }),
+                  modelsMap['featureAdoptions'].updateMany({ cohort: oldName }, { $set: { cohort: newName } }),
+                  modelsMap['studentMeetings'].updateMany({ cohort: oldName }, { $set: { cohort: newName } }),
+                  modelsMap['dailyIssues'].updateMany({ cohort: oldName }, { $set: { cohort: newName } })
+                ]);
+                console.log(`Cascaded Cohort rename from "${oldName}" to "${newName}"`);
+              }
+            }
+          } catch (cascadeErr) {
+            console.error('Cascading update failed:', cascadeErr);
+          }
+        }
+
         // --- Change Logging System ---
         const loggedTables = ['products', 'projects', 'contentItems', 'studentMeetings', 'dailyIssues'];
         if (loggedTables.includes(type) && data) {
