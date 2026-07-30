@@ -1674,7 +1674,7 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onChange, on
         boxShadow: 'var(--shadow)',
         padding: '12px',
         width: '240px',
-        zIndex: 10002,
+        zIndex: 10005,
         fontFamily: 'inherit',
         userSelect: 'none'
       }}
@@ -2897,7 +2897,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
             )}
 
             {/* HORIZONTAL TIMELINE FOR MILESTONES */}
-            <div className="premium-timeline-container">
+            <div className="premium-timeline-container" style={{ position: 'relative', zIndex: steps.some(s => s.isEditing) ? 50 : 20 }}>
               <h4 className="premium-timeline-title">Milestone Checkpoints</h4>
               <div className="premium-timeline-track-wrapper">
                 <div className="premium-timeline-line-connector">
@@ -2920,7 +2920,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                 </div>
                 <div className="premium-timeline-track">
                   {steps.map((step, idx) => (
-                    <div key={idx} className={`premium-timeline-node ${step.classStr}`}>
+                    <div key={idx} className={`premium-timeline-node ${step.classStr}`} style={{ position: 'relative', zIndex: step.isEditing ? 100 : 2 }}>
                       <div 
                         className="premium-timeline-circle"
                         onClick={() => step.setIsEditing(true)}
@@ -2957,7 +2957,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                             value={step.label === 'Created' ? (item.createdAt ? item.createdAt.substring(0, 10) : '') : (step.date || '')}
                             onChange={(date) => handleFieldUpdate(step.label === 'Created' ? 'createdAt' : step.historyField as any, date)}
                             onClose={() => step.setIsEditing(false)}
-                            align="right"
+                            align={idx <= 1 ? 'left' : 'right'}
                           />
                         )}
 

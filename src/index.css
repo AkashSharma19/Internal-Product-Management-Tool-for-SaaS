@@ -4075,6 +4075,7 @@ body.read-only-mode .btn:has(svg.lucide-plus) {
   margin-top: 0.5rem;
   margin-bottom: 1rem;
   position: relative;
+  z-index: 20;
 }
 
 .premium-timeline-title {
