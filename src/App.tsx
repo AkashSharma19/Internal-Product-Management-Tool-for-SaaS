@@ -15,7 +15,8 @@ import {
   AdoptionTable,
   ProductDetailView,
   ClickupSubtasksModal,
-  ContactsDirectoryTable
+  ContactsDirectoryTable,
+  RepositoryView
 } from './components/Tables';
 import { ConfigSection } from './components/ConfigSection';
 import { DashboardOverview } from './components/DashboardOverview';
@@ -42,13 +43,15 @@ import {
   Search,
   X,
   CornerDownLeft,
+  Users,
+  FolderOpen,
+  Lightbulb,
   PlusCircle,
   CheckCircle,
-  Lightbulb,
   Volume2,
-  VolumeX,
-  Users
+  VolumeX
 } from 'lucide-react';
+
 import { isAudioMuted, toggleAudioMute, playPopSound } from './utils/audio';
 import PixelBlast from './components/common/PixelBlast';
 
@@ -700,6 +703,7 @@ const DashboardContent: React.FC = () => {
     productItems,
     studentProjects,
     studentMeetings,
+    repoDocs,
     adminCalls,
     tarunSirMeetings,
     contentItems,
@@ -1440,6 +1444,7 @@ const DashboardContent: React.FC = () => {
       title: "Product Workspace",
       items: [
         { id: 'product-wise', label: 'Product Breakdown', icon: <PieChart size={18} /> },
+        { id: 'repository', label: 'Repository', icon: <FolderOpen size={18} /> },
         { id: 'adoption', label: 'Adoption Tracker', icon: <LineChart size={18} /> },
       ]
     },
@@ -1489,6 +1494,8 @@ const DashboardContent: React.FC = () => {
         return <ContentTable />;
       case 'product-wise':
         return <ProductWiseSheet />;
+      case 'repository':
+        return <RepositoryView />;
       case 'issues':
         return <IssuesTable />;
       case 'feature-requests':
@@ -1886,29 +1893,36 @@ const DashboardContent: React.FC = () => {
         <div key={activeTab} className="content-area animate-fade-in">
           {(() => {
             const isTabDatasetLoading = () => {
-              if (syncStatus !== 'syncing') return false;
-              switch (activeTab) {
-                case 'product': return productItems.length === 0;
-                case 'plan': return isLoadingSprint;
-                case 'projects': return studentProjects.length === 0;
-                case 'meetings': return studentMeetings.length === 0;
-                case 'admin': return adminCalls.length === 0;
-                case 'tarun-meetings': return tarunSirMeetings.length === 0;
-                case 'content': return contentItems.length === 0;
-                case 'product-wise': return false;
-                case 'issues': return dailyIssues.length === 0;
-                case 'feature-requests': return dailyIssues.length === 0;
-                case 'adoption': return featureAdoptions.length === 0;
-                default: return false;
+              if (isLoading || isRefreshingData) return true;
+              if (syncStatus === 'syncing') {
+                switch (activeTab) {
+                  case 'product': return productItems.length === 0;
+                  case 'plan': return isLoadingSprint;
+                  case 'projects': return studentProjects.length === 0;
+                  case 'meetings': return studentMeetings.length === 0;
+                  case 'admin': return adminCalls.length === 0;
+                  case 'tarun-meetings': return tarunSirMeetings.length === 0;
+                  case 'content': return contentItems.length === 0;
+                  case 'product-wise': return false;
+                  case 'issues': return dailyIssues.length === 0;
+                  case 'feature-requests': return dailyIssues.length === 0;
+                  case 'adoption': return featureAdoptions.length === 0;
+                  case 'repository': return repoDocs.length === 0;
+                  default: return false;
+                }
               }
+              return false;
             };
-            const isLoading = isTabDatasetLoading();
+            const isDatasetLoading = isTabDatasetLoading();
             return (
               <>
-                {isLoading && !previewProductId && <TableSkeleton />}
-                <div style={{ display: (isLoading || previewProductId) ? 'none' : 'flex', flexDirection: 'column', height: '100%', width: '100%', minWidth: 0, maxWidth: '100%', flex: 1 }}>
-                  {renderActiveView()}
-                </div>
+                {isDatasetLoading && !previewProductId ? (
+                  <TableSkeleton />
+                ) : (
+                  <div style={{ display: previewProductId ? 'none' : 'flex', flexDirection: 'column', height: '100%', width: '100%', minWidth: 0, maxWidth: '100%', flex: 1 }}>
+                    {renderActiveView()}
+                  </div>
+                )}
               </>
             );
           })()}

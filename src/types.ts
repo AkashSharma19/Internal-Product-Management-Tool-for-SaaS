@@ -322,4 +322,49 @@ export interface ProgramCohortRow {
   createdAt?: string;
 }
 
+export interface RepoTab {
+  id: string;
+  name: string;
+  order: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface JourneyStep {
+  id: string;
+  title: string;
+  desc: string;
+  status: string;
+  poc: string;
+}
+
+export interface TableBlockData {
+  headers: string[];
+  rows: string[][];
+}
+
+export interface RepoDocBlock {
+  id: string;
+  type: 'heading' | 'text' | 'journey' | 'table' | 'callout';
+  headingLevel?: 1 | 2 | 3;
+  text?: string;
+  calloutType?: 'info' | 'warning' | 'success' | 'note';
+  journeySteps?: JourneyStep[];
+  tableData?: TableBlockData;
+}
+
+export interface RepoDoc {
+  id: string;
+  tabId: string;
+  title: string;
+  url?: string;
+  order: number;
+  blocks?: RepoDocBlock[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+
+
+
 

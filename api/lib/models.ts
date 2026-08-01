@@ -349,3 +349,26 @@ const ChangeHistorySchema = new Schema({
 
 export const ChangeHistoryModel = mongoose.models.ChangeHistory || mongoose.model('ChangeHistory', ChangeHistorySchema);
 
+// Repository sub-tab schema
+const RepoTabSchema = new Schema({
+  id: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  order: { type: Number, default: 0 }
+}, { timestamps: true });
+
+// Repository document schema
+const RepoDocSchema = new Schema({
+  id: { type: String, required: true, unique: true },
+  tabId: { type: String, required: true, index: true },
+  title: { type: String, required: true, default: "Untitled Link" },
+  url: { type: String, default: "" },
+  order: { type: Number, default: 0 },
+  blocks: { type: [Schema.Types.Mixed], default: [] }
+}, { timestamps: true });
+
+
+
+export const RepoTabModel = mongoose.models.RepoTab || mongoose.model('RepoTab', RepoTabSchema);
+export const RepoDocModel = mongoose.models.RepoDoc || mongoose.model('RepoDoc', RepoDocSchema);
+
+

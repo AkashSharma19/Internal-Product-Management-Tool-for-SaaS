@@ -21,8 +21,11 @@ import type {
   FeedbackSubmission,
   TeamContact,
   ProgramCohortRow,
-  DirectoryContact
+  DirectoryContact,
+  RepoTab,
+  RepoDoc
 } from '../types';
+
 import {
   initialSpeakers,
   initialProductGroups,
@@ -150,6 +153,16 @@ interface DashboardContextType {
   addDirectoryContact: (item: DirectoryContact) => void;
   updateDirectoryContact: (id: string, updated: Partial<DirectoryContact>) => void;
   deleteDirectoryContact: (id: string) => void;
+
+  repoTabs: RepoTab[];
+  addRepoTab: (item: RepoTab) => void;
+  updateRepoTab: (id: string, updated: Partial<RepoTab>) => void;
+  deleteRepoTab: (id: string) => void;
+
+  repoDocs: RepoDoc[];
+  addRepoDoc: (item: RepoDoc) => void;
+  updateRepoDoc: (id: string, updated: Partial<RepoDoc>) => void;
+  deleteRepoDoc: (id: string) => void;
 
   // ClickUp Integration
   clickupApiKey: string;
@@ -617,6 +630,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [dailyIssues, setDailyIssues] = useState<DailyIssue[]>([]);
   const [featureAdoptions, setFeatureAdoptions] = useState<FeatureAdoption[]>([]);
   const [directoryContacts, setDirectoryContacts] = useState<DirectoryContact[]>([]);
+  const [repoTabs, setRepoTabs] = useState<RepoTab[]>([]);
+  const [repoDocs, setRepoDocs] = useState<RepoDoc[]>([]);
 
   const [teamContacts, setTeamContacts] = useState<TeamContact[]>(() => {
     const data = localStorage.getItem('team-contacts');
@@ -1514,6 +1529,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (db.dailyIssues !== undefined)                    { setDailyIssues(db.dailyIssues);     updatedSheets++; }
         if (db.featureAdoptions !== undefined)               { setFeatureAdoptions(db.featureAdoptions); updatedSheets++; }
         if (db.directoryContacts !== undefined)              { setDirectoryContacts(db.directoryContacts); updatedSheets++; }
+        if (db.repoTabs !== undefined)                       { setRepoTabs(db.repoTabs);           updatedSheets++; }
+        if (db.repoDocs !== undefined)                       { setRepoDocs(db.repoDocs);           updatedSheets++; }
 
         if (db.speakers !== undefined) {
           setSpeakers(db.speakers);
@@ -2092,6 +2109,47 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     persistChange('delete', 'directoryContacts', id, null);
   };
 
+  const addRepoTab = (item: RepoTab) => {
+    setRepoTabs(prev => [...prev, item]);
+    persistChange('create', 'repoTabs', null, item);
+  };
+  const updateRepoTab = (id: string, updated: Partial<RepoTab>) => {
+    setRepoTabs(prev => {
+      const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
+      const updatedItem = next.find(item => item.id === id);
+      if (updatedItem) persistChange('update', 'repoTabs', id, updatedItem);
+      return next;
+    });
+  };
+  const deleteRepoTab = (id: string) => {
+    setRepoTabs(prev => prev.filter(item => item.id !== id));
+    persistChange('delete', 'repoTabs', id, null);
+    setRepoDocs(prev => {
+      const remainingDocs = prev.filter(doc => doc.tabId === id);
+      remainingDocs.forEach(doc => {
+        persistChange('delete', 'repoDocs', doc.id, null);
+      });
+      return prev.filter(doc => doc.tabId !== id);
+    });
+  };
+
+  const addRepoDoc = (item: RepoDoc) => {
+    setRepoDocs(prev => [...prev, item]);
+    persistChange('create', 'repoDocs', null, item);
+  };
+  const updateRepoDoc = (id: string, updated: Partial<RepoDoc>) => {
+    setRepoDocs(prev => {
+      const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
+      const updatedItem = next.find(item => item.id === id);
+      if (updatedItem) persistChange('update', 'repoDocs', id, updatedItem);
+      return next;
+    });
+  };
+  const deleteRepoDoc = (id: string) => {
+    setRepoDocs(prev => prev.filter(item => item.id !== id));
+    persistChange('delete', 'repoDocs', id, null);
+  };
+
   const updateStudentMeeting = (id: string, updated: Partial<StudentMeeting>) => {
     setStudentMeetings(prev => {
       const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
@@ -2646,6 +2704,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       featureAdoptions, setFeatureAdoptions, updateFeatureAdoption, addFeatureAdoption, deleteFeatureAdoption,
       teamContacts, setTeamContacts, updateTeamContact, addTeamContact, deleteTeamContact,
       directoryContacts, updateDirectoryContact, addDirectoryContact, deleteDirectoryContact,
+      repoTabs, addRepoTab, updateRepoTab, deleteRepoTab,
+      repoDocs, addRepoDoc, updateRepoDoc, deleteRepoDoc,
       programCohortRows, setProgramCohortRows, updateProgramCohortRow, addProgramCohortRow, deleteProgramCohortRow,
       previewProductId, setPreviewProductId, openPreviewForFeature,
       activeSubtasksTaskLink, setActiveSubtasksTaskLink,

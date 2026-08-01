@@ -22,7 +22,9 @@ import {
   FeedbackSubmissionModel,
   CommentModel,
   ChangeHistoryModel,
-  DirectoryContactModel
+  DirectoryContactModel,
+  RepoTabModel,
+  RepoDocModel
 } from './lib/models.js';
 
 const modelsMap: Record<string, any> = {
@@ -46,7 +48,9 @@ const modelsMap: Record<string, any> = {
   feedbackSubmissions: FeedbackSubmissionModel,
   comments: CommentModel,
   changeHistories: ChangeHistoryModel,
-  directoryContacts: DirectoryContactModel
+  directoryContacts: DirectoryContactModel,
+  repoTabs: RepoTabModel,
+  repoDocs: RepoDocModel
 };
 
 export default async function handler(req: any, res: any) {
@@ -216,7 +220,7 @@ export default async function handler(req: any, res: any) {
         // --- Action Routers ---
         if (action === 'init') {
           const results: Record<string, any[]> = {};
-          const allowedKeys = ['settings', 'speakers', 'statuses', 'productGroups', 'programs', 'cohorts', 'formConfigs', 'products', 'feedbackSubmissions', 'comments', 'directoryContacts'];
+          const allowedKeys = ['settings', 'speakers', 'statuses', 'productGroups', 'programs', 'cohorts', 'formConfigs', 'products', 'feedbackSubmissions', 'comments', 'directoryContacts', 'repoTabs', 'repoDocs'];
           for (const key of allowedKeys) {
             if (key === 'speakers') {
               const rawSpeakers = await modelsMap[key].find({}).lean();
