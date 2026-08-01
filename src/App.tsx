@@ -701,13 +701,7 @@ const DashboardContent: React.FC = () => {
     previewProductId,
     setPreviewProductId,
     productItems,
-    studentProjects,
-    studentMeetings,
-    repoDocs,
-    adminCalls,
-    tarunSirMeetings,
     contentItems,
-    featureAdoptions,
     updateProductItem,
     syncStatus,
     currentUser,
@@ -729,9 +723,9 @@ const DashboardContent: React.FC = () => {
     activeSubtasksTaskLink,
     setActiveSubtasksTaskLink,
     isLoading,
-    isLoadingSprint,
     comments,
-    lastOpenedMap
+    lastOpenedMap,
+    loadedTabs
   } = useDashboard();
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [isRefreshingClickup, setIsRefreshingClickup] = useState(false);
@@ -1896,18 +1890,18 @@ const DashboardContent: React.FC = () => {
               if (isLoading || isRefreshingData) return true;
               if (syncStatus === 'syncing') {
                 switch (activeTab) {
-                  case 'product': return productItems.length === 0;
-                  case 'plan': return isLoadingSprint;
-                  case 'projects': return studentProjects.length === 0;
-                  case 'meetings': return studentMeetings.length === 0;
-                  case 'admin': return adminCalls.length === 0;
-                  case 'tarun-meetings': return tarunSirMeetings.length === 0;
-                  case 'content': return contentItems.length === 0;
+                  case 'product': return !loadedTabs.includes('products');
+                  case 'plan': return !loadedTabs.includes('plans');
+                  case 'projects': return !loadedTabs.includes('projects');
+                  case 'meetings': return !loadedTabs.includes('studentMeetings');
+                  case 'admin': return !loadedTabs.includes('adminCalls');
+                  case 'tarun-meetings': return !loadedTabs.includes('tarunSirMeetings');
+                  case 'content': return !loadedTabs.includes('contentItems');
                   case 'product-wise': return false;
-                  case 'issues': return dailyIssues.length === 0;
-                  case 'feature-requests': return dailyIssues.length === 0;
-                  case 'adoption': return featureAdoptions.length === 0;
-                  case 'repository': return repoDocs.length === 0;
+                  case 'issues': return !loadedTabs.includes('dailyIssues');
+                  case 'feature-requests': return !loadedTabs.includes('dailyIssues');
+                  case 'adoption': return !loadedTabs.includes('featureAdoptions');
+                  case 'repository': return !loadedTabs.includes('repoDocs');
                   default: return false;
                 }
               }
