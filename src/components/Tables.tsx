@@ -14962,6 +14962,8 @@ export const RepositoryView: React.FC = () => {
   // Drag and drop states
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [dragOverTabId, setDragOverTabId] = useState<string | null>(null);
+  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
 
   // Local list states for smooth, high-fidelity drag-and-drop
   const [localTabs, setLocalTabs] = useState<any[]>([]);
@@ -14999,6 +15001,9 @@ export const RepositoryView: React.FC = () => {
 
   const handleTabDragOver = (e: React.DragEvent, targetId: string) => {
     e.preventDefault();
+    if (dragOverTabId !== targetId) {
+      setDragOverTabId(targetId);
+    }
     if (!draggedTabId || draggedTabId === targetId) return;
 
     const dragIndex = localTabs.findIndex(t => t.id === draggedTabId);
@@ -15012,17 +15017,21 @@ export const RepositoryView: React.FC = () => {
     setLocalTabs(newList);
   };
 
-  const handleTabDragEnd = () => {
-    if (!draggedTabId) return;
-    
-    // Persist final order changes exactly once at drop
-    localTabs.forEach((tab, index) => {
-      if (tab.order !== index) {
-        updateRepoTab(tab.id, { order: index });
-      }
-    });
+  const handleTabDragLeave = () => {
+    setDragOverTabId(null);
+  };
 
-    setDraggedTabId(null);
+  const handleTabDragEnd = () => {
+    if (draggedTabId) {
+      // Persist final order changes exactly once at drop
+      localTabs.forEach((tab, index) => {
+        if (tab.order !== index) {
+          updateRepoTab(tab.id, { order: index });
+        }
+      });
+      setDraggedTabId(null);
+    }
+    setDragOverTabId(null);
   };
 
   // Item Drag Handlers
@@ -15033,6 +15042,9 @@ export const RepositoryView: React.FC = () => {
 
   const handleItemDragOver = (e: React.DragEvent, targetId: string) => {
     e.preventDefault();
+    if (dragOverItemId !== targetId) {
+      setDragOverItemId(targetId);
+    }
     if (!draggedItemId || draggedItemId === targetId) return;
 
     const dragIndex = localLinks.findIndex(l => l.id === draggedItemId);
@@ -15046,18 +15058,23 @@ export const RepositoryView: React.FC = () => {
     setLocalLinks(newList);
   };
 
-  const handleItemDragEnd = () => {
-    if (!draggedItemId) return;
-
-    // Persist final order changes exactly once at drop
-    localLinks.forEach((link, index) => {
-      if (link.order !== index) {
-        updateRepoDoc(link.id, { order: index });
-      }
-    });
-
-    setDraggedItemId(null);
+  const handleItemDragLeave = () => {
+    setDragOverItemId(null);
   };
+
+  const handleItemDragEnd = () => {
+    if (draggedItemId) {
+      // Persist final order changes exactly once at drop
+      localLinks.forEach((link, index) => {
+        if (link.order !== index) {
+          updateRepoDoc(link.id, { order: index });
+        }
+      });
+      setDraggedItemId(null);
+    }
+    setDragOverItemId(null);
+  };
+
 
   // Add Repository Tab
   const handleCreateTab = () => {
@@ -15259,10 +15276,13 @@ export const RepositoryView: React.FC = () => {
               draggable={!isEditing}
               onDragStart={(e) => handleTabDragStart(e, tab.id)}
               onDragOver={(e) => handleTabDragOver(e, tab.id)}
+              onDragLeave={handleTabDragLeave}
               onDragEnd={handleTabDragEnd}
               style={{ 
-                padding: '0.5rem 0.25rem',
-                borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
+                padding: '0.5rem 0.5rem',
+                borderBottom: tab.id === dragOverTabId 
+                  ? '2px solid var(--primary)' 
+                  : (isActive ? '2px solid var(--primary)' : '2px solid transparent'),
                 color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
                 fontWeight: 600,
                 fontSize: '0.875rem',
@@ -15273,6 +15293,8 @@ export const RepositoryView: React.FC = () => {
                 alignItems: 'center',
                 gap: '6px',
                 userSelect: 'none',
+                backgroundColor: tab.id === dragOverTabId ? 'var(--primary-glow)' : 'transparent',
+                borderRadius: tab.id === dragOverTabId ? '4px' : '0px',
                 opacity: tab.id === draggedTabId ? 0.4 : 1
               }}
             >
@@ -15444,10 +15466,15 @@ export const RepositoryView: React.FC = () => {
                             draggable
                             onDragStart={(e) => handleItemDragStart(e, item.id)}
                             onDragOver={(e) => handleItemDragOver(e, item.id)}
+                            onDragLeave={handleItemDragLeave}
                             onDragEnd={handleItemDragEnd}
                             style={{ 
                               opacity: item.id === draggedItemId ? 0.4 : 1,
-                              background: item.id === draggedItemId ? 'var(--background-alt)' : 'transparent',
+                              background: item.id === draggedItemId 
+                                ? 'var(--background-alt)' 
+                                : (item.id === dragOverItemId ? 'var(--primary-glow)' : 'transparent'),
+                              borderBottom: item.id === dragOverItemId ? '2px solid var(--primary)' : '1px solid var(--border)',
+                              transition: 'background-color 0.15s, border-bottom 0.15s',
                               cursor: 'grab'
                             }}
                           >
