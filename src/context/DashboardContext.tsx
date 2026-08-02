@@ -1103,7 +1103,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Effect to lazy-load tab datasets when activeTab changes
   useEffect(() => {
-    if (activeTab && activeTab !== 'dashboard' && activeTab !== 'calendar' && activeTab !== 'config' && activeTab !== 'plan') {
+    if (activeTab && activeTab !== 'dashboard' && activeTab !== 'calendar' && activeTab !== 'config') {
       loadTabData(activeTab);
     }
   }, [activeTab]);
