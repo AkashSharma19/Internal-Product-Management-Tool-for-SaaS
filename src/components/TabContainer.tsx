@@ -79,19 +79,19 @@ export const TabContainer: React.FC<TabContainerProps> = ({
         <div className="toolbar-right">
           {onImportCSVClick && canUserEdit && (
             <button className="btn btn-secondary btn-sm" onClick={onImportCSVClick} title="Import CSV data">
-              <Upload size={14} /> Import CSV
+              <Upload size={14} /> Import
             </button>
           )}
 
           {onExportFeedbackCSV && (
             <button className="btn btn-secondary btn-sm" onClick={onExportFeedbackCSV} title="Download Overall Feedback Excel">
-              <Download size={14} /> Download Feedback Excel
+              <Download size={14} /> Download Excel
             </button>
           )}
 
           {onExportCSV && !onExportFeedbackCSV && (
             <button className="btn btn-secondary btn-sm" onClick={onExportCSV} title="Download CSV backup">
-              <Download size={14} /> Export CSV
+              <Download size={14} /> Export
             </button>
           )}
 

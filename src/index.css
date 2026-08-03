@@ -550,19 +550,19 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .sheet-toolbar {
-  padding: 1.25rem 1.5rem;
+  padding: 0.5rem 1.25rem;
   border-bottom: 1px solid var(--border);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .toolbar-left {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
   flex-wrap: wrap;
   flex: 1;
 }
@@ -570,7 +570,7 @@ h1, h2, h3, h4, h5, h6 {
 .toolbar-right {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 /* INPUT CONTROLS */
@@ -578,13 +578,13 @@ h1, h2, h3, h4, h5, h6 {
   position: relative;
   display: flex;
   align-items: center;
-  max-width: 320px;
+  max-width: 220px;
   width: 100%;
   background-color: var(--background);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 0 0.75rem;
-  height: 38px;
+  padding: 0 0.6rem;
+  height: 32px;
   transition: all 0.2s;
   box-sizing: border-box;
 }
@@ -596,8 +596,8 @@ h1, h2, h3, h4, h5, h6 {
 
 .search-input-wrapper svg {
   color: var(--text-muted);
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
 }
 
@@ -608,26 +608,22 @@ h1, h2, h3, h4, h5, h6 {
   border: none !important;
   background: transparent !important;
   color: var(--text-primary);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   outline: none !important;
-  padding: 0 1.75rem 0 0.5rem !important;
+  padding: 0 1.5rem 0 0.4rem !important;
   box-shadow: none !important;
 }
 
 .filter-select {
-  padding: 0.5rem 1rem;
+  padding: 0.25rem 0.75rem;
   background-color: var(--background);
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text-primary);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   outline: none;
   cursor: pointer;
-  transition: all 0.2s;
-}
-
-.filter-select:focus {
-  border-color: var(--primary);
+  height: 32px;
 }
 
 /* MULTI SELECT DROPDOWN */
@@ -641,17 +637,17 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
   background-color: var(--background);
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text-primary);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   cursor: pointer;
-  min-width: 160px;
-  max-width: 280px;
-  height: 38px;
+  min-width: 120px;
+  max-width: 240px;
+  height: 32px;
   transition: all 0.2s;
   box-sizing: border-box;
 }

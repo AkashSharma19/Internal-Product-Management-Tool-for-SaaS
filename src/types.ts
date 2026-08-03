@@ -246,6 +246,7 @@ export interface ConfigCohort {
   programId: string;
   active?: boolean; // true = Active, false = Inactive
   departments?: string[];
+  departmentEmails?: Record<string, string>;
 }
 
 export interface DirectoryContact {

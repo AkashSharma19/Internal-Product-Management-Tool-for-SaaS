@@ -255,7 +255,8 @@ const ConfigCohortSchema = new Schema({
   name: { type: String, required: true },
   programId: { type: String, required: true },
   active: { type: Boolean, default: true },
-  departments: { type: [String], default: [] }
+  departments: { type: [String], default: [] },
+  departmentEmails: { type: Map, of: String, default: {} }
 });
 
 // Global Settings (ClickUp Key, etc.)
@@ -272,8 +273,8 @@ const DirectoryContactSchema = new Schema({
   whatsapp: { type: String, default: "" },
   tier: { type: String, default: "L0" }, // 'L0' | 'L1' | 'L2'
   programId: { type: String, required: true },
-  cohortId: { type: String, required: true },
-  department: { type: String, required: true }
+  cohortId: { type: String, default: "" },
+  department: { type: String, default: "" }
 }, { timestamps: true });
 
 // Exports
