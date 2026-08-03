@@ -2267,6 +2267,14 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const [featureText, setFeatureText] = useState(item.feature || '');
   const [isFocused, setIsFocused] = useState(false);
 
+  const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (titleTextareaRef.current) {
+      titleTextareaRef.current.style.height = 'auto';
+      titleTextareaRef.current.style.height = `${titleTextareaRef.current.scrollHeight}px`;
+    }
+  }, [featureText]);
+
   useEffect(() => {
     setFeatureText(item.feature || '');
   }, [item.feature]);
@@ -2647,10 +2655,10 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
             
             {/* Task Title (Editable) + inline link button */}
             <div style={{ position: 'relative' }}>
-              <input
-                type="text"
+              <textarea
+                ref={titleTextareaRef}
                 className="premium-title-input"
-                style={{ paddingLeft: 0, fontSize: '1.5rem', borderBottom: '2px solid transparent', width: '100%' }}
+                style={{ paddingLeft: 0, fontSize: '1.5rem', borderBottom: '2px solid transparent', width: '100%', height: 'auto', resize: 'none', overflow: 'hidden', fontFamily: 'inherit', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => {
                   setIsFocused(false);
@@ -2666,6 +2674,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                 value={featureText}
                 onChange={(e) => setFeatureText(e.target.value)}
                 placeholder="Task name"
+                rows={1}
               />
               {/* Inline "Link to task" button — sits right below the title, no separate row */}
               {!isLinkingSearchOpen && (

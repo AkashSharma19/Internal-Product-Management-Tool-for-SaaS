@@ -797,8 +797,8 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         <div className="calendar-dashboard-layout animate-slide-in" style={{
           display: 'grid',
-          gridTemplateColumns: isPublic ? '280px 1fr 340px' : '1fr 340px',
-          gap: isPublic ? '0' : '1.5rem',
+          gridTemplateColumns: isPublic ? '280px 1fr 320px' : '1fr 320px',
+          gap: '0',
           height: '100%'
         }}>
           
@@ -1046,7 +1046,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
               <CalendarSkeleton />
             </div>
           ) : (
-            <div className="calendar-grid-wrapper" style={{ position: 'relative' }}>
+            <div className="calendar-grid-wrapper" style={{ position: 'relative', flex: 1, minWidth: 0, width: '100%' }}>
               <table className="grid-table calendar-grid-table" style={{ width: '100%', height: '100%', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
