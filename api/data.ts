@@ -1455,6 +1455,9 @@ export default async function handler(req: any, res: any) {
             );
             linked.forEach((task: any) => {
               const isOverallCompleted = isCompletedStatus(task.status);
+              addEvent(task.id, 'AMA Sessions', task.feature, 'Specs', task.productDeadline, !!task.productDeadlineCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'meetings');
+              addEvent(task.id, 'AMA Sessions', task.feature, 'UI/UX', task.uiux, !!task.uiuxCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'meetings');
+              addEvent(task.id, 'AMA Sessions', task.feature, 'Dev', task.deadline, !!task.deadlineCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'meetings');
               addEvent(task.id, 'AMA Sessions', task.feature, 'Final Release', task.finalRelease, !!task.finalReleaseCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'meetings');
             });
           });
@@ -1473,6 +1476,9 @@ export default async function handler(req: any, res: any) {
             );
             linked.forEach((task: any) => {
               const isOverallCompleted = isCompletedStatus(task.status);
+              addEvent(task.id, 'Admin Calls', task.feature, 'Specs', task.productDeadline, !!task.productDeadlineCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'admin');
+              addEvent(task.id, 'Admin Calls', task.feature, 'UI/UX', task.uiux, !!task.uiuxCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'admin');
+              addEvent(task.id, 'Admin Calls', task.feature, 'Dev', task.deadline, !!task.deadlineCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'admin');
               addEvent(task.id, 'Admin Calls', task.feature, 'Final Release', task.finalRelease, !!task.finalReleaseCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'admin');
             });
           });
@@ -1485,6 +1491,9 @@ export default async function handler(req: any, res: any) {
             );
             linked.forEach((task: any) => {
               const isOverallCompleted = isCompletedStatus(task.status);
+              addEvent(task.id, 'Tarun Sir Meetings', task.feature, 'Specs', task.productDeadline, !!task.productDeadlineCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'tarun-meetings');
+              addEvent(task.id, 'Tarun Sir Meetings', task.feature, 'UI/UX', task.uiux, !!task.uiuxCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'tarun-meetings');
+              addEvent(task.id, 'Tarun Sir Meetings', task.feature, 'Dev', task.deadline, !!task.deadlineCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'tarun-meetings');
               addEvent(task.id, 'Tarun Sir Meetings', task.feature, 'Final Release', task.finalRelease, !!task.finalReleaseCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'tarun-meetings');
             });
           });
