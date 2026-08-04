@@ -24,7 +24,8 @@ import {
   ChangeHistoryModel,
   DirectoryContactModel,
   RepoTabModel,
-  RepoDocModel
+  RepoDocModel,
+  ChallengeModel
 } from './lib/models.js';
 
 const modelsMap: Record<string, any> = {
@@ -50,7 +51,8 @@ const modelsMap: Record<string, any> = {
   changeHistories: ChangeHistoryModel,
   directoryContacts: DirectoryContactModel,
   repoTabs: RepoTabModel,
-  repoDocs: RepoDocModel
+  repoDocs: RepoDocModel,
+  challenges: ChallengeModel
 };
 
 export default async function handler(req: any, res: any) {
@@ -220,7 +222,7 @@ export default async function handler(req: any, res: any) {
         // --- Action Routers ---
         if (action === 'init') {
           const results: Record<string, any[]> = {};
-          const allowedKeys = ['settings', 'speakers', 'statuses', 'productGroups', 'programs', 'cohorts', 'formConfigs', 'products', 'feedbackSubmissions', 'comments', 'directoryContacts', 'repoTabs', 'repoDocs'];
+          const allowedKeys = ['settings', 'speakers', 'statuses', 'productGroups', 'programs', 'cohorts', 'formConfigs', 'products', 'feedbackSubmissions', 'comments', 'directoryContacts', 'repoTabs', 'repoDocs', 'challenges'];
           for (const key of allowedKeys) {
             if (key === 'speakers') {
               const rawSpeakers = await modelsMap[key].find({}).lean();
@@ -2095,9 +2097,62 @@ export default async function handler(req: any, res: any) {
 
           console.log(`[API LOG] paginated-meetings-data: type=${type}, page=${page}, limit=${limit}, search="${search}", statuses="${statusesParam}", programs="${programsParam}", pocs="${pocsParam}"`);
 
-          if (!type || !['amaSessions', 'adminCalls', 'tarunSirMeetings', 'amaFeedback', 'adminFeedback', 'tarunFeedback', 'dailyIssues', 'featureRequests'].includes(type)) {
+          if (!type || !['amaSessions', 'adminCalls', 'tarunSirMeetings', 'amaFeedback', 'adminFeedback', 'tarunFeedback', 'dailyIssues', 'featureRequests', 'challenges'].includes(type)) {
             console.log(`[API LOG] Invalid type requested: ${type}`);
             return res.status(400).json({ success: false, error: 'Invalid meeting type' });
+          }
+
+          if (type === 'challenges') {
+            const rawChallenges = await modelsMap['challenges'].find({}).lean();
+            const filterDepartments = url.searchParams.get('departments') ? (url.searchParams.get('departments') || '').split(',') : [];
+            const filterStatuses = statusesParam ? statusesParam.split(',') : [];
+            const priorityParam = url.searchParams.get('priority') || '';
+            const blockersOnly = url.searchParams.get('blockersOnly') === 'true';
+
+            const filtered = rawChallenges.filter((item: any) => {
+              if (priorityParam && priorityParam !== 'All') {
+                if (item.priority !== priorityParam) return false;
+              }
+
+              if (filterStatuses.length > 0 && !filterStatuses.includes(item.status || '')) return false;
+
+              if (filterDepartments.length > 0) {
+                const itemDepts = item.departments || [];
+                const hasOverlap = filterDepartments.some((d: string) => itemDepts.includes(d));
+                if (!hasOverlap) return false;
+              }
+
+              if (blockersOnly && !item.isBlocker) return false;
+
+              if (search) {
+                const matchesSearch =
+                  (item.title || '').toLowerCase().includes(search) ||
+                  (item.description || '').toLowerCase().includes(search) ||
+                  (item.poc || '').toLowerCase().includes(search);
+                if (!matchesSearch) return false;
+              }
+
+              return true;
+            });
+
+            const sorted = [...filtered];
+            sorted.sort((a: any, b: any) => {
+              return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+            });
+
+            const totalItems = sorted.length;
+            const totalPages = Math.ceil(totalItems / limit) || 1;
+            const activePage = Math.min(page, totalPages);
+            const startIndex = (activePage - 1) * limit;
+            const paginatedData = sorted.slice(startIndex, startIndex + limit);
+
+            return res.status(200).json({
+              success: true,
+              data: paginatedData,
+              totalItems,
+              totalPages,
+              page: activePage
+            });
           }
 
           if (type === 'featureRequests') {

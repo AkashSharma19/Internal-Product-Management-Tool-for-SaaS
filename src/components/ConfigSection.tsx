@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import type { ConfigSpeaker, ConfigProductGroup, ConfigStatus, ConfigProgram, ConfigCohort, FeedbackFormField } from '../types';
-import { Plus, Trash2, Check, X, Pencil, Users, Layers, Tag, Key, Eye, EyeOff, RefreshCw, AlertCircle, ClipboardList, ChevronUp, ChevronDown, Shield, Calendar, Copy, Link, Zap, Mail, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Check, X, Pencil, Users, Layers, Tag, Key, Eye, EyeOff, RefreshCw, AlertCircle, ClipboardList, ChevronUp, ChevronDown, Shield, Calendar, Copy, Link, Zap, Mail, Sparkles, Lock } from 'lucide-react';
 
 // ─── Colour palette ────────────────────────────────────────────────────────────
 const PALETTE = [
@@ -2905,7 +2905,51 @@ const CONFIG_TABS: { id: ConfigTab; label: string; icon: React.ReactNode }[] = [
   { id: 'calendar', label: 'Sharable Calendar',      icon: <Calendar size={15} /> },
 ];
 
+const LockedIntegrationsView: React.FC = () => {
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flex: 1,
+      padding: '4rem 2rem',
+      textAlign: 'center',
+      background: 'var(--background-alt)',
+      borderRadius: '12px',
+      margin: '1.5rem 2rem',
+      border: '1px solid var(--border-light)',
+      boxShadow: 'inset 0 0 20px rgba(0,0,0,0.05)'
+    }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '72px',
+        height: '72px',
+        borderRadius: '50%',
+        backgroundColor: 'rgba(239, 68, 68, 0.08)',
+        border: '1px solid rgba(239, 68, 68, 0.15)',
+        color: 'var(--danger)',
+        marginBottom: '1.5rem',
+        boxShadow: '0 8px 16px rgba(0,0,0,0.03)'
+      }}>
+        <Lock size={32} />
+      </div>
+      <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+        Integrations Locked
+      </h3>
+      <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)', maxWidth: '400px', lineHeight: '1.5' }}>
+        You do not have the required administrative permissions to view or configure ClickUp integrations. Please contact a system administrator if you require access.
+      </p>
+    </div>
+  );
+};
+
+
 export const ConfigSection: React.FC = () => {
+  const { currentUser } = useDashboard();
+  const isCurrentUserAdmin = currentUser ? (currentUser.isAdmin !== false) : false;
   const [activeTab, setActiveTab] = useState<ConfigTab>('speakers');
 
   return (
@@ -2924,6 +2968,7 @@ export const ConfigSection: React.FC = () => {
         <div style={{ display: 'flex', gap: '0.25rem' }}>
           {CONFIG_TABS.map(tab => {
             const isActive = activeTab === tab.id;
+            const isLocked = tab.id === 'integrations' && !isCurrentUserAdmin;
             return (
               <button
                 key={tab.id}
@@ -2952,8 +2997,8 @@ export const ConfigSection: React.FC = () => {
                   if (!isActive) e.currentTarget.style.color = 'var(--text-muted)';
                 }}
               >
-                {tab.icon}
-                {tab.label}
+                {isLocked ? <Lock size={15} style={{ color: 'var(--text-muted)' }} /> : tab.icon}
+                {tab.label} {isLocked && ' 🔒'}
               </button>
             );
           })}
@@ -2968,7 +3013,9 @@ export const ConfigSection: React.FC = () => {
           {activeTab === 'groups' && <ProductGroupsSection />}
           {activeTab === 'statuses' && <StatusesSection />}
           {activeTab === 'programs' && <ProgramsSection />}
-          {activeTab === 'integrations' && <IntegrationsSection />}
+          {activeTab === 'integrations' && (
+            isCurrentUserAdmin ? <IntegrationsSection /> : <LockedIntegrationsView />
+          )}
           {activeTab === 'forms' && <FormBuilderSection />}
           {activeTab === 'calendar' && <CalendarConfigSection />}
         </div>

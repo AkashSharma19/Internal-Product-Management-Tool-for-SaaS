@@ -16,7 +16,8 @@ import {
   ProductDetailView,
   ClickupSubtasksModal,
   ContactsDirectoryTable,
-  RepositoryView
+  RepositoryView,
+  ChallengesTable
 } from './components/Tables';
 import { ConfigSection } from './components/ConfigSection';
 import { DashboardOverview } from './components/DashboardOverview';
@@ -49,7 +50,8 @@ import {
   PlusCircle,
   CheckCircle,
   Volume2,
-  VolumeX
+  VolumeX,
+  Flame
 } from 'lucide-react';
 
 import { isAudioMuted, toggleAudioMute, playPopSound } from './utils/audio';
@@ -739,11 +741,7 @@ const DashboardContent: React.FC = () => {
 
   useEffect(() => {
     if (prevSyncStatusRef.current === 'syncing' && syncStatus === 'synced') {
-      setToastMessage('Changes saved to cloud');
-      setToastType('success');
-      setShowToast(true);
-      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-      toastTimeoutRef.current = setTimeout(() => setShowToast(false), 3000);
+      // Intentionally empty to disable "Changes saved to cloud" success pop-up
     } else if (syncStatus === 'error') {
       setToastMessage('Sync failed. Offline mode active.');
       setToastType('error');
@@ -1453,6 +1451,7 @@ const DashboardContent: React.FC = () => {
         { id: 'content', label: 'Content Pipeline', icon: <BookOpen size={18} /> },
         { id: 'issues', label: 'Daily Issues Log', icon: <AlertTriangle size={18} /> },
         { id: 'feature-requests', label: 'Requested Features', icon: <Lightbulb size={18} /> },
+        { id: 'challenges', label: 'Challenges Tracker', icon: <Flame size={18} /> },
       ]
     },
     {
@@ -1494,6 +1493,8 @@ const DashboardContent: React.FC = () => {
         return <IssuesTable />;
       case 'feature-requests':
         return <FeatureRequestsTable />;
+      case 'challenges':
+        return <ChallengesTable />;
       case 'adoption':
         return <AdoptionTable />;
       case 'config':
@@ -1900,6 +1901,7 @@ const DashboardContent: React.FC = () => {
                   case 'product-wise': return false;
                   case 'issues': return !loadedTabs.includes('dailyIssues');
                   case 'feature-requests': return !loadedTabs.includes('dailyIssues');
+                  case 'challenges': return !loadedTabs.includes('challenges');
                   case 'adoption': return !loadedTabs.includes('featureAdoptions');
                   case 'repository': return !loadedTabs.includes('repoDocs');
                   default: return false;

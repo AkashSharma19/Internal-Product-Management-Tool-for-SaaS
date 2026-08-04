@@ -372,4 +372,23 @@ const RepoDocSchema = new Schema({
 export const RepoTabModel = mongoose.models.RepoTab || mongoose.model('RepoTab', RepoTabSchema);
 export const RepoDocModel = mongoose.models.RepoDoc || mongoose.model('RepoDoc', RepoDocSchema);
 
+// Challenges schema
+const ChallengeSchema = new Schema({
+  id: { type: String, required: true, unique: true },
+  title: { type: String, required: true },
+  description: { type: String, default: "" },
+  departments: { type: [String], default: [] }, // Multi-select
+  programs: { type: [String], default: [] }, // Multi-select
+  cohorts: { type: [String], default: [] }, // Multi-select
+  poc: { type: String, default: "" },
+  solution: { type: String, default: "" },
+  status: { type: String, default: "Pending" }, // Pending, In Progress, Solved, Unsolved
+  priority: { type: String, default: "Medium" }, // High, Medium, Low
+  relatedTaskId: { type: String, default: "" }, // Refers to a productItem ID
+  isBlocker: { type: Boolean, default: false }, // Is this challenge a blocker?
+  loggedDate: { type: String, default: "" }
+}, { timestamps: true });
+
+export const ChallengeModel = mongoose.models.Challenge || mongoose.model('Challenge', ChallengeSchema);
+
 

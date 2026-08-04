@@ -365,6 +365,24 @@ export interface RepoDoc {
   updatedAt?: string;
 }
 
+export interface Challenge {
+  id: string;
+  title: string;
+  description?: string;
+  departments: string[];
+  programs: string[];
+  cohorts: string[];
+  poc?: string;
+  solution?: string;
+  status: 'Pending' | 'In Progress' | 'Solved' | 'Unsolved';
+  priority: 'High' | 'Medium' | 'Low';
+  relatedTaskId?: string;
+  isBlocker?: boolean;
+  loggedDate?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 
 
 

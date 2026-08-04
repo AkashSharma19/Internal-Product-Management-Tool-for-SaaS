@@ -23,7 +23,8 @@ import type {
   ProgramCohortRow,
   DirectoryContact,
   RepoTab,
-  RepoDoc
+  RepoDoc,
+  Challenge
 } from '../types';
 
 import {
@@ -93,6 +94,12 @@ interface DashboardContextType {
   updateDailyIssue: (id: string, updated: Partial<DailyIssue>) => void;
   addDailyIssue: (item: DailyIssue) => void;
   deleteDailyIssue: (id: string) => void;
+
+  challenges: Challenge[];
+  setChallenges: React.Dispatch<React.SetStateAction<Challenge[]>>;
+  updateChallenge: (id: string, updated: Partial<Challenge>) => void;
+  addChallenge: (item: Challenge) => void;
+  deleteChallenge: (id: string) => void;
 
   featureAdoptions: FeatureAdoption[];
   setFeatureAdoptions: React.Dispatch<React.SetStateAction<FeatureAdoption[]>>;
@@ -286,7 +293,7 @@ interface DashboardContextType {
     sortAsc?: boolean;
   }) => Promise<{ success: boolean; data: any[]; totalItems: number; totalPages: number; productCounts?: Record<string, { total: number; completed: number }>; completedItems?: number }>;
   fetchPaginatedMeetingsData: (options: {
-    type: 'amaSessions' | 'adminCalls' | 'tarunSirMeetings' | 'amaFeedback' | 'adminFeedback' | 'tarunFeedback' | 'dailyIssues' | 'featureRequests';
+    type: 'amaSessions' | 'adminCalls' | 'tarunSirMeetings' | 'amaFeedback' | 'adminFeedback' | 'tarunFeedback' | 'dailyIssues' | 'featureRequests' | 'challenges';
     page: number;
     limit: number;
     search?: string;
@@ -298,6 +305,9 @@ interface DashboardContextType {
     pocs?: string[];
     sortField?: string;
     sortAsc?: boolean;
+    departments?: string[];
+    cohorts?: string[];
+    blockersOnly?: boolean;
   }) => Promise<{ success: boolean; data: any[]; totalItems: number; totalPages: number; completedItems?: number }>;
   searchGlobalTasks: (query: string) => Promise<{ success: boolean; data: any[] }>;
   highlightedCallId: string | null;
@@ -628,6 +638,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [tarunSirMeetings, setTarunSirMeetings] = useState<TarunSirMeeting[]>([]);
   const [contentItems, setContentItems] = useState<ContentItem[]>([]);
   const [dailyIssues, setDailyIssues] = useState<DailyIssue[]>([]);
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [featureAdoptions, setFeatureAdoptions] = useState<FeatureAdoption[]>([]);
   const [directoryContacts, setDirectoryContacts] = useState<DirectoryContact[]>([]);
   const [repoTabs, setRepoTabs] = useState<RepoTab[]>([]);
@@ -1054,7 +1065,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       'product-wise': [],
       'issues': ['dailyIssues'],
       'feature-requests': ['dailyIssues'],
-      'adoption': ['featureAdoptions']
+      'adoption': ['featureAdoptions'],
+      'challenges': ['challenges', 'products']
     };
 
     const typesToLoad = tabToType[tabName] || [];
@@ -1088,6 +1100,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             if (type === 'tarunSirMeetings') setTarunSirMeetings(dataList);
             if (type === 'contentItems') setContentItems(dataList);
             if (type === 'dailyIssues') setDailyIssues(dataList);
+            if (type === 'challenges') setChallenges(dataList);
             if (type === 'featureAdoptions') setFeatureAdoptions(dataList);
             
             setLoadedTabs(prev => [...prev, type]);
@@ -1267,7 +1280,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   const fetchPaginatedMeetingsData = useCallback(async (options: {
-    type: 'amaSessions' | 'adminCalls' | 'tarunSirMeetings' | 'amaFeedback' | 'adminFeedback' | 'tarunFeedback' | 'dailyIssues' | 'featureRequests';
+    type: 'amaSessions' | 'adminCalls' | 'tarunSirMeetings' | 'amaFeedback' | 'adminFeedback' | 'tarunFeedback' | 'dailyIssues' | 'featureRequests' | 'challenges';
     page: number;
     limit: number;
     search?: string;
@@ -1279,6 +1292,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     pocs?: string[];
     sortField?: string;
     sortAsc?: boolean;
+    departments?: string[];
+    cohorts?: string[];
+    blockersOnly?: boolean;
   }) => {
     setSyncStatus('syncing');
     try {
@@ -1299,6 +1315,15 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
       if (options.pocs && options.pocs.length > 0) {
         params.append('pocs', options.pocs.join(','));
+      }
+      if (options.departments && options.departments.length > 0) {
+        params.append('departments', options.departments.join(','));
+      }
+      if (options.cohorts && options.cohorts.length > 0) {
+        params.append('cohorts', options.cohorts.join(','));
+      }
+      if (options.blockersOnly) {
+        params.append('blockersOnly', 'true');
       }
       if (options.sortField) params.append('sortField', options.sortField);
       if (options.sortAsc !== undefined) params.append('sortAsc', String(options.sortAsc));
@@ -1527,6 +1552,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (db.tarunSirMeetings !== undefined)               { setTarunSirMeetings(db.tarunSirMeetings); updatedSheets++; }
         if (db.contentItems !== undefined)                   { setContentItems(db.contentItems);   updatedSheets++; }
         if (db.dailyIssues !== undefined)                    { setDailyIssues(db.dailyIssues);     updatedSheets++; }
+        if (db.challenges !== undefined)                     { setChallenges(db.challenges);       updatedSheets++; }
         if (db.featureAdoptions !== undefined)               { setFeatureAdoptions(db.featureAdoptions); updatedSheets++; }
         if (db.directoryContacts !== undefined)              { setDirectoryContacts(db.directoryContacts); updatedSheets++; }
         if (db.repoTabs !== undefined)                       { setRepoTabs(db.repoTabs);           updatedSheets++; }
@@ -2352,6 +2378,23 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     persistChange('delete', 'dailyIssues', id, null);
   };
 
+  const updateChallenge = (id: string, updated: Partial<Challenge>) => {
+    setChallenges(prev => {
+      const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
+      const updatedItem = next.find(item => item.id === id);
+      if (updatedItem) persistChange('update', 'challenges', id, updatedItem);
+      return next;
+    });
+  };
+  const addChallenge = (item: Challenge) => {
+    setChallenges(prev => [item, ...prev]);
+    persistChange('create', 'challenges', null, item);
+  };
+  const deleteChallenge = (id: string) => {
+    setChallenges(prev => prev.filter(item => item.id !== id));
+    persistChange('delete', 'challenges', id, null);
+  };
+
   const updateFeatureAdoption = (id: string, updated: Partial<FeatureAdoption>) => {
     setFeatureAdoptions(prev => {
       const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
@@ -2701,6 +2744,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       tarunSirMeetings, setTarunSirMeetings, updateTarunSirMeeting, addTarunSirMeeting, deleteTarunSirMeeting,
       contentItems, setContentItems, updateContentItem, addContentItem, deleteContentItem,
       dailyIssues, setDailyIssues, updateDailyIssue, addDailyIssue, deleteDailyIssue,
+      challenges, setChallenges, updateChallenge, addChallenge, deleteChallenge,
       featureAdoptions, setFeatureAdoptions, updateFeatureAdoption, addFeatureAdoption, deleteFeatureAdoption,
       teamContacts, setTeamContacts, updateTeamContact, addTeamContact, deleteTeamContact,
       directoryContacts, updateDirectoryContact, addDirectoryContact, deleteDirectoryContact,
