@@ -223,14 +223,3 @@ Supports **dark** (default) and **light** modes. Toggle with the sun/moon icon i
 Press `Cmd+K` (or `Ctrl+K`) to open the universal search / command palette. Instantly navigate to any feature, sprint task, meeting, or content module across all tabs.
 
 ---
-
-## 👥 Team
-
-Built for the **IIMA Ventures / Coach LMS** product & operations team.
-
-| Member | Role |
-|---|---|
-| Akash Sharma | Product & Engineering |
-| Anushka | UI/UX Design |
-| Nikhil | Content & Engineering |
-| Adil |DevOps|
