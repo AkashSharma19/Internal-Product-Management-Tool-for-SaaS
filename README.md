@@ -221,5 +221,3 @@ Supports **dark** (default) and **light** modes. Toggle with the sun/moon icon i
 ## ⌨️ Command Palette
 
 Press `Cmd+K` (or `Ctrl+K`) to open the universal search / command palette. Instantly navigate to any feature, sprint task, meeting, or content module across all tabs.
-
----
