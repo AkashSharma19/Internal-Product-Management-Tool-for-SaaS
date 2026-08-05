@@ -679,7 +679,7 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
 
         {/* Footer info */}
         <div style={{ textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-          Powered by Product Ship • Secure Feedback Protocol
+          Powered by ProductShip • Secure Feedback Protocol
         </div>
       </div>
     </div>

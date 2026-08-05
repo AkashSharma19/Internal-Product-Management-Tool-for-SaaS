@@ -1,33 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#6366f1"/>
-      <stop offset="100%" stop-color="#8b5cf6"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#a78bfa"/>
-      <stop offset="100%" stop-color="#c4b5fd"/>
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
     </linearGradient>
   </defs>
 
   <!-- Rounded square background -->
   <rect width="32" height="32" rx="8" fill="url(#bg)"/>
 
-  <!-- Subtle inner highlight -->
-  <rect x="1" y="1" width="30" height="15" rx="7" fill="white" opacity="0.08"/>
-
-  <!-- "I" letter -->
-  <rect x="7" y="9" width="3" height="14" rx="1.5" fill="white"/>
-
-  <!-- "P" letter body -->
-  <rect x="13" y="9" width="3" height="14" rx="1.5" fill="white"/>
-  <!-- "P" letter curve top bar -->
-  <rect x="13" y="9" width="7" height="2.5" rx="1.25" fill="white"/>
-  <!-- "P" letter curve middle bar -->
-  <rect x="13" y="14" width="7" height="2.5" rx="1.25" fill="white"/>
-  <!-- "P" letter right side (top half only) -->
-  <rect x="20" y="9" width="2.5" height="7.5" rx="1.25" fill="white"/>
-
-  <!-- Accent dot bottom right -->
-  <circle cx="26" cy="26" r="3" fill="url(#accent)" opacity="0.9"/>
+  <!-- Paper Ship / Sailboat -->
+  <path d="M16 6 L24.5 19.5 H16 Z" fill="#ffffff" />
+  <path d="M14.5 7.5 L7.5 19.5 H14.5 Z" fill="rgba(255, 255, 255, 0.8)" />
+  <path d="M5.5 21 H26.5 L23 25 H9 Z" fill="#ffffff" opacity="0.95" />
 </svg>

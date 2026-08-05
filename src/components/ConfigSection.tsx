@@ -2558,7 +2558,7 @@ const EmailDigestSettingsSection: React.FC = () => {
               <div>
                 <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>From:</span>{' '}
                 <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
-                  {smtpUser ? `Product Ship Console <${smtpUser}>` : 'Product Ship Console <digest@productship.com>'}
+                  {smtpUser ? `ProductShip Console <${smtpUser}>` : 'ProductShip Console <digest@productship.com>'}
                 </span>
               </div>
               <div>
@@ -2570,7 +2570,7 @@ const EmailDigestSettingsSection: React.FC = () => {
               <div>
                 <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Subject:</span>{' '}
                 <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
-                  🚢 Product Ship Digest — Delivery & Status
+                  🚢 ProductShip Digest — Feature Delivery & Status
                 </span>
               </div>
             </div>
@@ -2597,7 +2597,7 @@ const EmailDigestSettingsSection: React.FC = () => {
                   <span style={{ fontSize: '20px' }}>🚢</span>
                   <div>
                     <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Product Ship
+                      ProductShip
                     </h2>
                     <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 500 }}>
                       Feature Delivery & Status Sync
@@ -2609,7 +2609,7 @@ const EmailDigestSettingsSection: React.FC = () => {
                   Hello team,
                 </p>
                 <p style={{ margin: '0 0 16px 0', color: '#475569', fontSize: '12px' }}>
-                  Here is the summary of product shipments and operational metrics. Please review the digest below:
+                  Here is the summary of feature shipments and operational metrics. Please review the digest below:
                 </p>
 
                 {/* Analytics Status Banner UIUX Preview */}

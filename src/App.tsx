@@ -1048,7 +1048,7 @@ const DashboardContent: React.FC = () => {
               <span style={{ display: 'inline-flex', padding: '4px', borderRadius: '6px', background: 'var(--primary-glow)', color: 'var(--primary)' }}>
                 <CalendarDays size={18} />
               </span>
-              Masters Union Product Roadmap
+              ProductShip Roadmap
             </h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <button
@@ -1520,8 +1520,10 @@ const DashboardContent: React.FC = () => {
                   </linearGradient>
                 </defs>
                 <rect x="2" y="2" width="20" height="20" rx="6" fill="url(#logo-grad-expanded)" />
-                <path d="M12 7V17M12 7L8 11M12 7L16 11" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M8 17H16" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" />
+                {/* Paper Ship / Sailboat */}
+                <path d="M12 5.5 L17.5 14.5 H12 Z" fill="#ffffff" />
+                <path d="M11 6.5 L6 14.5 H11 Z" fill="rgba(255, 255, 255, 0.8)" />
+                <path d="M4.5 15.5 H19.5 L17 18.5 H7 Z" fill="#ffffff" opacity="0.95" />
               </svg>
               <span style={{ 
                 fontSize: '0.9rem', 
@@ -1532,7 +1534,7 @@ const DashboardContent: React.FC = () => {
                 textTransform: 'uppercase',
                 whiteSpace: 'nowrap'
               }}>
-                Product Ship
+                ProductShip
               </span>
             </div>
           )}
