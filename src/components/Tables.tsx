@@ -3908,7 +3908,8 @@ export const ProductTable: React.FC = () => {
                       </span>
                     ) : '—'}
                   </td>
-                  <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                    <DateDiffBadge prevDate={item.createdAt} currentDate={item.productDeadline} />
                     {item.productDeadline ? (
                       <span style={getDateSpanStyle(item.productDeadline, item.productDeadlineCompleted)}>
                         {formatDateToUserPattern(item.productDeadline)}
@@ -5630,7 +5631,8 @@ export const StudentProjectsTable: React.FC = () => {
                       }}
                     />
                   </td>
-                  <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                    <DateDiffBadge prevDate={p.createdAt} currentDate={p.productDeadline} />
                     {p.productDeadline ? (
                       <span style={getDateSpanStyle(p.productDeadline, isCompletedStatus(p.status) || !!matchedProduct?.productDeadlineCompleted)}>
                         {formatDateToUserPattern(p.productDeadline)}
@@ -7066,7 +7068,8 @@ export const StudentMeetingsTable: React.FC = () => {
                                               </span>
                                             ) : '—'}
                                           </td>
-                                          <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                          <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                                            <DateDiffBadge prevDate={feat.createdAt} currentDate={feat.productDeadline} />
                                             {feat.productDeadline ? (
                                               <span style={getDateSpanStyle(feat.productDeadline, feat.productDeadlineCompleted)}>
                                                 {formatDateToUserPattern(feat.productDeadline)}
@@ -7747,7 +7750,8 @@ export const StudentMeetingsTable: React.FC = () => {
                           </span>
                         ) : '—'}
                       </td>
-                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                        <DateDiffBadge prevDate={feat.createdAt} currentDate={feat.productDeadline} />
                         {feat.productDeadline ? (
                           <span style={getDateSpanStyle(feat.productDeadline, feat.productDeadlineCompleted)}>
                             {formatDateToUserPattern(feat.productDeadline)}
@@ -9007,7 +9011,8 @@ export const AdminCallsTable: React.FC = () => {
                                                 </span>
                                               ) : '—'}
                                             </td>
-                                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                                              <DateDiffBadge prevDate={feat.createdAt} currentDate={feat.productDeadline} />
                                               {feat.productDeadline ? (
                                                 <span style={getDateSpanStyle(feat.productDeadline, feat.productDeadlineCompleted)}>
                                                   {formatDateToUserPattern(feat.productDeadline)}
@@ -9548,7 +9553,8 @@ export const AdminCallsTable: React.FC = () => {
                           </span>
                         ) : '—'}
                       </td>
-                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                        <DateDiffBadge prevDate={feat.createdAt} currentDate={feat.productDeadline} />
                         {feat.productDeadline ? (
                           <span style={getDateSpanStyle(feat.productDeadline, feat.productDeadlineCompleted)}>
                             {formatDateToUserPattern(feat.productDeadline)}
@@ -10760,7 +10766,8 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                                 </span>
                                               ) : '—'}
                                             </td>
-                                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                            <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                                              <DateDiffBadge prevDate={feat.createdAt} currentDate={feat.productDeadline} />
                                               {feat.productDeadline ? (
                                                 <span style={getDateSpanStyle(feat.productDeadline, feat.productDeadlineCompleted)}>
                                                   {formatDateToUserPattern(feat.productDeadline)}
@@ -11303,7 +11310,8 @@ export const TarunSirMeetingsTable: React.FC = () => {
                           </span>
                         ) : '—'}
                       </td>
-                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                        <DateDiffBadge prevDate={feat.createdAt} currentDate={feat.productDeadline} />
                         {feat.productDeadline ? (
                           <span style={getDateSpanStyle(feat.productDeadline, feat.productDeadlineCompleted)}>
                             {formatDateToUserPattern(feat.productDeadline)}
@@ -12431,7 +12439,8 @@ export const ProductWiseSheet: React.FC = () => {
                             </span>
                           ) : '—'}
                         </td>
-                        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                          <DateDiffBadge prevDate={item.createdAt} currentDate={item.productDeadline} />
                           {item.productDeadline ? (
                             <span style={getDateSpanStyle(item.productDeadline, item.productDeadlineCompleted)}>
                               {formatDateToUserPattern(item.productDeadline)}
@@ -12896,8 +12905,8 @@ export const IssuesTable: React.FC = () => {
             </span>
           ) : '—'}
         </td>
-        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-          {renderDateCell(item, 'productDeadline')}
+        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+          {renderDateCell(item, 'productDeadline', ['createdAt'])}
         </td>
         <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
           {renderDateCell(item, 'uiux', ['productDeadline'])}
@@ -13328,8 +13337,8 @@ export const FeatureRequestsTable: React.FC = () => {
                           </span>
                         ) : '—'}
                       </td>
-                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                        {renderDateCell(item, 'productDeadline')}
+                      <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
+                        {renderDateCell(item, 'productDeadline', ['createdAt'])}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
                         {renderDateCell(item, 'uiux', ['productDeadline'])}

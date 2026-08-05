@@ -518,6 +518,75 @@ export const DashboardOverview: React.FC = () => {
     return name.slice(0, 2).toUpperCase();
   };
 
+  const getPOCBadgeStyle = (name: string) => {
+    if (!name) return {};
+    
+    const ASSIGNEE_COLORS: Record<string, { h: number; s: number; l: number }> = {
+      'akash': { h: 262, s: 80, l: 60 },      // Purple
+      'anushka': { h: 330, s: 75, l: 55 },    // Pink
+      'nikhil': { h: 199, s: 98, l: 45 },     // Blue
+      'nikhil jain': { h: 162, s: 94, l: 35 },// Green
+      'tarun': { h: 0, s: 72, l: 50 },        // Red
+      'tarun sir': { h: 0, s: 72, l: 50 },
+    };
+
+    const cleanName = name.trim().toLowerCase();
+    let colorParts = { h: 215, s: 15, l: 60 }; // Default gray
+
+    if (ASSIGNEE_COLORS[cleanName]) {
+      colorParts = ASSIGNEE_COLORS[cleanName];
+    } else {
+      let found = false;
+      for (const key of Object.keys(ASSIGNEE_COLORS)) {
+        if (cleanName.includes(key) || key.includes(cleanName)) {
+          colorParts = ASSIGNEE_COLORS[key];
+          found = true;
+          break;
+        }
+      }
+      
+      if (!found) {
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) {
+          hash = name.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        colorParts = {
+          h: Math.abs(hash) % 360,
+          s: 65,
+          l: 50
+        };
+      }
+    }
+
+    const { h, s } = colorParts;
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const textLightness = isLight ? 35 : colorParts.l;
+    const bgOpacity = isLight ? '0.08' : '0.15';
+    const borderOpacity = isLight ? '0.18' : '0.3';
+
+    return {
+      backgroundColor: `hsla(${h}, ${s}%, ${textLightness}%, ${bgOpacity})`,
+      color: `hsl(${h}, ${s}%, ${textLightness}%)`,
+      borderColor: `hsla(${h}, ${s}%, ${textLightness}%, ${borderOpacity})`,
+      borderWidth: '1px',
+      borderStyle: 'solid',
+      padding: '0.2rem 0.5rem',
+      borderRadius: '6px',
+      fontSize: '0.75rem',
+      fontWeight: 600,
+      display: 'inline-flex',
+      alignItems: 'center',
+      lineHeight: 1
+    };
+  };
+
+  const formatClickupAssignee = (assigneesStr: string) => {
+    if (!assigneesStr) return '';
+    const parts = assigneesStr.split(',').map(s => s.trim()).filter(Boolean);
+    if (parts.length <= 1) return parts[0] || '';
+    return `${parts[0]} +${parts.length - 1}`;
+  };
+
   const getSourceClass = (source: string) => {
     const map: Record<string, string> = {
       'Priority Requests': 'priority-requests',
@@ -1810,18 +1879,18 @@ export const DashboardOverview: React.FC = () => {
               ref={popupTasksListRef}
               style={{
                 flex: 1,
-                overflowY: 'auto',
-                padding: '1.5rem',
+                overflowY: popupViewMode === 'table' ? 'hidden' : 'auto',
+                padding: popupViewMode === 'table' ? '0' : '1.5rem',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '1rem',
+                gap: popupViewMode === 'table' ? '0' : '1rem',
                 backgroundColor: 'var(--background)',
                 justifyContent: 'flex-start',
                 alignItems: 'stretch'
               }}
             >
               {isPopupLoading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', padding: '1.5rem' }}>
                   {[1, 2, 3, 4].map(idx => (
                     <div key={`popup-skel-${idx}`} className="animate-pulse" style={{
                       padding: '1rem',
@@ -1853,11 +1922,12 @@ export const DashboardOverview: React.FC = () => {
                   No tasks found.
                 </div>
               ) : popupViewMode === 'table' ? (
-                <div className="table-responsive" style={{ overflowX: 'auto', width: '100%', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                <div className="table-responsive" style={{ overflow: 'auto', width: '100%', borderRadius: 0, border: 'none' }}>
                   <table className="grid-table" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', backgroundColor: 'var(--panel-bg)' }}>
                     <thead>
                       <tr>
-                        <th style={{ textAlign: 'left', padding: '12px 10px', width: '320px', minWidth: '320px', maxWidth: '320px', backgroundColor: 'var(--background-alt)' }}>Task Name | Product Name</th>
+                        <th className="sticky-header-col" style={{ textAlign: 'left', padding: '12px 10px', width: '320px', minWidth: '320px', maxWidth: '320px' }}>Task Name | Product Name</th>
+                        <th style={{ textAlign: 'left', padding: '12px 10px', width: '120px', minWidth: '120px', maxWidth: '120px', backgroundColor: 'var(--background-alt)' }}>POC Owner</th>
                         <th style={{ textAlign: 'left', padding: '12px 10px', width: '110px', minWidth: '110px', maxWidth: '110px', backgroundColor: 'var(--background-alt)' }}>Status</th>
                         <th style={{ textAlign: 'left', padding: '12px 10px', width: '120px', minWidth: '120px', maxWidth: '120px', backgroundColor: 'var(--background-alt)' }}>Clickup Status</th>
                         <th style={{ textAlign: 'left', padding: '12px 10px', width: '130px', minWidth: '130px', maxWidth: '130px', backgroundColor: 'var(--background-alt)' }}>Spec Date</th>
@@ -1878,15 +1948,38 @@ export const DashboardOverview: React.FC = () => {
                           className="table-row-hover"
                         >
                           {/* Task Name | Product Name */}
-                          <td style={{ padding: '12px 10px', textAlign: 'left', width: '320px', minWidth: '320px', maxWidth: '320px' }}>
-                            <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: '2px', lineHeight: '1.4', wordBreak: 'break-word', whiteSpace: 'normal' }}>
-                              {task.feature}
-                            </div>
-                            {task.product && (
-                              <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', fontWeight: 600, wordBreak: 'break-word', whiteSpace: 'normal' }}>
-                                {task.product}
+                          <td className="sticky-col" style={{ padding: '12px 10px', textAlign: 'left', width: '320px', minWidth: '320px', maxWidth: '320px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', width: '100%' }}>
+                              <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: '2px', lineHeight: '1.4', wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                                {task.feature}
                               </div>
-                            )}
+                              {task.product && (
+                                <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', fontWeight: 600, wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                                  {task.product}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* POC Owner */}
+                          <td style={{ padding: '12px 10px', textAlign: 'left', verticalAlign: 'middle' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                              {task.poc ? (
+                                  <span style={getPOCBadgeStyle(task.poc)}>
+                                      {task.poc}
+                                  </span>
+                              ) : '—'}
+                              {task.clickupAssignee && (
+                                <div className="cu-tooltip-container">
+                                  <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
+                                    CU: {formatClickupAssignee(task.clickupAssignee)}
+                                  </span>
+                                  <span className="cu-tooltip-text" style={{ whiteSpace: 'pre' }}>
+                                    {task.clickupAssignee.split(',').map((s: string) => s.trim()).join('\n')}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                           </td>
 
                           {/* Status */}
@@ -1916,6 +2009,7 @@ export const DashboardOverview: React.FC = () => {
 
                           {/* Spec Date */}
                           <td style={{ padding: '12px 10px', fontSize: '0.75rem', color: 'var(--text-secondary)', verticalAlign: 'middle', position: 'relative' }}>
+                            <DateDiffBadge prevDate={task.createdAt} currentDate={task.productDeadline} />
                             {task.productDeadline ? (
                               <span style={getDateSpanStyle(task.productDeadline, task.productDeadlineCompleted)}>
                                 {formatDateToUserPattern(task.productDeadline)}

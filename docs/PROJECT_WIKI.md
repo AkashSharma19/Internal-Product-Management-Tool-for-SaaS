@@ -20,7 +20,7 @@ Welcome to the **Internal Product Management Tool Wiki**. This document provides
 
 ## 1. Overview & Tech Stack
 
-The **Internal Product Management Tool** is a web application designed for tracking SaaS product operations, sprint planning, student projects, speaker meetings, admin calls, content pipeline, daily issue logs, and feature adoption metrics.
+The **Internal Product Management Tool** is a web application designed for tracking SaaS product operations, sprint planning, student projects, speaker meetings, admin calls, content pipeline, daily issue logs, programmatic challenges, and feature adoption metrics.
 
 ### Core Stack:
 - **Frontend**: React 19, TypeScript, Vite
@@ -127,7 +127,23 @@ All models are defined in [api/lib/models.ts](file:///c:/Users/AKASH/Documents/I
 ### 8. FeatureAdoption (`FeatureAdoptionModel`)
 - Feature adoption metrics: feature name, product group, launch date, adoption rate %, active users count, sentiment rating (1-5), target audience.
 
-### 9. System Configurations (`ConfigSpeakerModel`, `ConfigProductGroupModel`, `ConfigStatusModel`, etc.)
+### 9. Challenge (`ChallengeModel`)
+- Track operational, programmatic, and cohort-level challenges. Fields:
+  - `id` (String, unique): Primary key
+  - `title` (String, required): Challenge title
+  - `description` (String): Detailed explanation of the challenge
+  - `departments` (Array of Strings): Multi-select department tags
+  - `programs` (Array of Strings): Multi-select program boundaries
+  - `cohorts` (Array of Strings): Multi-select cohort associations
+  - `poc` (String): Point of Contact assigned to resolve
+  - `solution` (String): Resolution text when status is Solved
+  - `status` (String): Pending, In Progress, Solved, Unsolved
+  - `priority` (String): High, Medium, Low
+  - `relatedTaskId` (String): References a Product Feature ID (`ProductItem.id`)
+  - `isBlocker` (Boolean): Flag indicating if it blocks progress
+  - `loggedDate` (String): Date logged
+
+### 10. System Configurations (`ConfigSpeakerModel`, `ConfigProductGroupModel`, `ConfigStatusModel`, etc.)
 - User authentication accounts, Product taxonomies, custom status colors & scopes, programs, cohorts, and global settings.
 
 ---
@@ -151,6 +167,22 @@ graph TD
 - `updateProductItem(id, updates)`: Performs optimistic update on product item state and syncs with backend.
 - `syncClickupTask(taskLink)`: Calls ClickUp API to fetch live status, assignee, and subtask count.
 - `openPreviewForFeature(featureName, fallbackData)`: Searches or creates a feature record and opens the detail drawer (`setPreviewProductId`).
+- `updateChallenge(id, updates)`, `addChallenge(item)`, `deleteChallenge(id)`: CRUD state helper methods for managing challenges.
+- `fetchPaginatedMeetingsData(options)`: Supports server-side pagination fetching for meetings, daily issues, feature requests, and challenges, with query parameters filtering by search text, statuses, programs, POCs, departments, cohorts, and blockersOnly flags.
+
+### Pagination Strategy
+
+The system uses a hybrid pagination model optimized for different data-access profiles:
+
+1. **Client-side Pagination & State Syncing**:
+   - Applied to core entities like **Product Features (Priority Requests)** and **Sprint Planning**.
+   - These datasets are lightweight, allowing full bootstrap loading upon application initialization (`GET /api/data?action=init`).
+   - Mutations are immediately processed on the client side using optimistic state updates, providing an instantaneous user experience.
+
+2. **Server-side Pagination (`fetchPaginatedMeetingsData`)**:
+   - Applied to historically large logs and issue-tracking entities: **AMA Meetings**, **Admin Calls**, **Meetings with Tarun Sir**, **Daily Issues & Feature Requests**, and **Challenges Tracker**.
+   - The frontend maintains local tracking of `currentPage` and `itemsPerPage` parameters, calling `fetchPaginatedMeetingsData` reactively whenever searches or filters (such as status, priority, department, or blocker flags) change.
+   - The server handler in [api/data.ts](file:///c:/Users/AKASH/Documents/Internal%20Product%20Tool/api/data.ts) handles these requests by running database-level filters, checking counts for total matching documents, and returning only the paginated slice corresponding to the selected page size (e.g. `limit: 20`).
 
 ---
 
@@ -170,6 +202,20 @@ graph TD
 
 ### 3. Data Tables ([Tables.tsx](file:///c:/Users/AKASH/Documents/Internal%20Product%20Tool/src/components/Tables.tsx))
 - Interactive tables for each domain tab with inline editing, sorting, filtering, ClickUp sync buttons, and batch CSV importing.
+- **Challenges Tracker (`ChallengesTable`)**:
+  - Displays programmatic and cohort challenges with server-side pagination.
+  - Multi-select Cascaded Dropdown Logic: Selecting a Program dynamically filters the available Cohorts; selecting Cohorts/Programs dynamically filters the Departments. Auto-cleans selections if dependencies change. Includes custom text field fallback.
+  - Search by title, description, or POC, and filter by status, priority, department, and blocker status.
+  - Inline Solution Resolution input that prompts for details only when a challenge status is transitioned to "Solved".
+  - Ability to associate and link challenges to a specific Product Feature.
+- **Feature Adoption Table (`AdoptionTable`)**:
+  - Sticky merged "Feature & Product Group" column styled with borders and group colours.
+  - Clear vertical program boundary dividing lines separating cohorts of different academic programs.
+  - Dynamic adoption rate calculations based on active visible cohorts.
+
+### 4. Admin Integrations Access Lock ([ConfigSection.tsx](file:///c:/Users/AKASH/Documents/Internal%20Product%20Tool/src/components/ConfigSection.tsx))
+- Restricts access to ClickUp Integration API setups.
+- Non-admin users (`currentUser.isAdmin === false`) see a lock 🔒 symbol on the "Integrations" subtab. Clicking it displays a `LockedIntegrationsView` blocking sensitive credentials exposure.
 
 ---
 
@@ -180,10 +226,10 @@ The feature preview page (`ProductDetailView` in [Tables.tsx](file:///c:/Users/A
 1. **Title & Inline Linking**: Title text input with real-time DB duplicate/similar task suggestions and "Link Task" widget.
 2. **Milestone Checkpoints Timeline**:
    - Step 0: Created Date
-   - Step 1: Specs Date (`productDeadline`)
-   - Step 2: UI/UX Date (`uiux`)
-   - Step 3: Dev Date (`deadline`)
-   - Step 4: Release Date (`finalRelease`)
+   - Step 1: Specs Date (`productDeadline`) — displays days elapsed since **Created Date**
+   - Step 2: UI/UX Date (`uiux`) — displays days elapsed since **Specs Date**
+   - Step 3: Dev Date (`deadline`) — displays days elapsed since **UI/UX Date** (or Specs Date)
+   - Step 4: Release Date (`finalRelease`) — displays days elapsed since **Dev Date** (or preceding milestones)
    - Progress connector line automatically updates fill percentage based on completed milestones.
 3. **Popup Calendar (`CustomDatePicker`)**:
    - `position: absolute; top: 110%; zIndex: 10005`.
@@ -202,13 +248,14 @@ The feature preview page (`ProductDetailView` in [Tables.tsx](file:///c:/Users/A
 All backend operations route through [api/data.ts](file:///c:/Users/AKASH/Documents/Internal%20Product%20Tool/api/data.ts).
 
 ### Endpoints:
-- `GET /api/data?action=init`: Bootstrap payload (speakers, product groups, statuses, settings).
+- `GET /api/data?action=init`: Bootstrap payload includes `challenges` along with speakers, status, settings, etc.
 - `GET /api/data?action=dashboard-counts`: Aggregates KPI statistics, status metrics, and POC workloads filtered by date range.
 - `GET /api/data?action=dashboard-list`: Paginated fetch for dashboard modal drilldowns.
 - `GET /api/data?action=calendar-events`: Aggregates events across 7 collections for master calendar view.
 - `GET /api/data?action=single-task&id=<taskId>`: Retrieves a single item by ID.
 - `GET /api/data?action=suggest-similar&query=<q>`: Performs regex search for similar task titles in DB.
 - `GET /api/data?action=global-search&query=<q>`: Global command palette search across all entities.
+- `GET /api/data?action=paginated-meetings-data`: Performs server-side pagination for meeting lists, issues, feature requests, and challenges (`type=challenges`). Supports query parameters: `search`, `limit`, `page`, `priority`, `statuses`, `departments`, `cohorts`, and `blockersOnly`.
 - `POST /api/data?action=clickup-sync`: Syncs ClickUp status, subtasks count, and assignee for a given ClickUp URL.
 - `POST /api/data?action=clickup-bulk-sync`: Iterates over product items with ClickUp URLs and syncs them.
 - `POST /api/data?action=create&type=<entity>`: Creates a new document.
@@ -244,6 +291,27 @@ All styling rules are defined in [src/index.css](file:///c:/Users/AKASH/Document
 - `.properties-panel`, `.property-row-flat`: Metadata dashboard panels.
 - `.badge`: Status and priority pill badges.
 - `.status-dropdown-container`: Custom status selector button and popover menu.
+- `.sticky-col`: Sticky table cell helper positioning elements to the left (`left: 0`, elevated `z-index: 2`, matching surface backgrounds).
+- `.sticky-header-col`: Sticky table header cell positioning header column headers to the left (`left: 0`, `top: 0`, high `z-index: 12`).
+
+### Premium UI/UX Design Principles
+
+The application relies on a tailored custom design system to create a modern, high-end, and responsive workspace:
+
+1. **Aesthetic Visual Design (Glassmorphism & Contrast)**:
+   - Built on a dark, sophisticated backdrop utilizing CSS color variables.
+   - Employs **glassmorphic panels** with translucent backgrounds (`var(--panel-bg)`), thin border separations (`var(--border-light)`), and subtle drop-shadows to establish depth.
+   - Highlights actionable objects and milestones with glowing hover styles and gradients.
+
+2. **PixelBlast Interactive Particle Background**:
+   - Incorporates a dynamic, interactive canvas background (`PixelBlast.tsx`) powered by Three.js/OGL that renders particles reacting fluidly to mouse movement.
+
+3. **High-Fidelity Audio Synthesis**:
+   - Powered by a custom **Web Audio API Synthesizer** ([audio.ts](file:///c:/Users/AKASH/Documents/Internal%20Product%20Tool/src/utils/audio.ts)) which generates real-time, non-blocking click and pop sound feedback for navigation interactions and panel toggles.
+
+4. **Dynamic Timelines & Celebrations**:
+   - The milestone progress bar uses SVG connectors to draw linear progress from Created to Specs -> UI/UX -> Dev -> Release.
+   - Completing a critical delivery milestone triggers a celebration pop-up using `canvas-confetti` alongside audio success feedback.
 
 ---
 

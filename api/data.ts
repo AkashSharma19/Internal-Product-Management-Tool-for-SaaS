@@ -850,11 +850,11 @@ export default async function handler(req: any, res: any) {
 
           if (doneLast30 || releaseLast30) {
             const [productsRaw, projectsRaw, contentRaw, issuesRaw, meetingsRaw] = await Promise.all([
-              ProductItemModel.find({}, 'id feature poc product status clickupStatus taskLink deadline productDeadline finalRelease notes finalReleaseCompleted createdAt updatedAt').lean(),
-              StudentProjectModel.find({}, 'id poc product status clickupStatus taskLink deadline productDeadline completeInfoDate title thingsWeBuild finalRelease finalReleaseCompleted createdAt updatedAt').lean(),
-              ContentItemModel.find({}, 'id poc product status clickupStatus draftLink deadline productDeadline publishDate module subject type finalRelease finalReleaseCompleted createdAt updatedAt').lean(),
-              DailyIssueModel.find({}, 'id poc contact product status clickupStatus taskLink deadline module issues notes type finalRelease finalReleaseCompleted createdAt updatedAt').lean(),
-              StudentMeetingModel.find({}, 'id poc product status clickupStatus taskLink deadline productDeadline date cohort summary notes finalRelease finalReleaseCompleted createdAt updatedAt').lean(),
+              ProductItemModel.find({}, 'id feature poc product status clickupStatus clickupAssignee taskLink deadline productDeadline finalRelease notes finalReleaseCompleted createdAt updatedAt').lean(),
+              StudentProjectModel.find({}, 'id poc product status clickupStatus clickupAssignee taskLink deadline productDeadline completeInfoDate title thingsWeBuild finalRelease finalReleaseCompleted createdAt updatedAt').lean(),
+              ContentItemModel.find({}, 'id poc product status clickupStatus clickupAssignee draftLink deadline productDeadline publishDate module subject type finalRelease finalReleaseCompleted createdAt updatedAt').lean(),
+              DailyIssueModel.find({}, 'id poc clickupAssignee contact product status clickupStatus taskLink deadline module issues notes type finalRelease finalReleaseCompleted createdAt updatedAt').lean(),
+              StudentMeetingModel.find({}, 'id poc product status clickupStatus clickupAssignee taskLink deadline productDeadline date cohort summary notes finalRelease finalReleaseCompleted createdAt updatedAt').lean(),
             ]);
 
             const products = productsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
@@ -874,6 +874,7 @@ export default async function handler(req: any, res: any) {
                 product: item.product || '',
                 status: toProductStatus(item.status),
                 clickupStatus: hasLink ? (item.clickupStatus || '') : '',
+                clickupAssignee: item.clickupAssignee || '',
                 taskLink: item.taskLink || '',
                 date: item.deadline || item.productDeadline || '',
                 feature: item.feature || '',
@@ -894,6 +895,7 @@ export default async function handler(req: any, res: any) {
                 product: item.product || '',
                 status: toProductStatus(item.status),
                 clickupStatus: hasLink ? (item.clickupStatus || '') : '',
+                clickupAssignee: item.clickupAssignee || '',
                 taskLink: item.taskLink || '',
                 date: item.deadline || item.productDeadline || item.completeInfoDate || '',
                 feature: item.title || '',
@@ -913,6 +915,7 @@ export default async function handler(req: any, res: any) {
                 product: item.product || '',
                 status: toProductStatus(item.status),
                 clickupStatus: hasLink ? (item.clickupStatus || '') : '',
+                clickupAssignee: item.clickupAssignee || '',
                 taskLink: item.draftLink || '',
                 date: item.deadline || item.productDeadline || item.publishDate || '',
                 feature: item.module || '',
@@ -932,6 +935,7 @@ export default async function handler(req: any, res: any) {
                 product: item.product || '',
                 status: toProductStatus(item.status),
                 clickupStatus: hasLink ? (item.clickupStatus || '') : '',
+                clickupAssignee: item.clickupAssignee || '',
                 taskLink: item.taskLink || '',
                 date: item.deadline || item.productDeadline || '',
                 feature: item.module || `Issue #${item.id}`,
@@ -951,6 +955,7 @@ export default async function handler(req: any, res: any) {
                 product: item.product || '',
                 status: toProductStatus(item.status),
                 clickupStatus: hasLink ? (item.clickupStatus || '') : '',
+                clickupAssignee: item.clickupAssignee || '',
                 taskLink: item.taskLink || '',
                 date: item.deadline || item.productDeadline || item.date || '',
                 feature: item.cohort || '',
