@@ -13470,43 +13470,23 @@ export const AdoptionTable: React.FC = () => {
   // Add feature state
   const [isAddingFeature, setIsAddingFeature] = useState(false);
 
-  // Filtering states
-  const [filterProgram, setFilterProgram] = useState('All');
-  const [filterCohort, setFilterCohort] = useState('All');
+  // Selected Program Tab State
+  const [selectedProgramId, setSelectedProgramId] = useState<string>('');
 
   // Only show active cohorts and programs that have at least one active cohort
   const activeCohorts = cohorts.filter(c => c.active !== false);
   const activePrograms = programs.filter(p => activeCohorts.some(c => c.programId === p.id));
 
-  // Determine cohorts to display based on filters
-  const displayCohorts = (() => {
-    if (filterCohort !== 'All') {
-      return activeCohorts.filter(c => c.name === filterCohort);
+  // Initialize selectedProgramId
+  useEffect(() => {
+    if (activePrograms.length > 0 && !selectedProgramId) {
+      setSelectedProgramId(activePrograms[0].id);
     }
-    if (filterProgram !== 'All') {
-      const parentProgram = activePrograms.find(p => p.name === filterProgram);
-      return parentProgram 
-        ? activeCohorts.filter(c => c.programId === parentProgram.id)
-        : activeCohorts;
-    }
-    return activeCohorts;
-  })();
+  }, [activePrograms, selectedProgramId]);
 
-  // Group cohorts by program
-  const cohortsByProgram = activePrograms.map(p => {
-    return {
-      program: p,
-      cohorts: displayCohorts.filter(c => c.programId === p.id)
-    };
-  }).filter(group => group.cohorts.length > 0);
-
-  // Cohorts list filter dropdown should show cohorts of selected program
-  const filteredCohortsForSelect = filterProgram === 'All'
-    ? activeCohorts
-    : activeCohorts.filter(c => {
-        const parentProgram = activePrograms.find(p => p.name === filterProgram);
-        return parentProgram ? c.programId === parentProgram.id : true;
-      });
+  // Determine cohorts to display based on selected program tab
+  const currentProgramId = selectedProgramId || (activePrograms[0]?.id || '');
+  const displayCohorts = activeCohorts.filter(c => c.programId === currentProgramId);
 
   const filtered = featureAdoptions.filter(adopt => {
     const matchesSearch = 
@@ -13533,8 +13513,8 @@ export const AdoptionTable: React.FC = () => {
       } else if (sortField === 'adoptionRate') {
         const getRate = (item: FeatureAdoption) => {
           const current = (item.cohort || '').split(',').map(s => s.trim()).filter(Boolean);
-          const checkedCount = displayCohorts.filter(c => current.includes(c.name)).length;
-          return displayCohorts.length > 0 ? (checkedCount / displayCohorts.length) : 0;
+          const checkedCount = activeCohorts.filter(c => current.includes(c.name)).length;
+          return activeCohorts.length > 0 ? (checkedCount / activeCohorts.length) : 0;
         };
         valA = getRate(a);
         valB = getRate(b);
@@ -13632,73 +13612,109 @@ export const AdoptionTable: React.FC = () => {
         setSearchQuery={setSearchQuery}
         onAddClick={handleAddNewClick}
         addLabel="Track Feature"
-        filterComponent={
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <select 
-              className="filter-select" 
-              value={filterProgram} 
-              onChange={(e) => {
-                setFilterProgram(e.target.value);
-                setFilterCohort('All');
-              }}
-            >
-              <option value="All">All Programs</option>
-              {activePrograms.map(p => (
-                <option key={p.id} value={p.name}>{p.name}</option>
-              ))}
-            </select>
-            <select 
-              className="filter-select" 
-              value={filterCohort} 
-              onChange={(e) => setFilterCohort(e.target.value)}
-            >
-              <option value="All">All Cohorts</option>
-              {filteredCohortsForSelect.map(c => (
-                <option key={c.id} value={c.name}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-        }
+        filterComponent={null}
       >
+        {/* Horizontal Program Tabs */}
+        <div 
+          style={{ 
+            display: 'flex', 
+            gap: '1rem', 
+            borderBottom: '1px solid var(--border)',
+            padding: '0 1.5rem',
+            flexShrink: 0,
+            backgroundColor: 'var(--panel-bg)',
+            overflowX: 'auto',
+            whiteSpace: 'nowrap',
+            marginBottom: '0.75rem'
+          }}
+        >
+          {activePrograms.map(program => {
+            const isActive = (selectedProgramId || (activePrograms[0]?.id || '')) === program.id;
+            const programCohorts = activeCohorts.filter(c => c.programId === program.id);
+            return (
+              <button
+                key={program.id}
+                onClick={() => {
+                  setSelectedProgramId(program.id);
+                }}
+                style={{
+                  padding: '0.75rem 0.25rem',
+                  border: 'none',
+                  background: 'none',
+                  borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
+                  color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  fontWeight: 600,
+                  fontSize: '0.825rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem'
+                }}
+              >
+                {program.name}
+                <span 
+                  className="badge" 
+                  style={{ 
+                    fontSize: '0.625rem', 
+                    padding: '1px 5px', 
+                    borderRadius: '999px',
+                    background: isActive ? 'var(--primary-glow)' : 'var(--background-alt)',
+                    color: isActive ? 'var(--primary)' : 'var(--text-muted)'
+                  }}
+                >
+                  {programCohorts.length}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         <div className="table-responsive">
           <table className="grid-table">
             <thead>
               <tr style={{ backgroundColor: 'var(--surface-elevated)' }}>
                 <th 
-                  rowSpan={2} 
-                  onClick={() => handleSort('feature')} 
                   className="sticky-header-col"
                   style={{ 
                     verticalAlign: 'middle', 
-                    minWidth: '220px', 
+                    width: '250px',
+                    minWidth: '250px', 
+                    maxWidth: '250px',
                     whiteSpace: 'nowrap', 
-                    cursor: 'pointer',
-                    borderRight: '2px solid var(--border)'
+                    borderRight: '2px solid var(--border)',
+                    padding: '8px 12px'
                   }}
                 >
-                  Feature & Product Group {sortField === 'feature' ? (sortAsc ? '▲' : '▼') : ''}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', width: '100%' }}>
+                    <span 
+                      onClick={() => handleSort('feature')} 
+                      style={{ cursor: 'pointer', flex: 1 }}
+                      title="Sort by Feature Name"
+                    >
+                      Feature & Product Group {sortField === 'feature' ? (sortAsc ? '▲' : '▼') : ''}
+                    </span>
+                    <button 
+                      onClick={() => handleSort('adoptionRate')}
+                      style={{ 
+                        padding: '2px 6px', 
+                        fontSize: '0.625rem', 
+                        borderRadius: '4px', 
+                        border: '1px solid var(--border)', 
+                        background: sortField === 'adoptionRate' ? 'var(--primary-glow)' : 'var(--background-alt)', 
+                        color: sortField === 'adoptionRate' ? 'var(--primary)' : 'var(--text-secondary)',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '2px',
+                        userSelect: 'none'
+                      }}
+                      title="Sort by Adoption Rate"
+                    >
+                      Rate {sortField === 'adoptionRate' ? (sortAsc ? '▲' : '▼') : ''}
+                    </button>
+                  </div>
                 </th>
-                {cohortsByProgram.map((g, idx) => (
-                  <th 
-                    key={g.program.id} 
-                    colSpan={g.cohorts.length} 
-                    style={{ 
-                      textAlign: 'center', 
-                      borderBottom: '1px solid var(--border)', 
-                      borderLeft: idx > 0 ? '2px solid var(--border)' : undefined,
-                      fontSize: '0.75rem', 
-                      fontWeight: 700, 
-                      textTransform: 'uppercase', 
-                      letterSpacing: '0.05em' 
-                    }}
-                  >
-                    {g.program.name}
-                  </th>
-                ))}
-                <th rowSpan={2} onClick={() => handleSort('adoptionRate')} style={{ width: '150px', verticalAlign: 'middle', cursor: 'pointer' }}>Adoption Rate (%) {sortField === 'adoptionRate' ? (sortAsc ? '▲' : '▼') : ''}</th>
-                <th rowSpan={2} style={{ width: '80px', verticalAlign: 'middle' }}></th>
-              </tr>
-              <tr>
                 {displayCohorts.map((c, idx) => {
                   const isBoundary = idx > 0 && c.programId !== displayCohorts[idx - 1].programId;
                   return (
@@ -13706,26 +13722,38 @@ export const AdoptionTable: React.FC = () => {
                       key={c.id} 
                       onClick={() => handleSort(`cohort-${c.name}`)} 
                       style={{ 
-                        fontSize: '0.725rem', 
                         textAlign: 'center', 
                         padding: '6px 8px', 
-                        fontWeight: 600, 
                         cursor: 'pointer',
                         whiteSpace: 'nowrap',
                         minWidth: '95px',
                         width: '95px',
-                        borderLeft: isBoundary ? '2px solid var(--border)' : undefined
+                        borderLeft: isBoundary ? '2px solid var(--border)' : undefined,
+                        verticalAlign: 'middle'
                       }}
                     >
-                      {c.name} {sortField === `cohort-${c.name}` ? (sortAsc ? '▲' : '▼') : ''}
+                      <div style={{ fontSize: '0.725rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                        {c.name} {sortField === `cohort-${c.name}` ? (sortAsc ? '▲' : '▼') : ''}
+                      </div>
                     </th>
                   );
                 })}
+                <th style={{ width: '80px', minWidth: '80px', maxWidth: '80px', verticalAlign: 'middle' }}></th>
               </tr>
             </thead>
             <tbody>
               {(isAddingFeature && editDraft ? [editDraft, ...sorted] : sorted).map(adopt => {
                 const isEditing = editingRowId === adopt.id;
+                const displayRate = (() => {
+                  const current = ((isEditing ? editDraft?.cohort : adopt.cohort) || '')
+                    .split(',')
+                    .map(s => s.trim())
+                    .filter(Boolean);
+                  const allActiveCheckedCount = activeCohorts.filter(c => current.includes(c.name)).length;
+                  return activeCohorts.length > 0 
+                    ? Math.round((allActiveCheckedCount / activeCohorts.length) * 100)
+                    : 0;
+                })();
                 
                 return (
                   <React.Fragment key={adopt.id}>
@@ -13739,8 +13767,14 @@ export const AdoptionTable: React.FC = () => {
                       <td 
                         className="sticky-col" 
                         style={{ 
+                          width: '250px',
+                          minWidth: '250px',
+                          maxWidth: '250px',
+                          whiteSpace: 'normal',
                           borderRight: '2px solid var(--border)',
-                          backgroundColor: isEditing ? 'rgba(99, 102, 241, 0.05)' : undefined 
+                          background: isEditing 
+                            ? 'rgba(99, 102, 241, 0.05)' 
+                            : `linear-gradient(to right, rgba(99, 102, 241, 0.08) ${displayRate}%, transparent ${displayRate}%)`
                         }}
                       >
                         {isEditing && editDraft ? (
@@ -13800,10 +13834,15 @@ export const AdoptionTable: React.FC = () => {
                             </select>
                           </div>
                         ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
-                            <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
-                              {adopt.feature}
-                            </span>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px', width: '100%' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                              <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                                {adopt.feature}
+                              </span>
+                              <span style={{ fontSize: '0.725rem', fontWeight: 700, color: 'var(--primary)', paddingLeft: '8px' }}>
+                                {displayRate}%
+                              </span>
+                            </div>
                             <span style={{
                               display: 'inline-block',
                               background: (() => { const g = productGroups.find(g => g.name === adopt.product); return g ? g.color + '22' : 'var(--surface-elevated)'; })(),
@@ -13860,32 +13899,10 @@ export const AdoptionTable: React.FC = () => {
                         );
                       })}
 
-                      {/* Adoption Rate Column */}
-                      <td>
-                        {(() => {
-                          const displayRate = (() => {
-                            const current = ((isEditing ? editDraft?.cohort : adopt.cohort) || '')
-                              .split(',')
-                              .map(s => s.trim())
-                              .filter(Boolean);
-                            const checkedVisibleCount = displayCohorts.filter(c => current.includes(c.name)).length;
-                            return displayCohorts.length > 0 
-                              ? Math.round((checkedVisibleCount / displayCohorts.length) * 100)
-                              : 0;
-                          })();
-                          return (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                              <div className="progress-bar-container" style={{ width: '80px', height: '8px' }}>
-                                <div className="progress-bar-fill" style={{ width: `${displayRate}%` }}></div>
-                              </div>
-                              <span style={{ fontWeight: 700, fontSize: '0.8rem', width: '32px' }}>{displayRate}%</span>
-                            </div>
-                          );
-                        })()}
-                      </td>
+
 
                       {/* Actions Column */}
-                      <td>
+                      <td style={{ width: '80px', minWidth: '80px', maxWidth: '80px' }}>
                         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
                           {isEditing ? (
                             <>
@@ -14073,12 +14090,31 @@ export const ContactsDirectoryTable: React.FC = () => {
       return;
     }
 
+    const generalProgramDepts = Array.from(new Set(
+      directoryContacts
+        .filter(c => c.programId === programId && !c.cohortId && c.department && c.department.trim() !== '')
+        .map(c => c.department.trim())
+    ));
+    const defaultDepts = ['Operations', 'Academics', 'Placement'];
+    const rawDepts = [...defaultDepts, ...generalProgramDepts];
+
+    // Deduplicate case-insensitively
+    const seenDepts = new Set<string>();
+    const finalDepts: string[] = [];
+    for (const d of rawDepts) {
+      const lower = d.toLowerCase();
+      if (!seenDepts.has(lower)) {
+        seenDepts.add(lower);
+        finalDepts.push(d);
+      }
+    }
+
     const newCohortItem = {
       id: `cohort-${Date.now()}`,
       name: cleanName,
       programId: programId,
       active: true,
-      departments: ['Operations', 'Academics', 'Placement'] // Default departments
+      departments: finalDepts
     };
 
     addCohort(newCohortItem);
@@ -14314,7 +14350,7 @@ export const ContactsDirectoryTable: React.FC = () => {
         setSearchQuery={setSearchQuery}
         searchPlaceholder="Search directory contacts..."
       >
-        <div style={{ width: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ width: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', flex: 1, overflowY: 'auto' }}>
           
           {/* PROGRAM SUB-TABS ROW */}
           <div 
@@ -14330,7 +14366,11 @@ export const ContactsDirectoryTable: React.FC = () => {
             }}
           >
             {programs.map(program => {
-              const programContacts = directoryContacts.filter(c => c.programId === program.id);
+              const activeCohortIds = new Set(cohorts.filter(c => c.programId === program.id && c.active).map(c => c.id));
+              const programContacts = directoryContacts.filter(c => 
+                c.programId === program.id && 
+                (!c.cohortId || activeCohortIds.has(c.cohortId))
+              );
               const isActive = selectedProgramId === program.id;
 
               return (
@@ -14377,7 +14417,7 @@ export const ContactsDirectoryTable: React.FC = () => {
 
           {/* ACTIVE PROGRAM BLOCK */}
           {activeProgram && (() => {
-            const programCohorts = cohorts.filter(c => c.programId === activeProgram.id);
+            const programCohorts = cohorts.filter(c => c.programId === activeProgram.id && c.active);
             const programContacts = directoryContacts.filter(c => c.programId === activeProgram.id);
             const programEmails = programContacts.map(c => c.email);
             const generalContacts = programContacts.filter(c => !c.cohortId);
@@ -14838,7 +14878,29 @@ export const ContactsDirectoryTable: React.FC = () => {
                       const isCohortExpanded = expandedCohortId === cohort.id;
                       const cohortContacts = directoryContacts.filter(c => c.cohortId === cohort.id);
                       const cohortEmails = cohortContacts.map(c => c.email);
-                      const departmentsList = cohort.departments || [];
+
+                      // Get department names from General Program POCs of active program
+                      const generalProgramDepts = Array.from(new Set(
+                        directoryContacts
+                          .filter(c => c.programId === activeProgram.id && !c.cohortId && c.department && c.department.trim() !== '')
+                          .map(c => c.department.trim())
+                      ));
+
+                      const rawDepts = [
+                        ...(cohort.departments || []),
+                        ...generalProgramDepts
+                      ];
+
+                      // Deduplicate case-insensitively
+                      const seenDepts = new Set<string>();
+                      const departmentsList: string[] = [];
+                      for (const d of rawDepts) {
+                        const lower = d.toLowerCase();
+                        if (!seenDepts.has(lower)) {
+                          seenDepts.add(lower);
+                          departmentsList.push(d);
+                        }
+                      }
 
                       return (
                         <div key={cohort.id} style={{ display: 'flex', flexDirection: 'column' }}>
@@ -14907,7 +14969,7 @@ export const ContactsDirectoryTable: React.FC = () => {
                               >
                                 <option value="">-- Select Cohort --</option>
                                 {programs.map(p => {
-                                  const otherCohorts = cohorts.filter(c => c.programId === p.id && c.id !== cohort.id);
+                                  const otherCohorts = cohorts.filter(c => c.programId === p.id && c.id !== cohort.id && c.active);
                                   if (otherCohorts.length === 0) return null;
                                   return (
                                     <optgroup key={p.id} label={`${p.name} Program`}>
@@ -14979,7 +15041,9 @@ export const ContactsDirectoryTable: React.FC = () => {
                                 </div>
                               ) : (
                                 departmentsList.map(deptName => {
-                                  const deptContacts = cohortContacts.filter(c => c.department === deptName);
+                                  const deptContacts = cohortContacts.filter(
+                                    c => c.department?.toLowerCase() === deptName.toLowerCase()
+                                  );
                                   const filteredDeptContacts = getFilteredContacts(deptContacts);
                                   const deptEmails = deptContacts.map(c => c.email);
                                   const isFormActive = activeFormId?.cohortId === cohort.id && activeFormId?.dept === deptName;
