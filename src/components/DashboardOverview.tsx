@@ -787,7 +787,7 @@ export const DashboardOverview: React.FC = () => {
           <div style={{
             width: '28px',
             height: '16px',
-            backgroundColor: hideReleased ? 'var(--success)' : 'var(--border-dark)',
+            backgroundColor: hideReleased ? 'var(--primary)' : 'var(--text-muted)',
             borderRadius: '9px',
             position: 'relative',
             transition: 'background-color 0.2s'

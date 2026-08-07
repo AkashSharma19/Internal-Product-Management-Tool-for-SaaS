@@ -2098,11 +2098,11 @@ export default async function handler(req: any, res: any) {
 
           // Fetch all assignees from the 5 main collections
           const [products, sprintPlan, projects, contentItems, dailyIssues] = await Promise.all([
-            modelsMap['products'].find({}, 'clickupAssignee clickupStatus status finalReleaseCompleted').lean(),
-            modelsMap['plans'].find({}, 'clickupAssignee clickupStatus status').lean(),
-            modelsMap['projects'].find({}, 'clickupAssignee clickupStatus status finalReleaseCompleted').lean(),
-            modelsMap['contentItems'].find({}, 'clickupAssignee clickupStatus status finalReleaseCompleted').lean(),
-            modelsMap['dailyIssues'].find({}, 'clickupAssignee clickupStatus status finalReleaseCompleted').lean()
+            modelsMap['products'].find({}, 'clickupAssignee clickupStatus status finalReleaseCompleted notes id taskLink').lean(),
+            modelsMap['plans'].find({}, 'clickupAssignee clickupStatus status link').lean(),
+            modelsMap['projects'].find({}, 'clickupAssignee clickupStatus status finalReleaseCompleted taskLink').lean(),
+            modelsMap['contentItems'].find({}, 'clickupAssignee clickupStatus status finalReleaseCompleted draftLink').lean(),
+            modelsMap['dailyIssues'].find({}, 'clickupAssignee clickupStatus status finalReleaseCompleted taskLink').lean()
           ]);
 
           const allDocs = [
@@ -2115,9 +2115,10 @@ export default async function handler(req: any, res: any) {
 
           const groups: Record<string, { totalCount: number, activeCount: number, statusCounts: Record<string, number> }> = {};
 
-          const isCompletedStatus = (status: string | undefined): boolean => {
-            const s = (status || '').toLowerCase();
-            return ['completed', 'delivered', 'done', 'closed', 'resolved', 'tested'].includes(s);
+          const isCompletedStatus = (statusStr: string | undefined): boolean => {
+            if (!statusStr) return false;
+            const s = statusStr.toLowerCase().trim();
+            return ['completed', 'delivered', 'done', 'closed', 'resolved', 'tested', 'released', 'complete'].includes(s);
           };
 
           const addDocToGroup = (groupName: string, doc: any) => {
@@ -2125,10 +2126,8 @@ export default async function handler(req: any, res: any) {
               groups[groupName] = { totalCount: 0, activeCount: 0, statusCounts: {} };
             }
             
-            const localStatus = (doc.status || '').toLowerCase();
-            const cuStatus = (doc.clickupStatus || '').toLowerCase();
             const isDone = isCompletedStatus(doc.status) ||
-                           ['closed', 'done', 'completed', 'complete'].includes(cuStatus) ||
+                           isCompletedStatus(doc.clickupStatus) ||
                            doc.finalReleaseCompleted === true;
 
             groups[groupName].totalCount++;
@@ -2146,6 +2145,21 @@ export default async function handler(req: any, res: any) {
           };
 
           allDocs.forEach((doc: any) => {
+            const id = doc.id || String(doc._id);
+            if (id.startsWith('prod-temp-')) return;
+
+            if (id.startsWith('prod-ama-') || id.startsWith('prod-call-') || id.startsWith('prod-tarun-')) {
+              const hasParent = doc.notes && (
+                doc.notes.includes('AMA Session ID:') || 
+                doc.notes.includes('Admin Call ID:') || 
+                doc.notes.includes('Tarun Sir Meeting ID:')
+              );
+              if (!hasParent) return;
+            }
+
+            const hasLink = (doc.taskLink || doc.draftLink || doc.link || '').trim() !== '';
+            if (!hasLink) return;
+
             const assigneeStr = doc.clickupAssignee || '';
             if (!assigneeStr.trim()) {
               addDocToGroup('Unassigned', doc);
@@ -2197,13 +2211,53 @@ export default async function handler(req: any, res: any) {
           const startIndex = totalItems === 0 ? 0 : (activePage - 1) * limit;
           const paginatedAssignees = assigneeList.slice(startIndex, startIndex + limit);
 
+          const matchedAssigneeNames = new Set(assigneeList.map(a => a.name));
+          const uniqueActiveTaskIds = new Set<string>();
+
+          allDocs.forEach((doc: any) => {
+            const id = doc.id || String(doc._id);
+            if (id.startsWith('prod-temp-')) return;
+
+            if (id.startsWith('prod-ama-') || id.startsWith('prod-call-') || id.startsWith('prod-tarun-')) {
+              const hasParent = doc.notes && (
+                doc.notes.includes('AMA Session ID:') || 
+                doc.notes.includes('Admin Call ID:') || 
+                doc.notes.includes('Tarun Sir Meeting ID:')
+              );
+              if (!hasParent) return;
+            }
+
+            const hasLink = (doc.taskLink || doc.draftLink || doc.link || '').trim() !== '';
+            if (!hasLink) return;
+
+            const isDone = isCompletedStatus(doc.status) ||
+                           isCompletedStatus(doc.clickupStatus) ||
+                           doc.finalReleaseCompleted === true;
+
+            if (isDone) return;
+
+            const assigneeStr = doc.clickupAssignee || '';
+            const names = !assigneeStr.trim()
+              ? ['Unassigned']
+              : assigneeStr.split(',').map((name: string) => name.trim()).filter(Boolean);
+
+            const hasMatchedAssignee = names.some(name => matchedAssigneeNames.has(name));
+            if (hasMatchedAssignee) {
+              const uniqueId = `${doc.type}-${doc._id || doc.id}`;
+              uniqueActiveTaskIds.add(uniqueId);
+            }
+          });
+
+          const totalActiveCount = uniqueActiveTaskIds.size;
+
           return res.status(200).json({
             success: true,
             data: paginatedAssignees,
             totalItems,
             totalPages,
             page: activePage,
-            limit
+            limit,
+            totalActiveCount
           });
         }
 
@@ -2233,22 +2287,35 @@ export default async function handler(req: any, res: any) {
 
           const list: any[] = [];
 
-          const isCompletedStatus = (status: string | undefined): boolean => {
-            const s = (status || '').toLowerCase();
-            return ['completed', 'delivered', 'done', 'closed', 'resolved', 'tested'].includes(s);
+          const isCompletedStatus = (statusStr: string | undefined): boolean => {
+            if (!statusStr) return false;
+            const s = statusStr.toLowerCase().trim();
+            return ['completed', 'delivered', 'done', 'closed', 'resolved', 'tested', 'released', 'complete'].includes(s);
           };
 
           // 1. Product Items
           products.forEach((item: any) => {
+            const id = item.id || String(item._id);
+            if (id.startsWith('prod-temp-')) return;
+            
+            if (id.startsWith('prod-ama-') || id.startsWith('prod-call-') || id.startsWith('prod-tarun-')) {
+              const hasParent = item.notes && (
+                item.notes.includes('AMA Session ID:') || 
+                item.notes.includes('Admin Call ID:') || 
+                item.notes.includes('Tarun Sir Meeting ID:')
+              );
+              if (!hasParent) return;
+            }
+
             let src = 'Priority Requests';
-            if (item.id && (item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-') || item.id.startsWith('prod-tarun-'))) {
+            if (id.startsWith('prod-ama-') || id.startsWith('prod-call-') || id.startsWith('prod-tarun-')) {
               src = 'Feedback';
-            } else if (item.id && item.id.startsWith('prod-breakdown-')) {
+            } else if (id.startsWith('prod-breakdown-')) {
               src = 'Product Breakdown';
             }
             list.push({
-              id: `product-${item.id}`,
-              sourceId: item.id,
+              id: `product-${id}`,
+              sourceId: id,
               feature: item.feature || item.description || 'Unnamed Feature',
               source: src as any,
               product: item.product || 'No Product Assigned',
@@ -2274,6 +2341,7 @@ export default async function handler(req: any, res: any) {
 
           // 2. Plan Items
           sprintPlan.forEach((item: any) => {
+            if (!item.link || item.link.trim() === '') return;
             list.push({
               id: `plan-${item.id}`,
               sourceId: item.id,
@@ -2292,6 +2360,7 @@ export default async function handler(req: any, res: any) {
 
           // 3. Student Projects
           projects.forEach((item: any) => {
+            if (!item.taskLink || item.taskLink.trim() === '') return;
             list.push({
               id: `project-${item.id}`,
               sourceId: item.id,
@@ -2320,6 +2389,7 @@ export default async function handler(req: any, res: any) {
 
           // 4. Content Items
           contentItems.forEach((item: any) => {
+            if (!item.draftLink || item.draftLink.trim() === '') return;
             list.push({
               id: `content-${item.id}`,
               sourceId: item.id,
@@ -2347,6 +2417,7 @@ export default async function handler(req: any, res: any) {
 
           // 5. Daily Issues
           dailyIssues.forEach((item: any) => {
+            if (!item.taskLink || item.taskLink.trim() === '') return;
             const isRequest = item.type === 'Feature Gap' || item.type === 'Enhancement';
             list.push({
               id: `issue-${item.id}`,
@@ -2378,10 +2449,8 @@ export default async function handler(req: any, res: any) {
           let filteredList = list;
           if (hideReleased) {
             filteredList = filteredList.filter(t => {
-              const localStatus = (t.status || '').toLowerCase();
-              const cuStatus = (t.clickupStatus || '').toLowerCase();
               const isDone = isCompletedStatus(t.status) ||
-                             ['closed', 'done', 'completed', 'complete'].includes(cuStatus) ||
+                             isCompletedStatus(t.clickupStatus) ||
                              t.finalReleaseCompleted === true;
               return !isDone;
             });

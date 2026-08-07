@@ -299,7 +299,7 @@ interface DashboardContextType {
     hideReleased?: boolean;
     sortField?: string;
     sortAsc?: boolean;
-  }) => Promise<{ success: boolean; data: any[]; totalItems: number; totalPages: number }>;
+  }) => Promise<{ success: boolean; data: any[]; totalItems: number; totalPages: number; totalActiveCount?: number }>;
   fetchTeamMemberTasks: (options: {
     name: string;
     hideReleased?: boolean;

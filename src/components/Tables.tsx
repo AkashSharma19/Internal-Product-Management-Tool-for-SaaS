@@ -4363,6 +4363,26 @@ export const PlanTable: React.FC = () => {
   const allMonths = Array.from(new Set([...manualMonths, ...extraMonths]));
   allMonths.sort((a, b) => getMonthSortValue(a) - getMonthSortValue(b));
 
+  const currentIndex = allMonths.indexOf(selectedMonth);
+
+  const handlePrevMonth = () => {
+    if (currentIndex > 0) {
+      setSelectedMonth(allMonths[currentIndex - 1]);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (currentIndex < allMonths.length - 1) {
+      setSelectedMonth(allMonths[currentIndex + 1]);
+    }
+  };
+
+  const handleToday = () => {
+    const now = new Date();
+    const todayMonthStr = `${now.toLocaleString('default', { month: 'long' })} ${now.getFullYear()}`;
+    setSelectedMonth(todayMonthStr);
+  };
+
   // ── Parse a date string → { year, month } (1-indexed) ─────────────────────
   const parseDateMonth = (dateStr: string | undefined): { year: number; month: number } | null => {
     if (!dateStr) return null;
@@ -4781,13 +4801,37 @@ export const PlanTable: React.FC = () => {
         addLabel="Add Task"
         filterComponent={
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <select
-              className="filter-select"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-            >
-              {allMonths.map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
+            <div className="calendar-nav-buttons" style={{ height: '32px' }}>
+              <button 
+                type="button"
+                className="calendar-nav-btn" 
+                onClick={handlePrevMonth} 
+                disabled={currentIndex <= 0}
+                style={{ height: '100%', minWidth: '30px', opacity: currentIndex <= 0 ? 0.5 : 1, cursor: currentIndex <= 0 ? 'not-allowed' : 'pointer' }}
+                title="Previous Month"
+              >
+                <ChevronLeft size={15} />
+              </button>
+              <button 
+                type="button"
+                className="calendar-nav-btn" 
+                onClick={handleToday}
+                style={{ height: '100%', minWidth: '120px', textAlign: 'center' }}
+                title="Jump to Current Month"
+              >
+                {selectedMonth}
+              </button>
+              <button 
+                type="button"
+                className="calendar-nav-btn" 
+                onClick={handleNextMonth} 
+                disabled={currentIndex >= allMonths.length - 1}
+                style={{ height: '100%', minWidth: '30px', opacity: currentIndex >= allMonths.length - 1 ? 0.5 : 1, cursor: currentIndex >= allMonths.length - 1 ? 'not-allowed' : 'pointer' }}
+                title="Next Month"
+              >
+                <ChevronRight size={15} />
+              </button>
+            </div>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
               <input 
                 type="checkbox" 

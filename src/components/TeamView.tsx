@@ -97,6 +97,7 @@ export const TeamView: React.FC = () => {
   const [pageSize, setPageSize] = useState(20);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalActiveTasks, setTotalActiveTasks] = useState(0);
   
   // Data lists
   const [users, setUsers] = useState<TeamMember[]>([]);
@@ -125,6 +126,7 @@ export const TeamView: React.FC = () => {
         setUsers(res.data);
         setTotalItems(res.totalItems);
         setTotalPages(res.totalPages);
+        setTotalActiveTasks(res.totalActiveCount || 0);
       }
     } catch (err) {
       console.error('Failed to load assignees:', err);
@@ -343,7 +345,7 @@ export const TeamView: React.FC = () => {
               <div style={{
                 width: '28px',
                 height: '16px',
-                backgroundColor: hideReleased ? 'var(--success)' : 'var(--border-dark)',
+                backgroundColor: hideReleased ? 'var(--primary)' : 'var(--text-muted)',
                 borderRadius: '9px',
                 position: 'relative',
                 transition: 'background-color 0.2s'
@@ -365,10 +367,8 @@ export const TeamView: React.FC = () => {
           </div>
         }
       >
-        {/* Main Content Area containing the single grid-table matching the Tarun Sir Meetings design */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-          <div className="table-responsive" style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-            <table className="grid-table">
+        <div className="table-responsive" style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+          <table className="grid-table">
               <thead>
                 <tr>
                   <th 
@@ -395,7 +395,7 @@ export const TeamView: React.FC = () => {
                     }}
                     style={{ width: '140px', textAlign: 'center', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                   >
-                    Active Tasks {sortField === 'activeCount' ? (sortAsc ? ' ▲' : ' ▼') : ''}
+                    Active ClickUp Tasks ({totalActiveTasks}) {sortField === 'activeCount' ? (sortAsc ? ' ▲' : ' ▼') : ''}
                   </th>
                   <th>ClickUp Status Breakdown</th>
                   <th style={{ width: '40px' }}></th>
@@ -757,7 +757,6 @@ export const TeamView: React.FC = () => {
               </tbody>
             </table>
           </div>
-        </div>
 
         {/* Footer Pagination Bar */}
         <div style={{

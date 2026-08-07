@@ -77,8 +77,10 @@ const SectionCard: React.FC<{
         </div>
       )}
     </div>
-    <div className="table-responsive" style={{ flex: 1, padding: '1.5rem 2rem', overflowY: 'auto' }}>
-      {children}
+    <div className="table-responsive" style={{ flex: 1, padding: '0 2rem 1.5rem 2rem', overflowY: 'auto' }}>
+      <div style={{ paddingTop: '1.5rem' }}>
+        {children}
+      </div>
     </div>
   </div>
 );
@@ -285,44 +287,124 @@ const SpeakersSection: React.FC = () => {
                 <td style={{ textAlign: 'center' }}>
                   {editingId === s.id ? (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <input
-                        type="checkbox"
-                        style={{ width: '16px', height: '16px', cursor: isCurrentUserAdmin ? 'pointer' : 'not-allowed' }}
-                        checked={editCanEdit}
-                        disabled={!isCurrentUserAdmin}
-                        onChange={e => setEditCanEdit(e.target.checked)}
-                      />
+                      <div 
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: isCurrentUserAdmin ? 'pointer' : 'not-allowed',
+                          opacity: isCurrentUserAdmin ? 1 : 0.6
+                        }}
+                        onClick={() => isCurrentUserAdmin && setEditCanEdit(!editCanEdit)}
+                      >
+                        <div style={{
+                          width: '28px',
+                          height: '16px',
+                          backgroundColor: editCanEdit ? 'var(--primary)' : 'var(--text-muted)',
+                          borderRadius: '9px',
+                          position: 'relative',
+                          transition: 'background-color 0.2s'
+                        }}>
+                          <div style={{
+                            width: '12px',
+                            height: '12px',
+                            backgroundColor: '#fff',
+                            borderRadius: '50%',
+                            position: 'absolute',
+                            top: '2px',
+                            left: editCanEdit ? '14px' : '2px',
+                            transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                          }} />
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <input
-                        type="checkbox"
-                        style={{ width: '16px', height: '16px', cursor: 'default' }}
-                        checked={s.canEdit !== false}
-                        disabled
-                      />
+                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: 0.7 }}>
+                        <div style={{
+                          width: '28px',
+                          height: '16px',
+                          backgroundColor: (s.canEdit !== false) ? 'var(--primary)' : 'var(--text-muted)',
+                          borderRadius: '9px',
+                          position: 'relative',
+                          transition: 'background-color 0.2s'
+                        }}>
+                          <div style={{
+                            width: '12px',
+                            height: '12px',
+                            backgroundColor: '#fff',
+                            borderRadius: '50%',
+                            position: 'absolute',
+                            top: '2px',
+                            left: (s.canEdit !== false) ? '14px' : '2px',
+                            transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                          }} />
+                        </div>
+                      </div>
                     </div>
                   )}
                 </td>
                 <td style={{ textAlign: 'center' }}>
                   {editingId === s.id ? (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <input
-                        type="checkbox"
-                        style={{ width: '16px', height: '16px', cursor: isCurrentUserAdmin ? 'pointer' : 'not-allowed' }}
-                        checked={editIsAdmin}
-                        disabled={!isCurrentUserAdmin}
-                        onChange={e => setEditIsAdmin(e.target.checked)}
-                      />
+                      <div 
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: isCurrentUserAdmin ? 'pointer' : 'not-allowed',
+                          opacity: isCurrentUserAdmin ? 1 : 0.6
+                        }}
+                        onClick={() => isCurrentUserAdmin && setEditIsAdmin(!editIsAdmin)}
+                      >
+                        <div style={{
+                          width: '28px',
+                          height: '16px',
+                          backgroundColor: editIsAdmin ? 'var(--primary)' : 'var(--text-muted)',
+                          borderRadius: '9px',
+                          position: 'relative',
+                          transition: 'background-color 0.2s'
+                        }}>
+                          <div style={{
+                            width: '12px',
+                            height: '12px',
+                            backgroundColor: '#fff',
+                            borderRadius: '50%',
+                            position: 'absolute',
+                            top: '2px',
+                            left: editIsAdmin ? '14px' : '2px',
+                            transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                          }} />
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <input
-                        type="checkbox"
-                        style={{ width: '16px', height: '16px', cursor: 'default' }}
-                        checked={s.isAdmin !== false}
-                        disabled
-                      />
+                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: 0.7 }}>
+                        <div style={{
+                          width: '28px',
+                          height: '16px',
+                          backgroundColor: (s.isAdmin !== false) ? 'var(--primary)' : 'var(--text-muted)',
+                          borderRadius: '9px',
+                          position: 'relative',
+                          transition: 'background-color 0.2s'
+                        }}>
+                          <div style={{
+                            width: '12px',
+                            height: '12px',
+                            backgroundColor: '#fff',
+                            borderRadius: '50%',
+                            position: 'absolute',
+                            top: '2px',
+                            left: (s.isAdmin !== false) ? '14px' : '2px',
+                            transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                          }} />
+                        </div>
+                      </div>
                     </div>
                   )}
                 </td>
@@ -387,22 +469,60 @@ const SpeakersSection: React.FC = () => {
               </td>
               <td>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <input
-                    type="checkbox"
-                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                    checked={addCanEdit}
-                    onChange={e => setAddCanEdit(e.target.checked)}
-                  />
+                  <div 
+                    style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                    onClick={() => setAddCanEdit(!addCanEdit)}
+                  >
+                    <div style={{
+                      width: '28px',
+                      height: '16px',
+                      backgroundColor: addCanEdit ? 'var(--primary)' : 'var(--text-muted)',
+                      borderRadius: '9px',
+                      position: 'relative',
+                      transition: 'background-color 0.2s'
+                    }}>
+                      <div style={{
+                        width: '12px',
+                        height: '12px',
+                        backgroundColor: '#fff',
+                        borderRadius: '50%',
+                        position: 'absolute',
+                        top: '2px',
+                        left: addCanEdit ? '14px' : '2px',
+                        transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                      }} />
+                    </div>
+                  </div>
                 </div>
               </td>
               <td>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <input
-                    type="checkbox"
-                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                    checked={addIsAdmin}
-                    onChange={e => setAddIsAdmin(e.target.checked)}
-                  />
+                  <div 
+                    style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                    onClick={() => setAddIsAdmin(!addIsAdmin)}
+                  >
+                    <div style={{
+                      width: '28px',
+                      height: '16px',
+                      backgroundColor: addIsAdmin ? 'var(--primary)' : 'var(--text-muted)',
+                      borderRadius: '9px',
+                      position: 'relative',
+                      transition: 'background-color 0.2s'
+                    }}>
+                      <div style={{
+                        width: '12px',
+                        height: '12px',
+                        backgroundColor: '#fff',
+                        borderRadius: '50%',
+                        position: 'absolute',
+                        top: '2px',
+                        left: addIsAdmin ? '14px' : '2px',
+                        transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                      }} />
+                    </div>
+                  </div>
                 </div>
               </td>
               <td>
@@ -918,7 +1038,7 @@ const ProgramsSection: React.FC = () => {
                           <span style={{
                             display: 'inline-flex', alignItems: 'center',
                             width: 36, height: 18, borderRadius: 9,
-                            background: c.active !== false ? 'var(--primary)' : '#6b7280',
+                            background: c.active !== false ? 'var(--primary)' : 'var(--text-muted)',
                             position: 'relative',
                             transition: 'background 0.2s',
                             flexShrink: 0,
@@ -936,7 +1056,7 @@ const ProgramsSection: React.FC = () => {
                           <span style={{
                             fontSize: '0.7rem',
                             fontWeight: 700,
-                            color: c.active !== false ? 'var(--primary)' : '#6b7280',
+                            color: c.active !== false ? 'var(--primary)' : 'var(--text-muted)',
                             letterSpacing: '0.02em',
                             textTransform: 'uppercase',
                             minWidth: 44,
@@ -1642,23 +1762,40 @@ const FormBuilderSection: React.FC = () => {
           </div>
         </div>
 
-        {/* Enabled status */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: '10px',
-          background: 'var(--background-alt)', padding: '1rem', borderRadius: '12px',
-          border: '1px solid var(--border)'
-        }}>
-          <input
-            type="checkbox"
-            id="form-enabled-toggle"
-            checked={enabled}
-            disabled={!canUserEdit}
-            onChange={e => setEnabled(e.target.checked)}
-            style={{ width: '16px', height: '16px', cursor: canUserEdit ? 'pointer' : 'default' }}
-          />
-          <label htmlFor="form-enabled-toggle" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', cursor: canUserEdit ? 'pointer' : 'default' }}>
+        <div 
+          onClick={() => canUserEdit && setEnabled(!enabled)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '12px',
+            background: 'var(--background-alt)', padding: '1rem', borderRadius: '12px',
+            border: '1px solid var(--border)',
+            cursor: canUserEdit ? 'pointer' : 'default',
+            userSelect: 'none'
+          }}
+        >
+          <div style={{
+            width: '28px',
+            height: '16px',
+            backgroundColor: enabled ? 'var(--primary)' : 'var(--text-muted)',
+            borderRadius: '9px',
+            position: 'relative',
+            transition: 'background-color 0.2s',
+            flexShrink: 0
+          }}>
+            <div style={{
+              width: '12px',
+              height: '12px',
+              backgroundColor: '#fff',
+              borderRadius: '50%',
+              position: 'absolute',
+              top: '2px',
+              left: enabled ? '14px' : '2px',
+              transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+            }} />
+          </div>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
             Enable feedback form links for this category
-          </label>
+          </span>
         </div>
 
         {/* Questions list */}
@@ -1736,16 +1873,41 @@ const FormBuilderSection: React.FC = () => {
                       }}
                     />
                     
-                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: canUserEdit ? 'pointer' : 'default', userSelect: 'none' }}>
-                      <input
-                        type="checkbox"
-                        checked={field.required}
-                        disabled={!canUserEdit}
-                        onChange={e => handleUpdateField(field.id, { required: e.target.checked })}
-                        style={{ cursor: canUserEdit ? 'pointer' : 'default' }}
-                      />
-                      Required
-                    </label>
+                    <div 
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        cursor: canUserEdit ? 'pointer' : 'default',
+                        userSelect: 'none',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        color: field.required ? 'var(--text-primary)' : 'var(--text-secondary)'
+                      }}
+                      onClick={() => canUserEdit && handleUpdateField(field.id, { required: !field.required })}
+                    >
+                      <div style={{
+                        width: '28px',
+                        height: '16px',
+                        backgroundColor: field.required ? 'var(--primary)' : 'var(--text-muted)',
+                        borderRadius: '9px',
+                        position: 'relative',
+                        transition: 'background-color 0.2s'
+                      }}>
+                        <div style={{
+                          width: '12px',
+                          height: '12px',
+                          backgroundColor: '#fff',
+                          borderRadius: '50%',
+                          position: 'absolute',
+                          top: '2px',
+                          left: field.required ? '14px' : '2px',
+                          transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                        }} />
+                      </div>
+                      <span>Required</span>
+                    </div>
 
                     {/* Sorting & Delete buttons */}
                     {canUserEdit && (
@@ -1877,18 +2039,40 @@ const FormSecuritySection: React.FC = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             
             {/* Require Google Login Checkbox */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--background-alt)', padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
-              <input
-                type="checkbox"
-                id="requireGoogleLogin"
-                checked={requireLoginVal}
-                onChange={e => setRequireLoginVal(e.target.checked)}
-                disabled={!canUserEdit}
-                style={{ width: '18px', height: '18px', cursor: canUserEdit ? 'pointer' : 'not-allowed' }}
-              />
-              <label htmlFor="requireGoogleLogin" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', cursor: canUserEdit ? 'pointer' : 'not-allowed' }}>
+            <div 
+              onClick={() => canUserEdit && setRequireLoginVal(!requireLoginVal)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '12px',
+                background: 'var(--background-alt)', padding: '12px 16px', borderRadius: '12px',
+                border: '1px solid var(--border-light)',
+                cursor: canUserEdit ? 'pointer' : 'default',
+                userSelect: 'none'
+              }}
+            >
+              <div style={{
+                width: '28px',
+                height: '16px',
+                backgroundColor: requireLoginVal ? 'var(--primary)' : 'var(--text-muted)',
+                borderRadius: '9px',
+                position: 'relative',
+                transition: 'background-color 0.2s',
+                flexShrink: 0
+              }}>
+                <div style={{
+                  width: '12px',
+                  height: '12px',
+                  backgroundColor: '#fff',
+                  borderRadius: '50%',
+                  position: 'absolute',
+                  top: '2px',
+                  left: requireLoginVal ? '14px' : '2px',
+                  transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                }} />
+              </div>
+              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                 Require Google Login for Feedback Forms
-              </label>
+              </span>
             </div>
 
             {/* Client ID Input */}
@@ -2059,139 +2243,159 @@ const CalendarConfigSection: React.FC = () => {
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1.5rem', overflowY: 'auto', flex: 1, minHeight: 0 }}>
+    <SectionCard
+      icon={<Calendar size={16} />}
+      title="Sharable Calendar"
+      subtitle="Choose which tabs' tasks are publicly visible and copy the access link"
+    >
       <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '2rem', alignItems: 'start' }}>
         
-        {/* Sources Config Card */}
-        <SectionCard
-          icon={<Calendar size={16} />}
-          title="Sharable Calendar Sources"
-          subtitle="Choose which tabs' tasks are publicly visible"
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
-              Select the worksheets you want to include in the public calendar. Anyone with the public link will be able to view details for tasks from the selected tabs only. All other tabs will remain completely hidden.
-            </p>
+        {/* Left Side: Sources Config */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+            Worksheet Visibility Sources
+          </h4>
+          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+            Select the worksheets you want to include in the public calendar. Anyone with the public link will be able to view details for tasks from the selected tabs only. All other tabs will remain completely hidden.
+          </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.25rem' }}>
-              {CALENDAR_SOURCES.map(source => {
-                const isChecked = sources.includes(source.id);
-                return (
-                  <div
-                    key={source.id}
-                    onClick={() => toggleSource(source.id)}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.25rem' }}>
+            {CALENDAR_SOURCES.map(source => {
+              const isChecked = sources.includes(source.id);
+              return (
+                <div
+                  key={source.id}
+                  onClick={() => toggleSource(source.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '12px',
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    backgroundColor: isChecked ? 'var(--primary-glow)' : 'var(--background-alt)',
+                    border: isChecked ? '1px solid var(--primary-border)' : '1px solid var(--border-light)',
+                    cursor: canUserEdit ? 'pointer' : 'default',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  <div 
                     style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: '12px',
-                      padding: '12px 16px',
-                      borderRadius: '12px',
-                      backgroundColor: isChecked ? 'var(--primary-glow)' : 'var(--background-alt)',
-                      border: isChecked ? '1px solid var(--primary-border)' : '1px solid var(--border-light)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
                       cursor: canUserEdit ? 'pointer' : 'default',
-                      transition: 'all 0.15s'
+                      userSelect: 'none',
+                      flexShrink: 0,
+                      marginTop: '3px'
                     }}
                   >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => {}} // toggled by parent onClick
-                      disabled={!canUserEdit}
-                      style={{ marginTop: '3px', width: '16px', height: '16px', cursor: canUserEdit ? 'pointer' : 'default' }}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                        {source.label}
-                      </span>
-                      <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
-                        {source.description}
-                      </span>
+                    <div style={{
+                      width: '28px',
+                      height: '16px',
+                      backgroundColor: isChecked ? 'var(--primary)' : 'var(--text-muted)',
+                      borderRadius: '9px',
+                      position: 'relative',
+                      transition: 'background-color 0.2s'
+                    }}>
+                      <div style={{
+                        width: '12px',
+                        height: '12px',
+                        backgroundColor: '#fff',
+                        borderRadius: '50%',
+                        position: 'absolute',
+                        top: '2px',
+                        left: isChecked ? '14px' : '2px',
+                        transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                      }} />
                     </div>
                   </div>
-                );
-              })}
-            </div>
-
-            {/* Action Buttons */}
-            {canUserEdit && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  className="btn btn-primary"
-                  style={{ padding: '8px 24px', borderRadius: '10px' }}
-                >
-                  Save Calendar Config
-                </button>
-                {isSaved && (
-                  <span style={{ color: 'var(--success)', fontSize: '0.8rem', fontWeight: 600, animation: 'fadeIn 0.2s' }}>
-                    ✓ Calendar sources saved to MongoDB
-                  </span>
-                )}
-              </div>
-            )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {source.label}
+                    </span>
+                    <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+                      {source.description}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </SectionCard>
 
-        {/* Sharable Link Card */}
-        <SectionCard
-          icon={<Link size={16} />}
-          title="Sharable Public URL"
-          subtitle="Generate and copy your read-only public link"
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            <div style={{ background: 'var(--background-alt)', padding: '12px 16px', borderRadius: '12px', borderLeft: '4px solid var(--primary)' }}>
-              <h4 style={{ margin: '0 0 4px 0', fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 700 }}>Zero Login Access</h4>
-              <p style={{ margin: 0, fontSize: '0.775rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-                People visiting this link do not need a Google Account or registered email. They will receive a read-only calendar view.
-              </p>
+          {/* Action Buttons */}
+          {canUserEdit && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={handleSave}
+                className="btn btn-primary"
+                style={{ padding: '8px 24px', borderRadius: '10px' }}
+              >
+                Save Calendar Config
+              </button>
+              {isSaved && (
+                <span style={{ color: 'var(--success)', fontSize: '0.8rem', fontWeight: 600, animation: 'fadeIn 0.2s' }}>
+                  ✓ Calendar sources saved to MongoDB
+                </span>
+              )}
             </div>
+          )}
+        </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
-              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                Public Calendar URL
-              </label>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input
-                  type="text"
-                  readOnly
-                  value={publicUrl}
-                  style={{
-                    flex: 1,
-                    backgroundColor: 'var(--background-alt)',
-                    border: '1px solid var(--border-light)',
-                    borderRadius: '8px',
-                    padding: '8px 12px',
-                    fontSize: '0.775rem',
-                    color: 'var(--text-secondary)',
-                    outline: 'none'
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  className="btn btn-secondary"
-                  style={{ padding: '0 16px', display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '8px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
-                >
-                  <Copy size={13} /> {copied ? 'Copied!' : 'Copy'}
-                </button>
-              </div>
-            </div>
-
-            <div style={{ background: 'rgba(245, 158, 11, 0.08)', padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(245, 158, 11, 0.2)', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-              <AlertCircle size={16} color="#f59e0b" style={{ flexShrink: 0, marginTop: '2px' }} />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.75rem', color: '#b45309' }}>
-                <span style={{ fontWeight: 700 }}>Security Note</span>
-                <span>ClickUp tasks and draft content links are accessible if task URLs exist. Ensure only appropriate tasks are published.</span>
-              </div>
-            </div>
-
+        {/* Right Side: Public Link */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+            Sharable Public URL
+          </h4>
+          <div style={{ background: 'var(--background-alt)', padding: '12px 16px', borderRadius: '12px', borderLeft: '4px solid var(--primary)', border: '1px solid var(--border)' }}>
+            <h5 style={{ margin: '0 0 4px 0', fontSize: '0.825rem', color: 'var(--text-primary)', fontWeight: 700 }}>Zero Login Access</h5>
+            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+              People visiting this link do not need a Google Account or registered email. They will receive a read-only calendar view.
+            </p>
           </div>
-        </SectionCard>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
+            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              Public Calendar URL
+            </label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                readOnly
+                value={publicUrl}
+                style={{
+                  flex: 1,
+                  backgroundColor: 'var(--background-alt)',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  fontSize: '0.775rem',
+                  color: 'var(--text-secondary)',
+                  outline: 'none'
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="btn btn-secondary"
+                style={{ padding: '0 16px', display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '8px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+              >
+                <Copy size={13} /> {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ background: 'rgba(245, 158, 11, 0.08)', padding: '12px 16px', borderRadius: '12px', border: '1px solid rgba(245, 158, 11, 0.2)', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+            <AlertCircle size={16} color="#f59e0b" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.75rem', color: '#b45309' }}>
+              <span style={{ fontWeight: 700 }}>Security Note</span>
+              <span>ClickUp tasks and draft content links are accessible if task URLs exist. Ensure only appropriate tasks are published.</span>
+            </div>
+          </div>
+        </div>
 
       </div>
-    </div>
+    </SectionCard>
   );
 };
 
