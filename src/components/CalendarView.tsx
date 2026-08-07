@@ -288,7 +288,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
     else if (evt.stage === 'UI/UX') fieldToUpdate = 'uiux';
     else if (evt.stage === 'Dev') fieldToUpdate = 'deadline';
     else if (evt.stage === 'Final Release') fieldToUpdate = 'finalRelease';
-    else if (evt.stage === 'Publish Date') fieldToUpdate = 'publishDate';
+    else if (evt.stage === 'Publish Date') fieldToUpdate = 'finalRelease';
     else if (evt.stage === 'AMA Date' || evt.stage === 'Call Date' || evt.stage === 'Meeting Date') fieldToUpdate = 'date';
     else fieldToUpdate = 'deadline';
 
@@ -298,7 +298,11 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
       } else if (evt.source === 'Student Projects') {
         updateStudentProject(evt.rawItem.id, { [fieldToUpdate]: targetDateStr });
       } else if (evt.source === 'Content Pipeline') {
-        updateContentItem(evt.rawItem.id, { [fieldToUpdate]: targetDateStr });
+        if (fieldToUpdate === 'finalRelease') {
+          updateContentItem(evt.rawItem.id, { finalRelease: targetDateStr, publishDate: targetDateStr });
+        } else {
+          updateContentItem(evt.rawItem.id, { [fieldToUpdate]: targetDateStr });
+        }
       } else if (evt.source === 'Daily Issues Log') {
         updateDailyIssue(evt.rawItem.id, { [fieldToUpdate]: targetDateStr });
       } else if (evt.source === 'Student Meetings') {
@@ -499,9 +503,9 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
 
     if (allowed.includes('content')) {
       contentItems.forEach(item => {
-        const hasDate = !!parseDateToYYYYMMDD(item.publishDate);
+        const hasDate = !!parseDateToYYYYMMDD(item.finalRelease || item.publishDate);
         if (!hasDate) {
-          const isCompleted = isCompletedStatus(item.status);
+          const isCompleted = !!item.finalReleaseCompleted || isCompletedStatus(item.status);
           list.push({
             id: item.id,
             title: item.module,
@@ -694,7 +698,10 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
     setPreviousTab(activeTab);
     setActiveTab(evt.tab);
     setTimeout(() => {
-      if (evt.source === 'Priority Requests') {
+      // Direct drawer preview if the rawItem represents a Priority Request task
+      if (evt.rawItem && evt.rawItem.id && (evt.rawItem.id.startsWith('prod-') || evt.rawItem.id.startsWith('prod-temp-'))) {
+        setPreviewProductId(evt.rawItem.id);
+      } else if (evt.source === 'Priority Requests') {
         setPreviewProductId(evt.rawItem.id);
       } else if (evt.source === 'Student Projects') {
         openPreviewForFeature(evt.title, evt.rawItem as unknown as Partial<ProductItem>);
@@ -712,6 +719,8 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
           description: evt.rawItem.actions, 
           status: evt.rawItem.status as any 
         });
+      } else if (evt.source === 'Tarun Sir Meetings') {
+        openPreviewForFeature(evt.title, evt.rawItem as unknown as Partial<ProductItem>);
       } else if (evt.source === 'Content Pipeline') {
         setPreviewProductId(evt.rawItem.id);
       } else if (evt.source === 'Daily Issues Log') {
@@ -726,7 +735,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
     'UI/UX':        { bg: '#ec4899', label: 'UI/UX',    css: 'bg-stage-uiux' },
     'Dev':          { bg: '#3b82f6', label: 'Dev',      css: 'bg-stage-dev' },
     'Final Release':{ bg: '#8b5cf6', label: 'Release',  css: 'bg-stage-release' },
-    'Publish Date': { bg: '#8b5cf6', label: 'Publish',  css: 'bg-stage-release' },
+    'Publish Date': { bg: '#8b5cf6', label: 'Release',  css: 'bg-stage-release' },
     'AMA Date':     { bg: '#f97316', label: 'AMA',      css: 'bg-stage-meeting' },
     'Call Date':    { bg: '#f97316', label: 'Call',     css: 'bg-stage-meeting' },
     'Deadline':     { bg: '#f59e0b', label: 'Deadline', css: 'bg-stage-deadline' },

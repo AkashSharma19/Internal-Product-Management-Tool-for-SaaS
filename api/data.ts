@@ -1507,7 +1507,7 @@ export default async function handler(req: any, res: any) {
 
           content.forEach((item: any) => {
             const isOverallCompleted = isCompletedStatus(item.status);
-            addEvent(item.id, 'Content Pipeline', item.module, 'Publish Date', item.publishDate, isOverallCompleted, item.poc, item.priority, item.draftLink, item, 'content');
+            addEvent(item.id, 'Content Pipeline', item.module, 'Publish Date', item.finalRelease || item.publishDate, !!item.finalReleaseCompleted || isOverallCompleted, item.poc, item.priority, item.draftLink, item, 'content');
             addEvent(item.id, 'Content Pipeline', item.module, 'Dev', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc, item.priority, item.draftLink, item, 'content');
           });
 
