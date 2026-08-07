@@ -39,7 +39,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Settings,
-  Lock,
   LogOut,
   RefreshCw,
   Search,
@@ -53,16 +52,73 @@ import {
   Volume2,
   VolumeX,
   Flame,
-  UserCheck
+  UserCheck,
+  Ship,
+  Quote
 } from 'lucide-react';
 
 import { isAudioMuted, toggleAudioMute, playPopSound } from './utils/audio';
-import PixelBlast from './components/common/PixelBlast';
+
+const TESTIMONIALS = [
+  {
+    text: "ProductShip coordinates all our internal priority requests, daily bug tracking, and release timelines in a single, high-fidelity operations console.",
+    name: "Tarun Sir",
+    role: "Director & Lead Reviewer"
+  },
+  {
+    text: "Tracking cohort progress, planning weekly AMA speaker sessions, and compiling admin feedback forms is now completely automated.",
+    name: "Operations Coordinator",
+    role: "Program Delivery & Cohorts Lead"
+  }
+];
+
+const AvatarCircle: React.FC<{ name: string }> = ({ name }) => {
+  const initials = name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase();
+    
+  return (
+    <div style={{
+      width: '40px',
+      height: '40px',
+      borderRadius: '50%',
+      background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: '0.85rem',
+      fontWeight: 800,
+      color: '#ffffff',
+      border: '1.5px solid rgba(255, 255, 255, 0.3)',
+      boxShadow: 'var(--shadow-sm)',
+      flexShrink: 0
+    }}>
+      {initials}
+    </div>
+  );
+};
 
 const LoginView: React.FC = () => {
   const { loginUserByEmail, googleClientId, isLoading } = useDashboard();
   const [error, setError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [activeSlide, setActiveSlide] = useState(0); // 0 = Testimonial 1, 1 = Dashboard Card, 2 = Testimonial 2
+  const [slideFade, setSlideFade] = useState(true);
+
+  // Carousel auto-slide effect
+  useEffect(() => {
+    const slideInterval = setInterval(() => {
+      setSlideFade(false);
+      setTimeout(() => {
+        setActiveSlide((prev) => (prev + 1) % 3);
+        setSlideFade(true);
+      }, 300);
+    }, 7000);
+
+    return () => clearInterval(slideInterval);
+  }, []);
 
   useEffect(() => {
     if (!googleClientId) return;
@@ -100,7 +156,7 @@ const LoginView: React.FC = () => {
           g.accounts.id.renderButton(btnContainer, {
             theme: 'outline',
             size: 'large',
-            width: 320,
+            width: 360,
             text: 'signin_with',
             shape: 'rectangular'
           });
@@ -118,135 +174,221 @@ const LoginView: React.FC = () => {
   }, [googleClientId, loginUserByEmail]);
 
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      background: 'linear-gradient(180deg, var(--background-alt) 0%, var(--background) 100%)',
-      fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif",
-      color: 'var(--text-primary)',
-      padding: '1rem',
-      position: 'relative',
-      overflow: 'hidden'
-    }}>
-      {/* PixelBlast animated background */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none' }}>
-        <PixelBlast
-          variant="circle"
-          pixelSize={6}
-          color="#7c5cbf"
-          patternScale={3}
-          patternDensity={1.2}
-          pixelSizeJitter={0.5}
-          enableRipples
-          rippleSpeed={0.4}
-          rippleThickness={0.12}
-          rippleIntensityScale={1.5}
-          liquid
-          liquidStrength={0.12}
-          liquidRadius={1.2}
-          liquidWobbleSpeed={5}
-          speed={0.6}
-          edgeFade={0.25}
-          transparent
-        />
-      </div>
-      <div style={{
-        background: 'var(--panel-bg)',
-        border: '1px solid var(--border-light)',
-        borderRadius: '24px',
-        padding: '2.75rem 2.5rem',
-        width: '100%',
-        maxWidth: '420px',
-        boxShadow: 'var(--shadow)',
-        textAlign: 'center',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1.75rem',
-        position: 'relative',
-        zIndex: 1
-      }}>
-        {/* Header */}
-        <div>
-          <div style={{
-            width: '60px',
-            height: '60px',
-            borderRadius: '16px',
-            background: 'linear-gradient(135deg, var(--primary), var(--primary-hover))',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 1.25rem',
-            boxShadow: 'var(--shadow-glow)'
-          }}>
-            <Lock size={28} color="#fff" />
+    <div className="login-split-container">
+      {/* LEFT PANEL: Clean, minimalist Auth portal */}
+      <div className="login-auth-panel">
+        {/* Brand Header */}
+        <div className="login-brand-header">
+          <div className="login-brand-logo">
+            <Ship size={20} color="#fff" />
           </div>
-          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em', textTransform: 'uppercase', color: 'var(--text-primary)' }}>OPERATIONS CONTROL</h2>
-          <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Secure Identity Portal</p>
+          <span className="login-brand-name">ProductShip</span>
+        </div>
+
+        {/* Welcome Text & Google Sign-In */}
+        <div className="login-form-wrapper" style={{ maxWidth: '360px' }}>
+          <h1 className="login-welcome-title">Welcome Back!</h1>
+          <p className="login-welcome-subtitle">
+            Sign in to access your operations dashboard, coordinate sprint deliverables, and track release milestones.
+          </p>
+
+          {/* Loader or Error indicator */}
           {(isLoading || isLoggingIn) && (
             <div style={{ 
-              display: 'inline-flex', 
+              display: 'flex', 
               alignItems: 'center', 
-              gap: '6px', 
-              marginTop: '0.85rem', 
-              padding: '4px 12px', 
-              borderRadius: '20px', 
+              justifyContent: 'center',
+              gap: '8px', 
+              marginBottom: '1.5rem', 
+              padding: '12px', 
+              borderRadius: '12px', 
               backgroundColor: 'var(--primary-glow)', 
               border: '1px solid var(--primary-border)',
               color: 'var(--primary)', 
-              fontSize: '0.7rem', 
+              fontSize: '0.8rem', 
               fontWeight: 600 
             }}>
-              <RefreshCw size={10} className="animate-spin" />
-              <span>{isLoggingIn ? 'Verifying Identity...' : 'Fetching database data...'}</span>
+              <RefreshCw size={14} className="animate-spin" />
+              <span>{isLoggingIn ? 'Verifying Identity...' : 'Loading console data...'}</span>
+            </div>
+          )}
+
+          {error && (
+            <div style={{
+              backgroundColor: 'var(--danger-bg)',
+              border: '1px solid rgba(239, 68, 68, 0.15)',
+              borderRadius: '12px',
+              padding: '12px',
+              fontSize: '0.8rem',
+              color: 'var(--danger)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              textAlign: 'left',
+              marginBottom: '1.5rem'
+            }}>
+              <span>⚠️</span>
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Clean Google SSO Button Container */}
+          {googleClientId ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', alignItems: 'flex-start' }}>
+              <div id="google-signin-portal-btn-container" style={{ minHeight: '48px', width: '100%', display: 'flex', justifyContent: 'flex-start' }}>
+                <button className="google-sso-btn" style={{ maxWidth: '360px' }}>
+                  <svg className="google-sso-icon" viewBox="0 0 24 24">
+                    <path fill="#EA4335" d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.2-5.136 4.2A5.626 5.626 0 0 1 8.35 13a5.626 5.626 0 0 1 5.64-5.6c1.558 0 2.973.559 4.07 1.486l3.14-3.14C19.262 3.905 16.732 3 13.99 3c-5.523 0-10 4.477-10 10s4.477 10 10 10c5.78 0 9.61-4.06 9.61-9.78 0-.66-.06-1.29-.17-1.935H12.24Z" />
+                  </svg>
+                  <span>Continue with Google</span>
+                </button>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.725rem', color: 'var(--text-muted)', textAlign: 'left', lineHeight: '1.4' }}>
+                Only authorized domain emails can access the internal console.
+              </p>
+            </div>
+          ) : (
+            <div style={{
+              backgroundColor: 'var(--danger-bg)',
+              border: '1px solid rgba(239, 68, 68, 0.15)',
+              borderRadius: '12px',
+              padding: '16px',
+              fontSize: '0.8rem',
+              color: 'var(--danger)',
+              textAlign: 'center',
+              fontWeight: 600
+            }}>
+              ⚠️ Google Client ID is not configured. Please contact the system administrator.
             </div>
           )}
         </div>
 
-        {/* Error Alert */}
-        {error && (
-          <div style={{
-            backgroundColor: 'var(--danger-bg)',
-            border: '1px solid rgba(239, 68, 68, 0.15)',
-            borderRadius: '10px',
-            padding: '8px 12px',
-            fontSize: '0.75rem',
-            color: 'var(--danger)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            textAlign: 'left'
-          }}>
-            <span>⚠️</span>
-            <span>{error}</span>
-          </div>
-        )}
+        {/* Auth Panel Footer */}
+        <div className="login-auth-footer">
+          <span>&copy; {new Date().getFullYear()} ProductShip</span>
+          <a href="#" onClick={(e) => e.preventDefault()} className="login-auth-footer-link">Privacy Policy</a>
+        </div>
+      </div>
 
-        {/* Google Authentication Section */}
-        {googleClientId ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', alignItems: 'center' }}>
-            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.02em' }}>
-              Authentication Required
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-              <div id="google-signin-portal-btn-container" style={{ minHeight: '40px' }}></div>
+      {/* RIGHT PANEL: Visual & Showcase console */}
+      <div className="login-showcase-panel">
+        <div className="login-showcase-gradient-card">
+          {/* Showcase badge indicator */}
+          <div className="showcase-badge">
+            ProductShip Console v1.2
+          </div>
+
+          {/* Interactive Slide Animation */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', opacity: slideFade ? 1 : 0, transition: 'opacity 0.3s ease' }}>
+            {activeSlide === 0 && (
+              <div className="animate-fade-in">
+                <h2 className="showcase-tagline">
+                  Streamline operations and deliver quality code faster.
+                </h2>
+                <div className="showcase-quote-wrapper">
+                  <div style={{ color: 'rgba(255, 255, 255, 0.25)', marginBottom: '0.5rem' }}>
+                    <Quote size={32} fill="currentColor" stroke="none" />
+                  </div>
+                  <p className="showcase-quote-text">
+                    "{TESTIMONIALS[0].text}"
+                  </p>
+                  <div className="showcase-quote-profile">
+                    <AvatarCircle name={TESTIMONIALS[0].name} />
+                    <div>
+                      <div className="showcase-quote-name">{TESTIMONIALS[0].name}</div>
+                      <div className="showcase-quote-role">{TESTIMONIALS[0].role}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSlide === 1 && (
+              <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <h2 className="showcase-tagline">
+                  Effortlessly manage your team and release pipelines.
+                </h2>
+                
+                {/* Floating Mockup Card */}
+                <div className="floating-dashboard-card">
+                  <div className="mock-dash-top">
+                    <span style={{ fontWeight: 800 }}>⚡ CONSOLE OVERVIEW</span>
+                    <span style={{ color: '#34d399', fontWeight: 700 }}>● ONLINE SYNCED</span>
+                  </div>
+                  <div className="mock-dash-metrics">
+                    <div className="mock-metric-box">
+                      <span className="mock-metric-val">94.8%</span>
+                      <span className="mock-metric-lbl">Adoption Rate</span>
+                    </div>
+                    <div className="mock-metric-box">
+                      <span className="mock-metric-val">12</span>
+                      <span className="mock-metric-lbl">Active Blockers</span>
+                    </div>
+                    <div className="mock-metric-box">
+                      <span className="mock-metric-val">87%</span>
+                      <span className="mock-metric-lbl">Sprint Velocity</span>
+                    </div>
+                  </div>
+                  <div className="mock-dash-bar-container">
+                    <div className="mock-bar-row">
+                      <span className="mock-bar-label">Product Specs</span>
+                      <div className="mock-bar-track">
+                        <div className="mock-bar-fill" style={{ width: '92%' }}></div>
+                      </div>
+                    </div>
+                    <div className="mock-bar-row">
+                      <span className="mock-bar-label">Engineering Dev</span>
+                      <div className="mock-bar-track">
+                        <div className="mock-bar-fill" style={{ width: '74%', background: 'linear-gradient(90deg, #3b82f6, #06b6d4)' }}></div>
+                      </div>
+                    </div>
+                    <div className="mock-bar-row">
+                      <span className="mock-bar-label">QA Sign-Off</span>
+                      <div className="mock-bar-track">
+                        <div className="mock-bar-fill" style={{ width: '48%', background: 'linear-gradient(90deg, #f59e0b, #ef4444)' }}></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSlide === 2 && (
+              <div className="animate-fade-in">
+                <h2 className="showcase-tagline">
+                  Integrate with your existing workflows seamlessly.
+                </h2>
+                <div className="showcase-quote-wrapper">
+                  <div style={{ color: 'rgba(255, 255, 255, 0.25)', marginBottom: '0.5rem' }}>
+                    <Quote size={32} fill="currentColor" stroke="none" />
+                  </div>
+                  <p className="showcase-quote-text">
+                    "{TESTIMONIALS[1].text}"
+                  </p>
+                  <div className="showcase-quote-profile">
+                    <AvatarCircle name={TESTIMONIALS[1].name} />
+                    <div>
+                      <div className="showcase-quote-name">{TESTIMONIALS[1].name}</div>
+                      <div className="showcase-quote-role">{TESTIMONIALS[1].role}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Grayscale Integrations/Partner Row */}
+          <div className="showcase-partners-container">
+            <div className="showcase-partners-title">POWERED BY & ALIGNED WITH</div>
+            <div className="showcase-partners-row">
+              <div className="partner-logo-item">ClickUp</div>
+              <div className="partner-logo-item">Slack</div>
+              <div className="partner-logo-item">Discord</div>
+              <div className="partner-logo-item">MongoDB</div>
+              <div className="partner-logo-item">Vercel</div>
             </div>
           </div>
-        ) : (
-          <div style={{
-            backgroundColor: 'var(--danger-bg)',
-            border: '1px solid rgba(239, 68, 68, 0.15)',
-            borderRadius: '10px',
-            padding: '12px',
-            fontSize: '0.75rem',
-            color: 'var(--danger)',
-            textAlign: 'center',
-            fontWeight: 600
-          }}>
-            ⚠️ Google Client ID is not configured. Please contact the system administrator.
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );

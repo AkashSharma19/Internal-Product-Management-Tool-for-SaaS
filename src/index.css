@@ -4353,3 +4353,379 @@ body.read-only-mode .btn:has(svg.lucide-plus) {
   border-radius: 6px;
   cursor: pointer;
 }
+
+/* REVAMPED PREMIUM SaaS SPLIT LOGIN STYLES */
+.login-split-container {
+  display: flex;
+  min-height: 100vh;
+  width: 100vw;
+  background: var(--background);
+  font-family: var(--font-family-base);
+  overflow: hidden;
+  position: relative;
+}
+
+.login-auth-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 3rem 2.5rem;
+  background: var(--panel-bg);
+  position: relative;
+  z-index: 10;
+  box-shadow: 10px 0 30px -15px rgba(0, 0, 0, 0.05);
+}
+
+.login-showcase-panel {
+  flex: 1.25;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1.5rem;
+  position: relative;
+  z-index: 5;
+  background: var(--background-alt);
+}
+
+.login-showcase-gradient-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 4rem 3.5rem 3rem;
+  border-radius: 24px;
+  background: linear-gradient(135deg, hsl(263, 50%, 35%) 0%, hsl(263, 60%, 15%) 100%);
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+/* Auth Section UI Details */
+.login-brand-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: fadeIn 0.4s ease forwards;
+}
+
+.login-brand-logo {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-glow);
+}
+
+.login-brand-name {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  font-family: var(--font-family-heading);
+}
+
+.login-form-wrapper {
+  margin: auto 0;
+  max-width: 400px;
+  width: 100%;
+  align-self: center;
+  animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.login-welcome-title {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.02em;
+  font-family: var(--font-family-heading);
+}
+
+.login-welcome-subtitle {
+  font-size: 0.825rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 2.25rem;
+}
+
+/* High Fidelity Google SSO Button */
+.google-sso-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  height: 48px;
+  border-radius: 12px;
+  border: 1px solid var(--border-light);
+  background: var(--panel-bg);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
+  outline: none;
+}
+
+.google-sso-btn:hover {
+  background: var(--background-alt);
+  border-color: var(--border);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.google-sso-btn:active {
+  transform: translateY(1px);
+}
+
+.google-sso-icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* Showcase Section Styles */
+.showcase-badge {
+  align-self: flex-start;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  margin-bottom: 1.5rem;
+}
+
+.showcase-tagline {
+  font-size: 2.25rem;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  max-width: 500px;
+  font-family: var(--font-family-heading);
+}
+
+/* Floating Simulated Dashboard Card */
+.floating-dashboard-card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  padding: 1.25rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  max-width: 480px;
+  width: 100%;
+  margin: 2.5rem 0;
+  transform: translateY(0);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  color: #ffffff;
+}
+
+.floating-dashboard-card:hover {
+  transform: translateY(-4px) scale(1.01);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.mock-dash-top {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  font-size: 0.725rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 8px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.mock-dash-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 1rem;
+}
+
+.mock-metric-box {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.mock-metric-val {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #ffffff;
+  display: block;
+}
+
+.mock-metric-lbl {
+  font-size: 0.575rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.mock-dash-bar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mock-bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mock-bar-label {
+  font-size: 0.65rem;
+  width: 90px;
+  color: rgba(255, 255, 255, 0.85);
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.mock-bar-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.mock-bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, #a855f7, #6366f1);
+  border-radius: 3px;
+}
+
+/* Testimonial Quote slider styles */
+.showcase-quote-wrapper {
+  margin: 2rem 0;
+  max-width: 500px;
+}
+
+.showcase-quote-text {
+  font-size: 1.15rem;
+  line-height: 1.5;
+  font-style: italic;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: 1.25rem;
+}
+
+.showcase-quote-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.showcase-quote-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+}
+
+.showcase-quote-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.showcase-quote-role {
+  font-size: 0.725rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Grayscale Partners Grid */
+.showcase-partners-container {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 1.5rem;
+  margin-top: 1rem;
+}
+
+.showcase-partners-title {
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 0.85rem;
+}
+
+.showcase-partners-row {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.partner-logo-item {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: color 0.2s ease;
+  user-select: none;
+}
+
+.partner-logo-item:hover {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Footer elements */
+.login-auth-footer {
+  font-size: 0.725rem;
+  color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+}
+
+.login-auth-footer-link {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.15s ease;
+}
+
+.login-auth-footer-link:hover {
+  color: var(--primary);
+}
+
+/* Responsive details */
+@media (max-width: 968px) {
+  .login-showcase-panel {
+    display: none;
+  }
+  .login-auth-panel {
+    flex: 1;
+    min-height: 100vh;
+    padding: 2.5rem 1.75rem;
+    justify-content: center;
+    gap: 3rem;
+  }
+  .login-form-wrapper {
+    margin: 0;
+  }
+}
+
+
