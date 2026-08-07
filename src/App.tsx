@@ -53,11 +53,37 @@ import {
   VolumeX,
   Flame,
   UserCheck,
-  Ship,
   Quote
 } from 'lucide-react';
 
 import { isAudioMuted, toggleAudioMute, playPopSound } from './utils/audio';
+
+const SailboatIcon: React.FC<{ size?: number; className?: string; style?: React.CSSProperties }> = ({ size = 16, className, style }) => {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={style}>
+      <path d="M12 5.5 L17.5 14.5 H12 Z" fill="currentColor" />
+      <path d="M11 6.5 L6 14.5 H11 Z" fill="currentColor" opacity="0.8" />
+      <path d="M4.5 15.5 H19.5 L17 18.5 H7 Z" fill="currentColor" opacity="0.95" />
+    </svg>
+  );
+};
+
+const ProductShipLogo: React.FC<{ size?: number; style?: React.CSSProperties }> = ({ size = 24, style }) => {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={style}>
+      <defs>
+        <linearGradient id="logo-grad-svg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="var(--primary)" />
+          <stop offset="100%" stopColor="#06b6d4" />
+        </linearGradient>
+      </defs>
+      <rect x="2" y="2" width="20" height="20" rx="6" fill="url(#logo-grad-svg)" />
+      <path d="M12 5.5 L17.5 14.5 H12 Z" fill="#ffffff" />
+      <path d="M11 6.5 L6 14.5 H11 Z" fill="rgba(255, 255, 255, 0.8)" />
+      <path d="M4.5 15.5 H19.5 L17 18.5 H7 Z" fill="#ffffff" opacity="0.95" />
+    </svg>
+  );
+};
 
 const TESTIMONIALS = [
   {
@@ -179,9 +205,7 @@ const LoginView: React.FC = () => {
       <div className="login-auth-panel">
         {/* Brand Header */}
         <div className="login-brand-header">
-          <div className="login-brand-logo">
-            <Ship size={20} color="#fff" />
-          </div>
+          <ProductShipLogo size={38} />
           <span className="login-brand-name">ProductShip</span>
         </div>
 
@@ -1657,51 +1681,50 @@ const DashboardContent: React.FC = () => {
       <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {/* Logo Section */}
         <div className="logo-section" style={{ display: 'flex', width: '100%', justifyContent: isCollapsed ? 'center' : 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', padding: '0.5rem 0.25rem' }}>
-          {!isCollapsed && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-                <defs>
-                  <linearGradient id="logo-grad-expanded" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="var(--primary)" />
-                    <stop offset="100%" stopColor="#06b6d4" />
-                  </linearGradient>
-                </defs>
-                <rect x="2" y="2" width="20" height="20" rx="6" fill="url(#logo-grad-expanded)" />
-                {/* Paper Ship / Sailboat */}
-                <path d="M12 5.5 L17.5 14.5 H12 Z" fill="#ffffff" />
-                <path d="M11 6.5 L6 14.5 H11 Z" fill="rgba(255, 255, 255, 0.8)" />
-                <path d="M4.5 15.5 H19.5 L17 18.5 H7 Z" fill="#ffffff" opacity="0.95" />
-              </svg>
-              <span style={{
-                fontSize: '0.9rem',
-                fontWeight: 800,
-                color: 'var(--text-primary)',
-                fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif",
-                letterSpacing: '-0.01em',
-                textTransform: 'uppercase',
-                whiteSpace: 'nowrap'
-              }}>
-                ProductShip
-              </span>
+          {isCollapsed ? (
+            <div 
+              onClick={() => setIsCollapsed(false)}
+              className="collapsed-logo-container"
+              title="Expand Sidebar"
+            >
+              <SailboatIcon size={28} className="collapsed-logo-icon" />
+              <ChevronRight size={18} className="collapsed-logo-hover-icon" />
             </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden' }}>
+                <ProductShipLogo size={28} />
+                <span style={{
+                  fontSize: '0.9rem',
+                  fontWeight: 800,
+                  color: 'var(--text-primary)',
+                  fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif",
+                  letterSpacing: '-0.01em',
+                  textTransform: 'uppercase',
+                  whiteSpace: 'nowrap'
+                }}>
+                  ProductShip
+                </span>
+              </div>
+              <button
+                onClick={() => setIsCollapsed(true)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-secondary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '6px',
+                  borderRadius: '8px',
+                  transition: 'background-color 0.2s'
+                }}
+                title="Collapse Sidebar"
+              >
+                <ChevronLeft size={18} />
+              </button>
+            </>
           )}
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text-secondary)',
-              display: 'flex',
-              alignItems: 'center',
-              padding: '6px',
-              borderRadius: '8px',
-              transition: 'background-color 0.2s'
-            }}
-            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-          >
-            {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-          </button>
         </div>
 
         {/* Grouped Sidebar Navigation */}

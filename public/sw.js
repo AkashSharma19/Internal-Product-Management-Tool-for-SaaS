@@ -1,4 +1,4 @@
-const CACHE_NAME = 'product-ship-v1';
+const CACHE_NAME = 'product-ship-v2';
 const ASSETS = [
   '/',
   '/index.html',
