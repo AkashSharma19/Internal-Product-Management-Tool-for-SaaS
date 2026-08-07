@@ -554,14 +554,14 @@ export const TeamView: React.FC = () => {
                                                 title={canPreview ? "Double click to open detail drawer" : "Detail drawer not available for this source"}
                                               >
                                                 {/* Task / Feature Title */}
-                                                <td style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-primary)' }}>
-                                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <td style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-primary)', whiteSpace: 'normal', minWidth: '160px' }}>
+                                                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', flexWrap: 'wrap' }}>
                                                     {task.priority && (
-                                                      <span className={`badge badge-${task.priority.toLowerCase()}`} style={{ fontSize: '0.6rem', padding: '1px 4px', borderRadius: '3px' }}>
+                                                      <span className={`badge badge-${task.priority.toLowerCase()}`} style={{ fontSize: '0.6rem', padding: '1px 4px', borderRadius: '3px', flexShrink: 0, marginTop: '2px' }}>
                                                         {task.priority}
                                                       </span>
                                                     )}
-                                                    <span>{task.feature}</span>
+                                                    <span style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{task.feature}</span>
                                                   </div>
                                                 </td>
 
