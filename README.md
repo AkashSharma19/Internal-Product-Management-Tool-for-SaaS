@@ -6,7 +6,7 @@
 
 ## 📋 Overview
 
-This tool centralises everything the product & operations team tracks day-to-day into a single, dark-mode dashboard — replacing scattered spreadsheets and ClickUp exports. Data is persisted via a **Vercel Serverless API** backed by **Google Sheets**, with real-time ClickUp sync and Google OAuth authentication.
+This tool centralises everything the product & operations team tracks day-to-day into a single, dark-mode dashboard — replacing scattered spreadsheets and ClickUp exports. Data is persisted via a **Vercel Serverless API** backed by **MongoDB & Mongoose ORM**, with real-time ClickUp sync and Google OAuth authentication.
 
 ---
 
@@ -108,7 +108,7 @@ Manage master lists that power dropdowns across the entire portal:
 | State | React Context API |
 | Fonts | Google Fonts — Inter, Outfit, Google Sans |
 | Backend | Vercel Serverless Functions (Node.js) |
-| Database | Google Sheets (via Sheets API v4) |
+| Database | MongoDB (via Mongoose ORM) |
 | Auth | Google OAuth 2.0 (login via email) |
 | Deployment | Vercel |
 
@@ -120,7 +120,7 @@ Manage master lists that power dropdowns across the entire portal:
 - Node.js ≥ 18
 - npm
 - A Vercel account (for production / serverless API)
-- Google Sheets API credentials (for data persistence)
+- MongoDB Connection URI (stored in MONGODB_URI environment variable)
 
 ### Install & Run (Local)
 
@@ -156,7 +156,7 @@ Deployed automatically to Vercel on every push to `main`.
 ├── api/
 │   ├── data.ts           # Main Vercel serverless API (all CRUD, auth, ClickUp, calendar)
 │   ├── webhook.ts        # ClickUp webhook handler
-│   └── lib/              # Shared Google Sheets client & helpers
+│   └── lib/              # Mongoose DB connection & Mongoose Schemas
 ├── src/
 │   ├── App.tsx           # Sidebar navigation, layout shell, command palette
 │   ├── App.css           # Layout-level styles
