@@ -2538,8 +2538,8 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
       historyField: 'uiux',
       historyLabel: 'UI/UX Date',
       completedKey: 'uiuxCompleted',
-      diffDays: item.uiux ? getDateDiffDays(item.productDeadline, item.uiux) : null,
-      diffTitle: 'Days since Specs Date'
+      diffDays: item.uiux ? getDateDiffDays(item.productDeadline || item.createdAt, item.uiux) : null,
+      diffTitle: item.productDeadline ? 'Days since Specs Date' : 'Days since Created Date'
     },
     {
       label: 'Dev Date',
@@ -2553,8 +2553,8 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
       historyField: 'deadline',
       historyLabel: 'Dev Date',
       completedKey: 'deadlineCompleted',
-      diffDays: item.deadline && (item.uiux || item.productDeadline) ? getDateDiffDays(item.uiux || item.productDeadline, item.deadline) : null,
-      diffTitle: item.uiux ? 'Days since UI/UX Date' : 'Days since Specs Date'
+      diffDays: item.deadline ? getDateDiffDays(item.uiux || item.productDeadline || item.createdAt, item.deadline) : null,
+      diffTitle: item.uiux ? 'Days since UI/UX Date' : item.productDeadline ? 'Days since Specs Date' : 'Days since Created Date'
     },
     {
       label: 'Release Date',
@@ -2568,8 +2568,8 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
       historyField: 'finalRelease',
       historyLabel: 'Release Date',
       completedKey: 'finalReleaseCompleted',
-      diffDays: item.finalRelease && (item.deadline || item.uiux || item.productDeadline) ? getDateDiffDays(item.deadline || item.uiux || item.productDeadline, item.finalRelease) : null,
-      diffTitle: item.deadline ? 'Days since Dev Date' : item.uiux ? 'Days since UI/UX Date' : 'Days since Specs Date'
+      diffDays: item.finalRelease ? getDateDiffDays(item.deadline || item.uiux || item.productDeadline || item.createdAt, item.finalRelease) : null,
+      diffTitle: item.deadline ? 'Days since Dev Date' : item.uiux ? 'Days since UI/UX Date' : item.productDeadline ? 'Days since Specs Date' : 'Days since Created Date'
     }
   ];
 
@@ -3917,7 +3917,7 @@ export const ProductTable: React.FC = () => {
                     ) : '—'}
                   </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                    <DateDiffBadge prevDate={item.productDeadline} currentDate={item.uiux} />
+                    <DateDiffBadge prevDate={item.productDeadline || item.createdAt} currentDate={item.uiux} />
                     {item.uiux ? (
                       <span style={getDateSpanStyle(item.uiux, item.uiuxCompleted)}>
                         {formatDateToUserPattern(item.uiux)}
@@ -3925,7 +3925,7 @@ export const ProductTable: React.FC = () => {
                     ) : '—'}
                   </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                    <DateDiffBadge prevDate={item.uiux || item.productDeadline} currentDate={item.deadline} />
+                    <DateDiffBadge prevDate={item.uiux || item.productDeadline || item.createdAt} currentDate={item.deadline} />
                     {item.deadline ? (
                       <span style={getDateSpanStyle(item.deadline, item.deadlineCompleted)}>
                         {formatDateToUserPattern(item.deadline)}
@@ -3933,7 +3933,7 @@ export const ProductTable: React.FC = () => {
                     ) : '—'}
                   </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                    <DateDiffBadge prevDate={item.deadline || item.uiux || item.productDeadline} currentDate={item.finalRelease} />
+                    <DateDiffBadge prevDate={item.deadline || item.uiux || item.productDeadline || item.createdAt} currentDate={item.finalRelease} />
                     {item.finalRelease ? (
                       <span style={getDateSpanStyle(item.finalRelease, item.finalReleaseCompleted)}>
                         {formatDateToUserPattern(item.finalRelease)}
@@ -5640,7 +5640,7 @@ export const StudentProjectsTable: React.FC = () => {
                     ) : '—'}
                   </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                    <DateDiffBadge prevDate={p.productDeadline} currentDate={p.uiux} />
+                    <DateDiffBadge prevDate={p.productDeadline || p.createdAt} currentDate={p.uiux} />
                     {p.uiux ? (
                       <span style={getDateSpanStyle(p.uiux, isCompletedStatus(p.status) || !!matchedProduct?.uiuxCompleted)}>
                         {formatDateToUserPattern(p.uiux)}
@@ -5648,7 +5648,7 @@ export const StudentProjectsTable: React.FC = () => {
                     ) : '—'}
                   </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                    <DateDiffBadge prevDate={p.uiux || p.productDeadline} currentDate={p.deadline || p.completeInfoDate} />
+                    <DateDiffBadge prevDate={p.uiux || p.productDeadline || p.createdAt} currentDate={p.deadline || p.completeInfoDate} />
                     {(p.deadline || p.completeInfoDate) ? (
                       <span style={getDateSpanStyle(p.deadline || p.completeInfoDate, isCompletedStatus(p.status) || !!matchedProduct?.deadlineCompleted)}>
                         {formatDateToUserPattern(p.deadline || p.completeInfoDate)}
@@ -5656,7 +5656,7 @@ export const StudentProjectsTable: React.FC = () => {
                     ) : '—'}
                   </td>
                   <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                    <DateDiffBadge prevDate={p.deadline || p.completeInfoDate || p.uiux || p.productDeadline} currentDate={p.finalRelease} />
+                    <DateDiffBadge prevDate={p.deadline || p.completeInfoDate || p.uiux || p.productDeadline || p.createdAt} currentDate={p.finalRelease} />
                     {p.finalRelease ? (
                       <span style={getDateSpanStyle(p.finalRelease, isCompletedStatus(p.status) || !!matchedProduct?.finalReleaseCompleted)}>
                         {formatDateToUserPattern(p.finalRelease)}
@@ -7077,7 +7077,7 @@ export const StudentMeetingsTable: React.FC = () => {
                                             ) : '—'}
                                           </td>
                                           <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                                            <DateDiffBadge prevDate={feat.productDeadline} currentDate={feat.uiux} />
+                                            <DateDiffBadge prevDate={feat.productDeadline || feat.createdAt} currentDate={feat.uiux} />
                                             {feat.uiux ? (
                                               <span style={getDateSpanStyle(feat.uiux, feat.uiuxCompleted)}>
                                                 {formatDateToUserPattern(feat.uiux)}
@@ -7085,7 +7085,7 @@ export const StudentMeetingsTable: React.FC = () => {
                                             ) : '—'}
                                           </td>
                                           <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                                            <DateDiffBadge prevDate={feat.uiux || feat.productDeadline} currentDate={feat.deadline} />
+                                            <DateDiffBadge prevDate={feat.uiux || feat.productDeadline || feat.createdAt} currentDate={feat.deadline} />
                                             {feat.deadline ? (
                                               <span style={getDateSpanStyle(feat.deadline, feat.deadlineCompleted)}>
                                                 {formatDateToUserPattern(feat.deadline)}
@@ -7093,7 +7093,7 @@ export const StudentMeetingsTable: React.FC = () => {
                                             ) : '—'}
                                           </td>
                                           <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                                            <DateDiffBadge prevDate={feat.deadline || feat.uiux || feat.productDeadline} currentDate={feat.finalRelease} />
+                                            <DateDiffBadge prevDate={feat.deadline || feat.uiux || feat.productDeadline || feat.createdAt} currentDate={feat.finalRelease} />
                                             {feat.finalRelease ? (
                                               <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
                                                 {formatDateToUserPattern(feat.finalRelease)}
@@ -7759,7 +7759,7 @@ export const StudentMeetingsTable: React.FC = () => {
                         ) : '—'}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        <DateDiffBadge prevDate={feat.productDeadline} currentDate={feat.uiux} />
+                        <DateDiffBadge prevDate={feat.productDeadline || feat.createdAt} currentDate={feat.uiux} />
                         {feat.uiux ? (
                           <span style={getDateSpanStyle(feat.uiux, feat.uiuxCompleted)}>
                             {formatDateToUserPattern(feat.uiux)}
@@ -7767,7 +7767,7 @@ export const StudentMeetingsTable: React.FC = () => {
                         ) : '—'}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        <DateDiffBadge prevDate={feat.uiux || feat.productDeadline} currentDate={feat.deadline} />
+                        <DateDiffBadge prevDate={feat.uiux || feat.productDeadline || feat.createdAt} currentDate={feat.deadline} />
                         {feat.deadline ? (
                           <span style={getDateSpanStyle(feat.deadline, feat.deadlineCompleted)}>
                             {formatDateToUserPattern(feat.deadline)}
@@ -7775,7 +7775,7 @@ export const StudentMeetingsTable: React.FC = () => {
                         ) : '—'}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        <DateDiffBadge prevDate={feat.deadline || feat.uiux || feat.productDeadline} currentDate={feat.finalRelease} />
+                        <DateDiffBadge prevDate={feat.deadline || feat.uiux || feat.productDeadline || feat.createdAt} currentDate={feat.finalRelease} />
                         {feat.finalRelease ? (
                           <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
                             {formatDateToUserPattern(feat.finalRelease)}
@@ -9020,7 +9020,7 @@ export const AdminCallsTable: React.FC = () => {
                                               ) : '—'}
                                             </td>
                                             <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                                              <DateDiffBadge prevDate={feat.productDeadline} currentDate={feat.uiux} />
+                                              <DateDiffBadge prevDate={feat.productDeadline || feat.createdAt} currentDate={feat.uiux} />
                                               {feat.uiux ? (
                                                 <span style={getDateSpanStyle(feat.uiux, feat.uiuxCompleted)}>
                                                   {formatDateToUserPattern(feat.uiux)}
@@ -9028,7 +9028,7 @@ export const AdminCallsTable: React.FC = () => {
                                               ) : '—'}
                                             </td>
                                             <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                                              <DateDiffBadge prevDate={feat.uiux || feat.productDeadline} currentDate={feat.deadline} />
+                                              <DateDiffBadge prevDate={feat.uiux || feat.productDeadline || feat.createdAt} currentDate={feat.deadline} />
                                               {feat.deadline ? (
                                                 <span style={getDateSpanStyle(feat.deadline, feat.deadlineCompleted)}>
                                                   {formatDateToUserPattern(feat.deadline)}
@@ -9036,7 +9036,7 @@ export const AdminCallsTable: React.FC = () => {
                                               ) : '—'}
                                             </td>
                                             <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                                              <DateDiffBadge prevDate={feat.deadline || feat.uiux || feat.productDeadline} currentDate={feat.finalRelease} />
+                                              <DateDiffBadge prevDate={feat.deadline || feat.uiux || feat.productDeadline || feat.createdAt} currentDate={feat.finalRelease} />
                                               {feat.finalRelease ? (
                                                 <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
                                                   {formatDateToUserPattern(feat.finalRelease)}
@@ -9562,7 +9562,7 @@ export const AdminCallsTable: React.FC = () => {
                         ) : '—'}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        <DateDiffBadge prevDate={feat.productDeadline} currentDate={feat.uiux} />
+                        <DateDiffBadge prevDate={feat.productDeadline || feat.createdAt} currentDate={feat.uiux} />
                         {feat.uiux ? (
                           <span style={getDateSpanStyle(feat.uiux, feat.uiuxCompleted)}>
                             {formatDateToUserPattern(feat.uiux)}
@@ -9570,7 +9570,7 @@ export const AdminCallsTable: React.FC = () => {
                         ) : '—'}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        <DateDiffBadge prevDate={feat.uiux || feat.productDeadline} currentDate={feat.deadline} />
+                        <DateDiffBadge prevDate={feat.uiux || feat.productDeadline || feat.createdAt} currentDate={feat.deadline} />
                         {feat.deadline ? (
                           <span style={getDateSpanStyle(feat.deadline, feat.deadlineCompleted)}>
                             {formatDateToUserPattern(feat.deadline)}
@@ -9578,7 +9578,7 @@ export const AdminCallsTable: React.FC = () => {
                         ) : '—'}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        <DateDiffBadge prevDate={feat.deadline || feat.uiux || feat.productDeadline} currentDate={feat.finalRelease} />
+                        <DateDiffBadge prevDate={feat.deadline || feat.uiux || feat.productDeadline || feat.createdAt} currentDate={feat.finalRelease} />
                         {feat.finalRelease ? (
                           <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
                             {formatDateToUserPattern(feat.finalRelease)}
@@ -10775,7 +10775,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                               ) : '—'}
                                             </td>
                                             <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                                              <DateDiffBadge prevDate={feat.productDeadline} currentDate={feat.uiux} />
+                                              <DateDiffBadge prevDate={feat.productDeadline || feat.createdAt} currentDate={feat.uiux} />
                                               {feat.uiux ? (
                                                 <span style={getDateSpanStyle(feat.uiux, feat.uiuxCompleted)}>
                                                   {formatDateToUserPattern(feat.uiux)}
@@ -10783,7 +10783,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                               ) : '—'}
                                             </td>
                                             <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                                              <DateDiffBadge prevDate={feat.uiux || feat.productDeadline} currentDate={feat.deadline} />
+                                              <DateDiffBadge prevDate={feat.uiux || feat.productDeadline || feat.createdAt} currentDate={feat.deadline} />
                                               {feat.deadline ? (
                                                 <span style={getDateSpanStyle(feat.deadline, feat.deadlineCompleted)}>
                                                   {formatDateToUserPattern(feat.deadline)}
@@ -10791,7 +10791,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                                               ) : '—'}
                                             </td>
                                             <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                                              <DateDiffBadge prevDate={feat.deadline || feat.uiux || feat.productDeadline} currentDate={feat.finalRelease} />
+                                              <DateDiffBadge prevDate={feat.deadline || feat.uiux || feat.productDeadline || feat.createdAt} currentDate={feat.finalRelease} />
                                               {feat.finalRelease ? (
                                                   <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
                                                     {formatDateToUserPattern(feat.finalRelease)}
@@ -11319,7 +11319,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                         ) : '—'}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        <DateDiffBadge prevDate={feat.productDeadline} currentDate={feat.uiux} />
+                        <DateDiffBadge prevDate={feat.productDeadline || feat.createdAt} currentDate={feat.uiux} />
                         {feat.uiux ? (
                           <span style={getDateSpanStyle(feat.uiux, feat.uiuxCompleted)}>
                             {formatDateToUserPattern(feat.uiux)}
@@ -11327,7 +11327,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                         ) : '—'}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        <DateDiffBadge prevDate={feat.uiux || feat.productDeadline} currentDate={feat.deadline} />
+                        <DateDiffBadge prevDate={feat.uiux || feat.productDeadline || feat.createdAt} currentDate={feat.deadline} />
                         {feat.deadline ? (
                           <span style={getDateSpanStyle(feat.deadline, feat.deadlineCompleted)}>
                             {formatDateToUserPattern(feat.deadline)}
@@ -11335,7 +11335,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                         ) : '—'}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        <DateDiffBadge prevDate={feat.deadline || feat.uiux || feat.productDeadline} currentDate={feat.finalRelease} />
+                        <DateDiffBadge prevDate={feat.deadline || feat.uiux || feat.productDeadline || feat.createdAt} currentDate={feat.finalRelease} />
                         {feat.finalRelease ? (
                                                   <span style={getDateSpanStyle(feat.finalRelease, feat.finalReleaseCompleted)}>
                                                     {formatDateToUserPattern(feat.finalRelease)}
@@ -11715,24 +11715,24 @@ export const ContentTable: React.FC = () => {
                   </td>
 
                   {/* UI/UX Date */}
-                  <td>
-                    {item.uiux && <DateDiffBadge prevDate={item.productDeadline} currentDate={item.uiux} />}
+                  <td style={{ position: 'relative' }}>
+                    {item.uiux && <DateDiffBadge prevDate={item.productDeadline || item.createdAt} currentDate={item.uiux} />}
                     <span style={getDateSpanStyle(item.uiux, item.uiuxCompleted)}>
                       {item.uiux ? formatDateToShortPattern(item.uiux) : '—'}
                     </span>
                   </td>
 
                   {/* Dev Date */}
-                  <td>
-                    {item.deadline && <DateDiffBadge prevDate={item.uiux || item.productDeadline} currentDate={item.deadline} />}
+                  <td style={{ position: 'relative' }}>
+                    {item.deadline && <DateDiffBadge prevDate={item.uiux || item.productDeadline || item.createdAt} currentDate={item.deadline} />}
                     <span style={getDateSpanStyle(item.deadline, item.deadlineCompleted)}>
                       {item.deadline ? formatDateToShortPattern(item.deadline) : '—'}
                     </span>
                   </td>
 
                   {/* Release Date */}
-                  <td>
-                    {item.finalRelease && <DateDiffBadge prevDate={item.deadline || item.uiux || item.productDeadline} currentDate={item.finalRelease} />}
+                  <td style={{ position: 'relative' }}>
+                    {item.finalRelease && <DateDiffBadge prevDate={item.deadline || item.uiux || item.productDeadline || item.createdAt} currentDate={item.finalRelease} />}
                     <span style={
                       item.finalRelease ? getDateSpanStyle(item.finalRelease, item.finalReleaseCompleted) : item.finalReleaseCompleted ? {
                         fontSize: '0.68rem',
@@ -12448,7 +12448,7 @@ export const ProductWiseSheet: React.FC = () => {
                           ) : '—'}
                         </td>
                         <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                          <DateDiffBadge prevDate={item.productDeadline} currentDate={item.uiux} />
+                          <DateDiffBadge prevDate={item.productDeadline || item.createdAt} currentDate={item.uiux} />
                           {item.uiux ? (
                             <span style={getDateSpanStyle(item.uiux, item.uiuxCompleted)}>
                               {formatDateToUserPattern(item.uiux)}
@@ -12456,7 +12456,7 @@ export const ProductWiseSheet: React.FC = () => {
                           ) : '—'}
                         </td>
                         <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                          <DateDiffBadge prevDate={item.uiux || item.productDeadline} currentDate={item.deadline} />
+                          <DateDiffBadge prevDate={item.uiux || item.productDeadline || item.createdAt} currentDate={item.deadline} />
                           {item.deadline ? (
                             <span style={getDateSpanStyle(item.deadline, item.deadlineCompleted)}>
                               {formatDateToUserPattern(item.deadline)}
@@ -12464,7 +12464,7 @@ export const ProductWiseSheet: React.FC = () => {
                           ) : '—'}
                         </td>
                         <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                          <DateDiffBadge prevDate={item.deadline || item.uiux || item.productDeadline} currentDate={item.finalRelease} />
+                          <DateDiffBadge prevDate={item.deadline || item.uiux || item.productDeadline || item.createdAt} currentDate={item.finalRelease} />
                           {item.finalRelease ? (
                             <span style={getDateSpanStyle(item.finalRelease, item.finalReleaseCompleted)}>
                               {formatDateToUserPattern(item.finalRelease)}
@@ -12909,13 +12909,13 @@ export const IssuesTable: React.FC = () => {
           {renderDateCell(item, 'productDeadline', ['createdAt'])}
         </td>
         <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-          {renderDateCell(item, 'uiux', ['productDeadline'])}
+          {renderDateCell(item, 'uiux', ['productDeadline', 'createdAt'])}
         </td>
         <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-          {renderDateCell(item, 'deadline', ['uiux', 'productDeadline'])}
+          {renderDateCell(item, 'deadline', ['uiux', 'productDeadline', 'createdAt'])}
         </td>
         <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-          {renderDateCell(item, 'finalRelease', ['deadline', 'uiux', 'productDeadline'])}
+          {renderDateCell(item, 'finalRelease', ['deadline', 'uiux', 'productDeadline', 'createdAt'])}
         </td>
         <td>
           <button 
@@ -13341,13 +13341,13 @@ export const FeatureRequestsTable: React.FC = () => {
                         {renderDateCell(item, 'productDeadline', ['createdAt'])}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        {renderDateCell(item, 'uiux', ['productDeadline'])}
+                        {renderDateCell(item, 'uiux', ['productDeadline', 'createdAt'])}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        {renderDateCell(item, 'deadline', ['uiux', 'productDeadline'])}
+                        {renderDateCell(item, 'deadline', ['uiux', 'productDeadline', 'createdAt'])}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', position: 'relative' }}>
-                        {renderDateCell(item, 'finalRelease', ['deadline', 'uiux', 'productDeadline'])}
+                        {renderDateCell(item, 'finalRelease', ['deadline', 'uiux', 'productDeadline', 'createdAt'])}
                       </td>
                       <td>
                         <button 

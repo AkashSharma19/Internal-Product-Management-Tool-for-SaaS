@@ -2019,7 +2019,7 @@ export const DashboardOverview: React.FC = () => {
 
                           {/* UIUX */}
                           <td style={{ padding: '12px 10px', fontSize: '0.75rem', color: 'var(--text-secondary)', verticalAlign: 'middle', position: 'relative' }}>
-                            <DateDiffBadge prevDate={task.productDeadline} currentDate={task.uiux} />
+                            <DateDiffBadge prevDate={task.productDeadline || task.createdAt} currentDate={task.uiux} />
                             {task.uiux ? (
                               <span style={getDateSpanStyle(task.uiux, task.uiuxCompleted)}>
                                 {formatDateToUserPattern(task.uiux)}
@@ -2029,7 +2029,7 @@ export const DashboardOverview: React.FC = () => {
 
                           {/* Dev */}
                           <td style={{ padding: '12px 10px', fontSize: '0.75rem', color: 'var(--text-secondary)', verticalAlign: 'middle', position: 'relative' }}>
-                            <DateDiffBadge prevDate={task.uiux || task.productDeadline} currentDate={task.deadline} />
+                            <DateDiffBadge prevDate={task.uiux || task.productDeadline || task.createdAt} currentDate={task.deadline} />
                             {task.deadline ? (
                               <span style={getDateSpanStyle(task.deadline, task.deadlineCompleted)}>
                                 {formatDateToUserPattern(task.deadline)}
@@ -2039,7 +2039,7 @@ export const DashboardOverview: React.FC = () => {
 
                           {/* Release */}
                           <td style={{ padding: '12px 10px', fontSize: '0.75rem', color: 'var(--text-secondary)', verticalAlign: 'middle', position: 'relative' }}>
-                            <DateDiffBadge prevDate={task.deadline || task.uiux || task.productDeadline} currentDate={task.finalRelease} />
+                            <DateDiffBadge prevDate={task.deadline || task.uiux || task.productDeadline || task.createdAt} currentDate={task.finalRelease} />
                             {task.finalRelease ? (
                               <span style={getDateSpanStyle(task.finalRelease, task.finalReleaseCompleted)}>
                                 {formatDateToUserPattern(task.finalRelease)}
