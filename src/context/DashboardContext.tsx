@@ -292,6 +292,19 @@ interface DashboardContextType {
     sortField?: string;
     sortAsc?: boolean;
   }) => Promise<{ success: boolean; data: any[]; totalItems: number; totalPages: number; productCounts?: Record<string, { total: number; completed: number }>; completedItems?: number }>;
+  fetchTeamAssignees: (options: {
+    page: number;
+    limit: number;
+    search?: string;
+    hideReleased?: boolean;
+    sortField?: string;
+    sortAsc?: boolean;
+  }) => Promise<{ success: boolean; data: any[]; totalItems: number; totalPages: number }>;
+  fetchTeamMemberTasks: (options: {
+    name: string;
+    hideReleased?: boolean;
+    search?: string;
+  }) => Promise<{ success: boolean; data: any[] }>;
   fetchPaginatedMeetingsData: (options: {
     type: 'amaSessions' | 'adminCalls' | 'tarunSirMeetings' | 'amaFeedback' | 'adminFeedback' | 'tarunFeedback' | 'dailyIssues' | 'featureRequests' | 'challenges';
     page: number;
@@ -1276,6 +1289,80 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       console.error('Failed to fetch product breakdown data:', err);
       setSyncStatus('error');
       return { success: false, data: [], totalItems: 0, totalPages: 1 };
+    }
+  }, []);
+
+  const fetchTeamAssignees = useCallback(async (options: {
+    page: number;
+    limit: number;
+    search?: string;
+    hideReleased?: boolean;
+    sortField?: string;
+    sortAsc?: boolean;
+  }) => {
+    setSyncStatus('syncing');
+    try {
+      const params = new URLSearchParams();
+      params.append('action', 'team-assignees');
+      params.append('page', String(options.page));
+      params.append('limit', String(options.limit));
+      if (options.search) params.append('search', options.search);
+      if (options.hideReleased) params.append('hideReleased', 'true');
+      if (options.sortField) params.append('sortField', options.sortField);
+      if (options.sortAsc !== undefined) params.append('sortAsc', String(options.sortAsc));
+
+      const headers: Record<string, string> = {};
+      const savedUserId = localStorage.getItem('logged-in-user-id');
+      if (savedUserId) {
+        headers['x-user-id'] = savedUserId;
+      }
+
+      const response = await dedupedFetch(`/api/data?${params.toString().replace(/\+/g, '%20')}`, { headers });
+      if (response.ok) {
+        const resData = await response.json();
+        setSyncStatus('synced');
+        return resData;
+      }
+      setSyncStatus('error');
+      return { success: false, data: [], totalItems: 0, totalPages: 1 };
+    } catch (err) {
+      console.error('Failed to fetch team assignees:', err);
+      setSyncStatus('error');
+      return { success: false, data: [], totalItems: 0, totalPages: 1 };
+    }
+  }, []);
+
+  const fetchTeamMemberTasks = useCallback(async (options: {
+    name: string;
+    hideReleased?: boolean;
+    search?: string;
+  }) => {
+    setSyncStatus('syncing');
+    try {
+      const params = new URLSearchParams();
+      params.append('action', 'team-member-tasks');
+      params.append('name', options.name);
+      if (options.hideReleased) params.append('hideReleased', 'true');
+      if (options.search) params.append('search', options.search);
+
+      const headers: Record<string, string> = {};
+      const savedUserId = localStorage.getItem('logged-in-user-id');
+      if (savedUserId) {
+        headers['x-user-id'] = savedUserId;
+      }
+
+      const response = await dedupedFetch(`/api/data?${params.toString().replace(/\+/g, '%20')}`, { headers });
+      if (response.ok) {
+        const resData = await response.json();
+        setSyncStatus('synced');
+        return resData;
+      }
+      setSyncStatus('error');
+      return { success: false, data: [] };
+    } catch (err) {
+      console.error('Failed to fetch team member tasks:', err);
+      setSyncStatus('error');
+      return { success: false, data: [] };
     }
   }, []);
 
@@ -2791,6 +2878,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       isLoadingSprint,
       fetchSprintData,
       fetchProductBreakdownData,
+      fetchTeamAssignees,
+      fetchTeamMemberTasks,
       fetchPaginatedMeetingsData,
       searchGlobalTasks,
       highlightedCallId,

@@ -23,6 +23,7 @@ import { ConfigSection } from './components/ConfigSection';
 import { DashboardOverview } from './components/DashboardOverview';
 import { CalendarView } from './components/CalendarView';
 import { PublicFeedbackForm } from './components/PublicFeedbackForm';
+import { TeamView } from './components/TeamView';
 import {
   LayoutDashboard,
   Calendar,
@@ -51,7 +52,8 @@ import {
   CheckCircle,
   Volume2,
   VolumeX,
-  Flame
+  Flame,
+  UserCheck
 } from 'lucide-react';
 
 import { isAudioMuted, toggleAudioMute, playPopSound } from './utils/audio';
@@ -1438,6 +1440,7 @@ const DashboardContent: React.FC = () => {
         { id: 'product-wise', label: 'Product Breakdown', icon: <PieChart size={18} /> },
         { id: 'repository', label: 'Repository', icon: <FolderOpen size={18} /> },
         { id: 'adoption', label: 'Adoption Tracker', icon: <LineChart size={18} /> },
+        { id: 'team', label: 'Team', icon: <UserCheck size={18} /> },
       ]
     },
     {
@@ -1487,6 +1490,8 @@ const DashboardContent: React.FC = () => {
         return <ContentTable />;
       case 'product-wise':
         return <ProductWiseSheet />;
+      case 'team':
+        return <TeamView />;
       case 'repository':
         return <RepositoryView />;
       case 'issues':

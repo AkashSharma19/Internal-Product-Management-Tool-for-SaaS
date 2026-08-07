@@ -70,6 +70,7 @@ export default async function handler(req: any, res: any) {
   }
 
   const { method } = req;
+  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
 
   if (method === 'GET') {
     try {
@@ -92,7 +93,6 @@ export default async function handler(req: any, res: any) {
       }
 
       // Parse public query parameters
-      const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
       const feedbackId = url.searchParams.get('feedback');
       const isFeedback = url.searchParams.get('public') === 'true' || !!feedbackId;
       const isPublicCalendar = url.searchParams.get('public-calendar') === 'true';
@@ -2085,6 +2085,320 @@ export default async function handler(req: any, res: any) {
             limit,
             productCounts,
             completedItems
+          });
+        }
+
+        if (action === 'team-assignees') {
+          const page = parseInt(url.searchParams.get('page') || '1', 10);
+          const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+          const search = (url.searchParams.get('search') || '').trim().toLowerCase();
+          const hideReleased = url.searchParams.get('hideReleased') === 'true';
+          const sortField = url.searchParams.get('sortField') || 'activeCount';
+          const sortAsc = url.searchParams.get('sortAsc') === 'true';
+
+          // Fetch all assignees from the 5 main collections
+          const [products, sprintPlan, projects, contentItems, dailyIssues] = await Promise.all([
+            modelsMap['products'].find({}, 'clickupAssignee clickupStatus status finalReleaseCompleted').lean(),
+            modelsMap['plans'].find({}, 'clickupAssignee clickupStatus status').lean(),
+            modelsMap['projects'].find({}, 'clickupAssignee clickupStatus status finalReleaseCompleted').lean(),
+            modelsMap['contentItems'].find({}, 'clickupAssignee clickupStatus status finalReleaseCompleted').lean(),
+            modelsMap['dailyIssues'].find({}, 'clickupAssignee clickupStatus status finalReleaseCompleted').lean()
+          ]);
+
+          const allDocs = [
+            ...products.map(d => ({ ...d, type: 'products' })),
+            ...sprintPlan.map(d => ({ ...d, type: 'sprintPlan' })),
+            ...projects.map(d => ({ ...d, type: 'projects' })),
+            ...contentItems.map(d => ({ ...d, type: 'contentItems' })),
+            ...dailyIssues.map(d => ({ ...d, type: 'dailyIssues' }))
+          ];
+
+          const groups: Record<string, { totalCount: number, activeCount: number, statusCounts: Record<string, number> }> = {};
+
+          const isCompletedStatus = (status: string | undefined): boolean => {
+            const s = (status || '').toLowerCase();
+            return ['completed', 'delivered', 'done', 'closed', 'resolved', 'tested'].includes(s);
+          };
+
+          const addDocToGroup = (groupName: string, doc: any) => {
+            if (!groups[groupName]) {
+              groups[groupName] = { totalCount: 0, activeCount: 0, statusCounts: {} };
+            }
+            
+            const localStatus = (doc.status || '').toLowerCase();
+            const cuStatus = (doc.clickupStatus || '').toLowerCase();
+            const isDone = isCompletedStatus(doc.status) ||
+                           ['closed', 'done', 'completed', 'complete'].includes(cuStatus) ||
+                           doc.finalReleaseCompleted === true;
+
+            groups[groupName].totalCount++;
+            if (!isDone) {
+              groups[groupName].activeCount++;
+            }
+
+            // Only count status breakdown for assignees other than Unassigned
+            if (groupName !== 'Unassigned') {
+              const s = (doc.clickupStatus || doc.status || 'Open').trim();
+              if (s) {
+                groups[groupName].statusCounts[s] = (groups[groupName].statusCounts[s] || 0) + 1;
+              }
+            }
+          };
+
+          allDocs.forEach((doc: any) => {
+            const assigneeStr = doc.clickupAssignee || '';
+            if (!assigneeStr.trim()) {
+              addDocToGroup('Unassigned', doc);
+              return;
+            }
+
+            const names = assigneeStr.split(',').map((name: string) => name.trim()).filter(Boolean);
+            names.forEach((name: string) => {
+              addDocToGroup(name, doc);
+            });
+          });
+
+          // Convert groups to list and apply filters/sorting/pagination
+          let assigneeList = Object.keys(groups).map(name => ({
+            name,
+            totalCount: groups[name].totalCount,
+            activeCount: groups[name].activeCount,
+            statusCounts: groups[name].statusCounts
+          }));
+
+          // Filter by hideReleased (remove assignees with 0 active tasks, unless name is Unassigned and we want to show it)
+          if (hideReleased) {
+            assigneeList = assigneeList.filter(g => g.activeCount > 0 || g.name === 'Unassigned');
+          }
+
+          // Search filter on name
+          if (search) {
+            const q = search.toLowerCase();
+            assigneeList = assigneeList.filter(g => g.name.toLowerCase().includes(q));
+          }
+
+          // Sort assignees
+          assigneeList.sort((a, b) => {
+            if (sortField === 'name') {
+              return sortAsc 
+                ? a.name.localeCompare(b.name)
+                : b.name.localeCompare(a.name);
+            } else {
+              // activeCount
+              return sortAsc
+                ? a.activeCount - b.activeCount
+                : b.activeCount - a.activeCount;
+            }
+          });
+
+          const totalItems = assigneeList.length;
+          const totalPages = Math.ceil(totalItems / limit) || 1;
+          const activePage = Math.min(page, totalPages);
+          const startIndex = totalItems === 0 ? 0 : (activePage - 1) * limit;
+          const paginatedAssignees = assigneeList.slice(startIndex, startIndex + limit);
+
+          return res.status(200).json({
+            success: true,
+            data: paginatedAssignees,
+            totalItems,
+            totalPages,
+            page: activePage,
+            limit
+          });
+        }
+
+        if (action === 'team-member-tasks') {
+          const name = url.searchParams.get('name') || '';
+          const hideReleased = url.searchParams.get('hideReleased') === 'true';
+          const search = (url.searchParams.get('search') || '').trim().toLowerCase();
+
+          if (!name) {
+            return res.status(400).json({ success: false, error: 'Name is required' });
+          }
+
+          const escapeRegex = (s: string) => s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+          const isUnassigned = name === 'Unassigned';
+          
+          const queryFilter = isUnassigned
+            ? { $or: [{ clickupAssignee: { $exists: false } }, { clickupAssignee: null }, { clickupAssignee: '' }] }
+            : { clickupAssignee: new RegExp(`\\b${escapeRegex(name)}\\b`, 'i') };
+
+          const [products, sprintPlan, projects, contentItems, dailyIssues] = await Promise.all([
+            modelsMap['products'].find(queryFilter).lean(),
+            modelsMap['plans'].find(queryFilter).lean(),
+            modelsMap['projects'].find(queryFilter).lean(),
+            modelsMap['contentItems'].find(queryFilter).lean(),
+            modelsMap['dailyIssues'].find(queryFilter).lean()
+          ]);
+
+          const list: any[] = [];
+
+          const isCompletedStatus = (status: string | undefined): boolean => {
+            const s = (status || '').toLowerCase();
+            return ['completed', 'delivered', 'done', 'closed', 'resolved', 'tested'].includes(s);
+          };
+
+          // 1. Product Items
+          products.forEach((item: any) => {
+            let src = 'Priority Requests';
+            if (item.id && (item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-') || item.id.startsWith('prod-tarun-'))) {
+              src = 'Feedback';
+            } else if (item.id && item.id.startsWith('prod-breakdown-')) {
+              src = 'Product Breakdown';
+            }
+            list.push({
+              id: `product-${item.id}`,
+              sourceId: item.id,
+              feature: item.feature || item.description || 'Unnamed Feature',
+              source: src as any,
+              product: item.product || 'No Product Assigned',
+              module: item.module,
+              status: item.status || '',
+              clickupStatus: item.clickupStatus || '',
+              clickupAssignee: item.clickupAssignee || '',
+              clickupSubtasksCount: item.clickupSubtasksCount,
+              taskLink: item.taskLink,
+              priority: item.priority,
+              productDeadline: item.productDeadline,
+              uiux: item.uiux,
+              deadline: item.deadline,
+              finalRelease: item.finalRelease,
+              productDeadlineCompleted: item.productDeadlineCompleted,
+              uiuxCompleted: item.uiuxCompleted,
+              deadlineCompleted: item.deadlineCompleted,
+              finalReleaseCompleted: item.finalReleaseCompleted,
+              createdAt: item.createdAt,
+              rawItem: item
+            });
+          });
+
+          // 2. Plan Items
+          sprintPlan.forEach((item: any) => {
+            list.push({
+              id: `plan-${item.id}`,
+              sourceId: item.id,
+              feature: item.task || 'Unnamed Sprint Task',
+              source: 'Sprint Planning',
+              product: item.category || 'Sprint Task',
+              status: item.status || '',
+              clickupStatus: item.clickupStatus || '',
+              clickupAssignee: item.clickupAssignee || '',
+              clickupSubtasksCount: item.clickupSubtasksCount,
+              taskLink: item.link,
+              createdAt: item.createdAt,
+              rawItem: item
+            });
+          });
+
+          // 3. Student Projects
+          projects.forEach((item: any) => {
+            list.push({
+              id: `project-${item.id}`,
+              sourceId: item.id,
+              feature: item.title || 'Unnamed Project',
+              source: 'Student Projects',
+              product: item.product || 'Student Work',
+              module: item.module,
+              status: item.status || '',
+              clickupStatus: item.clickupStatus || '',
+              clickupAssignee: item.clickupAssignee || '',
+              clickupSubtasksCount: item.clickupSubtasksCount,
+              taskLink: item.taskLink,
+              priority: item.priority,
+              productDeadline: item.productDeadline,
+              uiux: item.uiux,
+              deadline: item.deadline,
+              finalRelease: item.finalRelease,
+              productDeadlineCompleted: item.productDeadlineCompleted,
+              uiuxCompleted: item.uiuxCompleted,
+              deadlineCompleted: item.deadlineCompleted,
+              finalReleaseCompleted: item.finalReleaseCompleted,
+              createdAt: item.createdAt,
+              rawItem: item
+            });
+          });
+
+          // 4. Content Items
+          contentItems.forEach((item: any) => {
+            list.push({
+              id: `content-${item.id}`,
+              sourceId: item.id,
+              feature: `${item.subject} (${item.type})`,
+              source: 'Content Pipeline',
+              product: item.product || 'Content publish',
+              status: item.status || '',
+              clickupStatus: item.clickupStatus || '',
+              clickupAssignee: item.clickupAssignee || '',
+              clickupSubtasksCount: item.clickupSubtasksCount,
+              taskLink: item.draftLink,
+              priority: item.priority,
+              productDeadline: item.productDeadline,
+              uiux: item.uiux,
+              deadline: item.deadline,
+              finalRelease: item.finalRelease,
+              productDeadlineCompleted: item.productDeadlineCompleted,
+              uiuxCompleted: item.uiuxCompleted,
+              deadlineCompleted: item.deadlineCompleted,
+              finalReleaseCompleted: item.finalReleaseCompleted,
+              createdAt: item.createdAt,
+              rawItem: item
+            });
+          });
+
+          // 5. Daily Issues
+          dailyIssues.forEach((item: any) => {
+            const isRequest = item.type === 'Feature Gap' || item.type === 'Enhancement';
+            list.push({
+              id: `issue-${item.id}`,
+              sourceId: item.id,
+              feature: item.module || item.issues || 'Unnamed Daily Issue',
+              source: isRequest ? 'Feature Requests' : 'Daily Issues',
+              product: item.product || 'Daily Issue Log',
+              module: item.module,
+              status: item.status || '',
+              clickupStatus: item.clickupStatus || '',
+              clickupAssignee: item.clickupAssignee || '',
+              clickupSubtasksCount: item.clickupSubtasksCount,
+              taskLink: item.taskLink,
+              priority: item.priority,
+              productDeadline: item.productDeadline,
+              uiux: item.uiux,
+              deadline: item.deadline,
+              finalRelease: item.finalRelease,
+              productDeadlineCompleted: item.productDeadlineCompleted,
+              uiuxCompleted: item.uiuxCompleted,
+              deadlineCompleted: item.deadlineCompleted,
+              finalReleaseCompleted: item.finalReleaseCompleted,
+              createdAt: item.createdAt,
+              rawItem: item
+            });
+          });
+
+          // Apply task-level filters
+          let filteredList = list;
+          if (hideReleased) {
+            filteredList = filteredList.filter(t => {
+              const localStatus = (t.status || '').toLowerCase();
+              const cuStatus = (t.clickupStatus || '').toLowerCase();
+              const isDone = isCompletedStatus(t.status) ||
+                             ['closed', 'done', 'completed', 'complete'].includes(cuStatus) ||
+                             t.finalReleaseCompleted === true;
+              return !isDone;
+            });
+          }
+
+          if (search) {
+            filteredList = filteredList.filter(t => 
+              (t.feature || '').toLowerCase().includes(search) ||
+              (t.product || '').toLowerCase().includes(search) ||
+              (t.module || '').toLowerCase().includes(search) ||
+              (t.source || '').toLowerCase().includes(search)
+            );
+          }
+
+          return res.status(200).json({
+            success: true,
+            data: filteredList
           });
         }
 

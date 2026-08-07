@@ -1630,7 +1630,7 @@ interface CustomDatePickerProps {
   align?: 'left' | 'right';
 }
 
-const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onChange, onClose, align = 'left' }) => {
+export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onChange, onClose, align = 'left' }) => {
   const initialDate = value ? new Date(value) : new Date();
   const [currentYear, setCurrentYear] = useState(initialDate.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(initialDate.getMonth()); // 0-indexed
@@ -1839,7 +1839,7 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onChange, on
   );
 };
 
-const formatDateToShortPattern = (dateStr: string): string => {
+export const formatDateToShortPattern = (dateStr: string): string => {
   if (!dateStr) return '';
   const monthsShort = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -1857,7 +1857,7 @@ const formatDateToShortPattern = (dateStr: string): string => {
   return dateStr;
 };
 
-const formatDateToUserPattern = (dateStr: string): string => {
+export const formatDateToUserPattern = (dateStr: string): string => {
   if (!dateStr) return '';
   
   const monthsFull = [
@@ -1907,7 +1907,7 @@ const isCompletedStatus = (status: string | undefined) => {
   return s === 'delivered' || s === 'completed' || s === 'done' || s === 'closed';
 };
 
-const getDateSpanStyle = (dateStr: string | undefined, isCompleted: boolean | undefined) => {
+export const getDateSpanStyle = (dateStr: string | undefined, isCompleted: boolean | undefined) => {
   if (!dateStr) return {};
   if (isCompleted) {
     return {
@@ -1958,7 +1958,7 @@ const formatToDatetimeLocalValue = (dateStr: string): string => {
   return dateStr;
 };
 
-const getDateDiffDays = (dateStr1: string | undefined, dateStr2: string | undefined): string => {
+export const getDateDiffDays = (dateStr1: string | undefined, dateStr2: string | undefined): string => {
   if (!dateStr1 || !dateStr2) return '';
   try {
     const d1 = new Date(dateStr1);
@@ -1977,7 +1977,7 @@ const getDateDiffDays = (dateStr1: string | undefined, dateStr2: string | undefi
   }
 };
 
-const DateDiffBadge: React.FC<{ prevDate?: string; currentDate?: string }> = ({ prevDate, currentDate }) => {
+export const DateDiffBadge: React.FC<{ prevDate?: string; currentDate?: string }> = ({ prevDate, currentDate }) => {
   const diffText = getDateDiffDays(prevDate, currentDate);
   if (!diffText) return null;
   return (
