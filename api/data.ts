@@ -252,6 +252,8 @@ export default async function handler(req: any, res: any) {
                     clickupSubtasksCount: hasLink ? (item.clickupSubtasksCount || 0) : 0
                   };
                 });
+              } else if (key === 'programs' || key === 'cohorts') {
+                results[key] = [...rawItems].sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
               } else {
                 results[key] = rawItems;
               }
@@ -2129,6 +2131,10 @@ export default async function handler(req: any, res: any) {
             const isDone = isCompletedStatus(doc.status) ||
                            isCompletedStatus(doc.clickupStatus) ||
                            doc.finalReleaseCompleted === true;
+
+            if (hideReleased && isDone) {
+              return;
+            }
 
             groups[groupName].totalCount++;
             if (!isDone) {

@@ -15628,6 +15628,36 @@ export const ContactsDirectoryTable: React.FC = () => {
 
 import { FolderOpen as FolderIcon, Check as CheckIcon, X as CancelIcon, Save as SaveIcon, GripVertical as GripIcon } from 'lucide-react';
 
+const FaviconImage: React.FC<{ url: string }> = ({ url }) => {
+  const [error, setError] = useState(false);
+  if (error || !url) {
+    return <span style={{ fontSize: '0.9rem', width: '16px', height: '16px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>🔗</span>;
+  }
+  
+  let domain = '';
+  try {
+    domain = new URL(url).hostname;
+  } catch (e) {
+    return <span style={{ fontSize: '0.9rem', width: '16px', height: '16px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>🔗</span>;
+  }
+
+  return (
+    <img 
+      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`} 
+      onError={() => setError(true)}
+      alt=""
+      style={{
+        width: '16px',
+        height: '16px',
+        borderRadius: '3px',
+        objectFit: 'contain',
+        display: 'inline-block',
+        flexShrink: 0
+      }}
+    />
+  );
+};
+
 export const RepositoryView: React.FC = () => {
   const {
     repoTabs = [], addRepoTab, updateRepoTab, deleteRepoTab,
@@ -16205,6 +16235,7 @@ export const RepositoryView: React.FC = () => {
                                 />
                               ) : (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', lineHeight: '1.3' }}>
+                                  <FaviconImage url={item.url} />
                                   <a 
                                     href={item.url} 
                                     target="_blank" 

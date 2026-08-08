@@ -238,6 +238,7 @@ export interface ConfigStatus {
 export interface ConfigProgram {
   id: string;
   name: string;
+  order?: number;
 }
 
 export interface ConfigCohort {
@@ -247,6 +248,7 @@ export interface ConfigCohort {
   active?: boolean; // true = Active, false = Inactive
   departments?: string[];
   departmentEmails?: Record<string, string>;
+  order?: number;
 }
 
 export interface DirectoryContact {

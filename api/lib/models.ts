@@ -246,7 +246,8 @@ const ConfigStatusSchema = new Schema({
 // Program
 const ConfigProgramSchema = new Schema({
   id: { type: String, required: true, unique: true },
-  name: { type: String, required: true }
+  name: { type: String, required: true },
+  order: { type: Number, default: 0 }
 });
 
 // Cohort
@@ -256,7 +257,8 @@ const ConfigCohortSchema = new Schema({
   programId: { type: String, required: true },
   active: { type: Boolean, default: true },
   departments: { type: [String], default: [] },
-  departmentEmails: { type: Map, of: String, default: {} }
+  departmentEmails: { type: Map, of: String, default: {} },
+  order: { type: Number, default: 0 }
 });
 
 // Global Settings (ClickUp Key, etc.)
