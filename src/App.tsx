@@ -24,6 +24,7 @@ import { DashboardOverview } from './components/DashboardOverview';
 import { CalendarView } from './components/CalendarView';
 import { PublicFeedbackForm } from './components/PublicFeedbackForm';
 import { TeamView } from './components/TeamView';
+import { StickyNotesBot } from './components/StickyNotesBot';
 import {
   LayoutDashboard,
   Calendar,
@@ -2339,6 +2340,7 @@ const DashboardContent: React.FC = () => {
           onClose={() => setActiveSubtasksTaskLink(null)}
         />
       )}
+      <StickyNotesBot />
       <div className={`micro-toast ${showToast ? 'show' : ''}`}>
         <div className={`micro-toast-icon ${toastType}`}>
           {toastType === 'success' ? <CheckCircle size={14} /> : <AlertTriangle size={14} />}

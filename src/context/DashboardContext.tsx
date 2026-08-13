@@ -24,7 +24,8 @@ import type {
   DirectoryContact,
   RepoTab,
   RepoDoc,
-  Challenge
+  Challenge,
+  StickyNote
 } from '../types';
 
 import {
@@ -100,6 +101,16 @@ interface DashboardContextType {
   updateChallenge: (id: string, updated: Partial<Challenge>) => void;
   addChallenge: (item: Challenge) => void;
   deleteChallenge: (id: string) => void;
+
+  stickyNotes: StickyNote[];
+  setStickyNotes: React.Dispatch<React.SetStateAction<StickyNote[]>>;
+  updateStickyNote: (id: string, updated: Partial<StickyNote>) => void;
+  addStickyNote: (item: StickyNote) => void;
+  deleteStickyNote: (id: string, isCompleted?: boolean) => void;
+  completedNotesCount: number;
+  setCompletedNotesCount: React.Dispatch<React.SetStateAction<number>>;
+  deleteAllCompletedNotes: () => Promise<void>;
+  restoreAllCompletedNotes: (restoredNotes: StickyNote[]) => Promise<void>;
 
   featureAdoptions: FeatureAdoption[];
   setFeatureAdoptions: React.Dispatch<React.SetStateAction<FeatureAdoption[]>>;
@@ -190,6 +201,8 @@ interface DashboardContextType {
   setGoogleAllowedDomains: (val: string) => void;
   sharableCalendarSources: string;
   updateSharableCalendarSources: (val: string) => void;
+  sharableCalendarStages: string;
+  updateSharableCalendarStages: (val: string) => void;
 
   // Email Digest Settings
   digestRecipient: string;
@@ -657,6 +670,17 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [repoTabs, setRepoTabs] = useState<RepoTab[]>([]);
   const [repoDocs, setRepoDocs] = useState<RepoDoc[]>([]);
 
+  const [stickyNotes, setStickyNotes] = useState<StickyNote[]>(() => {
+    const data = localStorage.getItem('data-sticky-notes');
+    return data ? JSON.parse(data) : [];
+  });
+
+  const [completedNotesCount, setCompletedNotesCount] = useState<number>(0);
+
+  useEffect(() => {
+    localStorage.setItem('data-sticky-notes', JSON.stringify(stickyNotes));
+  }, [stickyNotes]);
+
   const [teamContacts, setTeamContacts] = useState<TeamContact[]>(() => {
     const data = localStorage.getItem('team-contacts');
     return data ? JSON.parse(data) : initialTeamContacts;
@@ -750,6 +774,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [sharableCalendarSources, setSharableCalendarSources] = useState<string>(() => {
     return localStorage.getItem('config-sharable-calendar-sources') || 'product,projects,meetings,admin,tarun-meetings,content,issues';
+  });
+
+  const [sharableCalendarStages, setSharableCalendarStages] = useState<string>(() => {
+    return localStorage.getItem('config-sharable-calendar-stages') || 'Specs,UI/UX,Dev,Release';
   });
 
   const [digestRecipient, setDigestRecipient] = useState<string>(() => {
@@ -990,6 +1018,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     localStorage.setItem('config-sharable-calendar-sources', sharableCalendarSources);
   }, [sharableCalendarSources]);
+
+  useEffect(() => {
+    localStorage.setItem('config-sharable-calendar-stages', sharableCalendarStages);
+  }, [sharableCalendarStages]);
 
   useEffect(() => {
     localStorage.setItem('config-digest-recipient', digestRecipient);
@@ -1644,6 +1676,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (db.directoryContacts !== undefined)              { setDirectoryContacts(db.directoryContacts); updatedSheets++; }
         if (db.repoTabs !== undefined)                       { setRepoTabs(db.repoTabs);           updatedSheets++; }
         if (db.repoDocs !== undefined)                       { setRepoDocs(db.repoDocs);           updatedSheets++; }
+        if (db.stickyNotes !== undefined)                    { setStickyNotes(db.stickyNotes);     updatedSheets++; }
+        if (db.stickyNotesCompletedCount !== undefined) {
+          setCompletedNotesCount(db.stickyNotesCompletedCount[0]?.count || 0);
+        }
 
         if (db.speakers !== undefined) {
           setSpeakers(db.speakers);
@@ -1699,6 +1735,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
           const calSourcesSetting = db.settings.find((s: any) => s.key === 'sharableCalendarSources');
           if (calSourcesSetting) setSharableCalendarSources(calSourcesSetting.value || '');
+
+          const calStagesSetting = db.settings.find((s: any) => s.key === 'sharableCalendarStages');
+          if (calStagesSetting) setSharableCalendarStages(calStagesSetting.value || 'Specs,UI/UX,Dev,Release');
 
           const recipientSetting = db.settings.find((s: any) => s.key === 'digestRecipient');
           if (recipientSetting) setDigestRecipient(recipientSetting.value || '');
@@ -1896,6 +1935,11 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const updateSharableCalendarSources = (val: string) => {
     setSharableCalendarSources(val);
     persistChange('update', 'settings', 'sharableCalendarSources', { id: 'sharableCalendarSources', key: 'sharableCalendarSources', value: val });
+  };
+
+  const updateSharableCalendarStages = (val: string) => {
+    setSharableCalendarStages(val);
+    persistChange('update', 'settings', 'sharableCalendarStages', { id: 'sharableCalendarStages', key: 'sharableCalendarStages', value: val });
   };
 
   const updateDigestRecipient = (val: string) => {
@@ -2818,6 +2862,56 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return { success: true, comment: newComment };
   };
 
+  const addStickyNote = async (item: StickyNote) => {
+    setStickyNotes(prev => [item, ...prev]);
+    await persistChange('create', 'stickyNotes', item.id, item);
+  };
+
+  const updateStickyNote = async (id: string, updated: Partial<StickyNote>) => {
+    setStickyNotes(prev => {
+      // If marking a note as completed: remove it from the active list
+      if (updated.completed === true) {
+        setCompletedNotesCount(c => c + 1);
+        return prev.filter(item => item.id !== id);
+      }
+      // If restoring a note: add it back to the active list
+      if (updated.completed === false) {
+        setCompletedNotesCount(c => Math.max(0, c - 1));
+        const exists = prev.some(item => item.id === id);
+        if (exists) return prev;
+        return [updated as StickyNote, ...prev];
+      }
+      return prev.map(item => item.id === id ? { ...item, ...updated } : item);
+    });
+    await persistChange('update', 'stickyNotes', id, updated);
+  };
+
+  const deleteStickyNote = async (id: string, isCompleted = false) => {
+    if (isCompleted) {
+      setCompletedNotesCount(c => Math.max(0, c - 1));
+    } else {
+      setStickyNotes(prev => prev.filter(item => item.id !== id));
+    }
+    await persistChange('delete', 'stickyNotes', id, null);
+  };
+
+  const deleteAllCompletedNotes = async () => {
+    setCompletedNotesCount(0);
+    await persistChange('delete-all-completed-notes' as any, 'stickyNotes', null, null);
+  };
+
+  const restoreAllCompletedNotes = async (restoredNotes: StickyNote[]) => {
+    setCompletedNotesCount(0);
+    setStickyNotes(prev => {
+      const restoredActive = restoredNotes.map(n => ({ ...n, completed: false }));
+      const newActive = [...restoredActive, ...prev];
+      const unique: Record<string, StickyNote> = {};
+      newActive.forEach(item => { unique[item.id] = item; });
+      return Object.values(unique);
+    });
+    await persistChange('restore-all-completed-notes' as any, 'stickyNotes', null, null);
+  };
+
   return (
     <DashboardContext.Provider value={{
       comments, addComment, lastOpenedMap, markTaskAsRead,
@@ -2832,6 +2926,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       contentItems, setContentItems, updateContentItem, addContentItem, deleteContentItem,
       dailyIssues, setDailyIssues, updateDailyIssue, addDailyIssue, deleteDailyIssue,
       challenges, setChallenges, updateChallenge, addChallenge, deleteChallenge,
+      stickyNotes, setStickyNotes, updateStickyNote, addStickyNote, deleteStickyNote,
+      completedNotesCount, setCompletedNotesCount, deleteAllCompletedNotes, restoreAllCompletedNotes,
       featureAdoptions, setFeatureAdoptions, updateFeatureAdoption, addFeatureAdoption, deleteFeatureAdoption,
       teamContacts, setTeamContacts, updateTeamContact, addTeamContact, deleteTeamContact,
       directoryContacts, updateDirectoryContact, addDirectoryContact, deleteDirectoryContact,
@@ -2857,6 +2953,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       requireGoogleLogin, setRequireGoogleLogin: updateRequireGoogleLogin,
       googleAllowedDomains, setGoogleAllowedDomains: updateGoogleAllowedDomains,
       sharableCalendarSources, updateSharableCalendarSources,
+      sharableCalendarStages, updateSharableCalendarStages,
       currentUser, canUserEdit, loginUser, loginUserByEmail, logoutUser,
       isLoading, syncStatus,
       confirm,

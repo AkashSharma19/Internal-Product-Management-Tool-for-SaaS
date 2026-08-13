@@ -279,6 +279,16 @@ const DirectoryContactSchema = new Schema({
   department: { type: String, default: "" }
 }, { timestamps: true });
 
+// StickyNote Schema
+const StickyNoteSchema = new Schema({
+  id: { type: String, required: true, unique: true },
+  text: { type: String, required: true },
+  completed: { type: Boolean, default: false },
+  color: { type: String, default: "yellow" },
+  userId: { type: String, default: "", index: true },
+  createdAt: { type: String, default: "" }
+}, { timestamps: true });
+
 // Exports
 export const ProductItemModel = mongoose.models.ProductItem || mongoose.model('ProductItem', ProductItemSchema);
 export const PlanItemModel = mongoose.models.PlanItem || mongoose.model('PlanItem', PlanItemSchema);
@@ -299,6 +309,7 @@ export const ConfigCohortModel = mongoose.models.ConfigCohort || mongoose.model(
 
 export const GlobalSettingsModel = mongoose.models.GlobalSettings || mongoose.model('GlobalSettings', GlobalSettingsSchema);
 export const DirectoryContactModel = mongoose.models.DirectoryContact || mongoose.model('DirectoryContact', DirectoryContactSchema);
+export const StickyNoteModel = mongoose.models.StickyNote || mongoose.model('StickyNote', StickyNoteSchema);
 
 // ── Feedback & Form Builder Schemas ──────────────────────────────────────────
 

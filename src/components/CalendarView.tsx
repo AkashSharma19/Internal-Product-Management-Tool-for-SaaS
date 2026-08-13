@@ -738,7 +738,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
     'Publish Date': { bg: '#8b5cf6', label: 'Release',  css: 'bg-stage-release' },
     'AMA Date':     { bg: '#f97316', label: 'AMA',      css: 'bg-stage-meeting' },
     'Call Date':    { bg: '#f97316', label: 'Call',     css: 'bg-stage-meeting' },
-    'Deadline':     { bg: '#f59e0b', label: 'Deadline', css: 'bg-stage-deadline' },
+    'Deadline':     { bg: '#8b5cf6', label: 'Release',  css: 'bg-stage-release' },
   };
 
   const getStageColor = (stage: string): string => {

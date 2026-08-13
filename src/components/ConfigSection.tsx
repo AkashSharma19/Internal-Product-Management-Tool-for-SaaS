@@ -2451,16 +2451,32 @@ const FormSecuritySection: React.FC = () => {
 // SHARABLE CALENDAR SECTION
 // ═══════════════════════════════════════════════════════════════════════════════
 const CalendarConfigSection: React.FC = () => {
-  const { sharableCalendarSources, updateSharableCalendarSources, canUserEdit } = useDashboard();
+  const { 
+    sharableCalendarSources, 
+    updateSharableCalendarSources, 
+    sharableCalendarStages,
+    updateSharableCalendarStages,
+    canUserEdit 
+  } = useDashboard();
+
   const [sources, setSources] = useState<string[]>(() => {
     return sharableCalendarSources ? sharableCalendarSources.split(',') : [];
   });
+
+  const [stages, setStages] = useState<string[]>(() => {
+    return sharableCalendarStages ? sharableCalendarStages.split(',') : ['Specs', 'UI/UX', 'Dev', 'Release'];
+  });
+
   const [isSaved, setIsSaved] = useState(false);
   const [copied, setCopied] = useState(false);
 
   React.useEffect(() => {
     setSources(sharableCalendarSources ? sharableCalendarSources.split(',') : []);
   }, [sharableCalendarSources]);
+
+  React.useEffect(() => {
+    setStages(sharableCalendarStages ? sharableCalendarStages.split(',') : ['Specs', 'UI/UX', 'Dev', 'Release']);
+  }, [sharableCalendarStages]);
 
   const toggleSource = (sourceId: string) => {
     if (!canUserEdit) return;
@@ -2473,9 +2489,21 @@ const CalendarConfigSection: React.FC = () => {
     });
   };
 
+  const toggleStage = (stageId: string) => {
+    if (!canUserEdit) return;
+    setStages(prev => {
+      if (prev.includes(stageId)) {
+        return prev.filter(s => s !== stageId);
+      } else {
+        return [...prev, stageId];
+      }
+    });
+  };
+
   const handleSave = () => {
     if (!canUserEdit) return;
     updateSharableCalendarSources(sources.join(','));
+    updateSharableCalendarStages(stages.join(','));
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
   };
@@ -2578,6 +2606,61 @@ const CalendarConfigSection: React.FC = () => {
             })}
           </div>
 
+          {/* Worksheet Date Milestones Section */}
+          <h4 style={{ margin: '1rem 0 0 0', fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+            Worksheet Date Milestones
+          </h4>
+          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+            Choose which milestones are visible on the sharable calendar. Only selected date fields will appear.
+          </p>
+
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+            {[
+              { id: 'Specs', label: 'Specs Date', description: 'Specs/Product deadline' },
+              { id: 'UI/UX', label: 'UI/UX Date', description: 'Design/Prototype milestone' },
+              { id: 'Dev',   label: 'Dev Date',   description: 'Development deadline' },
+              { id: 'Release', label: 'Release Date', description: 'Final release/Launch' },
+            ].map(stage => {
+              const isChecked = stages.includes(stage.id);
+              return (
+                <div
+                  key={stage.id}
+                  onClick={() => toggleStage(stage.id)}
+                  style={{
+                    flex: '1 1 200px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    backgroundColor: isChecked ? 'var(--primary-glow)' : 'var(--background-alt)',
+                    border: isChecked ? '1px solid var(--primary-border)' : '1px solid var(--border-light)',
+                    cursor: canUserEdit ? 'pointer' : 'default',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    readOnly
+                    style={{
+                      accentColor: 'var(--primary)',
+                      cursor: canUserEdit ? 'pointer' : 'default',
+                    }}
+                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    <span style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {stage.label}
+                    </span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                      {stage.description}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
           {/* Action Buttons */}
           {canUserEdit && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
@@ -2591,7 +2674,7 @@ const CalendarConfigSection: React.FC = () => {
               </button>
               {isSaved && (
                 <span style={{ color: 'var(--success)', fontSize: '0.8rem', fontWeight: 600, animation: 'fadeIn 0.2s' }}>
-                  ✓ Calendar sources saved to MongoDB
+                  ✓ Calendar config saved to MongoDB
                 </span>
               )}
             </div>

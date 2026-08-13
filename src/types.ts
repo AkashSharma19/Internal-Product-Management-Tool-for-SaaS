@@ -385,6 +385,15 @@ export interface Challenge {
   updatedAt?: string;
 }
 
+export interface StickyNote {
+  id: string;
+  text: string;
+  completed: boolean;
+  color: 'yellow' | 'blue' | 'pink' | 'green' | 'purple';
+  userId: string;
+  createdAt: string;
+}
+
 
 
 

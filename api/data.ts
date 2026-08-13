@@ -25,7 +25,8 @@ import {
   DirectoryContactModel,
   RepoTabModel,
   RepoDocModel,
-  ChallengeModel
+  ChallengeModel,
+  StickyNoteModel
 } from './lib/models.js';
 
 const modelsMap: Record<string, any> = {
@@ -52,7 +53,8 @@ const modelsMap: Record<string, any> = {
   directoryContacts: DirectoryContactModel,
   repoTabs: RepoTabModel,
   repoDocs: RepoDocModel,
-  challenges: ChallengeModel
+  challenges: ChallengeModel,
+  stickyNotes: StickyNoteModel
 };
 
 export default async function handler(req: any, res: any) {
@@ -222,7 +224,7 @@ export default async function handler(req: any, res: any) {
         // --- Action Routers ---
         if (action === 'init') {
           const results: Record<string, any[]> = {};
-          const allowedKeys = ['settings', 'speakers', 'statuses', 'productGroups', 'programs', 'cohorts', 'formConfigs', 'products', 'feedbackSubmissions', 'comments', 'directoryContacts', 'repoTabs', 'repoDocs', 'challenges'];
+          const allowedKeys = ['settings', 'speakers', 'statuses', 'productGroups', 'programs', 'cohorts', 'formConfigs', 'products', 'feedbackSubmissions', 'comments', 'directoryContacts', 'repoTabs', 'repoDocs', 'challenges', 'stickyNotes'];
           for (const key of allowedKeys) {
             if (key === 'speakers') {
               const rawSpeakers = await modelsMap[key].find({}).lean();
@@ -239,6 +241,9 @@ export default async function handler(req: any, res: any) {
                 }
                 return s;
               });
+            } else if (key === 'stickyNotes') {
+              results[key] = await modelsMap[key].find({ userId: userId || '', completed: false }).lean();
+              results['stickyNotesCompletedCount'] = [{ count: await modelsMap[key].countDocuments({ userId: userId || '', completed: true }) }] as any;
             } else {
               const rawItems = await modelsMap[key].find({}).lean();
               if (key === 'products') {
@@ -260,6 +265,30 @@ export default async function handler(req: any, res: any) {
             }
           }
           return res.status(200).json({ success: true, data: results });
+        }
+
+        if (action === 'completed-sticky-notes') {
+          const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+          const limit = Math.max(1, parseInt(url.searchParams.get('limit') || '5', 10));
+          const skip = (page - 1) * limit;
+
+          const filter = {
+            userId: userId || '',
+            completed: true
+          };
+
+          const [notes, total] = await Promise.all([
+            modelsMap['stickyNotes'].find(filter).sort({ updatedAt: -1 }).skip(skip).limit(limit).lean(),
+            modelsMap['stickyNotes'].countDocuments(filter)
+          ]);
+
+          return res.status(200).json({
+            success: true,
+            data: notes,
+            total,
+            page,
+            limit
+          });
         }
 
         if (action === 'suggest-similar') {
@@ -1310,6 +1339,19 @@ export default async function handler(req: any, res: any) {
         if (action === 'calendar-events') {
           const year = parseInt(url.searchParams.get('year') || '2026');
           const month = parseInt(url.searchParams.get('month') || '6');
+          const isPublic = url.searchParams.get('public-calendar') === 'true';
+
+          // Load settings
+          const rawSettings = await modelsMap['settings'].find({}).lean();
+          const calSourcesSetting = rawSettings.find((s: any) => s.key === 'sharableCalendarSources');
+          const allowedSources = calSourcesSetting ? calSourcesSetting.value.split(',') : [
+            'product', 'projects', 'meetings', 'admin', 'tarun-meetings', 'content', 'issues'
+          ];
+
+          const calStagesSetting = rawSettings.find((s: any) => s.key === 'sharableCalendarStages');
+          const allowedStages = calStagesSetting ? calStagesSetting.value.split(',') : [
+            'Specs', 'UI/UX', 'Dev', 'Release'
+          ];
 
           const [productsRaw, projectsRaw, amaSessionsRaw, meetingsRaw, adminCallsRaw, tarunSirMeetingsRaw, contentRaw, issuesRaw] = await Promise.all([
             ProductItemModel.find({}).lean(),
@@ -1406,6 +1448,29 @@ export default async function handler(req: any, res: any) {
             rawItem: any,
             tab: string
           ) => {
+            if (isPublic) {
+              // 1. Check if source/tab is allowed
+              if (tab === 'product' && !allowedSources.includes('product')) return;
+              if (tab === 'projects' && !allowedSources.includes('projects')) return;
+              if (tab === 'meetings' && !allowedSources.includes('meetings')) return;
+              if (tab === 'admin' && !allowedSources.includes('admin')) return;
+              if (tab === 'tarun-meetings' && !allowedSources.includes('tarun-meetings')) return;
+              if (tab === 'content' && !allowedSources.includes('content')) return;
+              if (tab === 'issues' && !allowedSources.includes('issues')) return;
+
+              // 2. Check if stage is allowed
+              const isMeetingStage = ['AMA Date', 'Call Date', 'Meeting Date'].includes(stage);
+              if (!isMeetingStage) {
+                let mappedCheckbox = '';
+                if (stage === 'Specs') mappedCheckbox = 'Specs';
+                else if (stage === 'UI/UX') mappedCheckbox = 'UI/UX';
+                else if (stage === 'Dev') mappedCheckbox = 'Dev';
+                else if (['Final Release', 'Publish Date', 'Deadline'].includes(stage)) mappedCheckbox = 'Release';
+
+                if (mappedCheckbox && !allowedStages.includes(mappedCheckbox)) return;
+              }
+            }
+
             const normalized = parseDateToYYYYMMDD(dateStrRaw);
             if (!normalized) return;
             
@@ -4580,6 +4645,18 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
+      if (action === 'delete-all-completed-notes') {
+        const userId = req.headers['x-user-id'];
+        await Model.deleteMany({ userId: userId || '', completed: true });
+        return res.status(200).json({ success: true });
+      }
+
+      if (action === 'restore-all-completed-notes') {
+        const userId = req.headers['x-user-id'];
+        await Model.updateMany({ userId: userId || '', completed: true }, { $set: { completed: false } });
+        return res.status(200).json({ success: true });
+      }
+
       if (action === 'create') {
         const newItem = new Model(data);
         await newItem.save();

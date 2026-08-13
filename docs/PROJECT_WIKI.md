@@ -315,7 +315,24 @@ The application relies on a tailored custom design system to create a modern, hi
 
 ---
 
-## 10. Developer Setup & Production Build
+## 10. Boat Bot Scratchpad & Sharable Calendar Configuration
+
+### Boat Bot Scratchpad Assistant
+- **Overview**: A fully free, self-contained sidebar scratchpad panel designed for quick notes, checklists, and context clipboards. Stored directly in MongoDB, eliminating AI API usage costs.
+- **Features**:
+  - **Dynamic Input**: An auto-expanding `<textarea>` input field that grows based on typed content, supporting standard Chat keyboard shortcuts (Enter to add note, Shift+Enter for new lines).
+  - **Minimal Completed Notes Drawer**: A dedicated collapsible Completed Notes panel at the bottom of the active note cards. Designed with a clean top divider line and uppercase minimal action triggers (Delete all, Restore all).
+  - **Paginated Lazy Loading**: Rather than retrieving all notes on startup, completed notes are lazily fetched in pages of 5 on demand when the Completed Notes section is expanded, optimizing query performance.
+
+### Sharable Calendar Config & Filtering
+- **Visibility Settings**: Located in the Admin Configuration tab under **Sharable Calendar**.
+- **Worksheet Visibility Sources**: Allows selecting specific databases (e.g. Priority Requests, Student Projects, Daily Issues Log) to share.
+- **Worksheet Date Milestones**: Configurable stage filters (Specs Date, UI/UX Date, Dev Date, Release Date).
+- **Backend Event Filtering**: When accessed via a public read-only link (`public-calendar=true`), the `/api/data?action=calendar-events` endpoint automatically filters out both unselected worksheet sources and unselected milestone stages, providing robust context-level privacy control.
+
+---
+
+## 11. Developer Setup & Production Build
 
 ### Running Locally:
 ```bash
