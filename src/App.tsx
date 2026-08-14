@@ -2122,6 +2122,7 @@ const DashboardContent: React.FC = () => {
                 uiuxCompleted: !!foundContent.uiuxCompleted,
                 deadlineCompleted: !!foundContent.deadlineCompleted,
                 finalReleaseCompleted: !!foundContent.finalReleaseCompleted,
+                committedDate: foundContent.committedDate || '',
                 createdAt: foundContent.createdAt || '',
                 clickupSubtasksCount: foundContent.clickupSubtasksCount,
                 clickupAssignee: foundContent.clickupAssignee || '',
@@ -2148,6 +2149,7 @@ const DashboardContent: React.FC = () => {
                 if (updated.uiuxCompleted !== undefined) updatedContent.uiuxCompleted = updated.uiuxCompleted;
                 if (updated.deadlineCompleted !== undefined) updatedContent.deadlineCompleted = updated.deadlineCompleted;
                 if (updated.finalReleaseCompleted !== undefined) updatedContent.finalReleaseCompleted = updated.finalReleaseCompleted;
+                if (updated.committedDate !== undefined) updatedContent.committedDate = updated.committedDate;
                 if (updated.createdAt !== undefined) updatedContent.createdAt = updated.createdAt;
                 if (updated.clickupSubtasksCount !== undefined) updatedContent.clickupSubtasksCount = updated.clickupSubtasksCount;
                 if (updated.clickupAssignee !== undefined) updatedContent.clickupAssignee = updated.clickupAssignee;
@@ -2198,6 +2200,7 @@ const DashboardContent: React.FC = () => {
                 uiuxCompleted: !!foundIssue.uiuxCompleted,
                 deadlineCompleted: !!foundIssue.deadlineCompleted,
                 finalReleaseCompleted: !!foundIssue.finalReleaseCompleted,
+                committedDate: foundIssue.committedDate || '',
                 createdAt: foundIssue.createdAt || '',
                 clickupSubtasksCount: foundIssue.clickupSubtasksCount,
                 clickupAssignee: foundIssue.clickupAssignee || '',
@@ -2227,6 +2230,7 @@ const DashboardContent: React.FC = () => {
                 if (updated.uiuxCompleted !== undefined) updatedIssue.uiuxCompleted = updated.uiuxCompleted;
                 if (updated.deadlineCompleted !== undefined) updatedIssue.deadlineCompleted = updated.deadlineCompleted;
                 if (updated.finalReleaseCompleted !== undefined) updatedIssue.finalReleaseCompleted = updated.finalReleaseCompleted;
+                if (updated.committedDate !== undefined) updatedIssue.committedDate = updated.committedDate;
                 if (updated.createdAt !== undefined) updatedIssue.createdAt = updated.createdAt;
                 if (updated.clickupSubtasksCount !== undefined) updatedIssue.clickupSubtasksCount = updated.clickupSubtasksCount;
                 if (updated.clickupAssignee !== undefined) updatedIssue.clickupAssignee = updated.clickupAssignee;

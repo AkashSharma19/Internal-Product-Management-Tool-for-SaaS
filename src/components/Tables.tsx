@@ -2197,6 +2197,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const [isEditingUiuxDate, setIsEditingUiuxDate] = useState(false);
   const [isEditingDevDate, setIsEditingDevDate] = useState(false);
   const [isEditingReleaseDate, setIsEditingReleaseDate] = useState(false);
+  const [isEditingCommittedDate, setIsEditingCommittedDate] = useState(false);
 
   const [newCommentText, setNewCommentText] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
@@ -2366,6 +2367,8 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const uiuxOverdue = isDateOverdue(item.uiux, item.uiuxCompleted);
   const devOverdue = isDateOverdue(item.deadline, item.deadlineCompleted);
   const releaseOverdue = isDateOverdue(item.finalRelease, item.finalReleaseCompleted);
+  const isOverallCompleted = isCompletedStatus(item.status);
+  const committedOverdue = isDateOverdue(item.committedDate, !!item.finalReleaseCompleted || isOverallCompleted);
   
   const realProjectId = item.id.startsWith('prod-temp-') ? item.id.replace('prod-temp-', '') : item.id;
   const isProject = item.id.startsWith('proj-') || studentProjects.some(p => p.id === realProjectId);
@@ -2570,6 +2573,21 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
       completedKey: 'finalReleaseCompleted',
       diffDays: item.finalRelease ? getDateDiffDays(item.deadline || item.uiux || item.productDeadline || item.createdAt, item.finalRelease) : null,
       diffTitle: item.deadline ? 'Days since Dev Date' : item.uiux ? 'Days since UI/UX Date' : item.productDeadline ? 'Days since Specs Date' : 'Days since Created Date'
+    },
+    {
+      label: 'Commited Date',
+      date: item.committedDate,
+      dateVal: item.committedDate ? formatDateToShortPattern(item.committedDate) : 'Set Date',
+      completed: !!item.finalReleaseCompleted,
+      classStr: item.finalReleaseCompleted ? 'completed' : committedOverdue ? 'overdue' : 'active',
+      isEditing: isEditingCommittedDate,
+      setIsEditing: setIsEditingCommittedDate,
+      icon: item.finalReleaseCompleted ? <Check size={14} /> : <Calendar size={14} />,
+      historyField: 'committedDate',
+      historyLabel: 'Commited Date',
+      completedKey: 'committedDateCompleted',
+      diffDays: item.committedDate ? getDateDiffDays(item.finalRelease || item.deadline || item.uiux || item.productDeadline || item.createdAt, item.committedDate) : null,
+      diffTitle: item.finalRelease ? 'Days since Release Date' : 'Days since Created Date'
     }
   ];
 
@@ -2937,6 +2955,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                           !!item.productDeadlineCompleted,
                           !!item.uiuxCompleted,
                           !!item.deadlineCompleted,
+                          !!item.finalReleaseCompleted,
                           !!item.finalReleaseCompleted
                         ];
                         const completedCount = stepStates.filter(Boolean).length;
@@ -2994,8 +3013,14 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                               type="checkbox"
                               className="premium-timeline-checkbox"
                               checked={step.completed}
-                              onChange={(e) => handleFieldUpdate(step.completedKey as any, e.target.checked)}
-                              title={`Mark ${step.label} as Completed`}
+                              onChange={(e) => {
+                                if (step.label !== 'Commited Date') {
+                                  handleFieldUpdate(step.completedKey as any, e.target.checked);
+                                }
+                              }}
+                              disabled={step.label === 'Commited Date'}
+                              style={step.label === 'Commited Date' ? { cursor: 'not-allowed', opacity: 0.8 } : undefined}
+                              title={step.label === 'Commited Date' ? "Auto-checked when Release is completed" : `Mark ${step.label} as Completed`}
                             />
                           )}
                           {step.diffDays && (
@@ -3656,7 +3681,7 @@ export const ProductTable: React.FC = () => {
     setSearchQuery('');
     setSortField(null);
 
-    const newItem: ProductItem = {
+     const newItem: ProductItem = {
       id: `prod-${Date.now()}`,
       feature: 'New Priority Request',
       description: '',
@@ -3674,6 +3699,7 @@ export const ProductTable: React.FC = () => {
       uiux: '',
       finalRelease: '',
       productDeadline: '',
+      committedDate: '',
       createdAt: new Date().toISOString()
     };
     addProductItem(newItem);

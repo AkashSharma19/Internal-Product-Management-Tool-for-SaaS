@@ -597,6 +597,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               uiuxCompleted: fallbackData.uiuxCompleted !== undefined ? fallbackData.uiuxCompleted : item.uiuxCompleted,
               deadlineCompleted: fallbackData.deadlineCompleted !== undefined ? fallbackData.deadlineCompleted : item.deadlineCompleted,
               finalReleaseCompleted: fallbackData.finalReleaseCompleted !== undefined ? fallbackData.finalReleaseCompleted : item.finalReleaseCompleted,
+              committedDate: fallbackData.committedDate !== undefined ? fallbackData.committedDate : item.committedDate,
               createdAt: fallbackData.createdAt !== undefined ? fallbackData.createdAt : item.createdAt,
               clickupSubtasksCount: fallbackData.clickupSubtasksCount !== undefined ? fallbackData.clickupSubtasksCount : item.clickupSubtasksCount,
               clickupAssignee: fallbackData.clickupAssignee !== undefined ? fallbackData.clickupAssignee : item.clickupAssignee,
@@ -644,6 +645,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         uiuxCompleted: fallbackData?.uiuxCompleted || false,
         deadlineCompleted: fallbackData?.deadlineCompleted || false,
         finalReleaseCompleted: fallbackData?.finalReleaseCompleted || false,
+        committedDate: fallbackData?.committedDate || '',
         createdAt: fallbackData?.createdAt || new Date().toISOString(),
         clickupSubtasksCount: fallbackData?.clickupSubtasksCount,
         clickupAssignee: fallbackData?.clickupAssignee || ''
@@ -2030,7 +2032,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : p.productDeadlineCompleted,
               uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : p.uiuxCompleted,
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
-              finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted
+              finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted,
+              committedDate: updatedItem.committedDate !== undefined ? updatedItem.committedDate : p.committedDate
             };
             persistChange('update', 'projects', p.id, updatedP);
             return updatedP;
@@ -2063,7 +2066,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : m.productDeadlineCompleted,
               uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : m.uiuxCompleted,
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : m.deadlineCompleted,
-              finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : m.finalReleaseCompleted
+              finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : m.finalReleaseCompleted,
+              committedDate: updatedItem.committedDate !== undefined ? updatedItem.committedDate : m.committedDate
             };
             persistChange('update', 'studentMeetings', m.id, updatedM);
             return updatedM;
@@ -2090,6 +2094,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
               finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted,
               status: updatedItem.status !== undefined ? updatedItem.status : p.status,
+              committedDate: updatedItem.committedDate !== undefined ? updatedItem.committedDate : p.committedDate,
               raisedByTarunSir: updatedItem.raisedByTarunSir !== undefined ? updatedItem.raisedByTarunSir : p.raisedByTarunSir
             };
             persistChange('update', 'contentItems', p.id, updatedCI);
@@ -2117,6 +2122,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : issue.deadlineCompleted,
               finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : issue.finalReleaseCompleted,
               status: updatedItem.status !== undefined ? updatedItem.status : issue.status,
+              committedDate: updatedItem.committedDate !== undefined ? updatedItem.committedDate : issue.committedDate,
               raisedByTarunSir: updatedItem.raisedByTarunSir !== undefined ? updatedItem.raisedByTarunSir : issue.raisedByTarunSir
             };
             persistChange('update', 'dailyIssues', issue.id, updatedIssue);

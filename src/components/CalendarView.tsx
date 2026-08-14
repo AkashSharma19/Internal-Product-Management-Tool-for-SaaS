@@ -82,7 +82,7 @@ interface CalendarEvent {
   id: string;
   source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA Sessions' | 'Student Meetings' | 'Admin Calls' | 'Tarun Sir Meetings' | 'Daily Issues Log';
   title: string;
-  stage: 'Specs' | 'UI/UX' | 'Dev' | 'Final Release' | 'AMA Date' | 'Call Date' | 'Meeting Date' | 'Publish Date' | 'Deadline';
+  stage: 'Specs' | 'UI/UX' | 'Dev' | 'Final Release' | 'AMA Date' | 'Call Date' | 'Meeting Date' | 'Publish Date' | 'Deadline' | 'Commited';
   dateStr: string; // normalized YYYY-MM-DD
   poc: string;
   priority?: string;
@@ -289,6 +289,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
     else if (evt.stage === 'Dev') fieldToUpdate = 'deadline';
     else if (evt.stage === 'Final Release') fieldToUpdate = 'finalRelease';
     else if (evt.stage === 'Publish Date') fieldToUpdate = 'finalRelease';
+    else if (evt.stage === 'Commited') fieldToUpdate = 'committedDate';
     else if (evt.stage === 'AMA Date' || evt.stage === 'Call Date' || evt.stage === 'Meeting Date') fieldToUpdate = 'date';
     else fieldToUpdate = 'deadline';
 
@@ -739,6 +740,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
     'AMA Date':     { bg: '#f97316', label: 'AMA',      css: 'bg-stage-meeting' },
     'Call Date':    { bg: '#f97316', label: 'Call',     css: 'bg-stage-meeting' },
     'Deadline':     { bg: '#8b5cf6', label: 'Release',  css: 'bg-stage-release' },
+    'Commited':     { bg: '#10b981', label: 'Commited', css: 'bg-stage-committed' },
   };
 
   const getStageColor = (stage: string): string => {

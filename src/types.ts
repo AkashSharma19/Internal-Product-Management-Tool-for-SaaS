@@ -23,6 +23,7 @@ export interface ProductItem {
   uiuxCompleted?: boolean;
   deadlineCompleted?: boolean;
   finalReleaseCompleted?: boolean;
+  committedDate?: string;
   clickupSubtasksCount?: number;
   clickupAssignee?: string;
   createdAt?: string;
@@ -71,6 +72,7 @@ export interface StudentProject {
   uiuxCompleted?: boolean;
   deadlineCompleted?: boolean;
   finalReleaseCompleted?: boolean;
+  committedDate?: string;
 }
 
 export interface AMASession {
@@ -113,6 +115,7 @@ export interface StudentMeeting {
   uiuxCompleted?: boolean;
   deadlineCompleted?: boolean;
   finalReleaseCompleted?: boolean;
+  committedDate?: string;
 }
 
 export interface AdminCall {
@@ -163,6 +166,7 @@ export interface ContentItem {
   deadlineCompleted?: boolean;
   finalReleaseCompleted?: boolean;
   raisedByTarunSir?: boolean;
+  committedDate?: string;
 }
 
 export interface DailyIssue {
@@ -193,6 +197,7 @@ export interface DailyIssue {
   finalReleaseCompleted?: boolean;
   raisedByTarunSir?: boolean;
   tarunSirApproval?: boolean;
+  committedDate?: string;
 }
 
 export interface FeatureAdoption {

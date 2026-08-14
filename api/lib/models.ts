@@ -26,7 +26,8 @@ const ProductItemSchema = new Schema({
   productDeadlineCompleted: { type: Boolean, default: false },
   uiuxCompleted: { type: Boolean, default: false },
   deadlineCompleted: { type: Boolean, default: false },
-  finalReleaseCompleted: { type: Boolean, default: false }
+  finalReleaseCompleted: { type: Boolean, default: false },
+  committedDate: { type: String, default: "" }
 }, { timestamps: true });
 
 // 2. PlanItem (Sprint Planning)
@@ -71,7 +72,8 @@ const StudentProjectSchema = new Schema({
   productDeadlineCompleted: { type: Boolean, default: false },
   uiuxCompleted: { type: Boolean, default: false },
   deadlineCompleted: { type: Boolean, default: false },
-  finalReleaseCompleted: { type: Boolean, default: false }
+  finalReleaseCompleted: { type: Boolean, default: false },
+  committedDate: { type: String, default: "" }
 }, { timestamps: true });
 
 // 4. AMASession
@@ -114,7 +116,8 @@ const StudentMeetingSchema = new Schema({
   productDeadlineCompleted: { type: Boolean, default: false },
   uiuxCompleted: { type: Boolean, default: false },
   deadlineCompleted: { type: Boolean, default: false },
-  finalReleaseCompleted: { type: Boolean, default: false }
+  finalReleaseCompleted: { type: Boolean, default: false },
+  committedDate: { type: String, default: "" }
 }, { timestamps: true });
 
 // 6. AdminCall
@@ -166,7 +169,8 @@ const ContentItemSchema = new Schema({
   uiuxCompleted: { type: Boolean, default: false },
   deadlineCompleted: { type: Boolean, default: false },
   finalReleaseCompleted: { type: Boolean, default: false },
-  raisedByTarunSir: { type: Boolean, default: false }
+  raisedByTarunSir: { type: Boolean, default: false },
+  committedDate: { type: String, default: "" }
 }, { timestamps: true });
 
 // 8. DailyIssue
@@ -196,7 +200,8 @@ const DailyIssueSchema = new Schema({
   deadlineCompleted: { type: Boolean, default: false },
   finalReleaseCompleted: { type: Boolean, default: false },
   raisedByTarunSir: { type: Boolean, default: false },
-  tarunSirApproval: { type: Boolean, default: false }
+  tarunSirApproval: { type: Boolean, default: false },
+  committedDate: { type: String, default: "" }
 }, { timestamps: true });
 
 // 9. FeatureAdoption
