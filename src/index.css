@@ -5322,6 +5322,13 @@ body.read-only-mode .btn:has(svg.lucide-plus) {
   z-index: 99999;
 }
 
+@media (max-width: 768px) {
+  .sticky-bot-input,
+  .sticky-note-edit-textarea {
+    font-size: 16px !important;
+  }
+}
+
 
 
 
