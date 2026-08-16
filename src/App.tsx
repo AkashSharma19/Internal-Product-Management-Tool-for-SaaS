@@ -1193,10 +1193,6 @@ const DashboardContent: React.FC = () => {
     }
   };
 
-  if (isMobile) {
-    return <StickyNotesBot />;
-  }
-
   // Public feedback mode routing bypass
   const searchParams = new URLSearchParams(window.location.search);
   const feedbackId = searchParams.get('feedback');
@@ -1581,6 +1577,10 @@ const DashboardContent: React.FC = () => {
 
   if (!currentUser) {
     return <LoginView />;
+  }
+
+  if (isMobile) {
+    return <StickyNotesBot />;
   }
 
   // Helper styles matching user initials
