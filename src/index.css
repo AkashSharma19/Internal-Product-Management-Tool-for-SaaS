@@ -5307,6 +5307,21 @@ body.read-only-mode .btn:has(svg.lucide-plus) {
   border-color: var(--border-hover);
 }
 
+/* Mobile-Fixed Chatbot Panel Override */
+.sticky-bot-panel.mobile-fixed {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100% !important;
+  max-width: 100% !important;
+  border-left: none;
+  transform: translateX(0) !important;
+  box-shadow: none;
+  z-index: 99999;
+}
+
 
 
 

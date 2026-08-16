@@ -52,6 +52,16 @@ export const StickyNotesBot: React.FC = () => {
   } = useDashboard();
 
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [inputValue, setInputValue] = useState<string>('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState<string>('');
@@ -241,18 +251,20 @@ export const StickyNotesBot: React.FC = () => {
   return (
     <>
       {/* Floating Action Button (FAB) */}
-      <button 
-        className={`sticky-bot-fab ${isOpen ? 'hidden' : ''}`} 
-        onClick={handleTogglePanel}
-        aria-label="Toggle Boat Bot Assistant"
-        title="Open Boat Bot"
-      >
-        <div className="sticky-bot-fab-pulse"></div>
-        <MessageSquareText size={24} />
-      </button>
+      {!isMobile && (
+        <button 
+          className={`sticky-bot-fab ${isOpen ? 'hidden' : ''}`} 
+          onClick={handleTogglePanel}
+          aria-label="Toggle Boat Bot Assistant"
+          title="Open Boat Bot"
+        >
+          <div className="sticky-bot-fab-pulse"></div>
+          <MessageSquareText size={24} />
+        </button>
+      )}
 
       {/* Drawer Panel */}
-      <div className={`sticky-bot-panel ${isOpen ? 'open' : ''}`}>
+      <div className={`sticky-bot-panel ${(isMobile || isOpen) ? 'open' : ''} ${isMobile ? 'mobile-fixed' : ''}`}>
         
         {/* Panel Header */}
         <div className="sticky-bot-header">
@@ -265,13 +277,15 @@ export const StickyNotesBot: React.FC = () => {
               <p className="sticky-bot-header-subtitle">Your local scratchpad assistant</p>
             </div>
           </div>
-          <button 
-            className="sticky-bot-close-btn" 
-            onClick={handleTogglePanel}
-            title="Close Panel"
-          >
-            <X size={18} />
-          </button>
+          {!isMobile && (
+            <button 
+              className="sticky-bot-close-btn" 
+              onClick={handleTogglePanel}
+              title="Close Panel"
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
 
         {/* Panel Body */}

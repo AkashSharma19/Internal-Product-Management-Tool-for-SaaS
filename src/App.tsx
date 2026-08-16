@@ -900,6 +900,15 @@ const DashboardContent: React.FC = () => {
   } = useDashboard();
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [isRefreshingClickup, setIsRefreshingClickup] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Toast state for auto-save notifications
   const [showToast, setShowToast] = useState(false);
@@ -1183,6 +1192,10 @@ const DashboardContent: React.FC = () => {
       setIsRefreshingData(false);
     }
   };
+
+  if (isMobile) {
+    return <StickyNotesBot />;
+  }
 
   // Public feedback mode routing bypass
   const searchParams = new URLSearchParams(window.location.search);
