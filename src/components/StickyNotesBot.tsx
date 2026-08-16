@@ -110,12 +110,7 @@ export const StickyNotesBot: React.FC = () => {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleAddNote(e);
-    }
-  };
+
 
   const handleTogglePanel = () => {
     playPopSound();
@@ -325,10 +320,7 @@ export const StickyNotesBot: React.FC = () => {
                         value={editingText}
                         onChange={(e) => setEditingText(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSaveEdit(note.id);
-                          } else if (e.key === 'Escape') {
+                          if (e.key === 'Escape') {
                             handleCancelEdit();
                           }
                         }}
@@ -474,10 +466,7 @@ export const StickyNotesBot: React.FC = () => {
                               value={editingText}
                               onChange={(e) => setEditingText(e.target.value)}
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                  e.preventDefault();
-                                  handleSaveEditCompleted(note.id);
-                                } else if (e.key === 'Escape') {
+                                if (e.key === 'Escape') {
                                   handleCancelEdit();
                                 }
                               }}
@@ -606,7 +595,6 @@ export const StickyNotesBot: React.FC = () => {
               placeholder="Pin a note..."
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
               style={{
                 height: '36px',
               }}
