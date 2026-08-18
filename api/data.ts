@@ -1588,7 +1588,7 @@ export default async function handler(req: any, res: any) {
 
           issues.forEach((item: any) => {
             const isOverallCompleted = isCompletedStatus(item.status);
-            if (item.type === 'Feature Gap' || item.type === 'Enhancement') {
+            if (['Feature Gap', 'Enhancement', 'BUG', 'New Feature', 'Data Needed', 'Term Report/ Transcript'].includes(item.type)) {
               addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Specs', item.productDeadline, !!item.productDeadlineCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
               addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'UI/UX', item.uiux, !!item.uiuxCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
               addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Dev', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
@@ -2627,9 +2627,19 @@ export default async function handler(req: any, res: any) {
           if (type === 'featureRequests') {
             const rawIssues = await modelsMap['dailyIssues'].find({}).lean();
             const productParam = url.searchParams.get('product') || '';
+            const requestTypeParam = url.searchParams.get('requestType') || 'FEATURE';
 
             const filtered = rawIssues.filter((item: any) => {
-              if (item.type !== 'Feature Gap' && item.type !== 'Enhancement') return false;
+              const isBug = item.type === 'BUG';
+              const isFeature = ['Feature Gap', 'Enhancement', 'New Feature', 'Data Needed', 'Term Report/ Transcript'].includes(item.type);
+
+              if (!isBug && !isFeature) return false;
+
+              if (requestTypeParam === 'BUG') {
+                if (!isBug) return false;
+              } else {
+                if (!isFeature) return false;
+              }
 
               if (productParam && productParam !== 'All') {
                 if (item.product !== productParam) return false;
@@ -2685,7 +2695,7 @@ export default async function handler(req: any, res: any) {
             const priorityParam = url.searchParams.get('priority') || '';
 
             const filtered = rawIssues.filter((item: any) => {
-              if (item.type === 'Feature Gap' || item.type === 'Enhancement') return false;
+              if (['Feature Gap', 'Enhancement', 'BUG', 'New Feature', 'Data Needed', 'Term Report/ Transcript'].includes(item.type)) return false;
 
               if (priorityParam && priorityParam !== 'All') {
                 if (item.priority !== priorityParam) return false;

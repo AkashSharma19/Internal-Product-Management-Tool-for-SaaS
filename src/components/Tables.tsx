@@ -13165,6 +13165,14 @@ export const FeatureRequestsTable: React.FC = () => {
   const [sortField, setSortField] = useState<keyof DailyIssue | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
 
+  const featuresList = dailyIssues.filter(item => ['Feature Gap', 'Enhancement', 'New Feature', 'Data Needed', 'Term Report/ Transcript'].includes(item.type || ''));
+  const totalFeatures = featuresList.length;
+  const completedFeatures = featuresList.filter(f => !!f.finalReleaseCompleted).length;
+
+  const bugsList = dailyIssues.filter(item => item.type === 'BUG');
+  const totalBugs = bugsList.length;
+  const completedBugs = bugsList.filter(b => !!b.finalReleaseCompleted).length;
+
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [paginatedRequests, setPaginatedRequests] = useState<DailyIssue[]>([]);
@@ -13172,10 +13180,11 @@ export const FeatureRequestsTable: React.FC = () => {
   const [completedItems, setCompletedItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isFetching, setIsFetching] = useState(false);
+  const [subTab, setSubTab] = useState<'features' | 'bugs'>('features');
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterProduct]);
+  }, [searchQuery, filterProduct, subTab]);
 
   useEffect(() => {
     let active = true;
@@ -13188,7 +13197,8 @@ export const FeatureRequestsTable: React.FC = () => {
         search: searchQuery,
         product: filterProduct !== 'All' ? filterProduct : undefined,
         sortField: sortField || undefined,
-        sortAsc: sortAsc
+        sortAsc: sortAsc,
+        requestType: subTab === 'bugs' ? 'BUG' : 'FEATURE'
       });
       if (active) {
         if (res.success) {
@@ -13212,6 +13222,7 @@ export const FeatureRequestsTable: React.FC = () => {
     sortField,
     sortAsc,
     dailyIssues,
+    subTab,
     fetchPaginatedMeetingsData
   ]);
 
@@ -13268,6 +13279,49 @@ export const FeatureRequestsTable: React.FC = () => {
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0, minWidth: 0, width: '100%' }}>
+        {/* SUB-TABS ROW */}
+        <div style={{ 
+          display: 'flex', 
+          borderBottom: '1px solid var(--border)', 
+          padding: '0.25rem 1.5rem 0 1.5rem', 
+          background: 'var(--panel-bg)', 
+          gap: '1.5rem' 
+        }}>
+          <button
+            onClick={() => setSubTab('features')}
+            style={{
+              padding: '0.75rem 0.5rem',
+              border: 'none',
+              background: 'none',
+              borderBottom: subTab === 'features' ? '2px solid var(--primary)' : '2px solid transparent',
+              color: subTab === 'features' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              outline: 'none'
+            }}
+          >
+            Feature Requests ({completedFeatures}/{totalFeatures})
+          </button>
+          <button
+            onClick={() => setSubTab('bugs')}
+            style={{
+              padding: '0.75rem 0.5rem',
+              border: 'none',
+              background: 'none',
+              borderBottom: subTab === 'bugs' ? '2px solid var(--primary)' : '2px solid transparent',
+              color: subTab === 'bugs' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontWeight: 600,
+              fontSize: '0.875rem',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              outline: 'none'
+            }}
+          >
+            Bugs ({completedBugs}/{totalBugs})
+          </button>
+        </div>
         <div className="table-responsive" style={{ flex: 1, overflow: 'auto' }}>
           <table className="grid-table">
             <thead>
@@ -13323,10 +13377,28 @@ export const FeatureRequestsTable: React.FC = () => {
                   return (
                     <tr key={item.id} onClick={() => setPreviewProductId(item.id)} style={{ cursor: 'pointer' }}>
                       <td className="sticky-col" style={{ fontWeight: 600, width: '320px', minWidth: '320px', maxWidth: '320px', whiteSpace: 'normal' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            {item.product || 'No Product Group'}
-                          </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                              {item.product || 'No Product Group'}
+                            </span>
+                            <span style={{ 
+                              fontSize: '0.72rem', 
+                              fontWeight: 600, 
+                              color: item.type === 'BUG' ? 'var(--danger, #ef4444)' : 'var(--text-secondary)', 
+                              background: item.type === 'BUG' ? 'var(--danger-bg, rgba(239, 68, 68, 0.1))' : 'var(--background-alt)', 
+                              border: item.type === 'BUG' ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid var(--border)',
+                              padding: '1px 6px', 
+                              borderRadius: '4px'
+                            }}>
+                              ✦ {item.type}
+                            </span>
+                            {item.priority && (
+                              <span className={`badge badge-${item.priority.toLowerCase()}`} style={{ padding: '1px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
+                                {item.priority}
+                              </span>
+                            )}
+                          </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', lineHeight: '1.3' }}>
                             <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                               {item.module || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
@@ -13354,32 +13426,47 @@ export const FeatureRequestsTable: React.FC = () => {
                               </span>
                             )}
                           </div>
-                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '2px' }}>
-                            {item.priority && (
-                              <span className={`badge badge-${item.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
-                                {item.priority}
-                              </span>
-                            )}
-                            <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-muted)', background: 'var(--bg-secondary)', padding: '1px 6px', borderRadius: '4px', alignSelf: 'flex-start' }}>
-                              {item.type === 'Feature Gap' ? '✦ Feature Gap' : '✦ Enhancement'}
-                            </span>
-                          </div>
                         </div>
                       </td>
                       <td>{item.cohort || '—'}</td>
                       <td>
-                        {(item.contact || item.poc) ? (
-                          <span style={getPOCBadgeStyle(item.contact || item.poc || '')}>
-                            {item.contact || item.poc}
-                          </span>
-                        ) : '—'}
+                        {(item.contact || item.poc) ? (() => {
+                          const fullVal = item.contact || item.poc || '';
+                          const nameOnly = fullVal.split('(')[0].trim();
+                          const emailOnly = fullVal.includes('(') ? fullVal.slice(fullVal.indexOf('(') + 1, fullVal.lastIndexOf(')')).trim() : '';
+
+                          return (
+                            <div className="cu-tooltip-container">
+                              <span style={getPOCBadgeStyle(nameOnly)}>
+                                {nameOnly}
+                              </span>
+                              {emailOnly && (
+                                <span className="cu-tooltip-text" style={{ whiteSpace: 'nowrap' }}>
+                                  {emailOnly}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })() : '—'}
                       </td>
                       <td>
-                        {item.poc ? (
-                          <span style={getPOCBadgeStyle(item.poc)}>
-                            {item.poc}
-                          </span>
-                        ) : '—'}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                          {item.poc ? (
+                            <span style={{ ...getPOCBadgeStyle(item.poc) }}>
+                              {item.poc}
+                            </span>
+                          ) : '—'}
+                          {item.clickupAssignee && (
+                            <div className="cu-tooltip-container">
+                              <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
+                                CU: {formatClickupAssignee(item.clickupAssignee)}
+                              </span>
+                              <span className="cu-tooltip-text">
+                                {item.clickupAssignee.split(',').map(s => s.trim()).join('\n')}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td>
                         {item.status ? (
@@ -13398,7 +13485,7 @@ export const FeatureRequestsTable: React.FC = () => {
                               item.status === 'Ongoing' ? 'status-ongoing' : 'status-completed'
                             }`}>{item.status}</span>
                           )
-                        ) : <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Pending Review</span>}
+                        ) : '—'}
                       </td>
                       <td>
                         {item.clickupStatus ? (

@@ -174,7 +174,7 @@ export interface DailyIssue {
   cohort: string; // Class/Cohort/Section
   product: string;
   module: string;
-  type: 'Bug/Defect' | 'Performance' | 'Information Lack' | 'Enhancement' | 'Feature Gap' | 'UX';
+  type: string;
   issues: string;
   contact: string;
   priority?: 'P0' | 'P1' | 'P2' | 'P3' | 'P4' | '';

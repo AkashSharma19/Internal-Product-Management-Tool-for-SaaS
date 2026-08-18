@@ -958,6 +958,8 @@ const DashboardContent: React.FC = () => {
   const [requestProgram, setRequestProgram] = useState('');
   const [requestTaskName, setRequestTaskName] = useState('');
   const [requestDescription, setRequestDescription] = useState('');
+  const [requestType, setRequestType] = useState('FEATURE');
+  const [requestFeatureSubtype, setRequestFeatureSubtype] = useState('New Feature');
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [requestSuccess, setRequestSuccess] = useState(false);
@@ -1053,6 +1055,8 @@ const DashboardContent: React.FC = () => {
       setRequestDescription('');
       setRequestProduct('');
       setRequestProgram('');
+      setRequestType('FEATURE');
+      setRequestFeatureSubtype('New Feature');
       setIsRaiseRequestModalOpen(true);
     }
   };
@@ -1076,7 +1080,7 @@ const DashboardContent: React.FC = () => {
         cohort: requestProgram,
         product: selectedProduct,
         module: requestTaskName.trim(),
-        type: 'Feature Gap',
+        type: requestType === 'BUG' ? 'BUG' : requestFeatureSubtype,
         issues: requestDescription.trim(),
         contact: currentUser ? `${currentUser.name} (${currentUser.email})` : '',
         priority: '',
@@ -1474,6 +1478,41 @@ const DashboardContent: React.FC = () => {
                       borderRadius: '8px', fontSize: '0.8rem', fontWeight: 550, lineHeight: 1.35
                     }}>
                       {requestError}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      Request Type *
+                    </label>
+                    <select
+                      className="config-select"
+                      value={requestType}
+                      onChange={(e) => setRequestType(e.target.value)}
+                      required
+                      style={{ width: '100%', height: '36px' }}
+                    >
+                      <option value="FEATURE">FEATURE REQUEST</option>
+                      <option value="BUG">BUG</option>
+                    </select>
+                  </div>
+
+                  {requestType === 'FEATURE' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                      <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                        Category *
+                      </label>
+                      <select
+                        className="config-select"
+                        value={requestFeatureSubtype}
+                        onChange={(e) => setRequestFeatureSubtype(e.target.value)}
+                        required
+                        style={{ width: '100%', height: '36px' }}
+                      >
+                        <option value="New Feature">New Feature</option>
+                        <option value="Data Needed">Data Needed</option>
+                        <option value="Term Report/ Transcript">Term Report/ Transcript</option>
+                      </select>
                     </div>
                   )}
 

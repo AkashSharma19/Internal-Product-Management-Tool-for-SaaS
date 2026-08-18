@@ -334,6 +334,7 @@ interface DashboardContextType {
     departments?: string[];
     cohorts?: string[];
     blockersOnly?: boolean;
+    requestType?: 'BUG' | 'FEATURE';
   }) => Promise<{ success: boolean; data: any[]; totalItems: number; totalPages: number; completedItems?: number }>;
   searchGlobalTasks: (query: string) => Promise<{ success: boolean; data: any[] }>;
   highlightedCallId: string | null;
@@ -1416,6 +1417,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     departments?: string[];
     cohorts?: string[];
     blockersOnly?: boolean;
+    requestType?: 'BUG' | 'FEATURE';
   }) => {
     setSyncStatus('syncing');
     try {
@@ -1445,6 +1447,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
       if (options.blockersOnly) {
         params.append('blockersOnly', 'true');
+      }
+      if (options.requestType) {
+        params.append('requestType', options.requestType);
       }
       if (options.sortField) params.append('sortField', options.sortField);
       if (options.sortAsc !== undefined) params.append('sortAsc', String(options.sortAsc));
