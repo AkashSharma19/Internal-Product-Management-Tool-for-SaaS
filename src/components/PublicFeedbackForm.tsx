@@ -194,7 +194,7 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
     return () => {
       isMounted = false;
     };
-  }, [googleUser, googleClientId, googleAllowedDomains]);
+  }, [googleUser, googleClientId, googleAllowedDomains, isLoading]);
 
   const handleGoogleLogout = () => {
     setGoogleUser(null);
