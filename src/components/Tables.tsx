@@ -1903,8 +1903,8 @@ export const formatDateToUserPattern = (dateStr: string): string => {
 
 const isCompletedStatus = (status: string | undefined) => {
   if (!status) return false;
-  const s = status.toLowerCase();
-  return s === 'delivered' || s === 'completed' || s === 'done' || s === 'closed';
+  const s = status.toLowerCase().trim();
+  return ['delivered', 'completed', 'done', 'closed', 'tested', 'released'].includes(s);
 };
 
 export const getDateSpanStyle = (dateStr: string | undefined, isCompleted: boolean | undefined) => {
@@ -2177,7 +2177,7 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({ value, onChange, produc
 };
 
 export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBack, onUpdate }) => {
-  const { studentProjects, speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser, productItems, setActiveSubtasksTaskLink, setPreviewProductId, deleteProductItem, comments, addComment, confirm } = useDashboard();
+  const { studentProjects, speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser, productItems, contentItems, dailyIssues, studentMeetings, setActiveSubtasksTaskLink, setPreviewProductId, deleteProductItem, comments, addComment, confirm } = useDashboard();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [copiedClickup, setCopiedClickup] = useState(false);
@@ -2350,17 +2350,68 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
   // Visual Workload Indicators mapping
   const pocActiveTaskCounts = useMemo(() => {
+    console.log('pocActiveTaskCounts calculation logs:', {
+      productItemsLength: productItems?.length,
+      dailyIssuesLength: dailyIssues?.length,
+      studentProjectsLength: studentProjects?.length,
+      contentItemsLength: contentItems?.length,
+      studentMeetingsLength: studentMeetings?.length,
+    });
     const counts: Record<string, number> = {};
     pocList.forEach(name => {
       counts[name] = 0;
     });
+
+    const isTaskActive = (task: any) => {
+      const status = (task.status || '').toLowerCase().trim();
+      const clickupStatus = (task.clickupStatus || '').toLowerCase().trim();
+      const isCompleted = isCompletedStatus(status) ||
+                          isCompletedStatus(clickupStatus) ||
+                          !!task.finalReleaseCompleted;
+      return !isCompleted;
+    };
+
     productItems.forEach((pi: ProductItem) => {
-      if (pi.poc && !pi.finalReleaseCompleted) {
+      if (pi.poc && isTaskActive(pi)) {
         counts[pi.poc] = (counts[pi.poc] || 0) + 1;
       }
     });
+
+    if (Array.isArray(studentProjects)) {
+      studentProjects.forEach((pi: any) => {
+        if (pi.poc && isTaskActive(pi)) {
+          counts[pi.poc] = (counts[pi.poc] || 0) + 1;
+        }
+      });
+    }
+
+    if (Array.isArray(contentItems)) {
+      contentItems.forEach((pi: any) => {
+        if (pi.poc && isTaskActive(pi)) {
+          counts[pi.poc] = (counts[pi.poc] || 0) + 1;
+        }
+      });
+    }
+
+    if (Array.isArray(dailyIssues)) {
+      dailyIssues.forEach((pi: any) => {
+        const poc = pi.poc || pi.contact;
+        if (poc && isTaskActive(pi)) {
+          counts[poc] = (counts[poc] || 0) + 1;
+        }
+      });
+    }
+
+    if (Array.isArray(studentMeetings)) {
+      studentMeetings.forEach((pi: any) => {
+        if (pi.poc && isTaskActive(pi)) {
+          counts[pi.poc] = (counts[pi.poc] || 0) + 1;
+        }
+      });
+    }
+
     return counts;
-  }, [productItems, pocList]);
+  }, [productItems, studentProjects, contentItems, dailyIssues, studentMeetings, pocList]);
 
   // Overdue milestones flags
   const specsOverdue = isDateOverdue(item.productDeadline, item.productDeadlineCompleted);

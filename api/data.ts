@@ -224,7 +224,13 @@ export default async function handler(req: any, res: any) {
         // --- Action Routers ---
         if (action === 'init') {
           const results: Record<string, any[]> = {};
-          const allowedKeys = ['settings', 'speakers', 'statuses', 'productGroups', 'programs', 'cohorts', 'formConfigs', 'products', 'feedbackSubmissions', 'comments', 'directoryContacts', 'repoTabs', 'repoDocs', 'challenges', 'stickyNotes'];
+          const allowedKeys = [
+            'settings', 'speakers', 'statuses', 'productGroups', 'programs', 'cohorts', 
+            'formConfigs', 'products', 'feedbackSubmissions', 'comments', 'directoryContacts', 
+            'repoTabs', 'repoDocs', 'challenges', 'stickyNotes',
+            'plans', 'projects', 'amaSessions', 'studentMeetings', 'adminCalls', 'tarunSirMeetings', 
+            'contentItems', 'dailyIssues', 'featureAdoptions'
+          ];
           for (const key of allowedKeys) {
             if (key === 'speakers') {
               const rawSpeakers = await modelsMap[key].find({}).lean();
@@ -257,10 +263,31 @@ export default async function handler(req: any, res: any) {
                     clickupSubtasksCount: hasLink ? (item.clickupSubtasksCount || 0) : 0
                   };
                 });
+              } else if (key === 'projects' || key === 'plans' || key === 'contentItems' || key === 'dailyIssues' || key === 'studentMeetings') {
+                results[key] = rawItems.map((item: any) => {
+                  const hasLink = key === 'plans'
+                    ? (item.link && item.link.trim() !== '')
+                    : key === 'contentItems'
+                      ? (item.draftLink && item.draftLink.trim() !== '')
+                      : (item.taskLink && item.taskLink.trim() !== '');
+                  const formatted = {
+                    ...item,
+                    id: item.id || String(item._id)
+                  };
+                  if (!hasLink) {
+                    formatted.clickupStatus = '';
+                    formatted.clickupAssignee = '';
+                    formatted.clickupSubtasksCount = 0;
+                  }
+                  return formatted;
+                });
               } else if (key === 'programs' || key === 'cohorts') {
                 results[key] = [...rawItems].sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
               } else {
-                results[key] = rawItems;
+                results[key] = rawItems.map((item: any) => ({
+                  ...item,
+                  id: item.id || String(item._id)
+                }));
               }
             }
           }

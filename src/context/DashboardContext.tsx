@@ -1782,15 +1782,17 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           // Always preload calendar events for overdue badge accuracy
           const today = new Date();
           loadCalendarMonth(today.getFullYear(), today.getMonth());
-
-          if (activeTab === 'dashboard') {
-            // DashboardOverview component handles fetching counts via its useEffect
-          } else if (activeTab === 'calendar') {
-            // Handled by preloading above
-          } else {
-            loadTabData(activeTab);
-          }
         }
+
+        const loadedKeys = [
+          'products', 'plans', 'projects', 'amaSessions', 'studentMeetings', 
+          'adminCalls', 'tarunSirMeetings', 'contentItems', 'dailyIssues', 
+          'challenges', 'featureAdoptions'
+        ];
+        setLoadedTabs(prev => {
+          const next = new Set([...prev, ...loadedKeys]);
+          return Array.from(next);
+        });
 
         return { success: true, updatedSheets };
       }
