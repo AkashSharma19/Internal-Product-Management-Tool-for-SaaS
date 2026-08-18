@@ -566,41 +566,84 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
                     />
                   )}
 
-                  {/* Dropdown Select */}
+                  {/* Single Select (previously dropdown select) */}
                   {field.type === 'select' && (
-                    <select
-                      disabled={disabled}
-                      value={answers[field.id] || ''}
-                      onChange={(e) => handleTextChange(field.id, e.target.value)}
-                      style={{
-                        padding: '10px 14px', borderRadius: '10px', background: 'var(--background)',
-                        border: '1.5px solid var(--border-light)', color: 'var(--text-primary)',
-                        fontSize: '0.85rem', outline: 'none', width: '100%', cursor: disabled ? 'default' : 'pointer'
-                      }}
-                    >
-                      <option value="">-- Select Option --</option>
-                      {(field.options || []).map((opt) => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
-                    </select>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                      {(field.options || []).map((opt) => {
+                        const isSelected = answers[field.id] === opt;
+                        return (
+                          <label
+                            key={opt}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              padding: '10px 14px',
+                              borderRadius: '10px',
+                              background: isSelected ? 'rgba(99, 102, 241, 0.06)' : 'var(--background)',
+                              border: isSelected ? '1.5px solid var(--primary)' : '1.5px solid var(--border-light)',
+                              cursor: disabled ? 'default' : 'pointer',
+                              transition: 'all 0.2s',
+                            }}
+                          >
+                            <input
+                              type="radio"
+                              name={field.id}
+                              disabled={disabled}
+                              checked={isSelected}
+                              onChange={() => handleTextChange(field.id, opt)}
+                              style={{
+                                width: '16px',
+                                height: '16px',
+                                accentColor: 'var(--primary)',
+                                cursor: disabled ? 'default' : 'pointer'
+                              }}
+                            />
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: isSelected ? 600 : 500 }}>
+                              {opt}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   )}
 
-                  {/* Checkbox Options */}
+                  {/* Multi-Select Checkbox Options */}
                   {field.type === 'checkbox' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
                       {(field.options || []).map((opt) => {
                         const checkedList = (answers[field.id] as string[]) || [];
                         const isChecked = checkedList.includes(opt);
                         return (
-                          <label key={opt} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: disabled ? 'default' : 'pointer' }}>
+                          <label
+                            key={opt}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px',
+                              padding: '10px 14px',
+                              borderRadius: '10px',
+                              background: isChecked ? 'rgba(99, 102, 241, 0.06)' : 'var(--background)',
+                              border: isChecked ? '1.5px solid var(--primary)' : '1.5px solid var(--border-light)',
+                              cursor: disabled ? 'default' : 'pointer',
+                              transition: 'all 0.2s',
+                            }}
+                          >
                             <input
                               type="checkbox"
                               disabled={disabled}
                               checked={isChecked}
                               onChange={(e) => handleCheckboxChange(field.id, opt, e.target.checked)}
-                              style={{ width: '16px', height: '16px', cursor: disabled ? 'default' : 'pointer' }}
+                              style={{
+                                width: '16px',
+                                height: '16px',
+                                accentColor: 'var(--primary)',
+                                cursor: disabled ? 'default' : 'pointer'
+                              }}
                             />
-                            <span style={{ color: 'var(--text-primary)' }}>{opt}</span>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: isChecked ? 600 : 500 }}>
+                              {opt}
+                            </span>
                           </label>
                         );
                       })}
