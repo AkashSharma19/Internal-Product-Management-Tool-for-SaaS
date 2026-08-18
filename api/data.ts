@@ -547,14 +547,8 @@ export default async function handler(req: any, res: any) {
 
           const hideReleased = url.searchParams.get('hideReleased') === 'true';
           if (hideReleased) {
-            const isTaskCompleted = (statusStr: string) => {
-              if (!statusStr) return false;
-              const s = statusStr.toLowerCase().trim();
-              return ['completed', 'delivered', 'done', 'closed', 'tested', 'released'].includes(s);
-            };
             validItems = validItems.filter((item: any) => {
-              const isReleased = isTaskCompleted(item.status) || isTaskCompleted(item.clickupStatus) || !!item.finalReleaseCompleted;
-              return !isReleased;
+              return !item.finalReleaseCompleted;
             });
           }
 
@@ -1081,8 +1075,8 @@ export default async function handler(req: any, res: any) {
 
             // Sort tasks: put completed/released tasks at the bottom
             const sortedTasks = [...filteredTasks].sort((a, b) => {
-              const aReleased = isTaskCompleted(a.status) || isTaskCompleted(a.clickupStatus) || !!a.finalReleaseCompleted;
-              const bReleased = isTaskCompleted(b.status) || isTaskCompleted(b.clickupStatus) || !!b.finalReleaseCompleted;
+              const aReleased = !!a.finalReleaseCompleted;
+              const bReleased = !!b.finalReleaseCompleted;
               if (aReleased && !bReleased) return 1;
               if (!aReleased && bReleased) return -1;
               return 0;
@@ -1335,8 +1329,8 @@ export default async function handler(req: any, res: any) {
 
           // Sort tasks: put completed/released tasks at the bottom
           const sortedTasks = [...sanitizedItems].sort((a, b) => {
-            const aReleased = isTaskCompleted(a.status) || isTaskCompleted(a.clickupStatus) || !!a.finalReleaseCompleted;
-            const bReleased = isTaskCompleted(b.status) || isTaskCompleted(b.clickupStatus) || !!b.finalReleaseCompleted;
+            const aReleased = !!a.finalReleaseCompleted;
+            const bReleased = !!b.finalReleaseCompleted;
             if (aReleased && !bReleased) return 1;
             if (!aReleased && bReleased) return -1;
             return 0;
@@ -1346,8 +1340,7 @@ export default async function handler(req: any, res: any) {
           let finalTasksList = sortedTasks;
           if (hideReleased) {
             finalTasksList = sortedTasks.filter((item: any) => {
-              const isReleased = isTaskCompleted(item.status) || isTaskCompleted(item.clickupStatus) || !!item.finalReleaseCompleted;
-              return !isReleased;
+              return !item.finalReleaseCompleted;
             });
           }
 

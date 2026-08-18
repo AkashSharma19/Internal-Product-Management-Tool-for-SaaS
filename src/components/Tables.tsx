@@ -2350,25 +2350,13 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
   // Visual Workload Indicators mapping
   const pocActiveTaskCounts = useMemo(() => {
-    console.log('pocActiveTaskCounts calculation logs:', {
-      productItemsLength: productItems?.length,
-      dailyIssuesLength: dailyIssues?.length,
-      studentProjectsLength: studentProjects?.length,
-      contentItemsLength: contentItems?.length,
-      studentMeetingsLength: studentMeetings?.length,
-    });
     const counts: Record<string, number> = {};
     pocList.forEach(name => {
       counts[name] = 0;
     });
 
     const isTaskActive = (task: any) => {
-      const status = (task.status || '').toLowerCase().trim();
-      const clickupStatus = (task.clickupStatus || '').toLowerCase().trim();
-      const isCompleted = isCompletedStatus(status) ||
-                          isCompletedStatus(clickupStatus) ||
-                          !!task.finalReleaseCompleted;
-      return !isCompleted;
+      return !task.finalReleaseCompleted;
     };
 
     productItems.forEach((pi: ProductItem) => {
