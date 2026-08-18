@@ -126,9 +126,21 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
 
   // Google Login Script Handler
   useEffect(() => {
-    if (!requireGoogleLogin || googleUser || !googleClientId) return;
+    if (googleUser || !googleClientId) return;
 
     let isMounted = true;
+
+    // Dynamically load Google Sign-in script if not already present
+    if (!(window as any).google?.accounts?.id) {
+      const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+      if (!existingScript) {
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+      }
+    }
 
     const initializeGoogleBtn = () => {
       const g = (window as any).google;
@@ -182,7 +194,7 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
     return () => {
       isMounted = false;
     };
-  }, [requireGoogleLogin, googleUser, googleClientId, googleAllowedDomains]);
+  }, [googleUser, googleClientId, googleAllowedDomains]);
 
   const handleGoogleLogout = () => {
     setGoogleUser(null);
@@ -624,11 +636,16 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
                 </div>
               </div>
             ) : (
-              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Your Name / Email (Optional)
-                </label>
-                <div style={{ position: 'relative' }}>
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Your Name / Email (Optional)
+                  </label>
+                  {googleClientId && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>or quick sign-in:</span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   <input
                     type="text"
                     disabled={!!userPastSubmission}
@@ -641,6 +658,14 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
                       fontSize: '0.85rem', outline: 'none', width: '100%'
                     }}
                   />
+                  {googleClientId && (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '0.25rem' }}>
+                      <div id="google-signin-btn-container" style={{ minHeight: '40px' }} />
+                      {googleLoginError && (
+                        <span style={{ fontSize: '0.72rem', color: 'var(--danger)', marginTop: '0.25rem' }}>{googleLoginError}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
