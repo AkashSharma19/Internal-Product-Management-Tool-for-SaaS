@@ -1615,8 +1615,11 @@ export default async function handler(req: any, res: any) {
               addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Final Release', item.finalRelease, !!item.finalReleaseCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
               addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Commited', item.committedDate, !!item.finalReleaseCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
             } else {
-              addEvent(item.id, 'Daily Issues Log', item.module || `Issue #${item.id}`, 'Deadline', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'issues');
-              addEvent(item.id, 'Daily Issues Log', item.module || `Issue #${item.id}`, 'Commited', item.committedDate, !!item.deadlineCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'issues');
+              addEvent(item.id, 'Daily Issues Log', item.module || `Issue #${item.id}`, 'Specs', item.productDeadline, !!item.productDeadlineCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'issues');
+              addEvent(item.id, 'Daily Issues Log', item.module || `Issue #${item.id}`, 'UI/UX', item.uiux, !!item.uiuxCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'issues');
+              addEvent(item.id, 'Daily Issues Log', item.module || `Issue #${item.id}`, 'Dev', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'issues');
+              addEvent(item.id, 'Daily Issues Log', item.module || `Issue #${item.id}`, 'Final Release', item.finalRelease, !!item.finalReleaseCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'issues');
+              addEvent(item.id, 'Daily Issues Log', item.module || `Issue #${item.id}`, 'Commited', item.committedDate, !!item.finalReleaseCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'issues');
             }
           });
 
