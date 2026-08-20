@@ -2251,6 +2251,149 @@ const FormBuilderSection: React.FC = () => {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// GEMINI AI INTEGRATION SECTION
+// ═══════════════════════════════════════════════════════════════════════════════
+const GeminiSettingsSection: React.FC = () => {
+  const { geminiApiKey, setGeminiApiKey, geminiModel, setGeminiModel, canUserEdit } = useDashboard();
+  const [apiKeyInput, setApiKeyInput] = useState(geminiApiKey);
+  const [modelSelect, setModelSelect] = useState(geminiModel);
+  const [showKey, setShowKey] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  // Sync local input with database value when loaded
+  useEffect(() => {
+    setApiKeyInput(geminiApiKey);
+  }, [geminiApiKey]);
+
+  useEffect(() => {
+    setModelSelect(geminiModel);
+  }, [geminiModel]);
+
+  const handleSave = () => {
+    if (!canUserEdit) return;
+    setGeminiApiKey(apiKeyInput.trim());
+    setGeminiModel(modelSelect);
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 3000);
+  };
+
+  return (
+    <SectionCard
+      icon={<Sparkles size={16} />}
+      title="Gemini AI Settings"
+      subtitle="Configure your Google Gemini API Key to enable meeting summarization & action item extraction"
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '600px' }}>
+        
+        {/* Credentials Form */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            Gemini API Key
+          </label>
+          <div style={{ display: 'flex', gap: '0.5rem', position: 'relative', alignItems: 'center' }}>
+            <input
+              type={showKey ? 'text' : 'password'}
+              value={apiKeyInput}
+              onChange={e => setApiKeyInput(e.target.value)}
+              placeholder="AIzaSy..."
+              disabled={!canUserEdit}
+              className="config-input"
+              style={{
+                paddingRight: '40px',
+                opacity: canUserEdit ? 1 : 0.6,
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey(!showKey)}
+              disabled={!canUserEdit}
+              style={{
+                position: 'absolute',
+                right: '10px',
+                background: 'none',
+                border: 'none',
+                cursor: canUserEdit ? 'pointer' : 'default',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '4px',
+              }}
+              title={showKey ? "Hide API Key" : "Show API Key"}
+            >
+              {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+            Get your Gemini API Key from the official Google AI Studio: <a href="https://aistudio.google.com/" target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>Google AI Studio</a>.
+          </p>
+        </div>
+
+        {/* Model Selection */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            Preferred Gemini Model
+          </label>
+          <select
+            value={modelSelect}
+            onChange={e => setModelSelect(e.target.value)}
+            disabled={!canUserEdit}
+            style={{
+              opacity: canUserEdit ? 1 : 0.6,
+              cursor: canUserEdit ? 'pointer' : 'default',
+              padding: '8px 10px',
+              backgroundColor: 'var(--background)',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              color: 'var(--text-primary)',
+              fontFamily: 'inherit',
+              fontSize: '0.85rem',
+              outline: 'none',
+              width: '100%'
+            }}
+          >
+            <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash (Recommended for Free Tier - 15 RPM / 1500 RPD)</option>
+            <option value="gemini-1.5-flash-8b">Gemini 1.5 Flash 8B (Highest Limits / Fastest - 15 RPM)</option>
+            <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (High-Speed Lightweight Free Tier Model)</option>
+            <option value="gemini-3.5-flash">Gemini 3.5 Flash (Default High-Performance Agent Model)</option>
+            <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro (High Quality Reasoning - Lower Rate Limits)</option>
+          </select>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+            Choose a model that matches your rate-limit and quota preferences. Flash models provide the highest rate limits on the free tier.
+          </p>
+        </div>
+
+        <div>
+          <button
+            onClick={handleSave}
+            disabled={!canUserEdit}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 16px',
+              background: isSaved ? '#10b981' : 'var(--primary)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: canUserEdit ? 'pointer' : 'default',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              transition: 'background-color 0.15s, opacity 0.15s',
+              opacity: canUserEdit ? 1 : 0.5,
+            }}
+            onMouseEnter={e => { if (!isSaved && canUserEdit) e.currentTarget.style.opacity = '0.85'; }}
+            onMouseLeave={e => { if (!isSaved && canUserEdit) e.currentTarget.style.opacity = '1'; }}
+          >
+            {isSaved ? <Check size={14} /> : null}
+            {isSaved ? 'Saved Settings!' : 'Save Credentials'}
+          </button>
+        </div>
+      </div>
+    </SectionCard>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // FORM SECURITY SECTION
 // ═══════════════════════════════════════════════════════════════════════════════
 const FormSecuritySection: React.FC = () => {
@@ -3358,7 +3501,7 @@ const EmailDigestSettingsSection: React.FC = () => {
 
 
 const IntegrationsSection: React.FC = () => {
-  const [subTab, setSubTab] = useState<'clickup' | 'security' | 'email'>('clickup');
+  const [subTab, setSubTab] = useState<'clickup' | 'security' | 'email' | 'gemini'>('clickup');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -3386,6 +3529,23 @@ const IntegrationsSection: React.FC = () => {
           }}
         >
           ClickUp Integration
+        </button>
+        <button
+          onClick={() => setSubTab('gemini')}
+          style={{
+            padding: '0.75rem 0.5rem',
+            border: 'none',
+            background: 'none',
+            borderBottom: subTab === 'gemini' ? '2px solid var(--primary)' : '2px solid transparent',
+            color: subTab === 'gemini' ? 'var(--text-primary)' : 'var(--text-muted)',
+            fontWeight: 600,
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            outline: 'none'
+          }}
+        >
+          Gemini Settings
         </button>
         <button
           onClick={() => setSubTab('security')}
@@ -3428,6 +3588,8 @@ const IntegrationsSection: React.FC = () => {
           <ClickupSettingsSection />
         ) : subTab === 'security' ? (
           <FormSecuritySection />
+        ) : subTab === 'gemini' ? (
+          <GeminiSettingsSection />
         ) : (
           <EmailDigestSettingsSection />
         )}

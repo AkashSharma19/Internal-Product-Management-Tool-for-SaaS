@@ -60,6 +60,9 @@ import type {
   Challenge
 } from '../types';
 
+import { triggerReleaseConfetti } from '../utils/confetti';
+import { playPopSound } from '../utils/audio';
+
 const isTaskLinked = (notes: string | undefined, taskId?: string): boolean => {
   if (!notes) return false;
   if (notes.includes("Linked Task: true")) return true;
@@ -118,6 +121,382 @@ const DiscussionTextArea: React.FC<DiscussionTextAreaProps> = ({ initialValue, o
       style={style}
       onClick={(e) => e.stopPropagation()}
     />
+  );
+};
+
+interface AIMeetingAssistantModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  meetingText: string;
+  meetingId: string;
+  meetingTitle: string;
+  meetingType: 'ama' | 'call' | 'tarun';
+  onApplySummary: (summary: string) => void;
+}
+
+const AIMeetingAssistantModal: React.FC<AIMeetingAssistantModalProps> = ({
+  isOpen,
+  onClose,
+  meetingText,
+  meetingId,
+  meetingTitle,
+  meetingType,
+  onApplySummary
+}) => {
+  const { addProductItem, currentUser, geminiModel } = useDashboard();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [summary, setSummary] = useState('');
+  const [actionItems, setActionItems] = useState<Array<{
+    feature: string;
+    description: string;
+    priority: string;
+    selected: boolean;
+  }>>([]);
+
+  useEffect(() => {
+    if (isOpen && meetingText.trim()) {
+      generateAIReport();
+    }
+  }, [isOpen, meetingText]);
+
+  const generateAIReport = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const headers: Record<string, string> = {};
+      if (currentUser?.id) {
+        headers['x-user-id'] = currentUser.id;
+      }
+      
+      const response = await fetch('/api/data?action=ai-meeting-assist', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers
+        },
+        body: JSON.stringify({ data: { text: meetingText, model: geminiModel } })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Failed to analyze meeting');
+      }
+
+      const resData = await response.json();
+      if (resData.success && resData.result) {
+        setSummary(resData.result.summary || '');
+        const items = (resData.result.actionItems || []).map((item: any) => ({
+          feature: item.feature || '',
+          description: item.description || '',
+          priority: item.priority || 'P2',
+          selected: true
+        }));
+        setActionItems(items);
+      } else {
+        throw new Error('Invalid response structure from AI');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'An error occurred during AI processing');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateFeatures = () => {
+    const selectedItems = actionItems.filter(item => item.selected && item.feature.trim() !== '');
+    if (selectedItems.length === 0) return;
+
+    let prefix = 'prod-temp';
+    let noteText = '';
+    if (meetingType === 'ama') {
+      prefix = 'prod-ama';
+      noteText = `AMA Session ID: ${meetingId} | AMA: ${meetingTitle}`;
+    } else if (meetingType === 'call') {
+      prefix = 'prod-call';
+      noteText = `Admin Call ID: ${meetingId} | Admin Call: ${meetingTitle}`;
+    } else if (meetingType === 'tarun') {
+      prefix = 'prod-tarun';
+      noteText = `Tarun Sir Meeting ID: ${meetingId} | Meeting: ${meetingTitle}`;
+    }
+
+    selectedItems.forEach((item, idx) => {
+      const newItem: ProductItem = {
+        id: `${prefix}-${Date.now()}-${idx}`,
+        feature: item.feature.trim(),
+        description: item.description.trim(),
+        tarunSirApproval: false,
+        raisedByTarunSir: meetingType === 'tarun' || item.priority === 'P0',
+        priority: item.priority as "" | "P0" | "P1" | "P2" | "P3" | "P4",
+        poc: '',
+        status: '',
+        clickupStatus: '',
+        taskLink: '',
+        blocker: '',
+        deadline: '',
+        notes: noteText,
+        product: '',
+        module: '',
+        uiux: '',
+        finalRelease: '',
+        productDeadline: '',
+        createdAt: new Date().toISOString()
+      };
+      addProductItem(newItem);
+    });
+
+    triggerReleaseConfetti();
+    playPopSound();
+    onApplySummary(summary);
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div 
+      style={{ 
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(15, 23, 42, 0.45)',
+        backdropFilter: 'blur(8px)',
+        zIndex: 10005,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '2rem'
+      }} 
+      onClick={onClose}
+    >
+      <div 
+        className="detail-content" 
+        style={{ 
+          maxWidth: '850px', 
+          width: '100%', 
+          maxHeight: '85vh', 
+          display: 'flex', 
+          flexDirection: 'column',
+          backgroundColor: 'var(--panel-bg)',
+          borderRadius: '16px',
+          border: '1px solid var(--border-light)',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 10px 10px -5px rgba(0, 0, 0, 0.15)',
+          overflow: 'hidden',
+          padding: 0
+        }} 
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="modal-header" style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
+          <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)', fontFamily: 'inherit', margin: 0 }}>
+            <Sparkles size={18} style={{ color: 'var(--primary)' }} />
+            AI Meeting Summary & Features Extractor
+          </h3>
+          <button className="modal-close" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {isLoading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '3rem 0', gap: '1rem' }}>
+              <RefreshCw size={36} className="animate-spin" style={{ color: 'var(--primary)' }} />
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Analyzing notes and generating summary with Gemini AI...</p>
+            </div>
+          ) : error ? (
+            <div style={{ padding: '1rem', borderRadius: '8px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--danger)', fontSize: '0.85rem' }}>
+              <p style={{ margin: '0 0 0.5rem 0', fontWeight: 600 }}>Error Generating Report</p>
+              <p style={{ margin: 0 }}>{error}</p>
+              <button 
+                onClick={generateAIReport} 
+                className="btn btn-secondary" 
+                style={{ marginTop: '0.75rem', padding: '4px 10px', fontSize: '0.75rem' }}
+              >
+                Retry
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Summary Block */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                  Generated Bulleted Summary
+                </label>
+                <textarea
+                  value={summary}
+                  onChange={(e) => setSummary(e.target.value)}
+                  style={{
+                    width: '100%',
+                    height: '140px',
+                    padding: '10px',
+                    backgroundColor: 'var(--background)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    color: 'var(--text-primary)',
+                    fontFamily: 'inherit',
+                    fontSize: '0.85rem',
+                    lineHeight: '1.5',
+                    resize: 'vertical',
+                    outline: 'none'
+                  }}
+                  placeholder="Summarized bullet points will appear here..."
+                />
+              </div>
+
+              {/* Action Items List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                  Extracted Action Items ({actionItems.filter(i => i.selected).length} selected)
+                </label>
+                
+                {actionItems.length === 0 ? (
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>No action items or features extracted by AI.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {actionItems.map((item, idx) => (
+                      <div 
+                        key={idx} 
+                        style={{ 
+                          display: 'flex', 
+                          gap: '0.75rem', 
+                          padding: '1rem', 
+                          borderRadius: '8px', 
+                          border: '1px solid var(--border)', 
+                          backgroundColor: item.selected ? 'rgba(99,102,241,0.04)' : 'transparent',
+                          transition: 'background-color 0.2s'
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={item.selected}
+                          onChange={(e) => {
+                            const copy = [...actionItems];
+                            copy[idx].selected = e.target.checked;
+                            setActionItems(copy);
+                          }}
+                          style={{ marginTop: '4px', cursor: 'pointer' }}
+                        />
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                            <input
+                              type="text"
+                              value={item.feature}
+                              onChange={(e) => {
+                                const copy = [...actionItems];
+                                copy[idx].feature = e.target.value;
+                                setActionItems(copy);
+                              }}
+                              placeholder="Feature title"
+                              style={{
+                                flex: 1,
+                                fontWeight: 600,
+                                fontSize: '0.85rem',
+                                padding: '4px 8px',
+                                border: '1px solid var(--border)',
+                                borderRadius: '4px',
+                                backgroundColor: 'var(--background)',
+                                color: 'var(--text-primary)',
+                                outline: 'none'
+                              }}
+                              disabled={!item.selected}
+                            />
+                            <select
+                              value={item.priority}
+                              onChange={(e) => {
+                                const copy = [...actionItems];
+                                copy[idx].priority = e.target.value;
+                                setActionItems(copy);
+                              }}
+                              style={{
+                                padding: '4px 8px',
+                                fontSize: '0.75rem',
+                                border: '1px solid var(--border)',
+                                borderRadius: '4px',
+                                backgroundColor: 'var(--background)',
+                                color: 'var(--text-primary)',
+                                outline: 'none',
+                                cursor: 'pointer'
+                              }}
+                              disabled={!item.selected}
+                            >
+                              <option value="P0">P0 (Critical)</option>
+                              <option value="P1">P1 (High)</option>
+                              <option value="P2">P2 (Medium)</option>
+                              <option value="P3">P3 (Low)</option>
+                              <option value="P4">P4 (Trivial)</option>
+                            </select>
+                          </div>
+                          
+                          <textarea
+                            value={item.description}
+                            onChange={(e) => {
+                              const copy = [...actionItems];
+                              copy[idx].description = e.target.value;
+                              setActionItems(copy);
+                            }}
+                            placeholder="Feature description"
+                            style={{
+                              width: '100%',
+                              height: '50px',
+                              padding: '6px 8px',
+                              fontSize: '0.8rem',
+                              border: '1px solid var(--border)',
+                              borderRadius: '4px',
+                              backgroundColor: 'var(--background)',
+                              color: 'var(--text-secondary)',
+                              fontFamily: 'inherit',
+                              resize: 'none',
+                              outline: 'none'
+                            }}
+                            disabled={!item.selected}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="form-actions" style={{ padding: '1.25rem 1.5rem', borderTop: '1px solid var(--border)', background: 'var(--background-alt)', margin: 0, borderRadius: '0 0 16px 16px' }}>
+          <button className="btn btn-secondary" onClick={onClose} disabled={isLoading}>
+            Cancel
+          </button>
+          
+          {!isLoading && !error && (
+            <>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => {
+                  onApplySummary(summary);
+                  onClose();
+                }}
+                disabled={!summary.trim()}
+              >
+                Apply Summary Only
+              </button>
+              
+              <button 
+                className="btn btn-primary" 
+                onClick={handleCreateFeatures}
+                disabled={actionItems.filter(i => i.selected).length === 0}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Sparkles size={14} />
+                Create {actionItems.filter(i => i.selected).length} Features & Apply Summary
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -8036,6 +8415,12 @@ export const AdminCallsTable: React.FC = () => {
   const speakersList = configSpeakers.map(s => s.name);
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [selectedAiMeeting, setSelectedAiMeeting] = useState<{
+    id: string;
+    text: string;
+    title: string;
+    type: 'ama' | 'call' | 'tarun';
+  } | null>(null);
   const [subTab, setSubTab] = useState<'schedule' | 'feedback'>('schedule');
   const [drawerItemId, setDrawerItemId] = useState<string | null>(null);
   const [drawerCategory, setDrawerCategory] = useState<'admin-calls' | 'ama-meetings' | 'student-projects' | null>(null);
@@ -8929,7 +9314,40 @@ export const AdminCallsTable: React.FC = () => {
                               {/* Top Split: Discussion & Actions */}
                               <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                                 <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                  <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Attendees</label>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', margin: 0 }}>Attendees / Discussion</label>
+                                    {call.discussion && call.discussion.trim() && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedAiMeeting({
+                                            id: call.id,
+                                            text: call.discussion,
+                                            title: call.cohortTopic || 'Admin Call',
+                                            type: 'call'
+                                          });
+                                        }}
+                                        className="btn btn-secondary"
+                                        style={{
+                                          padding: '2px 8px',
+                                          fontSize: '0.7rem',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          background: 'rgba(99,102,241,0.08)',
+                                          border: '1px solid rgba(99,102,241,0.25)',
+                                          color: 'var(--primary)',
+                                          cursor: 'pointer',
+                                          borderRadius: '4px',
+                                          fontWeight: 600,
+                                          transition: 'all 0.15s ease'
+                                        }}
+                                        title="Summarize meeting and extract feature requests using AI"
+                                      >
+                                        <Sparkles size={10} /> Summarize & Extract
+                                      </button>
+                                    )}
+                                  </div>
                                   <DiscussionTextArea
                                     initialValue={call.discussion || ''}
                                     onSave={(val) => updateAdminCall(call.id, { discussion: val })}
@@ -9818,6 +10236,19 @@ export const AdminCallsTable: React.FC = () => {
           setDrawerCategory(null);
         }}
       />
+      {selectedAiMeeting && (
+        <AIMeetingAssistantModal
+          isOpen={!!selectedAiMeeting}
+          onClose={() => setSelectedAiMeeting(null)}
+          meetingId={selectedAiMeeting.id}
+          meetingText={selectedAiMeeting.text}
+          meetingTitle={selectedAiMeeting.title}
+          meetingType={selectedAiMeeting.type}
+          onApplySummary={(sum) => {
+            updateAdminCall(selectedAiMeeting.id, { discussion: sum });
+          }}
+        />
+      )}
     </>
   );
 };
@@ -9835,6 +10266,12 @@ export const TarunSirMeetingsTable: React.FC = () => {
   
   const speakersList = configSpeakers.map(s => s.name);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedAiMeeting, setSelectedAiMeeting] = useState<{
+    id: string;
+    text: string;
+    title: string;
+    type: 'ama' | 'call' | 'tarun';
+  } | null>(null);
   const [subTab, setSubTab] = useState<'schedule' | 'feedback'>('schedule');
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
@@ -10679,7 +11116,40 @@ export const TarunSirMeetingsTable: React.FC = () => {
                               {/* Top Split: Discussion & Actions */}
                               <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                                 <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                  <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Discussion</label>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', margin: 0 }}>Discussion</label>
+                                    {meeting.discussion && meeting.discussion.trim() && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedAiMeeting({
+                                            id: meeting.id,
+                                            text: meeting.discussion,
+                                            title: meeting.cohortTopic || 'Tarun Sir Meeting',
+                                            type: 'tarun'
+                                          });
+                                        }}
+                                        className="btn btn-secondary"
+                                        style={{
+                                          padding: '2px 8px',
+                                          fontSize: '0.7rem',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          background: 'rgba(99,102,241,0.08)',
+                                          border: '1px solid rgba(99,102,241,0.25)',
+                                          color: 'var(--primary)',
+                                          cursor: 'pointer',
+                                          borderRadius: '4px',
+                                          fontWeight: 600,
+                                          transition: 'all 0.15s ease'
+                                        }}
+                                        title="Summarize meeting and extract feature requests using AI"
+                                      >
+                                        <Sparkles size={10} /> Summarize & Extract
+                                      </button>
+                                    )}
+                                  </div>
                                   <DiscussionTextArea
                                     initialValue={meeting.discussion || ''}
                                     onSave={(val) => updateTarunSirMeeting(meeting.id, { discussion: val })}
@@ -11567,6 +12037,19 @@ export const TarunSirMeetingsTable: React.FC = () => {
           </div>
         )}
       </TabContainer>
+      {selectedAiMeeting && (
+        <AIMeetingAssistantModal
+          isOpen={!!selectedAiMeeting}
+          onClose={() => setSelectedAiMeeting(null)}
+          meetingId={selectedAiMeeting.id}
+          meetingText={selectedAiMeeting.text}
+          meetingTitle={selectedAiMeeting.title}
+          meetingType={selectedAiMeeting.type}
+          onApplySummary={(sum) => {
+            updateTarunSirMeeting(selectedAiMeeting.id, { discussion: sum });
+          }}
+        />
+      )}
     </>
   );
 };

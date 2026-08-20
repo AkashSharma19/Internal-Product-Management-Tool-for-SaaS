@@ -185,6 +185,10 @@ interface DashboardContextType {
   // ClickUp Integration
   clickupApiKey: string;
   setClickupApiKey: (key: string) => void;
+  geminiApiKey: string;
+  setGeminiApiKey: (key: string) => void;
+  geminiModel: string;
+  setGeminiModel: (model: string) => void;
   syncClickupTask: (taskIdOrUrl: string) => Promise<{ status: string; subtasksCount: number; assignee: string; name?: string } | null>;
   refreshAllClickupStatuses: () => Promise<{ success: boolean; totalScanned: number; updatedCount: number; error?: string }>;
   registerClickupWebhook: () => Promise<{ success: boolean; error?: string }>;
@@ -763,6 +767,14 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return localStorage.getItem('config-clickup-api-key') || '';
   });
 
+  const [geminiApiKey, setGeminiApiKey] = useState<string>(() => {
+    return localStorage.getItem('config-gemini-api-key') || '';
+  });
+
+  const [geminiModel, setGeminiModel] = useState<string>(() => {
+    return localStorage.getItem('config-gemini-model') || 'gemini-1.5-flash-latest';
+  });
+
   const [googleClientId, setGoogleClientId] = useState<string>(() => {
     return localStorage.getItem('config-google-client-id') || '';
   });
@@ -1005,6 +1017,14 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     localStorage.setItem('config-clickup-api-key', clickupApiKey);
   }, [clickupApiKey]);
+
+  useEffect(() => {
+    localStorage.setItem('config-gemini-api-key', geminiApiKey);
+  }, [geminiApiKey]);
+
+  useEffect(() => {
+    localStorage.setItem('config-gemini-model', geminiModel);
+  }, [geminiModel]);
 
   useEffect(() => {
     localStorage.setItem('config-google-client-id', googleClientId);
@@ -1731,6 +1751,12 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           const clickupSetting = db.settings.find((s: any) => s.key === 'clickupApiKey');
           if (clickupSetting) setClickupApiKey(clickupSetting.value || '');
 
+          const geminiSetting = db.settings.find((s: any) => s.key === 'geminiApiKey');
+          if (geminiSetting) setGeminiApiKey(geminiSetting.value || '');
+
+          const geminiModelSetting = db.settings.find((s: any) => s.key === 'geminiModel');
+          if (geminiModelSetting) setGeminiModel(geminiModelSetting.value || 'gemini-1.5-flash-latest');
+
           const gClientIdSetting = db.settings.find((s: any) => s.key === 'googleClientId');
           if (gClientIdSetting) setGoogleClientId(gClientIdSetting.value || '');
 
@@ -1924,6 +1950,16 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const updateClickupApiKey = (key: string) => {
     setClickupApiKey(key);
     persistChange('update', 'settings', 'clickupApiKey', { id: 'clickupApiKey', key: 'clickupApiKey', value: key });
+  };
+
+  const updateGeminiApiKey = (key: string) => {
+    setGeminiApiKey(key);
+    persistChange('update', 'settings', 'geminiApiKey', { id: 'geminiApiKey', key: 'geminiApiKey', value: key });
+  };
+
+  const updateGeminiModel = (model: string) => {
+    setGeminiModel(model);
+    persistChange('update', 'settings', 'geminiModel', { id: 'geminiModel', key: 'geminiModel', value: model });
   };
 
   const updateGoogleClientId = (val: string) => {
@@ -2957,6 +2993,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       programs, addProgram, updateProgram, deleteProgram,
       cohorts, addCohort, updateCohort, deleteCohort,
       clickupApiKey, setClickupApiKey: updateClickupApiKey, syncClickupTask,
+      geminiApiKey, setGeminiApiKey: updateGeminiApiKey,
+      geminiModel, setGeminiModel: updateGeminiModel,
       refreshAllClickupStatuses,
       sendEmailDigest,
       registerClickupWebhook,

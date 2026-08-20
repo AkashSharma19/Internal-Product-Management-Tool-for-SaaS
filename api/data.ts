@@ -242,7 +242,7 @@ export default async function handler(req: any, res: any) {
             } else if (key === 'settings') {
               const rawSettings = await modelsMap[key].find({}).lean();
               results[key] = rawSettings.map((s: any) => {
-                if (s.key === 'clickupApiKey') {
+                if (s.key === 'clickupApiKey' || s.key === 'geminiApiKey') {
                   return { ...s, value: s.value ? '••••••••' : '' };
                 }
                 return s;
@@ -3584,6 +3584,99 @@ export default async function handler(req: any, res: any) {
       }
     }
 
+    if (action === 'ai-meeting-assist') {
+      try {
+        // Authenticate
+        const userId = req.headers['x-user-id'];
+        const host = req.headers.host || '';
+        const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('3000') || host.includes('5173');
+        let isAuthenticated = isLocalhost;
+        if (!isAuthenticated && userId) {
+          const ConfigSpeaker = modelsMap['speakers'];
+          const speaker = await ConfigSpeaker.findOne({ id: userId }).lean();
+          if (speaker) {
+            isAuthenticated = true;
+          }
+        }
+        if (!isAuthenticated) {
+          return res.status(401).json({ success: false, error: 'Unauthorized AI operation.' });
+        }
+
+        const { text, model } = data || {};
+        if (!text || !text.trim()) {
+          return res.status(400).json({ success: false, error: 'Meeting text/notes are required for AI analysis' });
+        }
+
+        // Fetch geminiApiKey from settings in DB
+        const GlobalSettings = modelsMap['settings'];
+        const geminiSetting = await GlobalSettings.findOne({ key: 'geminiApiKey' }).lean();
+        const apiKey = geminiSetting?.value || process.env.GEMINI_API_KEY;
+
+        if (!apiKey || !apiKey.trim()) {
+          return res.status(400).json({ success: false, error: 'Gemini API Key is not configured. Please set it in Admin Config.' });
+        }
+
+        const prompt = `You are a SaaS Product Manager. Analyze the meeting minutes or notes provided below and generate a JSON response.
+1. Synthesize the key points into a clean, professional, bullet-pointed summary (using markdown hyphens).
+2. Extract specific actionable tasks / feature requests. For each task, generate a clear title (as 'feature'), a brief description of what to do (as 'description'), and a predicted priority level (one of 'P0', 'P1', 'P2', 'P3', 'P4' depending on urgency).
+
+Return a JSON object conforming exactly to this structure:
+{
+  "summary": "Bulleted summary points of the meeting.",
+  "actionItems": [
+    {
+      "feature": "Feature name / task title",
+      "description": "Description of the feature request / task",
+      "priority": "P1"
+    }
+  ]
+}
+
+Do not include any markdown block markers like \`\`\`json. Output ONLY the raw JSON string.
+
+Meeting text to analyze:
+${text}`;
+
+        const selectedModel = model || 'gemini-1.5-flash-latest';
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
+        const requestBody = {
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.2,
+            responseMimeType: "application/json"
+          }
+        };
+
+        const response = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          console.error('Gemini API request failed:', errText);
+          return res.status(response.status).json({ success: false, error: `Gemini API Error: ${errText}` });
+        }
+
+        const resData = await response.json();
+        const generatedText = resData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        
+        let parsedResult;
+        try {
+          parsedResult = JSON.parse(generatedText.trim());
+        } catch (parseErr) {
+          console.error('Failed to parse Gemini JSON output:', generatedText);
+          return res.status(500).json({ success: false, error: 'AI returned invalid JSON format. Please try again.', raw: generatedText });
+        }
+
+        return res.status(200).json({ success: true, result: parsedResult });
+      } catch (err: any) {
+        console.error('AI Meeting Assist error:', err);
+        return res.status(500).json({ success: false, error: err.message || 'An error occurred during AI generation' });
+      }
+    }
+
     if (action === 'clickup-sync') {
       try {
         // Authenticate
@@ -4813,10 +4906,10 @@ export default async function handler(req: any, res: any) {
         }
         // ------------------------------
         
-        // If updating clickupApiKey, check if it is masked
-        if (type === 'settings' && id === 'clickupApiKey') {
+        // If updating clickupApiKey or geminiApiKey, check if it is masked
+        if (type === 'settings' && (id === 'clickupApiKey' || id === 'geminiApiKey')) {
           if (data && data.value === '••••••••') {
-            // Do not overwrite existing ClickUp API Key with masked symbols
+            // Do not overwrite existing settings value with masked symbols
             const existingSetting = await Model.findOne({ key: id }).lean();
             return res.status(200).json({ success: true, item: existingSetting });
           }
