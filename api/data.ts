@@ -4854,7 +4854,10 @@ ${text}`;
               const nameParts = userName.split(/\s+/);
               const isMatched = nameParts.some((part: string) => part.length > 2 && docPoc.includes(part)) || docPoc.includes(userName);
               
-              if (!isTarun && !isMatched) {
+              // Only restrict to POC if they are editing the description document itself
+              const isEditingDescription = data && (data.description || '') !== (existingProduct.description || '');
+              
+              if (isEditingDescription && !isTarun && !isMatched) {
                 return res.status(403).json({ success: false, error: 'Access Denied: You are not authorized as a Point of Contact (POC) to edit this document.' });
               }
             }
