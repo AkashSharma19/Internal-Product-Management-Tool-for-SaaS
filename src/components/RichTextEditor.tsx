@@ -783,7 +783,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           onKeyUp={updateActiveStates}
           onMouseUp={updateActiveStates}
           onClick={updateActiveStates}
-          placeholder={placeholder}
+          data-placeholder={placeholder}
           style={{ minHeight: '120px' }}
         />
       </div>
@@ -853,7 +853,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                       }}
                       onMouseUp={updateActiveStates}
                       onClick={updateActiveStates}
-                      placeholder={placeholder}
+                      data-placeholder={placeholder}
                       style={{ outline: 'none', minHeight: '600px' }}
                     />
                   </div>

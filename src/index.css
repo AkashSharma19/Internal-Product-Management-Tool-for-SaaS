@@ -5421,6 +5421,16 @@ body.read-only-mode .btn:has(svg.lucide-plus) {
   word-break: break-word;
 }
 
+/* Rich text editor placeholders for contenteditable divs */
+.rich-editor-content[data-placeholder]:empty::before,
+.google-doc-canvas-editor-area[data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  font-style: italic;
+  pointer-events: none;
+  display: block;
+}
+
 /* Formatted elements inside editor */
 .rich-editor-content p,
 .google-doc-canvas p {

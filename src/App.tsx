@@ -59,6 +59,7 @@ import {
 
 import { isAudioMuted, toggleAudioMute, playPopSound } from './utils/audio';
 import { ensureHtmlDescription } from './utils/text';
+import { RichTextEditor } from './components/RichTextEditor';
 
 const SailboatIcon: React.FC<{ size?: number; className?: string; style?: React.CSSProperties }> = ({ size = 16, className, style }) => {
   return (
@@ -925,7 +926,7 @@ const DashboardContent: React.FC = () => {
     poc: string;
   }
 
-  const [publicDocId, setPublicDocId] = useState<string | null>(() => {
+  const [publicDocId] = useState<string | null>(() => {
     return new URLSearchParams(window.location.search).get('publicDoc');
   });
   const [publicDoc, setPublicDoc] = useState<PublicDocData | null>(null);
