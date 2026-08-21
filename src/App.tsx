@@ -58,6 +58,7 @@ import {
 } from 'lucide-react';
 
 import { isAudioMuted, toggleAudioMute, playPopSound } from './utils/audio';
+import { ensureHtmlDescription } from './utils/text';
 
 const SailboatIcon: React.FC<{ size?: number; className?: string; style?: React.CSSProperties }> = ({ size = 16, className, style }) => {
   return (
@@ -910,6 +911,152 @@ const DashboardContent: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Public document shared link states
+  interface DocumentHeading {
+    id: string;
+    text: string;
+    level: number;
+  }
+
+  interface PublicDocData {
+    id: string;
+    feature: string;
+    description: string;
+    poc: string;
+  }
+
+  const [publicDocId, setPublicDocId] = useState<string | null>(() => {
+    return new URLSearchParams(window.location.search).get('publicDoc');
+  });
+  const [publicDoc, setPublicDoc] = useState<PublicDocData | null>(null);
+  const [publicDocLoading, setPublicDocLoading] = useState(false);
+  const [publicDocError, setPublicDocError] = useState<string | null>(null);
+  const [isSharedGoogleSigningIn, setIsSharedGoogleSigningIn] = useState(false);
+  const [sharedLoginError, setSharedLoginError] = useState<string | null>(null);
+  const [publicDocHeadings, setPublicDocHeadings] = useState<DocumentHeading[]>([]);
+
+  // Load public shared document
+  useEffect(() => {
+    if (!publicDocId) return;
+
+    const loadPublicDoc = async () => {
+      setPublicDocLoading(true);
+      setPublicDocError(null);
+      try {
+        const response = await fetch(`/api/data?action=get-public-doc&id=${publicDocId}`);
+        const result = await response.json();
+        if (response.ok && result.success) {
+          setPublicDoc(result.data);
+        } else {
+          setPublicDocError(result.error || 'Failed to load document');
+        }
+      } catch (err) {
+        setPublicDocError('Network error loading document');
+      } finally {
+        setPublicDocLoading(false);
+      }
+    };
+
+    loadPublicDoc();
+  }, [publicDocId]);
+
+  // Google Login button initialize for public share portal
+  useEffect(() => {
+    if (!publicDocId || currentUser || !googleClientId) return;
+
+    let isMounted = true;
+    const initializeGoogleBtn = () => {
+      const g = (window as any).google;
+      if (g?.accounts?.id) {
+        g.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: async (response: any) => {
+            if (!isMounted) return;
+            setIsSharedGoogleSigningIn(true);
+            setSharedLoginError(null);
+            try {
+              if (response.credential) {
+                const res = await loginUserByEmail(response.credential);
+                if (!res.success) {
+                  setSharedLoginError(res.error || 'Access Denied');
+                }
+              } else {
+                setSharedLoginError('Failed to retrieve credential.');
+              }
+            } catch (err) {
+              setSharedLoginError('Google login failed.');
+            } finally {
+              if (isMounted) setIsSharedGoogleSigningIn(false);
+            }
+          }
+        });
+
+        const btnContainer = document.getElementById('google-signin-shared-btn-container');
+        if (btnContainer) {
+          g.accounts.id.renderButton(btnContainer, {
+            theme: 'outline',
+            size: 'medium',
+            text: 'signin_with',
+            shape: 'rectangular'
+          });
+        }
+      } else {
+        setTimeout(initializeGoogleBtn, 300);
+      }
+    };
+
+    initializeGoogleBtn();
+    return () => {
+      isMounted = false;
+    };
+  }, [publicDocId, currentUser, googleClientId, loginUserByEmail]);
+
+  // Check if current user is an authorized POC for editing
+  const isAuthorizedPoc = useMemo(() => {
+    if (!currentUser || !publicDoc) return false;
+    
+    const userName = currentUser.name.toLowerCase().trim();
+    const docPoc = (publicDoc.poc || '').toLowerCase().trim();
+    
+    // Admin override check
+    const isAdmin = userName.includes('tarun') || currentUser.id === 'speaker-1' || currentUser.role === 'Admin';
+    if (isAdmin) return true;
+    
+    // POC string check
+    const nameParts = userName.split(/\s+/);
+    const isMatched = nameParts.some((part: string) => part.length > 2 && docPoc.includes(part)) || 
+                     docPoc.includes(userName);
+                     
+    return isMatched;
+  }, [currentUser, publicDoc]);
+
+  // Save document description updates in-place from the public portal
+  const handleUpdatePublicDoc = async (newHtml: string) => {
+    if (!publicDoc || !currentUser || !isAuthorizedPoc) return;
+    
+    // Optimistic update
+    setPublicDoc((prev: PublicDocData | null) => prev ? { ...prev, description: newHtml } : null);
+    
+    try {
+      const response = await fetch(`/api/data?action=update&type=products&id=${publicDoc.id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': currentUser.id
+        },
+        body: JSON.stringify({
+          description: newHtml
+        })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        console.error('Failed to save public document description:', result.error);
+      }
+    } catch (err) {
+      console.error('Failed to save public document description:', err);
+    }
+  };
+
   // Toast state for auto-save notifications
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -1196,12 +1343,235 @@ const DashboardContent: React.FC = () => {
       setIsRefreshingData(false);
     }
   };
-
-  // Public feedback mode routing bypass
   const searchParams = new URLSearchParams(window.location.search);
   const feedbackId = searchParams.get('feedback');
   const feedbackCategory = searchParams.get('category');
   const isPublicCalendar = searchParams.get('public-calendar') === 'true';
+
+  if (publicDocId) {
+    if (publicDocLoading) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--background)', color: 'var(--text-primary)', fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif" }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+            <RefreshCw size={28} className="animate-spin" style={{ color: 'var(--primary)' }} />
+            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Loading shared document...</span>
+          </div>
+        </div>
+      );
+    }
+
+    if (publicDocError) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--background)', color: 'var(--text-primary)', fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif", padding: '2rem' }}>
+          <div style={{ background: 'var(--panel-bg)', border: '1px solid var(--border)', borderRadius: '16px', padding: '2.5rem', maxWidth: '480px', width: '100%', textAlign: 'center', boxShadow: 'var(--shadow-lg)' }}>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 1rem 0', color: 'var(--danger)' }}>Access Denied</h2>
+            <p style={{ margin: '0 0 1.5rem 0', fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{publicDocError}</p>
+            <button className="btn btn-primary" style={{ width: '100%', padding: '10px', borderRadius: '8px', fontWeight: 600 }} onClick={() => window.location.href = '/'}>
+              Go to Dashboard
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (publicDoc) {
+      return (
+        <div className="google-doc-public-layout animate-fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', background: 'var(--background)', fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif" }}>
+          {/* Header Bar */}
+          <header className="google-doc-public-header" style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '0.75rem 1.5rem', background: 'var(--panel-bg)', borderBottom: '1px solid var(--border)',
+            height: '56px', boxSizing: 'border-box', flexShrink: 0
+          }}>
+            <div className="header-logo" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 800, color: 'var(--text-primary)' }} onClick={() => window.location.href = '/'}>
+              <ProductShipLogo size={20} />
+              <span>ProductShip Shared Doc</span>
+            </div>
+            
+            {/* Status Info */}
+            <div className="header-status-badge">
+              {currentUser ? (
+                isAuthorizedPoc ? (
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#10b981', background: 'rgba(16, 185, 129, 0.12)', padding: '4px 8px', borderRadius: '6px' }}>✍️ Editing Mode</span>
+                ) : (
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', background: 'var(--border)', padding: '4px 8px', borderRadius: '6px' }}>👁️ Read-Only</span>
+                )
+              ) : (
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', background: 'var(--border)', padding: '4px 8px', borderRadius: '6px' }}>👁️ Read-Only</span>
+              )}
+            </div>
+
+            {/* Auth / Sign In Section */}
+            <div className="header-auth-section">
+              {currentUser ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                    {currentUser.name}
+                  </span>
+                  <button 
+                    type="button" 
+                    className="btn btn-outline" 
+                    style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem', height: '24px', borderRadius: '6px', cursor: 'pointer' }}
+                    onClick={() => logoutUser()}
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {sharedLoginError && (
+                    <span style={{ fontSize: '0.7rem', color: 'var(--danger)', marginRight: '0.5rem' }}>
+                      {sharedLoginError}
+                    </span>
+                  )}
+                  {isSharedGoogleSigningIn ? (
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Signing in...</span>
+                  ) : (
+                    <div id="google-signin-shared-btn-container" style={{ minHeight: '32px' }} />
+                  )}
+                </div>
+              )}
+            </div>
+          </header>
+
+          {/* Banner Alert for permission status */}
+          {currentUser && !isAuthorizedPoc && (
+            <div className="google-doc-public-alert-banner alert-warning" style={{ backgroundColor: 'rgba(245, 158, 11, 0.08)', borderBottom: '1px solid rgba(245, 158, 11, 0.15)', color: '#f59e0b', padding: '0.5rem 1.5rem', fontSize: '0.78rem', textAlign: 'center', fontWeight: 500, flexShrink: 0 }}>
+              Logged in as <strong>{currentUser.name}</strong>, but you are not a Point of Contact (POC) for this document. It will remain read-only.
+            </div>
+          )}
+          {!currentUser && (
+            <div className="google-doc-public-alert-banner alert-info" style={{ backgroundColor: 'var(--primary-glow)', borderBottom: '1px solid rgba(59, 130, 246, 0.15)', color: 'var(--primary)', padding: '0.5rem 1.5rem', fontSize: '0.78rem', textAlign: 'center', fontWeight: 500, flexShrink: 0 }}>
+              You are viewing this document in <strong>Read-Only mode</strong>. Sign in with Google to edit if you are the Point of Contact.
+            </div>
+          )}
+          {currentUser && isAuthorizedPoc && (
+            <div className="google-doc-public-alert-banner alert-success" style={{ backgroundColor: 'rgba(16, 185, 129, 0.08)', borderBottom: '1px solid rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '0.5rem 1.5rem', fontSize: '0.78rem', textAlign: 'center', fontWeight: 500, flexShrink: 0 }}>
+              Welcome back, <strong>{currentUser.name}</strong>! You are a Point of Contact for this document. Editing is unlocked.
+            </div>
+          )}
+
+          {/* Main Layout containing Outline Sidebar and Canvas */}
+          <div className="google-doc-canvas-container" style={{ flex: 1, minHeight: 0, display: 'flex', background: 'var(--panel-bg-alt)', overflow: 'hidden' }}>
+            <div className="google-doc-layout" style={{ display: 'flex', width: '100%', height: '100%', maxWidth: '1600px', margin: '0 auto', gap: '2rem' }}>
+              
+              {/* Outline Sidebar */}
+              <div className="google-doc-outline-sidebar" style={{ width: '240px', flexShrink: 0, borderRight: '1px solid var(--border-light)', padding: '1.5rem 1rem 1.5rem 1.5rem', display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box', overflowY: 'auto' }}>
+                <div className="google-doc-outline-title" style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em', marginBottom: '1rem' }}>Document Outline</div>
+                {publicDocHeadings.length > 0 ? (
+                  <ul className="google-doc-outline-list" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {publicDocHeadings.map((h) => (
+                      <li key={h.id} style={{ margin: '0 0 0.5rem 0' }}>
+                        <button
+                          type="button"
+                          className={`google-doc-outline-item level-${h.level}`}
+                          onClick={() => {
+                            const scrollContainer = document.querySelector('.google-doc-canvas-scroll-wrapper');
+                            const el = document.getElementById(h.id);
+                            if (el && scrollContainer) {
+                              const containerRect = scrollContainer.getBoundingClientRect();
+                              const elRect = el.getBoundingClientRect();
+                              const relativeTop = elRect.top - containerRect.top + scrollContainer.scrollTop;
+                              scrollContainer.scrollTo({
+                                top: relativeTop - 20,
+                                behavior: 'smooth'
+                              });
+                            }
+                          }}
+                          style={{
+                            background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left',
+                            fontSize: '0.82rem', color: 'var(--text-secondary)', transition: 'color 0.15s ease',
+                            paddingLeft: h.level === 2 ? '0.75rem' : h.level === 3 ? '1.5rem' : '0',
+                            fontWeight: h.level === 1 ? 600 : 500, lineHeight: 1.4
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.color = 'var(--primary)'}
+                          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+                          title={h.text}
+                        >
+                          {h.text}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="google-doc-outline-empty" style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                    No headings detected in this document.
+                  </div>
+                )}
+              </div>
+
+              {/* Centered Document Sheet */}
+              <div className="google-doc-canvas-scroll-wrapper" style={{ flex: 1, overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: '1.5rem 0 3rem 0' }}>
+                <div className="google-doc-canvas-wrapper" style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '816px', alignItems: 'flex-start', boxSizing: 'border-box', padding: '0 1rem' }}>
+                  
+                  {/* Rich Text Editor for POCs, or Pure Read-Only Render for Guests */}
+                  {currentUser && isAuthorizedPoc ? (
+                    <div style={{ width: '100%' }}>
+                      <RichTextEditor
+                        value={publicDoc.description || ''}
+                        itemId={publicDoc.id}
+                        featureName={publicDoc.feature || ''}
+                        onChange={handleUpdatePublicDoc}
+                        placeholder="Feature document is empty..."
+                        canEdit={true}
+                      />
+                    </div>
+                  ) : (
+                    <div className="google-doc-canvas" style={{
+                      backgroundColor: 'var(--panel-bg)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '8px',
+                      boxShadow: 'var(--shadow-md)',
+                      width: '100%',
+                      padding: '2.5rem 3rem',
+                      boxSizing: 'border-box',
+                      minHeight: '600px'
+                    }}>
+                      <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '1.25rem', marginBottom: '1.75rem', userSelect: 'none' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Feature Document
+                        </span>
+                        <h1 style={{ fontSize: '1.85rem', fontWeight: 800, margin: '0.25rem 0 0 0', color: 'var(--text-primary)', border: 'none', background: 'none' }}>
+                          {publicDoc.feature}
+                        </h1>
+                      </div>
+                      <div 
+                        ref={(el) => {
+                          if (el) {
+                            // Extract headings for outline sidebar
+                            const headingElements = el.querySelectorAll('h1, h2, h3');
+                            const detectedHeadings: DocumentHeading[] = [];
+                            headingElements.forEach((hEl, idx) => {
+                              const uniqueId = `public-heading-ref-${idx}`;
+                              hEl.id = uniqueId;
+                              detectedHeadings.push({
+                                id: uniqueId,
+                                text: hEl.textContent || 'Untitled Heading',
+                                level: parseInt(hEl.tagName.replace('H', ''), 10)
+                              });
+                            });
+                            // Prevent infinite updates
+                            if (JSON.stringify(detectedHeadings) !== JSON.stringify(publicDocHeadings)) {
+                              setPublicDocHeadings(detectedHeadings);
+                            }
+                          }
+                        }}
+                        className="google-doc-canvas-editor-area rich-editor-content"
+                        dangerouslySetInnerHTML={{ __html: ensureHtmlDescription(publicDoc.description) }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right spacer */}
+              <div className="google-doc-layout-spacer" style={{ width: '240px', flexShrink: 0 }} />
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
 
   if (feedbackId) {
     return <PublicFeedbackForm itemId={feedbackId} category={feedbackCategory} />;

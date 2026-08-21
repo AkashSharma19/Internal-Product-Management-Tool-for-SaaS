@@ -101,7 +101,7 @@ export default async function handler(req: any, res: any) {
       const action = url.searchParams.get('action');
 
       if (action) {
-        if (!isAuthenticated && action !== 'init' && !(isPublicCalendar && action === 'calendar-events')) {
+        if (!isAuthenticated && action !== 'init' && !(isPublicCalendar && action === 'calendar-events') && action !== 'get-public-doc') {
           return res.status(401).json({ success: false, error: 'Unauthorized action request.' });
         }
 
@@ -3087,6 +3087,30 @@ export default async function handler(req: any, res: any) {
           return res.status(404).json({ success: false, error: 'Task not found' });
         }
 
+        if (action === 'get-public-doc') {
+          const id = url.searchParams.get('id');
+          if (!id) {
+            return res.status(400).json({ success: false, error: 'id parameter is required' });
+          }
+          let query: any = { id };
+          if (id.startsWith('prod-db-')) {
+            query = { _id: id.replace('prod-db-', '') };
+          }
+          const item: any = await modelsMap['products'].findOne(query).lean();
+          if (item) {
+            return res.status(200).json({
+              success: true,
+              data: {
+                id: item.id || `prod-db-${item._id}`,
+                feature: item.feature,
+                description: item.description || '',
+                poc: item.poc || ''
+              }
+            });
+          }
+          return res.status(404).json({ success: false, error: 'Document not found' });
+        }
+
         if (action === 'get-change-history') {
           const itemId = url.searchParams.get('itemId');
           if (!itemId) {
@@ -4804,6 +4828,38 @@ ${text}`;
         
         // Use key for settings, and id for all other tables
         const query = type === 'settings' ? { key: id } : { id };
+
+        if (type === 'products') {
+          const userId = req.headers['x-user-id'];
+          const host = req.headers.host || '';
+          const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('3000') || host.includes('5173');
+          
+          if (!isLocalhost) {
+            if (!userId) {
+              return res.status(401).json({ success: false, error: 'Unauthorized: Missing user credentials.' });
+            }
+            
+            const ConfigSpeaker = modelsMap['speakers'];
+            const speaker = await ConfigSpeaker.findOne({ id: userId }).lean() as any;
+            if (!speaker) {
+              return res.status(401).json({ success: false, error: 'Unauthorized: User profile not found.' });
+            }
+            
+            const existingProduct = await Model.findOne(query).lean() as any;
+            if (existingProduct) {
+              const userName = speaker.name.toLowerCase().trim();
+              const docPoc = (existingProduct.poc || '').toLowerCase().trim();
+              
+              const isTarun = userName.includes('tarun') || speaker.id === 'speaker-1' || speaker.role === 'Admin';
+              const nameParts = userName.split(/\s+/);
+              const isMatched = nameParts.some((part: string) => part.length > 2 && docPoc.includes(part)) || docPoc.includes(userName);
+              
+              if (!isTarun && !isMatched) {
+                return res.status(403).json({ success: false, error: 'Access Denied: You are not authorized as a Point of Contact (POC) to edit this document.' });
+              }
+            }
+          }
+        }
 
         // --- CASCADING UPDATES FOR PROGRAM & COHORT RENAMES ---
         if (type === 'programs' || type === 'cohorts') {

@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import { TabContainer } from './TabContainer';
+import { RichTextEditor } from './RichTextEditor';
+import { ensureHtmlDescription, stripHtml } from '../utils/text';
 import { 
   Trash2, 
   Edit2,
@@ -736,7 +738,15 @@ const ExpandableTextCell: React.FC<{ text: string; maxLength?: number }> = ({ te
 
   if (!text || text.trim() === '') return <span style={{ color: 'var(--text-muted)' }}>—</span>;
 
-  const isLong = text.length > maxLength || text.includes('\n');
+  const plainText = stripHtml(text);
+  const isLong = plainText.length > maxLength || 
+                 text.includes('\n') || 
+                 text.includes('<br>') || 
+                 text.includes('</p>') || 
+                 text.includes('</li>') ||
+                 text.includes('</h1>') ||
+                 text.includes('</h2>') ||
+                 text.includes('</h3>');
 
   return (
     <div 
@@ -746,21 +756,21 @@ const ExpandableTextCell: React.FC<{ text: string; maxLength?: number }> = ({ te
         position: 'relative',
         transition: 'max-width 0.2s ease-in-out'
       }} 
-      title={isExpanded ? '' : text}
+      title={isExpanded ? '' : plainText}
     >
-      <div style={{ 
-        display: isExpanded ? 'block' : '-webkit-box',
-        WebkitLineClamp: isExpanded ? 'none' : 3,
-        WebkitBoxOrient: 'vertical',
-        overflow: isExpanded ? 'visible' : 'hidden',
-        whiteSpace: isExpanded ? 'pre-wrap' : 'normal',
-        wordBreak: 'break-word',
-        lineHeight: 1.45,
-        fontSize: '0.75rem',
-        color: 'var(--text-primary)'
-      }}>
-        {text}
-      </div>
+      <div 
+        style={{ 
+          display: isExpanded ? 'block' : '-webkit-box',
+          WebkitLineClamp: isExpanded ? 'none' : 3,
+          WebkitBoxOrient: 'vertical',
+          overflow: isExpanded ? 'visible' : 'hidden',
+          wordBreak: 'break-word',
+          lineHeight: 1.45,
+          fontSize: '0.75rem',
+          color: 'var(--text-primary)'
+        }}
+        dangerouslySetInnerHTML={{ __html: text }}
+      />
       {isLong && (
         <button
           onClick={(e) => {
@@ -2791,17 +2801,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const realProjectId = item.id.startsWith('prod-temp-') ? item.id.replace('prod-temp-', '') : item.id;
   const isProject = item.id.startsWith('proj-') || studentProjects.some(p => p.id === realProjectId);
 
-  const descriptionRef = useRef<HTMLTextAreaElement>(null);
-
   const productStatuses = configStatuses;
-
-  // Auto-expand textareas based on content on mount or update
-  useEffect(() => {
-    if (descriptionRef.current) {
-      descriptionRef.current.style.height = 'auto';
-      descriptionRef.current.style.height = `${descriptionRef.current.scrollHeight}px`;
-    }
-  }, [item.id, item.description]);
 
 
 
@@ -3821,22 +3821,17 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
               <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.05em', borderBottom: '1px solid var(--border)', paddingBottom: '0.25rem', margin: '0 0 0.5rem 0' }}>
                 Description
               </p>
-              <textarea
-                ref={descriptionRef}
-                className="premium-textarea"
-                style={{ minHeight: '120px', overflowY: 'hidden', resize: 'none' }}
-                placeholder="Enter feature description..."
-                onInput={(e) => {
-                  const target = e.target as HTMLTextAreaElement;
-                  target.style.height = 'auto';
-                  target.style.height = `${target.scrollHeight}px`;
-                }}
-                onBlur={(e) => {
-                  if (e.target.value !== item.description) {
-                    handleFieldUpdate('description', e.target.value);
+              <RichTextEditor
+                value={item.description || ''}
+                itemId={item.id}
+                featureName={item.feature || ''}
+                onChange={(newValue) => {
+                  if (newValue !== item.description) {
+                    handleFieldUpdate('description', newValue);
                   }
                 }}
-                defaultValue={item.description}
+                placeholder="Enter feature description..."
+                canEdit={canUserEdit}
               />
             </div>
 
@@ -18663,20 +18658,20 @@ export const ChallengesTable: React.FC = () => {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
               <strong style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Description Details</strong>
-              <div style={{ 
-                fontSize: '0.85rem', 
-                color: 'var(--text-secondary)', 
-                lineHeight: 1.5, 
-                whiteSpace: 'pre-wrap',
-                maxHeight: '300px',
-                overflowY: 'auto',
-                backgroundColor: 'var(--background)',
-                padding: '0.75rem',
-                borderRadius: '8px',
-                border: '1px solid var(--border-light)'
-              }}>
-                {viewingDescChallenge.description}
-              </div>
+              <div 
+                style={{ 
+                  fontSize: '0.85rem', 
+                  color: 'var(--text-secondary)', 
+                  lineHeight: 1.5, 
+                  maxHeight: '300px',
+                  overflowY: 'auto',
+                  backgroundColor: 'var(--background)',
+                  padding: '0.75rem',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-light)'
+                }}
+                dangerouslySetInnerHTML={{ __html: ensureHtmlDescription(viewingDescChallenge.description) }}
+              />
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-light)', paddingTop: '0.75rem' }}>

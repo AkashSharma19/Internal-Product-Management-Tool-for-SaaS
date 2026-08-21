@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import { TabContainer } from './TabContainer';
+import { stripHtml } from '../utils/text';
 import { Video, PhoneCall, Crown, ChevronLeft, ChevronRight, Star, Table2, LayoutGrid } from 'lucide-react';
 const isSameStatus = (s1: string | undefined, s2: string | undefined) => {
   if (!s1 || !s2) return false;
@@ -2093,9 +2094,11 @@ export const DashboardOverview: React.FC = () => {
                     </div>
 
                     {task.description && (
-                      <div title={task.description} style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.4', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                        {task.description}
-                      </div>
+                      <div 
+                        title={stripHtml(task.description)} 
+                        style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.4', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}
+                        dangerouslySetInnerHTML={{ __html: task.description }}
+                      />
                     )}
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', borderTop: '1px solid var(--border-light)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>

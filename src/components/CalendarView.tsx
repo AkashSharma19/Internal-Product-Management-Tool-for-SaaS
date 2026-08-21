@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { getClickupBadgeStyle } from './Tables';
 import type { ProductItem } from '../types';
+import { ensureHtmlDescription } from '../utils/text';
 
 // Safe local-timezone date string: avoids UTC shift from .toISOString()
 const toLocalDateStr = (d: Date): string => {
@@ -1365,14 +1366,25 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
                       <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
                         Description / Notes
                       </h4>
-                      <p style={{
-                        margin: 0, fontSize: '0.85rem', color: 'var(--text-primary)',
-                        lineHeight: 1.5, background: 'var(--background-alt)', padding: '0.75rem 1rem',
-                        borderRadius: '8px', border: '1px solid var(--border-light)', whiteSpace: 'pre-wrap',
-                        maxHeight: '130px', overflowY: 'auto'
-                      }}>
-                        {details.description || 'No description provided.'}
-                      </p>
+                      {details.description ? (
+                        <div 
+                          style={{
+                            margin: 0, fontSize: '0.85rem', color: 'var(--text-primary)',
+                            lineHeight: 1.5, background: 'var(--background-alt)', padding: '0.75rem 1rem',
+                            borderRadius: '8px', border: '1px solid var(--border-light)',
+                            maxHeight: '130px', overflowY: 'auto'
+                          }}
+                          dangerouslySetInnerHTML={{ __html: ensureHtmlDescription(details.description) }}
+                        />
+                      ) : (
+                        <div style={{
+                          margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)',
+                          fontStyle: 'italic', background: 'var(--background-alt)', padding: '0.75rem 1rem',
+                          borderRadius: '8px', border: '1px solid var(--border-light)'
+                        }}>
+                          No description provided.
+                        </div>
+                      )}
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
