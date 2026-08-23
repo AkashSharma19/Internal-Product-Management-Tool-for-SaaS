@@ -30,8 +30,6 @@ import {
   Calendar,
   CalendarDays,
   FolderGit,
-  Video,
-  PhoneCall,
   Crown,
   BookOpen,
   PieChart,
