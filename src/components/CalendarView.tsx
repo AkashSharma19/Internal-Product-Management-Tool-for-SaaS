@@ -1256,7 +1256,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
                             </span>
                           )}
                           <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>
-                            {evt.source}
+                            {evt.source === 'Admin Calls' ? 'Admin Meetings' : evt.source}
                           </span>
                           {(evt.taskLink || evt.rawItem?.taskLink) && (
                             <button

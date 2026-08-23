@@ -5845,5 +5845,29 @@ body.read-only-mode .btn:has(svg.lucide-plus) {
   border-color: var(--primary);
 }
 
+/* Subtle full-row progress bar effect */
+.progress-row {
+  position: relative;
+  transition: background 0.3s ease, box-shadow 0.2s ease;
+}
+
+.progress-row td {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.progress-row:hover td {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.progress-row:hover {
+  box-shadow: inset 0 0 100px 100px rgba(255, 255, 255, 0.02) !important;
+}
+
+:root[data-theme='light'] .progress-row:hover {
+  box-shadow: inset 0 0 100px 100px rgba(0, 0, 0, 0.015) !important;
+}
+
 
 

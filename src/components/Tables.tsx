@@ -3021,8 +3021,8 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
           <span>
             {activeTab === 'issues' ? 'Daily Issues Log' : 
              activeTab === 'projects' ? 'Student Projects' : 
-             activeTab === 'meetings' ? 'AMA & Meetings' : 
-             activeTab === 'admin' ? 'Admin Calls' : 
+             activeTab === 'meetings' ? 'Student Meetings' : 
+             activeTab === 'admin' ? 'Admin Meetings' : 
              activeTab === 'content' ? 'Content Pipeline' : 
              activeTab === 'plan' ? 'Sprint Planning' : 
              'Priority Requests'}
@@ -5226,6 +5226,9 @@ export const PlanTable: React.FC = () => {
     'Student Projects':  { bg: 'hsla(199,80%,50%,0.12)', color: 'hsl(199,80%,38%)' },
     'Content Pipeline':  { bg: 'hsla(38,90%,50%,0.12)',  color: 'hsl(38,85%,38%)' },
     'AMA & Meetings':    { bg: 'hsla(142,70%,45%,0.12)', color: 'hsl(142,65%,32%)' },
+    'Student Meetings':  { bg: 'hsla(142,70%,45%,0.12)', color: 'hsl(142,65%,32%)' },
+    'Admin Calls':       { bg: 'hsla(342,80%,55%,0.12)', color: 'hsl(342,70%,45%)' },
+    'Admin Meetings':    { bg: 'hsla(342,80%,55%,0.12)', color: 'hsl(342,70%,45%)' },
     'Product Breakdown': { bg: 'hsla(271,80%,60%,0.12)', color: 'hsl(271,70%,50%)' },
     'Feature Requests':  { bg: 'hsla(325,80%,60%,0.12)', color: 'hsl(325,70%,50%)' },
   };
@@ -5483,7 +5486,7 @@ export const PlanTable: React.FC = () => {
                                 border: `1px solid ${clr.color}44`,
                                 borderRadius: '10px', padding: '1px 6px',
                                 fontSize: '0.65rem', fontWeight: 700
-                              }}>{a.source}</span>
+                              }}>{a.source === 'AMA & Meetings' ? 'Student Meetings' : a.source === 'Admin Calls' ? 'Admin Meetings' : a.source}</span>
 
                               {/* ClickUp Status badge */}
                               {(() => {
@@ -6717,7 +6720,7 @@ export const StudentMeetingsTable: React.FC = () => {
   return (
     <>
       <TabContainer
-        title="AMA & Meetings"
+        title="Student Meetings"
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onAddClick={subTab === 'schedule' ? handleAddNew : undefined}
@@ -8718,7 +8721,7 @@ export const AdminCallsTable: React.FC = () => {
   return (
     <>
       <TabContainer
-        title="Admin Calls"
+        title="Admin Meetings"
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         onAddClick={subTab === 'schedule' ? handleAddNew : undefined}

@@ -2354,6 +2354,10 @@ export default async function handler(req: any, res: any) {
 
           const totalActiveCount = uniqueActiveTaskIds.size;
 
+          const overloadedCount = assigneeList.filter(g => g.activeCount > 10).length;
+          const optimalCount = assigneeList.filter(g => g.activeCount > 0 && g.activeCount <= 10).length;
+          const availableCount = assigneeList.filter(g => g.activeCount === 0).length;
+
           return res.status(200).json({
             success: true,
             data: paginatedAssignees,
@@ -2361,7 +2365,10 @@ export default async function handler(req: any, res: any) {
             totalPages,
             page: activePage,
             limit,
-            totalActiveCount
+            totalActiveCount,
+            overloadedCount,
+            optimalCount,
+            availableCount
           });
         }
 

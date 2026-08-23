@@ -1989,8 +1989,8 @@ const FormBuilderSection: React.FC = () => {
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             {(['admin-calls', 'ama-meetings', 'student-projects'] as const).map(cat => {
               const labelMap = {
-                'admin-calls': 'Admin Calls',
-                'ama-meetings': 'AMA & Meetings',
+                'admin-calls': 'Admin Meetings',
+                'ama-meetings': 'Student Meetings',
                 'student-projects': 'Student Projects'
               };
               const isSelected = selectedCategory === cat;
@@ -2662,8 +2662,8 @@ const CalendarConfigSection: React.FC = () => {
   const CALENDAR_SOURCES = [
     { id: 'product',        label: 'Priority Requests',      description: 'Milestones like Specs, UI/UX, Dev, and Final Release deadlines' },
     { id: 'projects',       label: 'Student Projects',       description: 'Milestones and specs deadlines for student projects' },
-    { id: 'meetings',       label: 'AMA & Meetings',         description: 'Scheduled AMA Sessions and Student Meetings deadlines' },
-    { id: 'admin',          label: 'Admin Calls',            description: 'Scheduled call dates and follow-up deadlines' },
+    { id: 'meetings',       label: 'Student Meetings',         description: 'Scheduled AMA Sessions and Student Meetings deadlines' },
+    { id: 'admin',          label: 'Admin Meetings',            description: 'Scheduled call dates and follow-up deadlines' },
     { id: 'tarun-meetings', label: 'Tarun Sir Meetings',     description: 'Scheduled meeting dates' },
     { id: 'content',        label: 'Content Pipeline',       description: 'Content publish dates and content dev deadlines' },
     { id: 'issues',         label: 'Daily Issues Log',       description: 'Reported bugs and UX issues resolution deadlines' },

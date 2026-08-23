@@ -54,7 +54,9 @@ import {
   VolumeX,
   Flame,
   UserCheck,
-  Quote
+  Quote,
+  GraduationCap,
+  Briefcase
 } from 'lucide-react';
 
 import { isAudioMuted, toggleAudioMute, playPopSound } from './utils/audio';
@@ -2038,8 +2040,8 @@ const DashboardContent: React.FC = () => {
       items: [
         { id: 'projects', label: 'Student Projects', icon: <FolderGit size={18} /> },
         { id: 'tarun-meetings', label: 'Tarun Sir Meetings', icon: <Crown size={18} /> },
-        { id: 'meetings', label: 'AMA & Meetings', icon: <Video size={18} /> },
-        { id: 'admin', label: 'Admin Calls', icon: <PhoneCall size={18} /> },
+        { id: 'meetings', label: 'Student Meetings', icon: <GraduationCap size={18} /> },
+        { id: 'admin', label: 'Admin Meetings', icon: <Briefcase size={18} /> },
         { id: 'contacts', label: 'Contacts Directory', icon: <Users size={18} /> },
         { id: 'content', label: 'Content Pipeline', icon: <BookOpen size={18} /> },
         { id: 'issues', label: 'Daily Issues Log', icon: <AlertTriangle size={18} /> },

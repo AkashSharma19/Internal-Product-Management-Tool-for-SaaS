@@ -414,6 +414,20 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     }
   };
 
+  // Intercept Ctrl+A / Cmd+A inside contenteditable to select only editable text
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      const range = document.createRange();
+      range.selectNodeContents(e.currentTarget);
+      const selection = window.getSelection();
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+    }
+  };
+
   // Smooth scroll to a heading inside the canvas
   const scrollToHeading = (id: string) => {
     const editor = canvasRef.current;
@@ -780,6 +794,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           onFocus={handleFocus}
           onBlur={handleBlur}
           onPaste={handlePaste}
+          onKeyDown={handleKeyDown}
           onKeyUp={updateActiveStates}
           onMouseUp={updateActiveStates}
           onClick={updateActiveStates}
@@ -847,6 +862,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                       onFocus={handleFocus}
                       onBlur={handleBlur}
                       onPaste={handlePaste}
+                      onKeyDown={handleKeyDown}
                       onKeyUp={() => {
                         updateActiveStates();
                         extractHeadings();

@@ -1088,15 +1088,26 @@ export const DashboardOverview: React.FC = () => {
                   </th>
 
                   <th style={{ textAlign: 'center', width: '120px', fontWeight: 700, padding: '10px' }}>ClickUp Linked</th>
-                  {!hideReleased && <th style={{ width: '150px', fontWeight: 700, padding: '10px', textAlign: 'left' }}>Release Rate</th>}
+                  {!hideReleased && <th style={{ width: '100px', fontWeight: 700, padding: '10px', textAlign: 'center' }}>Release %</th>}
                 </tr>
               </thead>
               <tbody>
                 {finalRows.map(row => {
                   const releasePercent = row.total > 0 ? Math.round(((row.releasedCount || 0) / row.total) * 100) : 0;
+                  const progressColor = releasePercent > 75 
+                    ? 'rgba(16, 185, 129, 0.07)' 
+                    : releasePercent > 40 
+                      ? 'rgba(245, 158, 11, 0.07)' 
+                      : 'rgba(239, 68, 68, 0.07)';
                   
                   return (
-                    <tr key={row.poc} style={{ transition: 'background-color 0.2s' }}>
+                    <tr 
+                      key={row.poc} 
+                      className="progress-row"
+                      style={{ 
+                        background: `linear-gradient(90deg, ${progressColor} ${releasePercent}%, transparent ${releasePercent}%)`
+                      }}
+                    >
                       <td style={{ fontWeight: 600, padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{
@@ -1163,32 +1174,14 @@ export const DashboardOverview: React.FC = () => {
                       </td>
 
                       {!hideReleased && (
-                        <td style={{ padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div style={{
-                              flex: 1,
-                              height: '6px',
-                              backgroundColor: 'var(--background-alt)',
-                              borderRadius: '3px',
-                              overflow: 'hidden',
-                              border: '1px solid var(--border-light)'
-                            }}>
-                              <div style={{
-                                width: `${releasePercent}%`,
-                                height: '100%',
-                                backgroundColor: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)',
-                                borderRadius: '3px',
-                                transition: 'width 0.5s ease-out'
-                              }} />
-                            </div>
-                            <span style={{
-                              fontSize: '0.75rem',
-                              fontWeight: 700,
-                              minWidth: '32px',
-                              textAlign: 'right',
-                              color: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)'
-                            }}>{releasePercent}%</span>
-                          </div>
+                        <td style={{ 
+                          textAlign: 'center', 
+                          fontWeight: 750, 
+                          padding: '12px 10px', 
+                          borderTop: '1px solid var(--border-light)',
+                          color: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)'
+                        }}>
+                          {releasePercent}%
                         </td>
                       )}
                     </tr>
@@ -1198,7 +1191,19 @@ export const DashboardOverview: React.FC = () => {
               
               {/* Bottom Overall Totals Row */}
               <tfoot style={{ borderTop: '2px solid var(--border-light)', backgroundColor: 'var(--background-alt)' }}>
-                <tr style={{ fontWeight: 700 }}>
+                <tr 
+                  className="progress-row"
+                  style={{ 
+                    fontWeight: 700,
+                    background: `linear-gradient(90deg, ${
+                      releaseRate > 75 
+                        ? 'rgba(16, 185, 129, 0.07)' 
+                        : releaseRate > 40 
+                          ? 'rgba(245, 158, 11, 0.07)' 
+                          : 'rgba(239, 68, 68, 0.07)'
+                    } ${releaseRate}%, transparent ${releaseRate}%)`
+                  }}
+                >
                   <td style={{ padding: '12px 10px' }}>Overall Totals</td>
                   {activeStatuses.map((status: any) => (
                     <td 
@@ -1229,31 +1234,13 @@ export const DashboardOverview: React.FC = () => {
                     {overallClickup} <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)' }}>/ {overallTotal}</span>
                   </td>
                   {!hideReleased && (
-                    <td style={{ padding: '12px 10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{
-                          flex: 1,
-                          height: '6px',
-                          backgroundColor: 'var(--background)',
-                          borderRadius: '3px',
-                          overflow: 'hidden',
-                          border: '1px solid var(--border-light)'
-                        }}>
-                          <div style={{
-                            width: `${releaseRate}%`,
-                            height: '100%',
-                            backgroundColor: releaseRate > 75 ? 'var(--success)' : releaseRate > 40 ? 'var(--warning)' : 'var(--danger)',
-                            borderRadius: '3px'
-                          }} />
-                        </div>
-                        <span style={{
-                          fontSize: '0.75rem',
-                          fontWeight: 800,
-                          minWidth: '32px',
-                          textAlign: 'right',
-                          color: releaseRate > 75 ? 'var(--success)' : releaseRate > 40 ? 'var(--warning)' : 'var(--danger)'
-                        }}>{releaseRate}%</span>
-                      </div>
+                    <td style={{ 
+                      textAlign: 'center', 
+                      fontWeight: 750, 
+                      padding: '12px 10px', 
+                      color: releaseRate > 75 ? 'var(--success)' : releaseRate > 40 ? 'var(--warning)' : 'var(--danger)'
+                    }}>
+                      {releaseRate}%
                     </td>
                   )}
                 </tr>
@@ -1309,15 +1296,26 @@ export const DashboardOverview: React.FC = () => {
                   </th>
 
                   <th style={{ textAlign: 'center', width: '120px', fontWeight: 700, padding: '10px' }}>ClickUp Linked</th>
-                  {!hideReleased && <th style={{ width: '150px', fontWeight: 700, padding: '10px', textAlign: 'left' }}>Release Rate</th>}
+                  {!hideReleased && <th style={{ width: '100px', fontWeight: 700, padding: '10px', textAlign: 'center' }}>Release %</th>}
                 </tr>
               </thead>
               <tbody>
                 {productGroupRows.map((row: any) => {
                   const releasePercent = row.total > 0 ? Math.round(((row.releasedCount || 0) / row.total) * 100) : 0;
+                  const progressColor = releasePercent > 75 
+                    ? 'rgba(16, 185, 129, 0.07)' 
+                    : releasePercent > 40 
+                      ? 'rgba(245, 158, 11, 0.07)' 
+                      : 'rgba(239, 68, 68, 0.07)';
                   
                   return (
-                    <tr key={row.productGroup} style={{ transition: 'background-color 0.2s' }}>
+                    <tr 
+                      key={row.productGroup} 
+                      className="progress-row"
+                      style={{ 
+                        background: `linear-gradient(90deg, ${progressColor} ${releasePercent}%, transparent ${releasePercent}%)`
+                      }}
+                    >
                       <td style={{ fontWeight: 600, padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{
@@ -1385,32 +1383,14 @@ export const DashboardOverview: React.FC = () => {
                       </td>
 
                       {!hideReleased && (
-                        <td style={{ padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div style={{
-                              flex: 1,
-                              height: '6px',
-                              backgroundColor: 'var(--background-alt)',
-                              borderRadius: '3px',
-                              overflow: 'hidden',
-                              border: '1px solid var(--border-light)'
-                            }}>
-                              <div style={{
-                                width: `${releasePercent}%`,
-                                height: '100%',
-                                backgroundColor: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)',
-                                borderRadius: '3px',
-                                transition: 'width 0.5s ease-out'
-                              }} />
-                            </div>
-                            <span style={{
-                              fontSize: '0.75rem',
-                              fontWeight: 700,
-                              minWidth: '32px',
-                              textAlign: 'right',
-                              color: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)'
-                            }}>{releasePercent}%</span>
-                          </div>
+                        <td style={{ 
+                          textAlign: 'center', 
+                          fontWeight: 750, 
+                          padding: '12px 10px', 
+                          borderTop: '1px solid var(--border-light)',
+                          color: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)'
+                        }}>
+                          {releasePercent}%
                         </td>
                       )}
                     </tr>
@@ -1420,7 +1400,19 @@ export const DashboardOverview: React.FC = () => {
               
               {/* Bottom Overall Totals Row */}
               <tfoot style={{ borderTop: '2px solid var(--border-light)', backgroundColor: 'var(--background-alt)' }}>
-                <tr style={{ fontWeight: 700 }}>
+                <tr 
+                  className="progress-row"
+                  style={{ 
+                    fontWeight: 700,
+                    background: `linear-gradient(90deg, ${
+                      releaseRate > 75 
+                        ? 'rgba(16, 185, 129, 0.07)' 
+                        : releaseRate > 40 
+                          ? 'rgba(245, 158, 11, 0.07)' 
+                          : 'rgba(239, 68, 68, 0.07)'
+                    } ${releaseRate}%, transparent ${releaseRate}%)`
+                  }}
+                >
                   <td style={{ padding: '12px 10px' }}>Overall Totals</td>
                   {activeStatuses.map((status: any) => (
                     <td 
@@ -1451,31 +1443,13 @@ export const DashboardOverview: React.FC = () => {
                     {overallClickup} <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)' }}>/ {overallTotal}</span>
                   </td>
                   {!hideReleased && (
-                    <td style={{ padding: '12px 10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{
-                          flex: 1,
-                          height: '6px',
-                          backgroundColor: 'var(--background)',
-                          borderRadius: '3px',
-                          overflow: 'hidden',
-                          border: '1px solid var(--border-light)'
-                        }}>
-                          <div style={{
-                            width: `${releaseRate}%`,
-                            height: '100%',
-                            backgroundColor: releaseRate > 75 ? 'var(--success)' : releaseRate > 40 ? 'var(--warning)' : 'var(--danger)',
-                            borderRadius: '3px'
-                          }} />
-                        </div>
-                        <span style={{
-                          fontSize: '0.75rem',
-                          fontWeight: 800,
-                          minWidth: '32px',
-                          textAlign: 'right',
-                          color: releaseRate > 75 ? 'var(--success)' : releaseRate > 40 ? 'var(--warning)' : 'var(--danger)'
-                        }}>{releaseRate}%</span>
-                      </div>
+                    <td style={{ 
+                      textAlign: 'center', 
+                      fontWeight: 750, 
+                      padding: '12px 10px', 
+                      color: releaseRate > 75 ? 'var(--success)' : releaseRate > 40 ? 'var(--warning)' : 'var(--danger)'
+                    }}>
+                      {releaseRate}%
                     </td>
                   )}
                 </tr>
@@ -1532,15 +1506,26 @@ export const DashboardOverview: React.FC = () => {
                   </th>
 
                   <th style={{ textAlign: 'center', width: '120px', fontWeight: 700, padding: '10px' }}>ClickUp Linked</th>
-                  <th style={{ width: '150px', fontWeight: 700, padding: '10px', textAlign: 'left' }}>Release Rate</th>
+                  {!hideReleased && <th style={{ width: '100px', fontWeight: 700, padding: '10px', textAlign: 'center' }}>Release %</th>}
                 </tr>
               </thead>
               <tbody>
                 {consolidatedMeetingRows.map((row: any) => {
                   const releasePercent = row.featuresCount > 0 ? Math.round(((row.releasedCount || 0) / row.featuresCount) * 100) : 0;
+                  const progressColor = releasePercent > 75 
+                    ? 'rgba(16, 185, 129, 0.07)' 
+                    : releasePercent > 40 
+                      ? 'rgba(245, 158, 11, 0.07)' 
+                      : 'rgba(239, 68, 68, 0.07)';
                   
                   return (
-                    <tr key={row.category} style={{ transition: 'background-color 0.2s' }}>
+                    <tr 
+                      key={row.category} 
+                      className="progress-row"
+                      style={{ 
+                        background: `linear-gradient(90deg, ${progressColor} ${releasePercent}%, transparent ${releasePercent}%)`
+                      }}
+                    >
                       <td 
                         className="dashboard-clickable-number"
                         onClick={() => openPopupList(`${row.category} (Calls)`, { source: row.category })}
@@ -1632,111 +1617,89 @@ export const DashboardOverview: React.FC = () => {
                         </div>
                       </td>
 
-                      <td style={{ padding: '12px 10px', borderTop: '1px solid var(--border-light)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{
-                            flex: 1,
-                            height: '6px',
-                            backgroundColor: 'var(--background-alt)',
-                            borderRadius: '3px',
-                            overflow: 'hidden',
-                            border: '1px solid var(--border-light)'
-                          }}>
-                            <div style={{
-                              width: `${releasePercent}%`,
-                              height: '100%',
-                              backgroundColor: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)',
-                              borderRadius: '3px',
-                              transition: 'width 0.5s ease-out'
-                            }} />
-                          </div>
-                          <span style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            minWidth: '32px',
-                            textAlign: 'right',
-                            color: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)'
-                          }}>{releasePercent}%</span>
-                        </div>
-                      </td>
+                      {!hideReleased && (
+                        <td style={{ 
+                          textAlign: 'center', 
+                          fontWeight: 750, 
+                          padding: '12px 10px', 
+                          borderTop: '1px solid var(--border-light)',
+                          color: releasePercent > 75 ? 'var(--success)' : releasePercent > 40 ? 'var(--warning)' : 'var(--danger)'
+                        }}>
+                          {releasePercent}%
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
               </tbody>
 
               {/* Bottom Overall Totals Row */}
-              <tfoot style={{ borderTop: '2px solid var(--border-light)', backgroundColor: 'var(--background-alt)' }}>
-                <tr style={{ fontWeight: 700 }}>
-                  <td style={{ padding: '12px 10px' }}>Overall Totals</td>
-                  <td style={{ padding: '12px 10px' }} />
-                  {activeStatuses.map((status: any) => {
-                    const count = consolidatedMeetingRows.reduce((sum: number, r: any) => sum + (r.statusCounts[status.label] || 0), 0);
-                    return (
+              {(() => {
+                const totalFeatures = consolidatedMeetingRows.reduce((sum: number, r: any) => sum + (r.featuresCount || 0), 0);
+                const totalCompleted = consolidatedMeetingRows.reduce((sum: number, r: any) => sum + getCompletedCount(r.statusCounts), 0);
+                const totalClickup = consolidatedMeetingRows.reduce((sum: number, r: any) => sum + (r.clickupCount || 0), 0);
+                const overallMeetingsReleaseRate = totalFeatures > 0 ? Math.round((totalCompleted / totalFeatures) * 100) : 0;
+                return (
+                  <tfoot style={{ borderTop: '2px solid var(--border-light)', backgroundColor: 'var(--background-alt)' }}>
+                    <tr 
+                      className="progress-row"
+                      style={{ 
+                        fontWeight: 700,
+                        background: `linear-gradient(90deg, ${
+                          overallMeetingsReleaseRate > 75 
+                            ? 'rgba(16, 185, 129, 0.07)' 
+                            : overallMeetingsReleaseRate > 40 
+                              ? 'rgba(245, 158, 11, 0.07)' 
+                              : 'rgba(239, 68, 68, 0.07)'
+                        } ${overallMeetingsReleaseRate}%, transparent ${overallMeetingsReleaseRate}%)`
+                      }}
+                    >
+                      <td style={{ padding: '12px 10px' }}>Overall Totals</td>
+                      <td style={{ padding: '12px 10px' }} />
+                      {activeStatuses.map((status: any) => {
+                        const count = consolidatedMeetingRows.reduce((sum: number, r: any) => sum + (r.statusCounts[status.label] || 0), 0);
+                        return (
+                          <td
+                            key={status.id}
+                            className="dashboard-clickable-number"
+                            onClick={() => openPopupList(`All ${status.label} Features (Meetings)`, { meetingCategory: 'all', status: status.label, statusType })}
+                            style={{ textAlign: 'center', color: 'var(--text-primary)', padding: '12px 10px', cursor: 'pointer' }}
+                          >
+                            {count}
+                          </td>
+                        );
+                      })}
                       <td
-                        key={status.id}
                         className="dashboard-clickable-number"
-                        onClick={() => openPopupList(`All ${status.label} Features (Meetings)`, { meetingCategory: 'all', status: status.label, statusType })}
+                        onClick={() => openPopupList(
+                          statusType === 'my' ? 'All No Status Features (Meetings)' : 'All No ClickUp Status Features (Meetings)',
+                          { meetingCategory: 'all', status: statusType === 'my' ? 'No Status' : 'No ClickUp Status', statusType }
+                        )}
                         style={{ textAlign: 'center', color: 'var(--text-primary)', padding: '12px 10px', cursor: 'pointer' }}
                       >
-                        {count}
+                        {consolidatedMeetingRows.reduce((sum: number, r: any) => sum + (r.noStatus || 0), 0)}
                       </td>
-                    );
-                  })}
-                  <td
-                    className="dashboard-clickable-number"
-                    onClick={() => openPopupList(
-                      statusType === 'my' ? 'All No Status Features (Meetings)' : 'All No ClickUp Status Features (Meetings)',
-                      { meetingCategory: 'all', status: statusType === 'my' ? 'No Status' : 'No ClickUp Status', statusType }
-                    )}
-                    style={{ textAlign: 'center', color: 'var(--text-primary)', padding: '12px 10px', cursor: 'pointer' }}
-                  >
-                    {consolidatedMeetingRows.reduce((sum: number, r: any) => sum + (r.noStatus || 0), 0)}
-                  </td>
-                  {(() => {
-                    const totalFeatures = consolidatedMeetingRows.reduce((sum: number, r: any) => sum + (r.featuresCount || 0), 0);
-                    const totalCompleted = consolidatedMeetingRows.reduce((sum: number, r: any) => sum + getCompletedCount(r.statusCounts), 0);
-                    const totalClickup = consolidatedMeetingRows.reduce((sum: number, r: any) => sum + (r.clickupCount || 0), 0);
-                    const overallMeetingsReleaseRate = totalFeatures > 0 ? Math.round((totalCompleted / totalFeatures) * 100) : 0;
-                    return (
-                      <>
-                        <td
-                          className="dashboard-clickable-number"
-                          onClick={() => openPopupList('All ClickUp Linked Features (Meetings)', { meetingCategory: 'all', status: 'ClickUp Linked' })}
-                          style={{ textAlign: 'center', color: 'var(--info)', fontSize: '0.95rem', padding: '12px 10px', cursor: 'pointer' }}
-                        >
-                          {totalClickup} <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)' }}>/ {totalFeatures}</span>
+                      <td
+                        className="dashboard-clickable-number"
+                        onClick={() => openPopupList('All ClickUp Linked Features (Meetings)', { meetingCategory: 'all', status: 'ClickUp Linked' })}
+                        style={{ textAlign: 'center', color: 'var(--info)', fontSize: '0.95rem', padding: '12px 10px', cursor: 'pointer' }}
+                      >
+                        {totalClickup} <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-muted)' }}>/ {totalFeatures}</span>
+                      </td>
+                      {!hideReleased && (
+                        <td style={{ 
+                          textAlign: 'center', 
+                          fontWeight: 750, 
+                          padding: '12px 10px', 
+                          color: overallMeetingsReleaseRate > 75 ? 'var(--success)' : overallMeetingsReleaseRate > 40 ? 'var(--warning)' : 'var(--danger)'
+                        }}>
+                          {overallMeetingsReleaseRate}%
                         </td>
-                        <td style={{ padding: '12px 10px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div style={{
-                              flex: 1,
-                              height: '6px',
-                              backgroundColor: 'var(--background)',
-                              borderRadius: '3px',
-                              overflow: 'hidden',
-                              border: '1px solid var(--border-light)'
-                            }}>
-                              <div style={{
-                                width: `${overallMeetingsReleaseRate}%`,
-                                height: '100%',
-                                backgroundColor: overallMeetingsReleaseRate > 75 ? 'var(--success)' : overallMeetingsReleaseRate > 40 ? 'var(--warning)' : 'var(--danger)',
-                                borderRadius: '3px'
-                              }} />
-                            </div>
-                            <span style={{
-                              fontSize: '0.75rem',
-                              fontWeight: 800,
-                              minWidth: '32px',
-                              textAlign: 'right',
-                              color: overallMeetingsReleaseRate > 75 ? 'var(--success)' : overallMeetingsReleaseRate > 40 ? 'var(--warning)' : 'var(--danger)'
-                            }}>{overallMeetingsReleaseRate}%</span>
-                          </div>
-                        </td>
-                      </>
-                    );
-                  })()}
-                </tr>
-              </tfoot>
+                      )}
+                    </tr>
+                  </tfoot>
+                );
+              })()}
             </table>
           </div>
         </div>
