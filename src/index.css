@@ -1,4 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Merriweather:ital,wght@0,300;0,450;0,700;1,300&family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,300&display=swap');
+
 
 @font-face {
   font-family: 'WF Visual Sans Variable';
@@ -5518,6 +5519,180 @@ body.read-only-mode .btn:has(svg.lucide-plus) {
   margin: 1.25rem 0;
 }
 
+.rich-editor-content code,
+.google-doc-canvas code,
+.rich-editor-content pre,
+.google-doc-canvas pre,
+.rich-editor-content kbd,
+.google-doc-canvas kbd,
+.rich-editor-content samp,
+.google-doc-canvas samp,
+.rich-editor-content tt,
+.google-doc-canvas tt {
+  font-family: inherit;
+}
+
+/* Rich Text Editor Table Styles */
+.rich-editor-content table,
+.google-doc-canvas-editor-area table {
+  width: 100% !important;
+  border-collapse: collapse;
+  margin: 1.25rem 0;
+  border: 1px solid var(--border-light);
+}
+
+.rich-editor-content th,
+.google-doc-canvas-editor-area th {
+  background-color: var(--background-alt);
+  border: 1px solid var(--border-light);
+  padding: 8px 12px;
+  font-weight: 600;
+  text-align: left;
+  font-size: 0.825rem;
+}
+
+.rich-editor-content td,
+.google-doc-canvas-editor-area td {
+  border: 1px solid var(--border-light);
+  padding: 8px 12px;
+  min-width: 60px;
+  font-size: 0.825rem;
+  vertical-align: top;
+}
+
+.rich-editor-content td:focus,
+.google-doc-canvas-editor-area td:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+/* Table Dropdown / Popover list item resets & premium styling */
+.table-actions-popover {
+  background-color: var(--panel-bg) !important;
+  border: 1px solid var(--border-light) !important;
+  border-radius: 8px !important;
+  box-shadow: var(--shadow-md) !important;
+  padding: 4px !important;
+  z-index: 10020 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+
+.table-action-item {
+  width: 100% !important;
+  padding: 6px 12px !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 4px !important;
+  color: var(--text-primary) !important;
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+  display: block !important;
+  transition: all 0.15s ease !important;
+}
+
+.table-action-item:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: var(--primary) !important;
+}
+
+:root[data-theme='light'] .table-action-item:hover {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.table-action-item.danger-item {
+  color: var(--danger) !important;
+}
+
+.table-action-item.danger-item:hover {
+  background-color: var(--danger-bg) !important;
+  color: var(--danger) !important;
+}
+
+.table-action-separator {
+  height: 1px;
+  background-color: var(--border-light) !important;
+  margin: 4px 0 !important;
+}
+
+
+/* Floating Table Control Bars & Handles */
+.table-floating-control-bar {
+  display: flex;
+  background-color: var(--panel-bg);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  box-shadow: var(--shadow-sm);
+  padding: 3px;
+  gap: 2px;
+  animation: fadeIn 0.15s ease forwards;
+}
+
+.table-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: grab;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.table-drag-handle:active {
+  cursor: grabbing;
+  color: var(--primary);
+  background-color: var(--primary-glow);
+}
+
+.table-drag-handle:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+:root[data-theme='light'] .table-drag-handle:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.table-control-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.table-control-btn:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+:root[data-theme='light'] .table-control-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.table-control-btn.danger {
+  color: var(--danger);
+}
+
+.table-control-btn.danger:hover {
+  background-color: var(--danger-bg);
+  color: var(--danger);
+}
+
 /* Google Docs Canvas Modal */
 .google-doc-modal {
   position: fixed;
@@ -5868,6 +6043,200 @@ body.read-only-mode .btn:has(svg.lucide-plus) {
 :root[data-theme='light'] .progress-row:hover {
   box-shadow: inset 0 0 100px 100px rgba(0, 0, 0, 0.015) !important;
 }
+
+/* Custom Visual Table Dimension Modal */
+.table-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10030;
+  animation: fadeIn 0.2s ease forwards;
+}
+
+.table-modal-card {
+  background-color: var(--panel-bg);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  width: 440px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.table-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.table-modal-header h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.table-modal-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.table-modal-close-btn:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+:root[data-theme='light'] .table-modal-close-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.table-modal-body {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+
+.table-modal-section-label {
+  font-size: 0.725rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.table-modal-grid-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.grid-selector-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  background-color: var(--background-alt);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+}
+
+.grid-selector-row {
+  display: flex;
+  gap: 4px;
+}
+
+.grid-selector-cell {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border);
+  background-color: var(--panel-bg);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.grid-selector-cell.selected {
+  background-color: var(--primary-light);
+  border-color: var(--primary);
+}
+
+.grid-selector-dimensions-label {
+  margin-top: 0.5rem;
+  font-size: 0.775rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.table-modal-divider-vertical {
+  width: 1px;
+  align-self: stretch;
+  background-color: var(--border-light);
+}
+
+.table-modal-manual-section {
+  width: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.table-modal-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.table-modal-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.table-modal-field label {
+  font-size: 0.775rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.table-modal-field input {
+  width: 60px;
+  padding: 4px 6px;
+  font-size: 0.8rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background-color: var(--background);
+  color: var(--text-primary);
+  outline: none;
+  text-align: center;
+}
+
+.table-modal-field input:focus {
+  border-color: var(--primary);
+}
+
+.table-modal-submit-btn {
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  background-color: var(--primary);
+  color: #ffffff;
+  border-radius: 6px;
+  font-size: 0.775rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.table-modal-submit-btn:hover {
+  background-color: var(--primary-hover);
+}
+
 
 
 

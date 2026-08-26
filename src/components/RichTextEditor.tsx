@@ -4,7 +4,8 @@ import {
   Bold, Italic, Underline, Strikethrough, 
   AlignLeft, AlignCenter, AlignRight, AlignJustify, 
   Palette, Highlighter, Minus, Quote,
-  List, ListOrdered, Link, Unlink, Maximize2, Eraser, X, Share2
+  List, ListOrdered, Link, Unlink, Maximize2, Eraser, X, Share2, Table,
+  GripVertical, GripHorizontal, Trash2, Plus
 } from 'lucide-react';
 import { ensureHtmlDescription } from '../utils/text';
 
@@ -48,6 +49,27 @@ const HIGHLIGHT_COLORS = [
   { name: 'Pink Highlight', value: 'rgba(236, 72, 153, 0.3)' },
 ];
 
+const FONTS = [
+  { name: 'Default Font', value: 'WF Visual Sans Variable' },
+  { name: 'Google Sans', value: 'Google Sans' },
+  { name: 'Inter', value: 'Inter' },
+  { name: 'Outfit', value: 'Outfit' },
+  { name: 'Arial', value: 'Arial' },
+  { name: 'Courier New', value: 'Courier New' },
+  { name: 'Georgia', value: 'Georgia' },
+  { name: 'Garamond', value: 'Garamond' },
+  { name: 'Impact', value: 'Impact' },
+  { name: 'Lora', value: 'Lora' },
+  { name: 'Merriweather', value: 'Merriweather' },
+  { name: 'Montserrat', value: 'Montserrat' },
+  { name: 'Playfair Display', value: 'Playfair Display' },
+  { name: 'Roboto', value: 'Roboto' },
+  { name: 'Times New Roman', value: 'Times New Roman' },
+  { name: 'Trebuchet MS', value: 'Trebuchet MS' },
+  { name: 'Verdana', value: 'Verdana' },
+];
+
+
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   value,
   onChange,
@@ -84,6 +106,33 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   // Headings state for Google Docs Outline Sidebar
   const [headings, setHeadings] = useState<DocumentHeading[]>([]);
 
+  // Font family selector state
+  const [activeFont, setActiveFont] = useState('Default Font');
+
+  // Table operations popover state
+  const [isInTable, setIsInTable] = useState(false);
+  const [activeCell, setActiveCell] = useState<HTMLTableCellElement | null>(null);
+  const [showTableDropdown, setShowTableDropdown] = useState(false);
+  const tableDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Custom Table Creator Modal states
+  const [showTableModal, setShowTableModal] = useState(false);
+  const [tableRowsInput, setTableRowsInput] = useState(3);
+  const [tableColsInput, setTableColsInput] = useState(3);
+  const [hoveredRows, setHoveredRows] = useState(0);
+  const [hoveredCols, setHoveredCols] = useState(0);
+  const tableModalRef = useRef<HTMLDivElement>(null);
+
+  // Dragged row and column states
+  const [draggedRowIndex, setDraggedRowIndex] = useState<number | null>(null);
+  const [draggedColIndex, setDraggedColIndex] = useState<number | null>(null);
+  const [rowToolbarStyle, setRowToolbarStyle] = useState<React.CSSProperties>({ display: 'none' });
+  const [colToolbarStyle, setColToolbarStyle] = useState<React.CSSProperties>({ display: 'none' });
+
+  // Hover cell states for table handles
+  const [hoveredCell, setHoveredCell] = useState<HTMLTableCellElement | null>(null);
+  const hoverTimeoutRef = useRef<any>(null);
+
   // Normalize initial value (handle plain text conversion if needed)
   const normalizedHtml = ensureHtmlDescription(value);
 
@@ -91,6 +140,13 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   useEffect(() => {
     // Only overwrite if the user is not actively editing/focused
     if (!isFocusedRef.current && !isUpdatingRef.current) {
+      const activeElement = document.activeElement;
+      const isEditingThis = 
+        activeElement && 
+        (editorRef.current?.contains(activeElement) || canvasRef.current?.contains(activeElement));
+      
+      if (isEditingThis) return;
+
       if (editorRef.current && editorRef.current.innerHTML !== normalizedHtml) {
         editorRef.current.innerHTML = normalizedHtml;
       }
@@ -100,7 +156,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     }
   }, [normalizedHtml]);
 
-  // Click outside to close custom color pickers
+  // Click outside to close custom popovers
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
@@ -110,10 +166,130 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       if (highlightColorRef.current && !highlightColorRef.current.contains(target)) {
         setShowHighlightColorPicker(false);
       }
+      if (tableDropdownRef.current && !tableDropdownRef.current.contains(target)) {
+        setShowTableDropdown(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Hover events listener inside the editor to show row/col drag handles on hover
+  useEffect(() => {
+    const handleMouseOver = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const cell = target.closest('td, th') as HTMLTableCellElement;
+      
+      if (cell && (editorRef.current?.contains(cell) || canvasRef.current?.contains(cell))) {
+        if (hoverTimeoutRef.current) {
+          clearTimeout(hoverTimeoutRef.current);
+          hoverTimeoutRef.current = null;
+        }
+        setHoveredCell(cell);
+      }
+    };
+
+    const handleMouseOut = (e: MouseEvent) => {
+      const toElement = e.relatedTarget as HTMLElement;
+      
+      // If moving cursor to the control bars themselves, do NOT hide them
+      if (toElement && toElement.closest('.table-floating-control-bar')) {
+        return;
+      }
+      
+      // Add a slight delay to allow smooth transition to the handles
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+      
+      hoverTimeoutRef.current = setTimeout(() => {
+        setHoveredCell(null);
+      }, 150);
+    };
+
+    document.addEventListener('mouseover', handleMouseOver);
+    document.addEventListener('mouseout', handleMouseOut);
+    return () => {
+      document.removeEventListener('mouseover', handleMouseOver);
+      document.removeEventListener('mouseout', handleMouseOut);
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    };
+  }, []);
+
+  const handleToolbarMouseEnter = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+  };
+
+  const handleToolbarMouseLeave = () => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHoveredCell(null);
+    }, 150);
+  };
+
+  // Update floating row and column toolbars positioning relative to hoveredCell or activeCell
+  useEffect(() => {
+    const targetCell = hoveredCell || activeCell;
+    if (!targetCell) {
+      setRowToolbarStyle({ display: 'none' });
+      setColToolbarStyle({ display: 'none' });
+      return;
+    }
+    
+    const updatePositions = () => {
+      const cellRect = targetCell.getBoundingClientRect();
+      const row = targetCell.parentElement as HTMLTableRowElement;
+      if (!row) return;
+      const table = row.closest('table') as HTMLTableElement;
+      if (!table) return;
+      
+      const tableRect = table.getBoundingClientRect();
+      const rowRect = row.getBoundingClientRect();
+      
+      // Calculate row toolbar position: centered vertically on the left of the row
+      const rowTop = window.scrollY + rowRect.top + (rowRect.height / 2) - 13;
+      const rowLeft = window.scrollX + tableRect.left - 54; // Aligned correctly outside table border
+      
+      setRowToolbarStyle({
+        position: 'absolute',
+        top: `${rowTop}px`,
+        left: `${rowLeft}px`,
+        display: 'flex',
+        alignItems: 'center',
+        zIndex: 10005,
+      });
+      
+      // Calculate col toolbar position: centered horizontally on top of the active column
+      const colTop = window.scrollY + tableRect.top - 28;
+      const colLeft = window.scrollX + cellRect.left + (cellRect.width / 2) - 33;
+      
+      setColToolbarStyle({
+        position: 'absolute',
+        top: `${colTop}px`,
+        left: `${colLeft}px`,
+        display: 'flex',
+        alignItems: 'center',
+        zIndex: 10005,
+      });
+    };
+    
+    updatePositions();
+    
+    // Add scroll/resize event listeners to keep positions synced
+    const scrollContainer = document.querySelector('.google-doc-canvas-scroll-wrapper');
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', updatePositions);
+    }
+    window.addEventListener('resize', updatePositions);
+    
+    return () => {
+      if (scrollContainer) {
+        scrollContainer.removeEventListener('scroll', updatePositions);
+      }
+      window.removeEventListener('resize', updatePositions);
+    };
+  }, [activeCell, hoveredCell, isExpanded]);
 
   // Extract headings from DOM to build outline sidebar
   const extractHeadings = () => {
@@ -225,6 +401,63 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       setActiveFormatBlock('p');
       setIsQuote(false);
     }
+
+    try {
+      let font = document.queryCommandValue('fontName');
+      if (font) {
+        font = font.replace(/['"]/g, '').trim();
+        if (font.includes(',')) {
+          font = font.split(',')[0].trim();
+        }
+        
+        const matched = FONTS.find(
+          f => f.value.toLowerCase() === font.toLowerCase() || f.name.toLowerCase() === font.toLowerCase()
+        );
+        if (matched) {
+          setActiveFont(matched.name);
+        } else if (font.toLowerCase() === 'wf visual sans variable' || font.toLowerCase() === 'wf visual sans') {
+          setActiveFont('Default Font');
+        } else {
+          setActiveFont(font);
+        }
+      } else {
+        setActiveFont('Default Font');
+      }
+    } catch {
+      setActiveFont('Default Font');
+    }
+
+    // Check if selection is inside a table cell (td/th)
+    try {
+      const selection = window.getSelection();
+      const activeEditor = isExpanded ? canvasRef.current : editorRef.current;
+      if (selection && selection.rangeCount > 0 && activeEditor) {
+        const range = selection.getRangeAt(0);
+        let node: Node | null = range.startContainer;
+        let foundCell: HTMLTableCellElement | null = null;
+        
+        while (node && node !== activeEditor) {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const el = node as HTMLElement;
+            const tag = el.tagName.toLowerCase();
+            if (tag === 'td' || tag === 'th') {
+              foundCell = el as HTMLTableCellElement;
+              break;
+            }
+          }
+          node = node.parentNode;
+        }
+        
+        setIsInTable(!!foundCell);
+        setActiveCell(foundCell);
+      } else {
+        setIsInTable(false);
+        setActiveCell(null);
+      }
+    } catch {
+      setIsInTable(false);
+      setActiveCell(null);
+    }
   };
 
   // Helper to normalize the active block format tag
@@ -251,7 +484,35 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
       
+      // Strip all style and link tags to prevent sheet-based formatting overrides
+      const styles = doc.querySelectorAll('style, link');
+      styles.forEach(s => s.remove());
+      
       const walk = (node: Node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const el = node as HTMLElement;
+          const styleAttr = el.getAttribute('style');
+          if (styleAttr && /(font-family|font\s*:)/i.test(styleAttr)) {
+            const cleanedStyle = styleAttr
+              .split(';')
+              .map(p => p.trim())
+              .filter(p => {
+                if (!p) return false;
+                const propName = p.split(':')[0].trim().toLowerCase();
+                return propName !== 'font-family' && propName !== 'font';
+              })
+              .join(';');
+            if (cleanedStyle) {
+              el.setAttribute('style', cleanedStyle);
+            } else {
+              el.removeAttribute('style');
+            }
+          }
+          if (el.tagName.toLowerCase() === 'font' && el.hasAttribute('face')) {
+            el.removeAttribute('face');
+          }
+        }
+
         if (node.nodeType === Node.TEXT_NODE) {
           const textContent = node.textContent || '';
           const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -338,14 +599,441 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     }
   };
 
+  const handleInsertTable = () => {
+    if (!canEdit) return;
+    setTableRowsInput(3);
+    setTableColsInput(3);
+    setHoveredRows(0);
+    setHoveredCols(0);
+    setShowTableModal(true);
+  };
+
+  const insertTableDimensions = (rows: number, cols: number) => {
+    setShowTableModal(false);
+    
+    if (isNaN(rows) || isNaN(cols) || rows <= 0 || cols <= 0) {
+      return;
+    }
+    
+    const rCount = Math.min(20, rows);
+    const cCount = Math.min(20, cols);
+
+    // Generate table HTML
+    let tableHtml = '<table style="width: 100%; border-collapse: collapse; margin: 1.25rem 0; border: 1px solid var(--border-light);">';
+    tableHtml += '<tbody>';
+    
+    for (let r = 0; r < rCount; r++) {
+      tableHtml += '<tr>';
+      for (let c = 0; c < cCount; c++) {
+        if (r === 0) {
+          tableHtml += '<th style="border: 1px solid var(--border-light); padding: 8px 12px; background-color: var(--background-alt); font-weight: 600; text-align: left; font-size: 0.825rem; min-width: 60px;">Header</th>';
+        } else {
+          tableHtml += '<td style="border: 1px solid var(--border-light); padding: 8px 12px; font-size: 0.825rem; min-width: 60px; vertical-align: top;">&nbsp;</td>';
+        }
+      }
+      tableHtml += '</tr>';
+    }
+    
+    tableHtml += '</tbody></table>';
+
+    // Insert the table at cursor
+    executeCommand('insertHTML', tableHtml);
+  };
+
+  const renderGridSelector = () => {
+    const grid = [];
+    for (let r = 1; r <= 8; r++) {
+      const rowCells = [];
+      for (let c = 1; c <= 8; c++) {
+        const isSelected = r <= (hoveredRows || tableRowsInput) && c <= (hoveredCols || tableColsInput);
+        rowCells.push(
+          <div
+            key={c}
+            className={`grid-selector-cell ${isSelected ? 'selected' : ''}`}
+            onMouseEnter={() => {
+              setHoveredRows(r);
+              setHoveredCols(c);
+            }}
+            onClick={() => {
+              insertTableDimensions(r, c);
+            }}
+          />
+        );
+      }
+      grid.push(
+        <div key={r} className="grid-selector-row">
+          {rowCells}
+        </div>
+      );
+    }
+    return (
+      <div 
+        className="grid-selector-container"
+        onMouseLeave={() => {
+          setHoveredRows(0);
+          setHoveredCols(0);
+        }}
+      >
+        {grid}
+      </div>
+    );
+  };
+
+  const triggerContentChange = () => {
+    const activeEditor = isExpanded ? canvasRef.current : editorRef.current;
+    if (activeEditor) {
+      onChange(activeEditor.innerHTML);
+      if (isExpanded) {
+        extractHeadings();
+      }
+    }
+    updateActiveStates();
+  };
+
+  const handleInsertRowAbove = () => {
+    if (!activeCell) return;
+    const row = activeCell.parentElement as HTMLTableRowElement;
+    if (!row) return;
+    const tbody = row.parentElement as HTMLTableSectionElement;
+    if (!tbody) return;
+    
+    const newRow = document.createElement('tr');
+    const cellCount = row.cells.length;
+    
+    for (let i = 0; i < cellCount; i++) {
+      const cellType = row.cells[i].tagName.toLowerCase();
+      const newCell = document.createElement(cellType) as HTMLTableCellElement;
+      newCell.style.border = '1px solid var(--border-light)';
+      newCell.style.padding = '8px 12px';
+      newCell.style.fontSize = '0.825rem';
+      newCell.style.verticalAlign = 'top';
+      newCell.innerHTML = '&nbsp;';
+      if (cellType === 'th') {
+        newCell.style.backgroundColor = 'var(--background-alt)';
+        newCell.style.fontWeight = '600';
+        newCell.style.textAlign = 'left';
+      }
+      newRow.appendChild(newCell);
+    }
+    
+    tbody.insertBefore(newRow, row);
+    triggerContentChange();
+  };
+
+  const handleInsertRowBelow = () => {
+    if (!activeCell) return;
+    const row = activeCell.parentElement as HTMLTableRowElement;
+    if (!row) return;
+    const tbody = row.parentElement as HTMLTableSectionElement;
+    if (!tbody) return;
+    
+    const newRow = document.createElement('tr');
+    const cellCount = row.cells.length;
+    
+    for (let i = 0; i < cellCount; i++) {
+      const newCell = document.createElement('td') as HTMLTableCellElement;
+      newCell.style.border = '1px solid var(--border-light)';
+      newCell.style.padding = '8px 12px';
+      newCell.style.fontSize = '0.825rem';
+      newCell.style.verticalAlign = 'top';
+      newCell.innerHTML = '&nbsp;';
+      newRow.appendChild(newCell);
+    }
+    
+    tbody.insertBefore(newRow, row.nextSibling);
+    triggerContentChange();
+  };
+
+  const handleInsertColumnLeft = () => {
+    if (!activeCell) return;
+    const row = activeCell.parentElement as HTMLTableRowElement;
+    if (!row) return;
+    const table = row.closest('table');
+    if (!table) return;
+    
+    const colIndex = activeCell.cellIndex;
+    
+    Array.from(table.rows).forEach((r) => {
+      const isHeader = r.cells[colIndex]?.tagName.toLowerCase() === 'th' || r.rowIndex === 0;
+      const cellType = isHeader ? 'th' : 'td';
+      const newCell = document.createElement(cellType) as HTMLTableCellElement;
+      newCell.style.border = '1px solid var(--border-light)';
+      newCell.style.padding = '8px 12px';
+      newCell.style.fontSize = '0.825rem';
+      newCell.style.verticalAlign = 'top';
+      newCell.innerHTML = '&nbsp;';
+      if (isHeader) {
+        newCell.style.backgroundColor = 'var(--background-alt)';
+        newCell.style.fontWeight = '600';
+        newCell.style.textAlign = 'left';
+      }
+      
+      r.insertBefore(newCell, r.cells[colIndex]);
+    });
+    
+    triggerContentChange();
+  };
+
+  const handleInsertColumnRight = () => {
+    if (!activeCell) return;
+    const row = activeCell.parentElement as HTMLTableRowElement;
+    if (!row) return;
+    const table = row.closest('table');
+    if (!table) return;
+    
+    const colIndex = activeCell.cellIndex;
+    
+    Array.from(table.rows).forEach((r) => {
+      const isHeader = r.cells[colIndex]?.tagName.toLowerCase() === 'th' || r.rowIndex === 0;
+      const cellType = isHeader ? 'th' : 'td';
+      const newCell = document.createElement(cellType) as HTMLTableCellElement;
+      newCell.style.border = '1px solid var(--border-light)';
+      newCell.style.padding = '8px 12px';
+      newCell.style.fontSize = '0.825rem';
+      newCell.style.verticalAlign = 'top';
+      newCell.innerHTML = '&nbsp;';
+      if (isHeader) {
+        newCell.style.backgroundColor = 'var(--background-alt)';
+        newCell.style.fontWeight = '600';
+        newCell.style.textAlign = 'left';
+      }
+      
+      r.insertBefore(newCell, r.cells[colIndex].nextSibling);
+    });
+    
+    triggerContentChange();
+  };
+
+  const handleDeleteRow = () => {
+    if (!activeCell) return;
+    const row = activeCell.parentElement as HTMLTableRowElement;
+    if (!row) return;
+    const table = row.closest('table');
+    if (!table) return;
+    
+    row.remove();
+    if (table.rows.length === 0) {
+      table.remove();
+    }
+    
+    setActiveCell(null);
+    setIsInTable(false);
+    triggerContentChange();
+  };
+
+  const handleDeleteColumn = () => {
+    if (!activeCell) return;
+    const row = activeCell.parentElement as HTMLTableRowElement;
+    if (!row) return;
+    const table = row.closest('table');
+    if (!table) return;
+    
+    const colIndex = activeCell.cellIndex;
+    
+    Array.from(table.rows).forEach((r) => {
+      if (r.cells[colIndex]) {
+        r.cells[colIndex].remove();
+      }
+    });
+    
+    if (row.cells.length === 0) {
+      table.remove();
+      setActiveCell(null);
+      setIsInTable(false);
+    }
+    
+    triggerContentChange();
+  };
+
+  const handleDeleteTable = () => {
+    if (!activeCell) return;
+    const table = activeCell.closest('table');
+    if (!table) return;
+    
+    table.remove();
+    setActiveCell(null);
+    setIsInTable(false);
+    triggerContentChange();
+  };
+
+  // Drag and drop reordering handlers
+  const handleRowDragStart = (e: React.DragEvent) => {
+    if (!activeCell) return;
+    const row = activeCell.parentElement as HTMLTableRowElement;
+    if (!row) return;
+    setDraggedRowIndex(row.rowIndex);
+    e.dataTransfer.setData('text/plain', `row-${row.rowIndex}`);
+  };
+
+  const handleRowDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (draggedRowIndex === null || !activeCell) return;
+    
+    const targetRow = activeCell.parentElement as HTMLTableRowElement;
+    if (!targetRow) return;
+    const table = targetRow.closest('table');
+    if (!table) return;
+    
+    const targetIndex = targetRow.rowIndex;
+    if (draggedRowIndex === targetIndex) return;
+    
+    const rows = Array.from(table.rows);
+    const draggedRow = rows[draggedRowIndex];
+    
+    if (draggedRow) {
+      const tbody = targetRow.parentNode as HTMLTableSectionElement;
+      if (tbody) {
+        isUpdatingRef.current = true;
+        if (draggedRowIndex < targetIndex) {
+          tbody.insertBefore(draggedRow, targetRow.nextSibling);
+        } else {
+          tbody.insertBefore(draggedRow, targetRow);
+        }
+        triggerContentChange();
+        setTimeout(() => {
+          isUpdatingRef.current = false;
+        }, 300);
+      }
+    }
+    
+    setDraggedRowIndex(null);
+  };
+
+  const handleColDragStart = (e: React.DragEvent) => {
+    if (!activeCell) return;
+    setDraggedColIndex(activeCell.cellIndex);
+    e.dataTransfer.setData('text/plain', `col-${activeCell.cellIndex}`);
+  };
+
+  const handleColDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (draggedColIndex === null || !activeCell) return;
+    
+    const targetColIndex = activeCell.cellIndex;
+    if (draggedColIndex === targetColIndex) return;
+    
+    const row = activeCell.parentElement as HTMLTableRowElement;
+    if (!row) return;
+    const table = row.closest('table');
+    if (!table) return;
+    
+    isUpdatingRef.current = true;
+    // For each row, move the cell at draggedColIndex to targetColIndex
+    Array.from(table.rows).forEach((r) => {
+      const draggedCell = r.cells[draggedColIndex];
+      const targetCell = r.cells[targetColIndex];
+      
+      if (draggedCell && targetCell) {
+        if (draggedColIndex < targetColIndex) {
+          r.insertBefore(draggedCell, targetCell.nextSibling);
+        } else {
+          r.insertBefore(draggedCell, targetCell);
+        }
+      }
+    });
+    
+    triggerContentChange();
+    setDraggedColIndex(null);
+    setTimeout(() => {
+      isUpdatingRef.current = false;
+    }, 300);
+  };
+
   // Run document commands (Bold, Italic, Headings, etc.)
   const executeCommand = (command: string, value: string = '') => {
     if (!canEdit) return;
+    isUpdatingRef.current = true;
     
     // Focus the active editor first
     const activeEditor = isExpanded ? canvasRef.current : editorRef.current;
     if (activeEditor) {
       activeEditor.focus();
+    }
+    
+    try {
+      document.execCommand('styleWithCSS', false, 'true');
+    } catch (e) {}
+
+    // Special handling for fontName to apply/remove font-family overrides inside the selection
+    if (command === 'fontName') {
+      try {
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0 && activeEditor) {
+          for (let i = 0; i < selection.rangeCount; i++) {
+            const range = selection.getRangeAt(i);
+            
+            // Check if this is a "Select All" selection (exact matches or length-based threshold > 85% of text length)
+            const isSelectAll = 
+              (range.startContainer === activeEditor && range.endContainer === activeEditor && range.startOffset === 0) ||
+              (selection.toString().trim() === activeEditor.innerText.trim()) ||
+              (selection.toString().length > activeEditor.innerText.length * 0.85);
+
+            // Get all elements inside the active editor
+            const allElements = Array.from(activeEditor.querySelectorAll('*')) as HTMLElement[];
+            
+            const elementsToStyle = allElements.filter((el) => {
+              if (isSelectAll) return true;
+              try {
+                // 1. Check if element contains selection start or end boundary
+                if (el.contains(range.startContainer) || el.contains(range.endContainer)) {
+                  return true;
+                }
+                // 2. Check if range intersects the element directly
+                if (range.intersectsNode && range.intersectsNode(el)) {
+                  return true;
+                }
+                // 3. Fallback: Compare boundary points to check if element is inside selection
+                const elRange = document.createRange();
+                elRange.selectNode(el);
+                const startCompare = range.compareBoundaryPoints(Range.END_TO_START, elRange);
+                const endCompare = range.compareBoundaryPoints(Range.START_TO_END, elRange);
+                if (startCompare < 0 && endCompare > 0) {
+                  return true;
+                }
+              } catch (e) {
+                // Safe fallback in case range checks throw
+              }
+              return false;
+            });
+
+            elementsToStyle.forEach((el) => {
+              // Always clean raw style string of both font-family and font shorthand
+              const styleAttr = el.getAttribute('style');
+              if (styleAttr && /(font-family|font\s*:)/i.test(styleAttr)) {
+                const cleanedStyle = styleAttr
+                  .split(';')
+                  .map(p => p.trim())
+                  .filter(p => {
+                    if (!p) return false;
+                    const propName = p.split(':')[0].trim().toLowerCase();
+                    return propName !== 'font-family' && propName !== 'font';
+                  })
+                  .join(';');
+                if (cleanedStyle) {
+                  el.setAttribute('style', cleanedStyle);
+                } else {
+                  el.removeAttribute('style');
+                }
+              }
+
+              if (value === 'WF Visual Sans Variable') {
+                // Clear inline font-family to reset to default
+                el.style.fontFamily = '';
+              } else {
+                // Explicitly set the font family on the elements directly to override any pasted styling
+                el.style.fontFamily = value;
+              }
+              
+              // Clear legacy font face attributes
+              if (el.tagName.toLowerCase() === 'font' && el.hasAttribute('face')) {
+                el.removeAttribute('face');
+              }
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error applying font styles directly:', err);
+      }
     }
     
     document.execCommand(command, false, value);
@@ -360,6 +1048,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
     // Refresh format highlights
     updateActiveStates();
+
+    setTimeout(() => {
+      isUpdatingRef.current = false;
+    }, 300);
   };
 
   const handleFormatBlock = (format: string) => {
@@ -451,7 +1143,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   };
 
   // Renders the toolbar items
-  const renderToolbar = () => {
+  const renderToolbar = (isInlineToolbar: boolean = false) => {
     if (!canEdit) return null;
     return (
       <div className="rich-editor-toolbar">
@@ -465,6 +1157,31 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           <option value="h1">Heading 1</option>
           <option value="h2">Heading 2</option>
           <option value="h3">Heading 3</option>
+        </select>
+
+        {/* Font family selection dropdown */}
+        <select 
+          className="rich-editor-dropdown" 
+          style={{ width: '130px', fontFamily: FONTS.find(f => f.name === activeFont)?.value || 'inherit' }}
+          value={FONTS.some(f => f.name === activeFont) ? activeFont : 'Default Font'}
+          onChange={(e) => {
+            const font = FONTS.find(f => f.name === e.target.value);
+            if (font) {
+              executeCommand('fontName', font.value);
+            }
+          }}
+          title="Font"
+        >
+          {FONTS.map((font) => (
+            <option key={font.name} value={font.name} style={{ fontFamily: font.value }}>
+              {font.name}
+            </option>
+          ))}
+          {!FONTS.some(f => f.name === activeFont) && activeFont !== 'Default Font' && (
+            <option value={activeFont} style={{ fontFamily: activeFont }}>
+              {activeFont}
+            </option>
+          )}
         </select>
         
         <div className="rich-editor-separator" />
@@ -678,6 +1395,42 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         >
           <Minus size={14} />
         </button>
+        <button 
+          type="button" 
+          className="rich-editor-btn"
+          title="Insert Table"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={handleInsertTable}
+        >
+          <Table size={14} />
+        </button>
+
+        {isInTable && (isInlineToolbar ? !isExpanded : isExpanded) && (
+          <div className="rich-editor-color-wrapper" ref={tableDropdownRef} title="Table Layout" style={{ width: 'auto' }}>
+            <button
+              type="button"
+              className="rich-editor-btn active"
+              style={{ width: 'auto', padding: '0 8px', gap: '4px', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}
+              onClick={() => setShowTableDropdown(!showTableDropdown)}
+            >
+              <Table size={14} />
+              <span style={{ fontSize: '11px', fontWeight: 600 }}>Table Layout</span>
+            </button>
+            
+            {showTableDropdown && (
+              <div className="rich-editor-color-picker-popover table-actions-popover" onMouseDown={(e) => e.preventDefault()} style={{ width: '160px', display: 'flex', flexDirection: 'column', gap: '2px', padding: '4px' }}>
+                <button type="button" className="table-action-item" onClick={() => { handleInsertRowAbove(); setShowTableDropdown(false); }}>Row Above</button>
+                <button type="button" className="table-action-item" onClick={() => { handleInsertRowBelow(); setShowTableDropdown(false); }}>Row Below</button>
+                <button type="button" className="table-action-item" onClick={() => { handleInsertColumnLeft(); setShowTableDropdown(false); }}>Column Left</button>
+                <button type="button" className="table-action-item" onClick={() => { handleInsertColumnRight(); setShowTableDropdown(false); }}>Column Right</button>
+                <div className="table-action-separator" />
+                <button type="button" className="table-action-item danger-item" onClick={() => { handleDeleteRow(); setShowTableDropdown(false); }}>Delete Row</button>
+                <button type="button" className="table-action-item danger-item" onClick={() => { handleDeleteColumn(); setShowTableDropdown(false); }}>Delete Column</button>
+                <button type="button" className="table-action-item danger-item" onClick={() => { handleDeleteTable(); setShowTableDropdown(false); }}>Delete Table</button>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="rich-editor-separator" />
 
@@ -781,11 +1534,13 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     );
   };
 
+  const targetCell = hoveredCell || activeCell;
+
   return (
     <>
       {/* Standard In-line View */}
       <div className="rich-editor-container">
-        {renderToolbar()}
+        {renderToolbar(true)}
         <div
           ref={editorRef}
           className="rich-editor-content"
@@ -808,7 +1563,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <div className="google-doc-modal">
           <div className="google-doc-modal-content">
             {/* Toolbar fixed at top of modal */}
-            {renderToolbar()}
+            {renderToolbar(false)}
 
             {/* Google Doc sheet background */}
             <div className="google-doc-canvas-container">
@@ -878,6 +1633,156 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 {/* Right spacer to keep the document canvas perfectly centered in the layout */}
                 <div className="google-doc-layout-spacer" />
                 
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Floating Row Toolbar */}
+      {canEdit && targetCell && createPortal(
+        <div 
+          className="table-floating-control-bar row-control-bar" 
+          style={rowToolbarStyle}
+          onMouseDown={(e) => e.preventDefault()}
+          onMouseEnter={handleToolbarMouseEnter}
+          onMouseLeave={handleToolbarMouseLeave}
+        >
+          {/* Drag Handle */}
+          <div 
+            className="table-drag-handle" 
+            draggable 
+            onDragStart={handleRowDragStart}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleRowDrop}
+            title="Drag to reorder row"
+          >
+            <GripVertical size={12} />
+          </div>
+          {/* Delete Row */}
+          <button 
+            type="button" 
+            className="table-control-btn danger" 
+            onClick={handleDeleteRow}
+            title="Delete Row"
+          >
+            <Trash2 size={12} />
+          </button>
+          {/* Insert Row Below */}
+          <button 
+            type="button" 
+            className="table-control-btn" 
+            onClick={handleInsertRowBelow}
+            title="Add Row Below"
+          >
+            <Plus size={12} />
+          </button>
+        </div>,
+        document.body
+      )}
+
+      {/* Floating Column Toolbar */}
+      {canEdit && targetCell && createPortal(
+        <div 
+          className="table-floating-control-bar col-control-bar" 
+          style={colToolbarStyle}
+          onMouseDown={(e) => e.preventDefault()}
+          onMouseEnter={handleToolbarMouseEnter}
+          onMouseLeave={handleToolbarMouseLeave}
+        >
+          {/* Drag Handle */}
+          <div 
+            className="table-drag-handle" 
+            draggable 
+            onDragStart={handleColDragStart}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleColDrop}
+            title="Drag to reorder column"
+          >
+            <GripHorizontal size={12} />
+          </div>
+          {/* Delete Column */}
+          <button 
+            type="button" 
+            className="table-control-btn danger" 
+            onClick={handleDeleteColumn}
+            title="Delete Column"
+          >
+            <Trash2 size={12} />
+          </button>
+          {/* Insert Column Right */}
+          <button 
+            type="button" 
+            className="table-control-btn" 
+            onClick={handleInsertColumnRight}
+            title="Add Column Right"
+          >
+            <Plus size={12} />
+          </button>
+        </div>,
+        document.body
+      )}
+      {/* Visual Table Modal Popup */}
+      {showTableModal && createPortal(
+        <div className="table-modal-overlay" onClick={() => setShowTableModal(false)}>
+          <div 
+            className="table-modal-card" 
+            onClick={(e) => e.stopPropagation()}
+            ref={tableModalRef}
+          >
+            <div className="table-modal-header">
+              <h3>Insert Table</h3>
+              <button type="button" className="table-modal-close-btn" onClick={() => setShowTableModal(false)}>
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div className="table-modal-body">
+              {/* Visual Grid Selector */}
+              <div className="table-modal-grid-section">
+                <span className="table-modal-section-label">Select dimensions visually:</span>
+                {renderGridSelector()}
+                <div className="grid-selector-dimensions-label">
+                  {(hoveredRows || tableRowsInput)} &times; {(hoveredCols || tableColsInput)} Table
+                </div>
+              </div>
+              
+              <div className="table-modal-divider-vertical" />
+              
+              {/* Manual Dimension Inputs */}
+              <div className="table-modal-manual-section">
+                <span className="table-modal-section-label">Or enter manually:</span>
+                <div className="table-modal-input-group">
+                  <div className="table-modal-field">
+                    <label>Rows</label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="20"
+                      value={tableRowsInput}
+                      onChange={(e) => setTableRowsInput(Math.min(20, Math.max(1, parseInt(e.target.value) || 1)))}
+                    />
+                  </div>
+                  <div className="table-modal-field">
+                    <label>Columns</label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="20"
+                      value={tableColsInput}
+                      onChange={(e) => setTableColsInput(Math.min(20, Math.max(1, parseInt(e.target.value) || 1)))}
+                    />
+                  </div>
+                </div>
+                
+                <button 
+                  type="button" 
+                  className="table-modal-submit-btn"
+                  onClick={() => insertTableDimensions(tableRowsInput, tableColsInput)}
+                >
+                  Create Table
+                </button>
               </div>
             </div>
           </div>
