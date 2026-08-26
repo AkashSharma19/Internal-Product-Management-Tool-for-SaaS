@@ -3648,8 +3648,16 @@ export default async function handler(req: any, res: any) {
         }
 
         const prompt = `You are a SaaS Product Manager. Analyze the meeting minutes or notes provided below and generate a JSON response.
+
+GLOBAL WRITING STYLE:
+- You MUST write the summary and task descriptions in simple, clear, and easy-to-read English. Avoid advanced vocabulary, complex jargon, or overly complicated sentences. Keep it extremely straightforward and easy to understand for anyone.
+
+INSTRUCTIONS:
 1. Synthesize the key points into a clean, professional, bullet-pointed summary (using markdown hyphens).
-2. Extract specific actionable tasks / feature requests. For each task, generate a clear title (as 'feature'), a brief description of what to do (as 'description'), and a predicted priority level (one of 'P0', 'P1', 'P2', 'P3', 'P4' depending on urgency).
+   - CRITICAL: If the meeting minutes contain any links (such as Google Drive/Docs links, Figma URLs, ClickUp task links, or other reference URLs), you MUST preserve and include them in the summary under the relevant points.
+2. Extract specific actionable tasks / feature requests. For each task, generate a clear title (as 'feature'), a detailed description of what to do (as 'description'), and a predicted priority level (one of 'P0', 'P1', 'P2', 'P3', 'P4' depending on urgency).
+   - DESCRIPTION LENGTH: Make each task's 'description' field highly detailed, descriptive, and comprehensive. Provide the full context, the task requirements, and any specific details discussed in the meeting notes. Do not make it small or brief.
+   - CRITICAL: If the meeting minutes contain any links (such as Google Drive/Docs links, Figma URLs, ClickUp task links, or other reference URLs) that are relevant to a specific task, you MUST preserve and include those exact links inside the 'description' field for that task (as part of the description text or in markdown link format). Do not omit or discard any links from the source text.
 
 Return a JSON object conforming exactly to this structure:
 {

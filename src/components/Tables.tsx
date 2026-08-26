@@ -156,6 +156,13 @@ const AIMeetingAssistantModal: React.FC<AIMeetingAssistantModalProps> = ({
     selected: boolean;
   }>>([]);
 
+  const autoExpandRef = (el: HTMLTextAreaElement | null) => {
+    if (el) {
+      el.style.height = 'auto';
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  };
+
   useEffect(() => {
     if (isOpen && meetingText.trim()) {
       generateAIReport();
@@ -329,11 +336,14 @@ const AIMeetingAssistantModal: React.FC<AIMeetingAssistantModalProps> = ({
                   Generated Bulleted Summary
                 </label>
                 <textarea
+                  ref={autoExpandRef}
                   value={summary}
-                  onChange={(e) => setSummary(e.target.value)}
+                  onChange={(e) => {
+                    setSummary(e.target.value);
+                    autoExpandRef(e.target);
+                  }}
                   style={{
                     width: '100%',
-                    height: '140px',
                     padding: '10px',
                     backgroundColor: 'var(--background)',
                     border: '1px solid var(--border)',
@@ -342,7 +352,8 @@ const AIMeetingAssistantModal: React.FC<AIMeetingAssistantModalProps> = ({
                     fontFamily: 'inherit',
                     fontSize: '0.85rem',
                     lineHeight: '1.5',
-                    resize: 'vertical',
+                    resize: 'none',
+                    overflowY: 'hidden',
                     outline: 'none'
                   }}
                   placeholder="Summarized bullet points will appear here..."
@@ -434,16 +445,17 @@ const AIMeetingAssistantModal: React.FC<AIMeetingAssistantModalProps> = ({
                           </div>
                           
                           <textarea
+                            ref={autoExpandRef}
                             value={item.description}
                             onChange={(e) => {
                               const copy = [...actionItems];
                               copy[idx].description = e.target.value;
                               setActionItems(copy);
+                              autoExpandRef(e.target);
                             }}
                             placeholder="Feature description"
                             style={{
                               width: '100%',
-                              height: '50px',
                               padding: '6px 8px',
                               fontSize: '0.8rem',
                               border: '1px solid var(--border)',
@@ -452,6 +464,7 @@ const AIMeetingAssistantModal: React.FC<AIMeetingAssistantModalProps> = ({
                               color: 'var(--text-secondary)',
                               fontFamily: 'inherit',
                               resize: 'none',
+                              overflowY: 'hidden',
                               outline: 'none'
                             }}
                             disabled={!item.selected}
