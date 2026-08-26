@@ -81,6 +81,14 @@ export const StickyNotesBot: React.FC = () => {
     }
   }, [inputValue]);
 
+  // Auto-expand editing note card textarea dynamically
+  const autoExpandEditRef = (el: HTMLTextAreaElement | null) => {
+    if (el) {
+      el.style.height = 'auto';
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  };
+
   // Fetch completed notes when expanded
   useEffect(() => {
     if (isCompletedExpanded && completedNotes.length === 0) {
@@ -316,9 +324,13 @@ export const StickyNotesBot: React.FC = () => {
                   {isEditing ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
                       <textarea
+                        ref={autoExpandEditRef}
                         className="sticky-note-edit-textarea"
                         value={editingText}
-                        onChange={(e) => setEditingText(e.target.value)}
+                        onChange={(e) => {
+                          setEditingText(e.target.value);
+                          autoExpandEditRef(e.target);
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === 'Escape') {
                             handleCancelEdit();
@@ -462,9 +474,13 @@ export const StickyNotesBot: React.FC = () => {
                         {isEditing ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
                             <textarea
+                              ref={autoExpandEditRef}
                               className="sticky-note-edit-textarea"
                               value={editingText}
-                              onChange={(e) => setEditingText(e.target.value)}
+                              onChange={(e) => {
+                                setEditingText(e.target.value);
+                                autoExpandEditRef(e.target);
+                              }}
                               onKeyDown={(e) => {
                                 if (e.key === 'Escape') {
                                   handleCancelEdit();

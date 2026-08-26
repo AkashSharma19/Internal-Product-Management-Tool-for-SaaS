@@ -5102,7 +5102,8 @@ body.read-only-mode .btn:has(svg.lucide-plus) {
   font-size: 0.8rem;
   font-family: inherit;
   color: inherit;
-  resize: vertical;
+  resize: none;
+  overflow-y: hidden;
   outline: none;
   box-sizing: border-box;
 }
