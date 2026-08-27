@@ -145,7 +145,7 @@ const AIMeetingAssistantModal: React.FC<AIMeetingAssistantModalProps> = ({
   meetingType,
   onApplySummary
 }) => {
-  const { addProductItem, currentUser, geminiModel } = useDashboard();
+  const { addProductItem, currentUser, geminiModel, productGroups } = useDashboard();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState('');
@@ -154,6 +154,7 @@ const AIMeetingAssistantModal: React.FC<AIMeetingAssistantModalProps> = ({
     description: string;
     priority: string;
     selected: boolean;
+    product: string;
   }>>([]);
 
   const autoExpandRef = (el: HTMLTextAreaElement | null) => {
@@ -198,8 +199,9 @@ const AIMeetingAssistantModal: React.FC<AIMeetingAssistantModalProps> = ({
         const items = (resData.result.actionItems || []).map((item: any) => ({
           feature: item.feature || '',
           description: item.description || '',
-          priority: item.priority || 'P2',
-          selected: true
+          priority: '', // Do not pre-populate/suggest priority
+          selected: true,
+          product: ''
         }));
         setActionItems(items);
       } else {
@@ -238,14 +240,14 @@ const AIMeetingAssistantModal: React.FC<AIMeetingAssistantModalProps> = ({
         tarunSirApproval: false,
         raisedByTarunSir: meetingType === 'tarun' || item.priority === 'P0',
         priority: item.priority as "" | "P0" | "P1" | "P2" | "P3" | "P4",
-        poc: '',
+        poc: currentUser?.name || 'Akash Sharma', // assigned who are adding them
         status: '',
         clickupStatus: '',
         taskLink: '',
         blocker: '',
         deadline: '',
         notes: noteText,
-        product: '',
+        product: item.product, // Map to correct product group
         module: '',
         uiux: '',
         finalRelease: '',
@@ -436,11 +438,39 @@ const AIMeetingAssistantModal: React.FC<AIMeetingAssistantModalProps> = ({
                               }}
                               disabled={!item.selected}
                             >
+                              <option value="">No Priority</option>
                               <option value="P0">P0 (Critical)</option>
                               <option value="P1">P1 (High)</option>
                               <option value="P2">P2 (Medium)</option>
                               <option value="P3">P3 (Low)</option>
                               <option value="P4">P4 (Trivial)</option>
+                            </select>
+
+                            {/* Product Group Dropdown */}
+                            <select
+                              value={item.product}
+                              onChange={(e) => {
+                                const copy = [...actionItems];
+                                copy[idx].product = e.target.value;
+                                setActionItems(copy);
+                              }}
+                              style={{
+                                padding: '4px 8px',
+                                fontSize: '0.75rem',
+                                border: '1px solid var(--border)',
+                                borderRadius: '4px',
+                                backgroundColor: 'var(--background)',
+                                color: 'var(--text-primary)',
+                                outline: 'none',
+                                cursor: 'pointer',
+                                maxWidth: '160px'
+                              }}
+                              disabled={!item.selected}
+                            >
+                              <option value="">Product Group</option>
+                              {productGroups.map(pg => (
+                                <option key={pg.id} value={pg.name}>{pg.name}</option>
+                              ))}
                             </select>
                           </div>
                           
@@ -980,7 +1010,7 @@ const AttendeeFeedbackDetails: React.FC<{
   itemId: string;
   category: 'admin-calls' | 'ama-meetings' | 'student-projects';
 }> = ({ itemId, category }) => {
-  const { formConfigs, feedbackSubmissions, currentUser, confirm, deleteFeedbackSubmission, geminiModel, addProductItem } = useDashboard();
+  const { formConfigs, feedbackSubmissions, currentUser, confirm, deleteFeedbackSubmission, geminiModel, addProductItem, productGroups } = useDashboard();
   const [copied, setCopied] = useState(false);
   const [viewingSubmission, setViewingSubmission] = useState<FeedbackSubmission | null>(null);
   const isCurrentUserAdmin = currentUser ? (currentUser.isAdmin !== false) : false;
@@ -992,6 +1022,7 @@ const AttendeeFeedbackDetails: React.FC<{
   const [addedTickets, setAddedTickets] = useState<Set<number>>(new Set());
   const [isAiExpanded, setIsAiExpanded] = useState(true);
   const [activeTab, setActiveTab] = useState<'responses' | 'ai'>('responses');
+  const [recProducts, setRecProducts] = useState<Record<number, string>>({});
 
   const config = formConfigs.find(c => c.category === category);
   const isFormConfigured = config && config.enabled && config.fields && config.fields.length > 0;
@@ -1092,15 +1123,15 @@ const AttendeeFeedbackDetails: React.FC<{
       description: rec.details.trim(),
       tarunSirApproval: false,
       raisedByTarunSir: rec.priority === 'P0',
-      priority: (rec.priority || 'P2') as "" | "P0" | "P1" | "P2" | "P3" | "P4",
-      poc: '',
+      priority: (rec.priority || '') as "" | "P0" | "P1" | "P2" | "P3" | "P4", // Don't pre-populate priority if it's not set
+      poc: currentUser?.name || 'Akash Sharma', // assigned who are adding them
       status: '',
       clickupStatus: '',
       taskLink: '',
       blocker: '',
       deadline: '',
       notes: noteText,
-      product: '',
+      product: recProducts[idx] || '', // Map to correct product group
       module: '',
       uiux: '',
       finalRelease: '',
@@ -1601,6 +1632,33 @@ const AttendeeFeedbackDetails: React.FC<{
                         <p style={{ margin: 0, fontSize: '0.725rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
                           {rec.details}
                         </p>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        {/* Product Group Dropdown */}
+                        <select
+                          value={recProducts[idx] || ''}
+                          onChange={(e) => {
+                            setRecProducts(prev => ({ ...prev, [idx]: e.target.value }));
+                          }}
+                          style={{
+                            padding: '4px 8px',
+                            fontSize: '0.7rem',
+                            border: '1px solid var(--border)',
+                            borderRadius: '4px',
+                            backgroundColor: 'var(--background)',
+                            color: 'var(--text-primary)',
+                            outline: 'none',
+                            cursor: 'pointer',
+                            maxWidth: '130px'
+                          }}
+                          disabled={addedTickets.has(idx)}
+                        >
+                          <option value="">Product Group</option>
+                          {productGroups.map(pg => (
+                            <option key={pg.id} value={pg.name}>{pg.name}</option>
+                          ))}
+                        </select>
                       </div>
 
                       <button
