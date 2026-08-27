@@ -980,14 +980,144 @@ const AttendeeFeedbackDetails: React.FC<{
   itemId: string;
   category: 'admin-calls' | 'ama-meetings' | 'student-projects';
 }> = ({ itemId, category }) => {
-  const { formConfigs, feedbackSubmissions, currentUser, confirm, deleteFeedbackSubmission } = useDashboard();
+  const { formConfigs, feedbackSubmissions, currentUser, confirm, deleteFeedbackSubmission, geminiModel, addProductItem } = useDashboard();
   const [copied, setCopied] = useState(false);
   const [viewingSubmission, setViewingSubmission] = useState<FeedbackSubmission | null>(null);
   const isCurrentUserAdmin = currentUser ? (currentUser.isAdmin !== false) : false;
 
+  // AI States
+  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [addedTickets, setAddedTickets] = useState<Set<number>>(new Set());
+  const [isAiExpanded, setIsAiExpanded] = useState(true);
+  const [activeTab, setActiveTab] = useState<'responses' | 'ai'>('responses');
+
   const config = formConfigs.find(c => c.category === category);
   const isFormConfigured = config && config.enabled && config.fields && config.fields.length > 0;
   const submissions = feedbackSubmissions.filter(sub => sub.itemId === itemId);
+
+  useEffect(() => {
+    // Reset states when changing items
+    setAiAnalysis(null);
+    setAiError(null);
+    setAddedTickets(new Set());
+
+    const fetchAnalysis = async () => {
+      try {
+        const response = await fetch(`/api/data?action=get-feedback-analysis&itemId=${itemId}&category=${category}`);
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success && resData.analysis) {
+            setAiAnalysis(resData.analysis);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch existing feedback analysis:', err);
+      }
+    };
+
+    if (itemId && category) {
+      fetchAnalysis();
+    }
+  }, [itemId, category]);
+
+  const handleAnalyzeFeedback = async () => {
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const headers: Record<string, string> = {};
+      if (currentUser?.id) {
+        headers['x-user-id'] = currentUser.id;
+      }
+      
+      const response = await fetch('/api/data?action=ai-feedback-assist', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers
+        },
+        body: JSON.stringify({
+          data: {
+            itemId,
+            category,
+            fields: config?.fields || [],
+            submissions,
+            model: geminiModel
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Failed to analyze feedback');
+      }
+
+      const resData = await response.json();
+      if (resData.success && resData.analysis) {
+        setAiAnalysis(resData.analysis);
+        setIsAiExpanded(true);
+        triggerReleaseConfetti();
+        playPopSound();
+      } else {
+        throw new Error('Invalid response structure from AI feedback service');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setAiError(err.message || 'An error occurred during AI analysis');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleConvertToTask = (rec: any, idx: number) => {
+    if (addedTickets.has(idx)) return;
+    
+    let prefix = 'prod-feedback';
+    let noteText = `Feedback Insight Ref: ${itemId} | Category: ${category}`;
+    if (category === 'ama-meetings') {
+      prefix = 'prod-ama';
+      noteText = `AMA Feedback ID: ${itemId} | Recommendation: ${rec.recommendation}`;
+    } else if (category === 'admin-calls') {
+      prefix = 'prod-call';
+      noteText = `Admin Call Feedback ID: ${itemId} | Recommendation: ${rec.recommendation}`;
+    } else if (category === 'student-projects') {
+      prefix = 'prod-proj';
+      noteText = `Student Project Feedback ID: ${itemId} | Recommendation: ${rec.recommendation}`;
+    }
+
+    const newItem: ProductItem = {
+      id: `${prefix}-${Date.now()}-${idx}`,
+      feature: rec.recommendation.trim(),
+      description: rec.details.trim(),
+      tarunSirApproval: false,
+      raisedByTarunSir: rec.priority === 'P0',
+      priority: (rec.priority || 'P2') as "" | "P0" | "P1" | "P2" | "P3" | "P4",
+      poc: '',
+      status: '',
+      clickupStatus: '',
+      taskLink: '',
+      blocker: '',
+      deadline: '',
+      notes: noteText,
+      product: '',
+      module: '',
+      uiux: '',
+      finalRelease: '',
+      productDeadline: '',
+      createdAt: new Date().toISOString()
+    };
+
+    addProductItem(newItem);
+    setAddedTickets(prev => {
+      const next = new Set(prev);
+      next.add(idx);
+      return next;
+    });
+    
+    triggerReleaseConfetti();
+    playPopSound();
+  };
 
   const handleCopyLink = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1027,8 +1157,7 @@ const AttendeeFeedbackDetails: React.FC<{
 
   return (
     <div style={{
-      marginTop: '1.25rem', padding: '1.25rem', border: '1px solid var(--border)',
-      borderRadius: '10px', background: 'var(--background-alt)', display: 'flex', flexDirection: 'column', gap: '1rem'
+      display: 'flex', flexDirection: 'column', gap: '1rem'
     }} onClick={(e) => e.stopPropagation()}>
       
       {/* Header bar */}
@@ -1090,7 +1219,56 @@ const AttendeeFeedbackDetails: React.FC<{
         </div>
       </div>
 
-      {/* Ratings Summary Cards */}
+      {/* Tabs Navigation */}
+      <div style={{
+        display: 'flex',
+        borderBottom: '1px solid var(--border)',
+        gap: '8px',
+        marginBottom: '1rem'
+      }}>
+        <button
+          onClick={() => setActiveTab('responses')}
+          style={{
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'responses' ? '2.5px solid var(--primary)' : '2.5px solid transparent',
+            color: activeTab === 'responses' ? 'var(--text-primary)' : 'var(--text-muted)',
+            padding: '8px 16px',
+            fontSize: '0.775rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            transition: 'all 0.15s',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+        >
+          <ClipboardList size={13} /> Responses ({submissions.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('ai')}
+          style={{
+            background: 'none',
+            border: 'none',
+            borderBottom: activeTab === 'ai' ? '2.5px solid var(--primary)' : '2.5px solid transparent',
+            color: activeTab === 'ai' ? 'var(--text-primary)' : 'var(--text-muted)',
+            padding: '8px 16px',
+            fontSize: '0.775rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            transition: 'all 0.15s',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+        >
+          <Sparkles size={13} style={{ color: activeTab === 'ai' ? 'var(--primary)' : 'inherit' }} /> AI Analysis
+        </button>
+      </div>
+
+      {activeTab === 'responses' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* Ratings Summary Cards */}
       {ratingsSummary.length > 0 && submissions.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '8px' }}>
           {ratingsSummary.map((item) => (
@@ -1109,8 +1287,365 @@ const AttendeeFeedbackDetails: React.FC<{
           ))}
         </div>
       )}
+      </div>
+      )}
 
-      {/* Tabular Feedback View */}
+      {activeTab === 'ai' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* AI Feedback Analysis Section */}
+      {!aiAnalysis && !aiLoading && submissions.length > 0 && (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '2rem',
+          background: 'var(--panel-bg)',
+          border: '1px dashed var(--border)',
+          borderRadius: '10px',
+          gap: '12px'
+        }}>
+          <Sparkles size={24} style={{ color: 'var(--primary)' }} />
+          <div style={{ textAlign: 'center' }}>
+            <h5 style={{ margin: 0, fontSize: '0.825rem', fontWeight: 650 }}>Analyze attendee feedback with Gemini AI</h5>
+            <p style={{ margin: '3px 0 0 0', fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+              Get summary, overall sentiment, positive findings, pain points, and actionable recommendations.
+            </p>
+          </div>
+          <button
+            onClick={handleAnalyzeFeedback}
+            className="btn btn-primary"
+            style={{
+              fontSize: '0.75rem',
+              padding: '8px 16px',
+              fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'linear-gradient(135deg, var(--primary) 0%, #4f46e5 100%)',
+              border: 'none',
+              boxShadow: '0 4px 10px rgba(99, 102, 241, 0.25)'
+            }}
+          >
+            <Sparkles size={13} /> Analyze feedback with AI
+          </button>
+        </div>
+      )}
+
+      {aiLoading && (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '2.5rem',
+          background: 'var(--panel-bg)',
+          border: '1px solid var(--border)',
+          borderRadius: '10px',
+          gap: '12px'
+        }}>
+          <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '50%',
+            border: '3px solid var(--border)',
+            borderTopColor: 'var(--primary)',
+            animation: 'spin 1s linear infinite'
+          }} />
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+            Analyzing {submissions.length} feedback responses with Gemini AI...
+          </p>
+          <span style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>Synthesizing key themes and generating actionable tickets</span>
+        </div>
+      )}
+
+      {aiError && (
+        <div style={{
+          padding: '1rem',
+          background: 'rgba(239, 68, 68, 0.08)',
+          border: '1px solid rgba(239, 68, 68, 0.2)',
+          borderRadius: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '10px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--danger)', fontSize: '0.75rem' }}>
+            <AlertCircle size={15} />
+            <span>{aiError}</span>
+          </div>
+          <button
+            onClick={handleAnalyzeFeedback}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--primary)',
+              fontWeight: 700,
+              fontSize: '0.75rem',
+              textDecoration: 'underline'
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {aiAnalysis && (
+        <div style={{
+          background: 'var(--panel-bg)',
+          border: '1px solid var(--border)',
+          borderRadius: '10px',
+          overflow: 'hidden',
+          transition: 'all 0.3s'
+        }}>
+          {/* AI Header */}
+          <div 
+            onClick={() => setIsAiExpanded(!isAiExpanded)}
+            style={{
+              padding: '0.85rem 1.25rem',
+              background: 'var(--background-alt)',
+              borderBottom: isAiExpanded ? '1px solid var(--border)' : 'none',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              cursor: 'pointer',
+              userSelect: 'none'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <Sparkles size={15} style={{ color: 'var(--primary)' }} />
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                AI Feedback Analysis
+              </span>
+              <span style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>
+                (generated on {new Date(aiAnalysis.updatedAt || aiAnalysis.createdAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })} by {aiAnalysis.generatedBy || 'System'})
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAnalyzeFeedback();
+                }}
+                style={{
+                  background: 'var(--panel-bg)',
+                  border: '1px solid var(--border)',
+                  padding: '4px 10px',
+                  borderRadius: '5px',
+                  fontSize: '0.675rem',
+                  fontWeight: 650,
+                  cursor: 'pointer',
+                  color: 'var(--text-secondary)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  transition: 'all 0.15s'
+                }}
+                title="Re-run Gemini AI to analyze feedback including any new responses"
+              >
+                <RefreshCw size={10} /> Re-analyze
+              </button>
+              {isAiExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </div>
+          </div>
+
+          {/* AI Content */}
+          {isAiExpanded && (
+            <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* Summary & Sentiment */}
+              <div style={{
+                background: 'var(--background-alt)',
+                padding: '1rem',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                  <span style={{ fontSize: '0.725rem', fontWeight: 650, color: 'var(--text-secondary)' }}>Overall Sentiment:</span>
+                  <span style={{
+                    fontSize: '0.65rem',
+                    fontWeight: 750,
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    textTransform: 'uppercase',
+                    background: aiAnalysis.sentiment?.toLowerCase() === 'positive' 
+                      ? 'rgba(16, 185, 129, 0.12)' 
+                      : aiAnalysis.sentiment?.toLowerCase() === 'critical'
+                      ? 'rgba(239, 68, 68, 0.12)'
+                      : 'rgba(245, 158, 11, 0.12)',
+                    color: aiAnalysis.sentiment?.toLowerCase() === 'positive' 
+                      ? '#10b981' 
+                      : aiAnalysis.sentiment?.toLowerCase() === 'critical'
+                      ? '#ef4444'
+                      : '#d97706',
+                    border: aiAnalysis.sentiment?.toLowerCase() === 'positive' 
+                      ? '1px solid rgba(16, 185, 129, 0.25)' 
+                      : aiAnalysis.sentiment?.toLowerCase() === 'critical'
+                      ? '1px solid rgba(239, 68, 68, 0.25)'
+                      : '1px solid rgba(245, 158, 11, 0.25)'
+                  }}>
+                    {aiAnalysis.sentiment || 'Mixed'}
+                  </span>
+                  <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                    — {aiAnalysis.sentimentJustification}
+                  </span>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.775rem', lineHeight: '1.5', color: 'var(--text-primary)' }}>
+                  {aiAnalysis.summary}
+                </p>
+              </div>
+
+              {/* Highlights & Concerns Columns */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+                {/* Positives */}
+                <div style={{
+                  background: 'rgba(16, 185, 129, 0.02)',
+                  border: '1px solid rgba(16, 185, 129, 0.12)',
+                  borderRadius: '8px',
+                  padding: '1rem'
+                }}>
+                  <h5 style={{ margin: '0 0 0.5rem 0', fontSize: '0.75rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
+                    <CheckCircle size={13} /> Positive Highlights
+                  </h5>
+                  <ul style={{ margin: 0, paddingLeft: '1.2rem', fontSize: '0.725rem', color: 'var(--text-primary)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {(aiAnalysis.positives || []).map((item: string, i: number) => (
+                      <li key={i} style={{ lineHeight: '1.45' }}>{item}</li>
+                    ))}
+                    {(!aiAnalysis.positives || aiAnalysis.positives.length === 0) && (
+                      <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>None noted.</span>
+                    )}
+                  </ul>
+                </div>
+
+                {/* Pain Points */}
+                <div style={{
+                  background: 'rgba(239, 68, 68, 0.02)',
+                  border: '1px solid rgba(239, 68, 68, 0.12)',
+                  borderRadius: '8px',
+                  padding: '1rem'
+                }}>
+                  <h5 style={{ margin: '0 0 0.5rem 0', fontSize: '0.75rem', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
+                    <AlertCircle size={13} /> Pain Points & Key Concerns
+                  </h5>
+                  <ul style={{ margin: 0, paddingLeft: '1.2rem', fontSize: '0.725rem', color: 'var(--text-primary)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {(aiAnalysis.painPoints || []).map((item: string, i: number) => (
+                      <li key={i} style={{ lineHeight: '1.45' }}>{item}</li>
+                    ))}
+                    {(!aiAnalysis.painPoints || aiAnalysis.painPoints.length === 0) && (
+                      <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>None noted.</span>
+                    )}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Actionable recommendations */}
+              <div>
+                <h5 style={{ margin: '0 0 0.5rem 0', fontSize: '0.775rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
+                  Actionable PM Recommendations ({ (aiAnalysis.recommendations || []).length })
+                </h5>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {(aiAnalysis.recommendations || []).map((rec: any, idx: number) => (
+                    <div 
+                      key={idx}
+                      style={{
+                        background: 'var(--background)',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: '8px',
+                        padding: '0.75rem 1rem',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '12px',
+                        transition: 'border-color 0.2s'
+                      }}
+                    >
+                      <div style={{ flex: '1', minWidth: '220px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{
+                            fontSize: '0.6rem',
+                            fontWeight: 850,
+                            padding: '1.5px 5px',
+                            borderRadius: '4px',
+                            background: rec.priority === 'P0' || rec.priority === 'P1'
+                              ? 'rgba(239, 68, 68, 0.1)'
+                              : rec.priority === 'P2'
+                              ? 'rgba(245, 158, 11, 0.1)'
+                              : 'rgba(156, 163, 175, 0.1)',
+                            color: rec.priority === 'P0' || rec.priority === 'P1'
+                              ? '#ef4444'
+                              : rec.priority === 'P2'
+                              ? '#d97706'
+                              : 'var(--text-secondary)',
+                            border: rec.priority === 'P0' || rec.priority === 'P1'
+                              ? '1px solid rgba(239, 68, 68, 0.2)'
+                              : rec.priority === 'P2'
+                              ? '1px solid rgba(245, 158, 11, 0.2)'
+                              : '1px solid rgba(156, 163, 175, 0.2)'
+                          }}>
+                            {rec.priority || 'P2'}
+                          </span>
+                          <span style={{ fontSize: '0.775rem', fontWeight: 650, color: 'var(--text-primary)' }}>
+                            {rec.recommendation}
+                          </span>
+                        </div>
+                        <p style={{ margin: 0, fontSize: '0.725rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                          {rec.details}
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => handleConvertToTask(rec, idx)}
+                        disabled={addedTickets.has(idx)}
+                        style={{
+                          background: addedTickets.has(idx) ? 'var(--success-bg)' : 'rgba(99, 102, 241, 0.1)',
+                          color: addedTickets.has(idx) ? 'var(--success)' : 'var(--primary)',
+                          border: addedTickets.has(idx) ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(99, 102, 241, 0.25)',
+                          cursor: addedTickets.has(idx) ? 'default' : 'pointer',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          fontSize: '0.7rem',
+                          fontWeight: 650,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          transition: 'all 0.2s',
+                          alignSelf: 'center'
+                        }}
+                      >
+                        {addedTickets.has(idx) ? (
+                          <>
+                            <Check size={11} /> Task Created ✓
+                          </>
+                        ) : (
+                          <>
+                            <Plus size={11} /> Convert to Task
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+        </div>
+      )}
+
+      {activeTab === 'responses' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* Tabular Feedback View */}
       {submissions.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.75rem', border: '1px dashed var(--border)', borderRadius: '8px', background: 'var(--panel-bg)' }}>
           No feedback responses submitted yet for this item.
@@ -1228,6 +1763,8 @@ const AttendeeFeedbackDetails: React.FC<{
             </tbody>
           </table>
         </div>
+      )}
+      </div>
       )}
 
       {viewingSubmission && (

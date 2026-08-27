@@ -409,4 +409,19 @@ const ChallengeSchema = new Schema({
 
 export const ChallengeModel = mongoose.models.Challenge || mongoose.model('Challenge', ChallengeSchema);
 
+// Feedback Analysis Schema
+const FeedbackAnalysisSchema = new Schema({
+  id: { type: String, required: true, unique: true },
+  itemId: { type: String, required: true, index: true },
+  category: { type: String, required: true },
+  summary: { type: String, required: true },
+  sentiment: { type: String, default: "" },
+  sentimentJustification: { type: String, default: "" },
+  positives: { type: [String], default: [] },
+  painPoints: { type: [String], default: [] },
+  recommendations: { type: Schema.Types.Mixed, default: [] }, // Array of { recommendation: string, details: string, priority: string }
+  generatedBy: { type: String, required: true },
+  generatedById: { type: String, required: true }
+}, { timestamps: true });
 
+export const FeedbackAnalysisModel = mongoose.models.FeedbackAnalysis || mongoose.model('FeedbackAnalysis', FeedbackAnalysisSchema);

@@ -26,7 +26,8 @@ import {
   RepoTabModel,
   RepoDocModel,
   ChallengeModel,
-  StickyNoteModel
+  StickyNoteModel,
+  FeedbackAnalysisModel
 } from './lib/models.js';
 
 const modelsMap: Record<string, any> = {
@@ -54,7 +55,8 @@ const modelsMap: Record<string, any> = {
   repoTabs: RepoTabModel,
   repoDocs: RepoDocModel,
   challenges: ChallengeModel,
-  stickyNotes: StickyNoteModel
+  stickyNotes: StickyNoteModel,
+  feedbackAnalyses: FeedbackAnalysisModel
 };
 
 export default async function handler(req: any, res: any) {
@@ -3713,6 +3715,190 @@ ${text}`;
       } catch (err: any) {
         console.error('AI Meeting Assist error:', err);
         return res.status(500).json({ success: false, error: err.message || 'An error occurred during AI generation' });
+      }
+    }
+
+    if (action === 'get-feedback-analysis') {
+      try {
+        await connectToDatabase();
+        const itemId = req.query.itemId || req.body?.itemId;
+        const category = req.query.category || req.body?.category;
+
+        if (!itemId || !category) {
+          return res.status(400).json({ success: false, error: 'itemId and category are required' });
+        }
+
+        const FeedbackAnalysis = modelsMap['feedbackAnalyses'];
+        const analysis = await FeedbackAnalysis.findOne({ itemId, category }).lean();
+        return res.status(200).json({ success: true, analysis });
+      } catch (err: any) {
+        console.error('Get feedback analysis error:', err);
+        return res.status(500).json({ success: false, error: err.message || 'An error occurred fetching feedback analysis' });
+      }
+    }
+
+    if (action === 'ai-feedback-assist') {
+      try {
+        await connectToDatabase();
+        // Authenticate
+        const userId = req.headers['x-user-id'];
+        const host = req.headers.host || '';
+        const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('3000') || host.includes('5173');
+        let isAuthenticated = isLocalhost;
+        let speakerName = 'Anonymous Admin';
+        let speakerId = userId || 'anonymous';
+
+        if (userId) {
+          const ConfigSpeaker = modelsMap['speakers'];
+          const speaker = await ConfigSpeaker.findOne({ id: userId }).lean();
+          if (speaker) {
+            isAuthenticated = true;
+            speakerName = speaker.name || speaker.email || 'Anonymous Admin';
+            speakerId = speaker.id;
+          }
+        }
+        if (!isAuthenticated) {
+          return res.status(401).json({ success: false, error: 'Unauthorized AI operation.' });
+        }
+
+        const { itemId, category, fields, submissions, model } = data || {};
+        if (!itemId || !category) {
+          return res.status(400).json({ success: false, error: 'itemId and category are required' });
+        }
+        if (!submissions || !Array.isArray(submissions) || submissions.length === 0) {
+          return res.status(400).json({ success: false, error: 'No submissions found to analyze.' });
+        }
+
+        // Fetch geminiApiKey from settings in DB
+        const GlobalSettings = modelsMap['settings'];
+        const geminiSetting = await GlobalSettings.findOne({ key: 'geminiApiKey' }).lean();
+        const apiKey = geminiSetting?.value || process.env.GEMINI_API_KEY;
+
+        if (!apiKey || !apiKey.trim()) {
+          return res.status(400).json({ success: false, error: 'Gemini API Key is not configured. Please set it in Admin Config.' });
+        }
+
+        // Prepare context for Gemini
+        const formattedFields = fields.map((f: any) => `Question ID: ${f.id}, Question Label: "${f.label}", Type: ${f.type}`).join('\n');
+        const formattedSubmissions = submissions.map((sub: any, idx: number) => {
+          const subAnswers = Object.entries(sub.answers || {}).map(([fieldId, ans]) => {
+            const field = fields.find((f: any) => f.id === fieldId);
+            const questionLabel = field ? field.label : fieldId;
+            return `- ${questionLabel}: ${Array.isArray(ans) ? ans.join(', ') : ans}`;
+          }).join('\n');
+          return `Submission #${idx + 1} by ${sub.submittedBy || 'Anonymous'}:\n${subAnswers}`;
+        }).join('\n\n');
+
+        const prompt = `You are a SaaS Product Analyst and UX Expert. Analyze the following feedback submissions collected for a session or feature and generate a JSON response.
+
+GLOBAL WRITING STYLE:
+- You MUST write the summary, positive findings, pain points, and recommendations in simple, clear, and easy-to-read English. Keep it extremely straightforward and easy to understand for anyone.
+
+INSTRUCTIONS:
+1. Generate a high-level summary of the overall feedback (as 'summary').
+2. Classify the overall sentiment of the submissions. Must be one of 'Positive', 'Mixed', or 'Critical' (as 'sentiment'). Provide a short sentence justifying it (as 'sentimentJustification').
+3. Extract key positive highlights (what went well). List up to 4 bullet points (as 'positives').
+4. Identify the top pain points, issues, or negative feedback. List up to 4 bullet points (as 'painPoints').
+5. Provide a list of actionable recommendations. For each recommendation, generate a clear title (as 'recommendation'), detailed elaboration on how to implement it (as 'details'), and a predicted priority level (one of 'P0', 'P1', 'P2', 'P3', 'P4' depending on urgency) (as 'recommendations').
+
+Return a JSON object conforming exactly to this structure:
+{
+  "summary": "Overall feedback summary.",
+  "sentiment": "Positive",
+  "sentimentJustification": "Sentiment explanation.",
+  "positives": [
+    "Highlight 1",
+    "Highlight 2"
+  ],
+  "painPoints": [
+    "Pain point 1",
+    "Pain point 2"
+  ],
+  "recommendations": [
+    {
+      "recommendation": "Recommendation Title",
+      "details": "Details on how to implement this recommendation",
+      "priority": "P2"
+    }
+  ]
+}
+
+Do not include any markdown block markers like \`\`\`json. Output ONLY the raw JSON string.
+
+QUESTIONS/FIELDS:
+${formattedFields}
+
+FEEDBACK SUBMISSIONS:
+${formattedSubmissions}`;
+
+        const selectedModel = model || 'gemini-1.5-flash-latest';
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
+        const requestBody = {
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.2,
+            responseMimeType: "application/json"
+          }
+        };
+
+        const response = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          console.error('Gemini API request failed for feedback assist:', errText);
+          return res.status(response.status).json({ success: false, error: `Gemini API Error: ${errText}` });
+        }
+
+        const resData = await response.json();
+        const generatedText = resData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        
+        let parsedResult;
+        try {
+          parsedResult = JSON.parse(generatedText.trim());
+        } catch (parseErr) {
+          console.error('Failed to parse Gemini feedback assist JSON output:', generatedText);
+          return res.status(500).json({ success: false, error: 'AI returned invalid JSON format. Please try again.', raw: generatedText });
+        }
+
+        // Save or update in database
+        const FeedbackAnalysis = modelsMap['feedbackAnalyses'];
+        let analysisDoc = await FeedbackAnalysis.findOne({ itemId, category });
+        if (!analysisDoc) {
+          analysisDoc = new FeedbackAnalysis({
+            id: `analysis-${Date.now()}`,
+            itemId,
+            category,
+            summary: parsedResult.summary,
+            sentiment: parsedResult.sentiment,
+            sentimentJustification: parsedResult.sentimentJustification,
+            positives: parsedResult.positives,
+            painPoints: parsedResult.painPoints,
+            recommendations: parsedResult.recommendations,
+            generatedBy: speakerName,
+            generatedById: speakerId
+          });
+        } else {
+          analysisDoc.summary = parsedResult.summary;
+          analysisDoc.sentiment = parsedResult.sentiment;
+          analysisDoc.sentimentJustification = parsedResult.sentimentJustification;
+          analysisDoc.positives = parsedResult.positives;
+          analysisDoc.painPoints = parsedResult.painPoints;
+          analysisDoc.recommendations = parsedResult.recommendations;
+          analysisDoc.generatedBy = speakerName;
+          analysisDoc.generatedById = speakerId;
+          // Mark modified since schema type is Mixed
+          analysisDoc.markModified('recommendations');
+        }
+        await analysisDoc.save();
+
+        return res.status(200).json({ success: true, analysis: analysisDoc });
+      } catch (err: any) {
+        console.error('AI Feedback Assist error:', err);
+        return res.status(500).json({ success: false, error: err.message || 'An error occurred during AI feedback generation' });
       }
     }
 
