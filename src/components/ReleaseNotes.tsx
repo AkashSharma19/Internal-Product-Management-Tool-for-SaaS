@@ -378,7 +378,7 @@ export const ReleaseNotes: React.FC = () => {
                       <iframe
                         srcDoc={getCleanHtml(note.content)}
                         title={note.title}
-                        sandbox="allow-same-origin"
+                        sandbox="allow-scripts allow-same-origin"
                         style={{
                           width: '600px',
                           height: '500px',
@@ -477,7 +477,7 @@ export const ReleaseNotes: React.FC = () => {
               <iframe
                 srcDoc={getCleanHtml(selectedNote.content)}
                 title={selectedNote.title}
-                sandbox="allow-same-origin"
+                sandbox="allow-scripts allow-same-origin"
                 style={{
                   width: '100%',
                   height: '52vh',
