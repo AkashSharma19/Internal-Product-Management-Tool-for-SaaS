@@ -27,7 +27,8 @@ import {
   RepoDocModel,
   ChallengeModel,
   StickyNoteModel,
-  FeedbackAnalysisModel
+  FeedbackAnalysisModel,
+  ReleaseNoteModel
 } from './lib/models.js';
 
 const modelsMap: Record<string, any> = {
@@ -56,7 +57,40 @@ const modelsMap: Record<string, any> = {
   repoDocs: RepoDocModel,
   challenges: ChallengeModel,
   stickyNotes: StickyNoteModel,
-  feedbackAnalyses: FeedbackAnalysisModel
+  feedbackAnalyses: FeedbackAnalysisModel,
+  releaseNotes: ReleaseNoteModel
+};
+
+// --- Date helper function ---
+const parseDate = (dateStr: string): Date | null => {
+  if (!dateStr) return null;
+  const cleaned = dateStr.trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(cleaned)) {
+    const d = new Date(cleaned.slice(0, 10));
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (/^\d{2}-\d{2}-\d{4}/.test(cleaned)) {
+    const [dVal, mVal, yVal] = cleaned.slice(0, 10).split('-');
+    const d = new Date(`${yVal}-${mVal}-${dVal}`);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  const parts = cleaned.split(/\s+/);
+  if (parts.length >= 3) {
+    const day = parts[0];
+    const monthStr = parts[1].toLowerCase().slice(0, 3);
+    const yearVal = parts[2];
+    const months: Record<string, string> = {
+      jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+      jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+    };
+    const monthVal = months[monthStr];
+    if (monthVal && /^\d+$/.test(day) && /^\d{4}/.test(yearVal)) {
+      const d = new Date(`${yearVal.slice(0, 4)}-${monthVal}-${day.padStart(2, '0')}`);
+      return isNaN(d.getTime()) ? null : d;
+    }
+  }
+  const d = new Date(cleaned);
+  return isNaN(d.getTime()) ? null : d;
 };
 
 export default async function handler(req: any, res: any) {
@@ -106,38 +140,6 @@ export default async function handler(req: any, res: any) {
         if (!isAuthenticated && action !== 'init' && !(isPublicCalendar && action === 'calendar-events') && action !== 'get-public-doc') {
           return res.status(401).json({ success: false, error: 'Unauthorized action request.' });
         }
-
-        // --- Date and Status helper functions ---
-        const parseDate = (dateStr: string): Date | null => {
-          if (!dateStr) return null;
-          const cleaned = dateStr.trim();
-          if (/^\d{4}-\d{2}-\d{2}/.test(cleaned)) {
-            const d = new Date(cleaned.slice(0, 10));
-            return isNaN(d.getTime()) ? null : d;
-          }
-          if (/^\d{2}-\d{2}-\d{4}/.test(cleaned)) {
-            const [dVal, mVal, yVal] = cleaned.slice(0, 10).split('-');
-            const d = new Date(`${yVal}-${mVal}-${dVal}`);
-            return isNaN(d.getTime()) ? null : d;
-          }
-          const parts = cleaned.split(/\s+/);
-          if (parts.length >= 3) {
-            const day = parts[0];
-            const monthStr = parts[1].toLowerCase().slice(0, 3);
-            const yearVal = parts[2];
-            const months: Record<string, string> = {
-              jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
-              jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
-            };
-            const monthVal = months[monthStr];
-            if (monthVal && /^\d+$/.test(day) && /^\d{4}/.test(yearVal)) {
-              const d = new Date(`${yearVal.slice(0, 4)}-${monthVal}-${day.padStart(2, '0')}`);
-              return isNaN(d.getTime()) ? null : d;
-            }
-          }
-          const d = new Date(cleaned);
-          return isNaN(d.getTime()) ? null : d;
-        };
 
         const getFilterDates = (dateRangeType: string, customStartDate?: string, customEndDate?: string): { start: Date | null; end: Date | null } => {
           const today = new Date();
@@ -231,7 +233,7 @@ export default async function handler(req: any, res: any) {
             'formConfigs', 'products', 'feedbackSubmissions', 'comments', 'directoryContacts', 
             'repoTabs', 'repoDocs', 'challenges', 'stickyNotes',
             'plans', 'projects', 'amaSessions', 'studentMeetings', 'adminCalls', 'tarunSirMeetings', 
-            'contentItems', 'dailyIssues', 'featureAdoptions'
+            'contentItems', 'dailyIssues', 'featureAdoptions', 'releaseNotes'
           ];
           for (const key of allowedKeys) {
             if (key === 'speakers') {
@@ -4026,6 +4028,302 @@ ${formattedSubmissions}`;
       } catch (err: any) {
         console.error('AI Feedback Assist error:', err);
         return res.status(500).json({ success: false, error: err.message || 'An error occurred during AI feedback generation' });
+      }
+    }
+
+    if (action === 'release-notes-fetch-features') {
+      try {
+        await connectToDatabase();
+        // Authenticate
+        const userId = req.headers['x-user-id'];
+        const host = req.headers.host || '';
+        const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('3000') || host.includes('5173');
+        let isAuthenticated = isLocalhost;
+        if (!isAuthenticated && userId) {
+          const ConfigSpeaker = modelsMap['speakers'];
+          const speaker = await ConfigSpeaker.findOne({ id: userId }).lean();
+          if (speaker) isAuthenticated = true;
+        }
+        if (!isAuthenticated) {
+          return res.status(401).json({ success: false, error: 'Unauthorized.' });
+        }
+
+        const { startDate, endDate } = data || {};
+        if (!startDate || !endDate) {
+          return res.status(400).json({ success: false, error: 'startDate and endDate are required' });
+        }
+
+        const ProductItem = modelsMap['products'];
+        // Fetch all product items
+        const rawProducts = await ProductItem.find({}).lean() as any[];
+
+        // Helper to check if a parsed date falls within range (inclusive)
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        // Make sure time boundary is correct
+        start.setHours(0, 0, 0, 0);
+        end.setHours(23, 59, 59, 999);
+
+        const matchedProducts = rawProducts.filter(item => {
+          const isCompleted = item.finalReleaseCompleted === true || 
+            ['released', 'closed', 'done', 'completed'].includes((item.status || '').toLowerCase().trim());
+          if (!isCompleted) return false;
+
+          if (item.finalRelease) {
+            const parsed = parseDate(item.finalRelease);
+            if (parsed && parsed >= start && parsed <= end) {
+              return true;
+            }
+          }
+          return false;
+        });
+
+        // Format features response list
+        const formatted = matchedProducts.map(p => ({
+          id: p.id,
+          feature: p.feature,
+          description: p.description || '',
+          product: p.product || 'Other',
+          finalRelease: p.finalRelease || ''
+        }));
+
+        return res.status(200).json({ success: true, features: formatted });
+      } catch (err: any) {
+        console.error('Release Notes Fetch Features error:', err);
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+
+    if (action === 'release-notes-generate-ai') {
+      try {
+        await connectToDatabase();
+        // Authenticate
+        const userId = req.headers['x-user-id'];
+        const host = req.headers.host || '';
+        const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('3000') || host.includes('5173');
+        let isAuthenticated = isLocalhost;
+        if (!isAuthenticated && userId) {
+          const ConfigSpeaker = modelsMap['speakers'];
+          const speaker = await ConfigSpeaker.findOne({ id: userId }).lean();
+          if (speaker) isAuthenticated = true;
+        }
+        if (!isAuthenticated) {
+          return res.status(401).json({ success: false, error: 'Unauthorized.' });
+        }
+
+        const { title, startDate, endDate, features } = data || {};
+        if (!startDate || !endDate || !features || !Array.isArray(features)) {
+          return res.status(400).json({ success: false, error: 'startDate, endDate, and features array are required' });
+        }
+
+        // Fetch geminiApiKey from settings in DB
+        const GlobalSettings = modelsMap['settings'];
+        const geminiSetting = await GlobalSettings.findOne({ key: 'geminiApiKey' }).lean();
+        const apiKey = geminiSetting?.value || process.env.GEMINI_API_KEY;
+
+        if (!apiKey || !apiKey.trim()) {
+          return res.status(400).json({ success: false, error: 'Gemini API Key is not configured. Please set it in Admin Config.' });
+        }
+
+        // Fetch geminiModel from settings in DB
+        const modelSetting = await GlobalSettings.findOne({ key: 'geminiModel' }).lean();
+                const selectedModel = modelSetting?.value || 'gemini-1.5-flash-latest';
+
+        const prompt = `You are a SaaS Product Manager. Please compile and write professional, structured, and polished Release Notes in HTML email update format based on the list of completed features/tasks built between ${startDate} and ${endDate}.
+        
+Title of Release: ${title || 'Sprint Release Notes'}
+
+List of Features:
+${JSON.stringify(features, null, 2)}
+
+INSTRUCTIONS:
+1. Return the output in the EXACT HTML format provided below.
+2. Group the features into logical categories (e.g. "Academics & Evaluation", "Career Services", "Administration", "Student Experience", etc.) as the label for each card.
+3. For each completed feature:
+   - Create a div container of class "feature-card".
+   - Place a div with class "feature-label" containing the category label.
+   - Place a div with class "feature-title" containing a clear, catchy Title (e.g., "Ask to Resubmit").
+   - Place a div with class "description" containing a descriptive summary (2-3 sentences max) explaining what was built and how it works.
+   - Place a link with class "cta-link" pointing to the task URL. Use the ClickUp task link if available in the input JSON (the "taskLink" property), or provide a placeholder URL like "#" or a standard help URL.
+4. Write a warm introductory greeting paragraph of class "intro-text" summarizing the release cycle focus.
+5. In the hero header, display "Coach LMS<br>${title}" as the main heading, and "Product Release" inside the hero-tag.
+6. The styling rules MUST be embedded in the <style> tag exactly as shown below.
+7. CRITICAL REQUIREMENT: You MUST include EVERY SINGLE feature/task provided in the input list. Do NOT omit, skip, or summarize multiple features into a single card. If the input list contains 50 features, you must output exactly 50 separate "feature-card" blocks. Keep description summaries concise (1-2 sentences) to ensure all features are outputted without truncation.
+
+HTML TEMPLATE:
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${title} | Product Release Updates</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap');
+        body, table, td, p, a, div {
+            font-family: 'Google Sans', 'Product Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #fcfcfc;
+            color: #1a1a1a;
+            -webkit-font-smoothing: antialiased;
+        }
+        .email-wrapper {
+            width: 100%;
+            background-color: #fcfcfc;
+            padding: 20px 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+            border: 1px solid #eeeeee;
+        }
+        .hero {
+            background-color: #000000;
+            padding: 40px;
+            text-align: left;
+        }
+        .hero-tag {
+            color: #D4AF37;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .hero h1 {
+            color: #ffffff;
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1.25;
+        }
+        .content {
+            padding: 30px 40px;
+        }
+        .intro-text {
+            font-size: 15px;
+            line-height: 1.6;
+            color: #4a4a4a;
+            margin-bottom: 28px;
+        }
+        .feature-card {
+            margin-bottom: 32px;
+            border-left: 2px solid #eeeeee;
+            padding-left: 18px;
+        }
+        .feature-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #888888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+        .feature-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #000000;
+            margin-bottom: 6px;
+        }
+        .description {
+            font-size: 14px;
+            line-height: 1.5;
+            color: #444444;
+        }
+        .cta-link {
+            display: inline-block;
+            margin-top: 8px;
+            color: #000000;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 700;
+            border-bottom: 1px solid #000000;
+        }
+        .footer {
+            padding: 30px 40px;
+            background-color: #fafafa;
+            text-align: center;
+            border-top: 1px solid #eeeeee;
+        }
+        .footer-logo {
+            font-weight: 700;
+            font-size: 15px;
+            margin-bottom: 6px;
+        }
+        .footer-text {
+            font-size: 11px;
+            color: #999999;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-wrapper">
+        <div class="container">
+            <div class="hero">
+                <div class="hero-tag">Product Release</div>
+                <h1>Coach LMS<br>${title}</h1>
+            </div>
+            <div class="content">
+                <p class="intro-text">
+                    Hi Team,<br><br>
+                    [Insert generated summary introduction text here]
+                </p>
+                <!-- Repeat feature-card for each feature -->
+                <div class="feature-card">
+                    <div class="feature-label">[Category/Module]</div>
+                    <div class="feature-title">[Feature Title]</div>
+                    <div class="description">
+                        [Description]
+                    </div>
+                    <a href="[Task URL]" target="_blank" class="cta-link">Learn More &rarr;</a>
+                </div>
+            </div>
+            <div class="footer">
+                <div class="footer-logo">Team Coach</div>
+                <div class="footer-text">
+                    Masters' Union & TETR Ecosystem
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
+Respond ONLY with clean, raw HTML string. Do not wrap it in any markdown code block fences (like \`\`\`html or \`\`\`). Output the HTML directly.`;
+
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
+        const requestBody = {
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.3
+          }
+        };
+
+        const response = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          console.error('Gemini API request failed for Release Notes:', errText);
+          return res.status(response.status).json({ success: false, error: `Gemini API Error: ${errText}` });
+        }
+
+        const resData = await response.json();
+        const generatedText = resData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+        return res.status(200).json({ success: true, content: generatedText });
+      } catch (err: any) {
+        console.error('AI Release Notes Generation error:', err);
+        return res.status(500).json({ success: false, error: err.message });
       }
     }
 

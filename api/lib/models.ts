@@ -425,3 +425,22 @@ const FeedbackAnalysisSchema = new Schema({
 }, { timestamps: true });
 
 export const FeedbackAnalysisModel = mongoose.models.FeedbackAnalysis || mongoose.model('FeedbackAnalysis', FeedbackAnalysisSchema);
+
+// Release Notes Schema
+const ReleaseNoteSchema = new Schema({
+  id: { type: String, required: true, unique: true },
+  title: { type: String, required: true },
+  startDate: { type: String, required: true },
+  endDate: { type: String, required: true },
+  color: { type: String, default: '#7c3aed' }, // default purple color
+  content: { type: String, required: true },
+  features: [{
+    id: String,
+    feature: String,
+    description: String,
+    product: String,
+    finalRelease: String
+  }]
+}, { timestamps: true });
+
+export const ReleaseNoteModel = mongoose.models.ReleaseNote || mongoose.model('ReleaseNote', ReleaseNoteSchema);

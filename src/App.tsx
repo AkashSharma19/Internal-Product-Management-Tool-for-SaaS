@@ -25,6 +25,7 @@ import { CalendarView } from './components/CalendarView';
 import { PublicFeedbackForm } from './components/PublicFeedbackForm';
 import { TeamView } from './components/TeamView';
 import { StickyNotesBot } from './components/StickyNotesBot';
+import { ReleaseNotes } from './components/ReleaseNotes';
 import {
   LayoutDashboard,
   Calendar,
@@ -54,7 +55,8 @@ import {
   UserCheck,
   Quote,
   GraduationCap,
-  Briefcase
+  Briefcase,
+  FileText
 } from 'lucide-react';
 
 import { isAudioMuted, toggleAudioMute, playPopSound } from './utils/audio';
@@ -2022,6 +2024,7 @@ const DashboardContent: React.FC = () => {
         { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
         { id: 'calendar', label: 'Calendar View', icon: <CalendarDays size={18} /> },
         { id: 'plan', label: 'Sprint Planning', icon: <Calendar size={18} /> },
+        { id: 'release-notes', label: 'Release Notes', icon: <FileText size={18} /> },
       ]
     },
     {
@@ -2062,6 +2065,8 @@ const DashboardContent: React.FC = () => {
         return <DashboardOverview />;
       case 'calendar':
         return <CalendarView />;
+      case 'release-notes':
+        return <ReleaseNotes />;
       case 'product':
         return <ProductTable />;
       case 'plan':

@@ -70,3 +70,45 @@ export function stripHtml(html: string | undefined | null): string {
     
   return str.trim();
 }
+
+/**
+ * Parses basic Markdown syntax (headings, bold, lists) into HTML.
+ */
+export function parseMarkdownToHtml(markdown: string | undefined | null): string {
+  if (!markdown) return '';
+
+  let escaped = markdown
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Headings (match lines starting with #, ##, ###)
+  escaped = escaped.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+  escaped = escaped.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+  escaped = escaped.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+
+  // Bold (**text**)
+  escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+  // Bullet points (* text or - text)
+  escaped = escaped.replace(/^\s*[-*]\s+(.*$)/gim, '<li>$1</li>');
+  
+  // Wrap consecutive list items in <ul> block
+  escaped = escaped.replace(/((?:<li>.*?<\/li>[\s\r\n]*)+)/g, '<ul>$1</ul>');
+
+  // Process paragraphs
+  const paragraphs = escaped.split(/\n\n+/);
+  return paragraphs
+    .map(para => {
+      const trimmed = para.trim();
+      if (!trimmed) return '';
+      // If it's already an HTML block tag, don't wrap in p tag
+      if (/^<\/?(?:h1|h2|h3|ul|li|p)/i.test(trimmed)) {
+        // Just convert remaining line breaks inside list items or headings
+        return trimmed.replace(/\n/g, '<br>');
+      }
+      return `<p>${trimmed.replace(/\n/g, '<br>')}</p>`;
+    })
+    .filter(Boolean)
+    .join('');
+}

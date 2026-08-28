@@ -182,6 +182,12 @@ interface DashboardContextType {
   updateRepoDoc: (id: string, updated: Partial<RepoDoc>) => void;
   deleteRepoDoc: (id: string) => void;
 
+  // Release Notes
+  releaseNotes: any[];
+  addReleaseNote: (item: any) => Promise<void>;
+  updateReleaseNote: (id: string, updated: any) => Promise<void>;
+  deleteReleaseNote: (id: string) => Promise<void>;
+
   // ClickUp Integration
   clickupApiKey: string;
   setClickupApiKey: (key: string) => void;
@@ -676,6 +682,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [directoryContacts, setDirectoryContacts] = useState<DirectoryContact[]>([]);
   const [repoTabs, setRepoTabs] = useState<RepoTab[]>([]);
   const [repoDocs, setRepoDocs] = useState<RepoDoc[]>([]);
+  const [releaseNotes, setReleaseNotes] = useState<any[]>([]);
 
   const [stickyNotes, setStickyNotes] = useState<StickyNote[]>(() => {
     const data = localStorage.getItem('data-sticky-notes');
@@ -1703,6 +1710,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (db.directoryContacts !== undefined)              { setDirectoryContacts(db.directoryContacts); updatedSheets++; }
         if (db.repoTabs !== undefined)                       { setRepoTabs(db.repoTabs);           updatedSheets++; }
         if (db.repoDocs !== undefined)                       { setRepoDocs(db.repoDocs);           updatedSheets++; }
+        if (db.releaseNotes !== undefined)                   { setReleaseNotes(db.releaseNotes);   updatedSheets++; }
         if (db.stickyNotes !== undefined)                    { setStickyNotes(db.stickyNotes);     updatedSheets++; }
         if (db.stickyNotesCompletedCount !== undefined) {
           setCompletedNotesCount(db.stickyNotesCompletedCount[0]?.count || 0);
@@ -2961,10 +2969,26 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     await persistChange('restore-all-completed-notes' as any, 'stickyNotes', null, null);
   };
 
+  const addReleaseNote = async (item: any) => {
+    setReleaseNotes(prev => [...prev, item]);
+    await persistChange('create', 'releaseNotes', item.id, item);
+  };
+
+  const updateReleaseNote = async (id: string, updated: any) => {
+    setReleaseNotes(prev => prev.map(item => item.id === id ? { ...item, ...updated } : item));
+    await persistChange('update', 'releaseNotes', id, updated);
+  };
+
+  const deleteReleaseNote = async (id: string) => {
+    setReleaseNotes(prev => prev.filter(item => item.id !== id));
+    await persistChange('delete', 'releaseNotes', id, null);
+  };
+
   return (
     <DashboardContext.Provider value={{
       comments, addComment, lastOpenedMap, markTaskAsRead,
       activeTab, setActiveTab,
+      releaseNotes, addReleaseNote, updateReleaseNote, deleteReleaseNote,
       productItems, setProductItems, updateProductItem, addProductItem, deleteProductItem,
       planItems, setPlanItems, updatePlanItem, addPlanItem, deletePlanItem,
       studentProjects, setStudentProjects, updateStudentProject, addStudentProject, deleteStudentProject,
