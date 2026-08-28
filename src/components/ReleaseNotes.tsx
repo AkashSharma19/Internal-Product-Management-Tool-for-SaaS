@@ -11,7 +11,8 @@ import {
   Calendar, 
   Check, 
   X,
-  AlertCircle
+  AlertCircle,
+  Mail
 } from 'lucide-react';
 
 const KEEP_COLORS = [
@@ -58,6 +59,7 @@ export const ReleaseNotes: React.FC = () => {
 
   // Active view modal detail note
   const [selectedNote, setSelectedNote] = useState<any | null>(null);
+  const [copiedGmail, setCopiedGmail] = useState(false);
 
   const resetForm = () => {
     setTitle('');
@@ -290,50 +292,16 @@ export const ReleaseNotes: React.FC = () => {
     return rawText.includes('<') && rawText.includes('>') ? rawText : parseMarkdownToHtml(rawText);
   };
 
-  // Filter notes by search text (title or content)
-  const filteredNotes = releaseNotes.filter(note => 
-    note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    note.content.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter notes by search text (title or content) — guard against undefined fields
+  const filteredNotes = releaseNotes.filter(note => {
+    const titleMatch = (note.title || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const contentMatch = (note.content || '').toLowerCase().includes(searchQuery.toLowerCase());
+    return titleMatch || contentMatch;
+  });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
-      <style dangerouslySetInnerHTML={{ __html: `
-        .keep-card-preview h1, .keep-card-preview h2, .keep-card-preview h3 {
-          font-size: 0.85rem !important;
-          margin: 0.4rem 0 0.2rem 0 !important;
-          color: var(--text-primary) !important;
-        }
-        .keep-card-preview ul {
-          margin: 0.2rem 0 !important;
-          padding-left: 1rem !important;
-        }
-        .keep-card-preview li {
-          margin-bottom: 1px !important;
-        }
-        .release-note-detail-content h1 {
-          font-size: 1.4rem !important;
-          margin: 1rem 0 0.6rem 0 !important;
-          color: var(--text-primary) !important;
-        }
-        .release-note-detail-content h2 {
-          font-size: 1.15rem !important;
-          margin: 0.8rem 0 0.4rem 0 !important;
-          color: var(--text-primary) !important;
-        }
-        .release-note-detail-content h3 {
-          font-size: 0.95rem !important;
-          margin: 0.6rem 0 0.3rem 0 !important;
-          color: var(--text-primary) !important;
-        }
-        .release-note-detail-content ul {
-          margin: 0.4rem 0 !important;
-          padding-left: 1.25rem !important;
-        }
-        .release-note-detail-content li {
-          margin-bottom: 0.3rem !important;
-        }
-      `}} />
+
       <TabContainer
         title="AI Release Notes"
         searchQuery={searchQuery}
@@ -405,23 +373,23 @@ export const ReleaseNotes: React.FC = () => {
                       <span>{note.startDate} to {note.endDate}</span>
                     </div>
 
-                    {/* Preview text */}
-                    <div 
-                      className="keep-card-preview"
-                      style={{ 
-                        fontSize: '0.8rem', 
-                        color: 'var(--text-secondary)', 
-                        lineHeight: 1.4, 
-                        flexGrow: 1, 
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 6,
-                        WebkitBoxOrient: 'vertical',
-                        opacity: 0.95
-                      }}
-                      dangerouslySetInnerHTML={{ __html: getCleanHtml(note.content) }}
-                    />
+                    {/* Preview thumbnail — rendered in isolated iframe so newsletter CSS doesn't leak */}
+                    <div style={{ flexGrow: 1, overflow: 'hidden', borderRadius: '6px', position: 'relative', minHeight: '120px' }}>
+                      <iframe
+                        srcDoc={getCleanHtml(note.content)}
+                        title={note.title}
+                        sandbox="allow-same-origin"
+                        style={{
+                          width: '600px',
+                          height: '500px',
+                          border: 'none',
+                          transformOrigin: 'top left',
+                          transform: 'scale(0.42)',
+                          pointerEvents: 'none',
+                          display: 'block'
+                        }}
+                      />
+                    </div>
 
                     {/* Card controls on hover */}
                     <div className="keep-card-controls" style={{ 
@@ -497,29 +465,57 @@ export const ReleaseNotes: React.FC = () => {
               )}
             </div>
 
-            <div 
-              className="release-note-detail-content"
-              style={{ 
-                overflowY: 'auto', 
-                fontSize: '0.925rem', 
-                lineHeight: 1.6, 
-                color: 'var(--text-primary)',
-                borderTop: '1px solid var(--border)',
-                borderBottom: '1px solid var(--border)',
-                padding: '1.5rem 0',
-                maxHeight: '50vh',
-                scrollbarWidth: 'thin'
-              }}
-              dangerouslySetInnerHTML={{ __html: getCleanHtml(selectedNote.content) }}
-            />
+            {/* Full newsletter rendered in isolated iframe — no parent CSS leakage */}
+            <div style={{
+              borderTop: '1px solid var(--border)',
+              borderBottom: '1px solid var(--border)',
+              margin: '0.5rem 0',
+              maxHeight: '52vh',
+              overflow: 'hidden',
+              borderRadius: '8px'
+            }}>
+              <iframe
+                srcDoc={getCleanHtml(selectedNote.content)}
+                title={selectedNote.title}
+                sandbox="allow-same-origin"
+                style={{
+                  width: '100%',
+                  height: '52vh',
+                  border: 'none',
+                  display: 'block'
+                }}
+              />
+            </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                 Last updated: {new Date(selectedNote.updatedAt || selectedNote.createdAt || Date.now()).toLocaleDateString(undefined, {
                   month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
                 })}
               </div>
               <div className="form-actions" style={{ borderTop: 'none', paddingTop: 0, marginTop: 0 }}>
+                {/* Copy for Gmail — writes rich HTML to clipboard so it pastes as formatted email */}
+                <button
+                  onClick={async () => {
+                    try {
+                      const html = getCleanHtml(selectedNote.content);
+                      const blob = new Blob([html], { type: 'text/html' });
+                      const item = new ClipboardItem({ 'text/html': blob });
+                      await navigator.clipboard.write([item]);
+                      setCopiedGmail(true);
+                      setTimeout(() => setCopiedGmail(false), 2500);
+                    } catch {
+                      // Fallback: copy raw HTML as plain text
+                      navigator.clipboard.writeText(getCleanHtml(selectedNote.content));
+                      setCopiedGmail(true);
+                      setTimeout(() => setCopiedGmail(false), 2500);
+                    }
+                  }}
+                  className="btn btn-primary btn-sm"
+                  title="Copy formatted HTML — paste directly into Gmail compose window"
+                >
+                  {copiedGmail ? <><Check size={12} /> Copied!</> : <><Mail size={12} /> Copy for Gmail</>}
+                </button>
                 {canUserEdit && (
                   <>
                     <button
