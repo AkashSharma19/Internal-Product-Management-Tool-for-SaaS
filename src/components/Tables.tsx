@@ -1608,29 +1608,7 @@ const AttendeeFeedbackDetails: React.FC<{
                     >
                       <div style={{ flex: '1', minWidth: '220px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{
-                            fontSize: '0.6rem',
-                            fontWeight: 850,
-                            padding: '1.5px 5px',
-                            borderRadius: '4px',
-                            background: rec.priority === 'P0' || rec.priority === 'P1'
-                              ? 'rgba(239, 68, 68, 0.1)'
-                              : rec.priority === 'P2'
-                              ? 'rgba(245, 158, 11, 0.1)'
-                              : 'rgba(156, 163, 175, 0.1)',
-                            color: rec.priority === 'P0' || rec.priority === 'P1'
-                              ? '#ef4444'
-                              : rec.priority === 'P2'
-                              ? '#d97706'
-                              : 'var(--text-secondary)',
-                            border: rec.priority === 'P0' || rec.priority === 'P1'
-                              ? '1px solid rgba(239, 68, 68, 0.2)'
-                              : rec.priority === 'P2'
-                              ? '1px solid rgba(245, 158, 11, 0.2)'
-                              : '1px solid rgba(156, 163, 175, 0.2)'
-                          }}>
-                            {rec.priority || 'P2'}
-                          </span>
+
                           <span style={{ fontSize: '0.775rem', fontWeight: 650, color: 'var(--text-primary)' }}>
                             {rec.recommendation}
                           </span>
