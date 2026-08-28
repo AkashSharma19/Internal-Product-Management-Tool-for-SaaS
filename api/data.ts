@@ -3397,6 +3397,25 @@ export default async function handler(req: any, res: any) {
           return res.status(200).json({ success: true, data: commentsList });
         }
 
+        if (action === 'get-feedback-analysis') {
+          try {
+            await connectToDatabase();
+            const itemId = url.searchParams.get('itemId') || req.query?.itemId || req.body?.itemId;
+            const category = url.searchParams.get('category') || req.query?.category || req.body?.category;
+
+            if (!itemId || !category) {
+              return res.status(400).json({ success: false, error: 'itemId and category are required' });
+            }
+
+            const FeedbackAnalysis = modelsMap['feedbackAnalyses'];
+            const analysis = await FeedbackAnalysis.findOne({ itemId, category }).lean();
+            return res.status(200).json({ success: true, analysis });
+          } catch (err: any) {
+            console.error('Get feedback analysis error:', err);
+            return res.status(500).json({ success: false, error: err.message || 'An error occurred fetching feedback analysis' });
+          }
+        }
+
         return res.status(400).json({ success: false, error: `Unknown action: ${action}` });
       }
 
@@ -3717,24 +3736,7 @@ ${text}`;
       }
     }
 
-    if (action === 'get-feedback-analysis') {
-      try {
-        await connectToDatabase();
-        const itemId = req.query.itemId || req.body?.itemId;
-        const category = req.query.category || req.body?.category;
 
-        if (!itemId || !category) {
-          return res.status(400).json({ success: false, error: 'itemId and category are required' });
-        }
-
-        const FeedbackAnalysis = modelsMap['feedbackAnalyses'];
-        const analysis = await FeedbackAnalysis.findOne({ itemId, category }).lean();
-        return res.status(200).json({ success: true, analysis });
-      } catch (err: any) {
-        console.error('Get feedback analysis error:', err);
-        return res.status(500).json({ success: false, error: err.message || 'An error occurred fetching feedback analysis' });
-      }
-    }
 
     if (action === 'ai-feedback-assist') {
       try {
