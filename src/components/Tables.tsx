@@ -1036,7 +1036,13 @@ const AttendeeFeedbackDetails: React.FC<{
 
     const fetchAnalysis = async () => {
       try {
-        const response = await fetch(`/api/data?action=get-feedback-analysis&itemId=${itemId}&category=${category}`);
+        const headers: Record<string, string> = {};
+        if (currentUser?.id) {
+          headers['x-user-id'] = currentUser.id;
+        }
+        const response = await fetch(`/api/data?action=get-feedback-analysis&itemId=${itemId}&category=${category}`, {
+          headers
+        });
         if (response.ok) {
           const resData = await response.json();
           if (resData.success && resData.analysis) {
@@ -1051,7 +1057,7 @@ const AttendeeFeedbackDetails: React.FC<{
     if (itemId && category) {
       fetchAnalysis();
     }
-  }, [itemId, category]);
+  }, [itemId, category, currentUser]);
 
   const handleAnalyzeFeedback = async () => {
     setAiLoading(true);
