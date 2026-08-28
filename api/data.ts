@@ -3416,6 +3416,132 @@ export default async function handler(req: any, res: any) {
           }
         }
 
+        if (action === 'clickup-teams') {
+          if (!isAuthenticated) {
+            return res.status(401).json({ success: false, error: 'Unauthorized.' });
+          }
+          const GlobalSettings = modelsMap['settings'];
+          const clickupSetting = await GlobalSettings.findOne({ key: 'clickupApiKey' }).lean();
+          const apiKey = clickupSetting?.value || '';
+          if (!apiKey || !apiKey.trim()) {
+            return res.status(400).json({ success: false, error: 'ClickUp API Key is not configured.' });
+          }
+
+          const response = await fetch('https://api.clickup.com/api/v2/team', {
+            headers: {
+              'Authorization': apiKey.trim()
+            }
+          });
+          if (!response.ok) {
+            const errText = await response.text();
+            return res.status(response.status).json({ success: false, error: `ClickUp API Error: ${errText}` });
+          }
+          const data = await response.json();
+          return res.status(200).json({ success: true, teams: data.teams || [] });
+        }
+
+        if (action === 'clickup-spaces') {
+          if (!isAuthenticated) {
+            return res.status(401).json({ success: false, error: 'Unauthorized.' });
+          }
+          const teamId = url.searchParams.get('teamId');
+          if (!teamId) {
+            return res.status(400).json({ success: false, error: 'teamId is required' });
+          }
+
+          const GlobalSettings = modelsMap['settings'];
+          const clickupSetting = await GlobalSettings.findOne({ key: 'clickupApiKey' }).lean();
+          const apiKey = clickupSetting?.value || '';
+          if (!apiKey || !apiKey.trim()) {
+            return res.status(400).json({ success: false, error: 'ClickUp API Key is not configured.' });
+          }
+
+          const response = await fetch(`https://api.clickup.com/api/v2/team/${teamId}/space`, {
+            headers: {
+              'Authorization': apiKey.trim()
+            }
+          });
+          if (!response.ok) {
+            const errText = await response.text();
+            return res.status(response.status).json({ success: false, error: `ClickUp API Error: ${errText}` });
+          }
+          const data = await response.json();
+          return res.status(200).json({ success: true, spaces: data.spaces || [] });
+        }
+
+        if (action === 'clickup-space-content') {
+          if (!isAuthenticated) {
+            return res.status(401).json({ success: false, error: 'Unauthorized.' });
+          }
+          const spaceId = url.searchParams.get('spaceId');
+          if (!spaceId) {
+            return res.status(400).json({ success: false, error: 'spaceId is required' });
+          }
+
+          const GlobalSettings = modelsMap['settings'];
+          const clickupSetting = await GlobalSettings.findOne({ key: 'clickupApiKey' }).lean();
+          const apiKey = clickupSetting?.value || '';
+          if (!apiKey || !apiKey.trim()) {
+            return res.status(400).json({ success: false, error: 'ClickUp API Key is not configured.' });
+          }
+
+          const [foldersRes, listsRes] = await Promise.all([
+            fetch(`https://api.clickup.com/api/v2/space/${spaceId}/folder`, {
+              headers: { 'Authorization': apiKey.trim() }
+            }),
+            fetch(`https://api.clickup.com/api/v2/space/${spaceId}/list`, {
+              headers: { 'Authorization': apiKey.trim() }
+            })
+          ]);
+
+          if (!foldersRes.ok) {
+            const errText = await foldersRes.text();
+            return res.status(foldersRes.status).json({ success: false, error: `Folders API Error: ${errText}` });
+          }
+          if (!listsRes.ok) {
+            const errText = await listsRes.text();
+            return res.status(listsRes.status).json({ success: false, error: `Lists API Error: ${errText}` });
+          }
+
+          const foldersData = await foldersRes.json();
+          const listsData = await listsRes.json();
+
+          return res.status(200).json({
+            success: true,
+            folders: foldersData.folders || [],
+            folderlessLists: listsData.lists || []
+          });
+        }
+
+        if (action === 'clickup-comments') {
+          if (!isAuthenticated) {
+            return res.status(401).json({ success: false, error: 'Unauthorized.' });
+          }
+          const taskId = url.searchParams.get('taskId');
+          if (!taskId) {
+            return res.status(400).json({ success: false, error: 'taskId parameter is required' });
+          }
+
+          const GlobalSettings = modelsMap['settings'];
+          const clickupSetting = await GlobalSettings.findOne({ key: 'clickupApiKey' }).lean();
+          const apiKey = clickupSetting?.value || '';
+          if (!apiKey || !apiKey.trim()) {
+            return res.status(400).json({ success: false, error: 'ClickUp API Key is not configured.' });
+          }
+
+          const response = await fetch(`https://api.clickup.com/api/v2/task/${taskId}/comment`, {
+            headers: {
+              'Authorization': apiKey.trim()
+            }
+          });
+          if (!response.ok) {
+            const errText = await response.text();
+            return res.status(response.status).json({ success: false, error: `ClickUp Comments API Error: ${errText}` });
+          }
+          const data = await response.json();
+          return res.status(200).json({ success: true, comments: data.comments || [] });
+        }
+
         return res.status(400).json({ success: false, error: `Unknown action: ${action}` });
       }
 
@@ -3900,6 +4026,131 @@ ${formattedSubmissions}`;
       } catch (err: any) {
         console.error('AI Feedback Assist error:', err);
         return res.status(500).json({ success: false, error: err.message || 'An error occurred during AI feedback generation' });
+      }
+    }
+
+    if (action === 'clickup-post-comment') {
+      try {
+        await connectToDatabase();
+        // Authenticate
+        const userId = req.headers['x-user-id'];
+        const host = req.headers.host || '';
+        const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('3000') || host.includes('5173');
+        let isAuthenticated = isLocalhost;
+        if (!isAuthenticated && userId) {
+          const ConfigSpeaker = modelsMap['speakers'];
+          const speaker = await ConfigSpeaker.findOne({ id: userId }).lean();
+          if (speaker) {
+            isAuthenticated = true;
+          }
+        }
+        if (!isAuthenticated) {
+          return res.status(401).json({ success: false, error: 'Unauthorized ClickUp comment post.' });
+        }
+
+        const { taskId, commentText } = data || {};
+        if (!taskId || !commentText) {
+          return res.status(400).json({ success: false, error: 'taskId and commentText are required' });
+        }
+
+        // Fetch clickupApiKey
+        const GlobalSettings = modelsMap['settings'];
+        const clickupSetting = await GlobalSettings.findOne({ key: 'clickupApiKey' }).lean();
+        const apiKey = clickupSetting?.value || '';
+        if (!apiKey || !apiKey.trim()) {
+          return res.status(400).json({ success: false, error: 'ClickUp API Key is not configured.' });
+        }
+
+        // Post task comment on ClickUp
+        const response = await fetch(`https://api.clickup.com/api/v2/task/${taskId}/comment`, {
+          method: 'POST',
+          headers: {
+            'Authorization': apiKey.trim(),
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            comment_text: commentText,
+            notify_all: true
+          })
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          return res.status(response.status).json({ success: false, error: `ClickUp Post Comment Error: ${errText}` });
+        }
+
+        return res.status(200).json({ success: true });
+      } catch (err: any) {
+        console.error('ClickUp Post Comment error:', err);
+        return res.status(500).json({ success: false, error: err.message });
+      }
+    }
+
+    if (action === 'clickup-create-task') {
+      try {
+        await connectToDatabase();
+        // Authenticate
+        const userId = req.headers['x-user-id'];
+        const host = req.headers.host || '';
+        const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('3000') || host.includes('5173');
+        let isAuthenticated = isLocalhost;
+        if (!isAuthenticated && userId) {
+          const ConfigSpeaker = modelsMap['speakers'];
+          const speaker = await ConfigSpeaker.findOne({ id: userId }).lean();
+          if (speaker) {
+            isAuthenticated = true;
+          }
+        }
+        if (!isAuthenticated) {
+          return res.status(401).json({ success: false, error: 'Unauthorized ClickUp task creation.' });
+        }
+
+        const { listId, name, description, assignees } = data || {};
+        if (!listId || !name) {
+          return res.status(400).json({ success: false, error: 'listId and name are required' });
+        }
+
+        // Fetch clickupApiKey
+        const GlobalSettings = modelsMap['settings'];
+        const clickupSetting = await GlobalSettings.findOne({ key: 'clickupApiKey' }).lean();
+        const apiKey = clickupSetting?.value || '';
+        if (!apiKey || !apiKey.trim()) {
+          return res.status(400).json({ success: false, error: 'ClickUp API Key is not configured.' });
+        }
+
+        // Create task on ClickUp
+        const response = await fetch(`https://api.clickup.com/api/v2/list/${listId}/task`, {
+          method: 'POST',
+          headers: {
+            'Authorization': apiKey.trim(),
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name,
+            description: description || '',
+            markdown_content: description || '',
+            assignees: assignees || []
+          })
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          return res.status(response.status).json({ success: false, error: `ClickUp Create Task Error: ${errText}` });
+        }
+
+        const taskData = await response.json();
+        const assigneeName = taskData.assignees && Array.isArray(taskData.assignees)
+          ? taskData.assignees.map((a: any) => a.username).join(', ')
+          : '';
+        return res.status(200).json({ 
+          success: true, 
+          taskUrl: taskData.url || `https://app.clickup.com/t/${taskData.id}`, 
+          taskStatus: taskData.status?.status || '',
+          taskAssignee: assigneeName
+        });
+      } catch (err: any) {
+        console.error('ClickUp Create Task error:', err);
+        return res.status(500).json({ success: false, error: err.message });
       }
     }
 
@@ -5126,7 +5377,7 @@ ${formattedSubmissions}`;
                 }
               }
               
-              const fieldsToTrack = ['productDeadline', 'uiux', 'deadline', 'finalRelease', 'poc', 'committedDate'];
+              const fieldsToTrack = ['productDeadline', 'uiux', 'deadline', 'finalRelease', 'poc', 'committedDate', 'clickupStatus', 'clickupAssignee'];
               const ChangeHistory = modelsMap['changeHistories'];
               if (ChangeHistory) {
                 for (const field of fieldsToTrack) {

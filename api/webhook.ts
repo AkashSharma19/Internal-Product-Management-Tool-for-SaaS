@@ -6,7 +6,8 @@ import {
   StudentMeetingModel,
   DailyIssueModel,
   PlanItemModel,
-  GlobalSettingsModel
+  GlobalSettingsModel,
+  ChangeHistoryModel
 } from './lib/models.js';
 
 export default async function handler(req: any, res: any) {
@@ -162,6 +163,49 @@ export default async function handler(req: any, res: any) {
 
     // Match the task ID inside link fields using a case-insensitive regex
     const regexFilter = { $regex: taskId, $options: 'i' };
+
+    // Fetch matching products to audit status/assignee transitions
+    try {
+      const matchedProducts = await ProductItemModel.find({ taskLink: regexFilter }).lean() as any[];
+      if (clickupStatus) {
+        for (const prod of matchedProducts) {
+          const oldVal = (prod.clickupStatus || '').trim();
+          const newVal = clickupStatus.trim();
+          if (oldVal !== newVal) {
+            const logEntry = new ChangeHistoryModel({
+              id: `change-log-webhook-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              itemId: prod.id,
+              fieldName: 'clickupStatus',
+              oldValue: oldVal,
+              newValue: newVal,
+              changedBy: 'ClickUp Webhook',
+              changedById: 'webhook'
+            });
+            await logEntry.save();
+          }
+        }
+      }
+      if (clickupAssignee !== null && clickupAssignee !== undefined) {
+        for (const prod of matchedProducts) {
+          const oldVal = (prod.clickupAssignee || '').trim();
+          const newVal = clickupAssignee.trim();
+          if (oldVal !== newVal) {
+            const logEntry = new ChangeHistoryModel({
+              id: `change-log-webhook-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              itemId: prod.id,
+              fieldName: 'clickupAssignee',
+              oldValue: oldVal,
+              newValue: newVal,
+              changedBy: 'ClickUp Webhook',
+              changedById: 'webhook'
+            });
+            await logEntry.save();
+          }
+        }
+      }
+    } catch (auditErr: any) {
+      console.error('[Webhook] Failed to write audit log entries:', auditErr.message);
+    }
 
     const updateResults = await Promise.all([
       ProductItemModel.updateMany({ taskLink: regexFilter }, { $set: updatePayload }),

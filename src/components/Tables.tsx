@@ -2454,6 +2454,484 @@ export const ClickupSubtasksModal: React.FC<ClickupSubtasksModalProps> = ({ task
   );
 };
 
+export interface CreateClickupTaskModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  featureTitle: string;
+  featureDesc: string;
+  onTaskCreated: (taskUrl: string, taskStatus: string, taskAssignee: string) => void;
+}
+
+export const CreateClickupTaskModal: React.FC<CreateClickupTaskModalProps> = ({
+  isOpen,
+  onClose,
+  featureTitle,
+  featureDesc,
+  onTaskCreated
+}) => {
+  const [teams, setTeams] = useState<{ id: string; name: string; members?: any[] }[]>([]);
+  const [spaces, setSpaces] = useState<{ id: string; name: string }[]>([]);
+  const [folders, setFolders] = useState<{ id: string; name: string; lists: { id: string; name: string }[] }[]>([]);
+  const [folderlessLists, setFolderlessLists] = useState<{ id: string; name: string }[]>([]);
+  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<any[]>([]);
+  const [assigneeSearchQuery, setAssigneeSearchQuery] = useState('');
+  
+  const [selectedTeamId, setSelectedTeamId] = useState('');
+
+  useEffect(() => {
+    setAssigneeSearchQuery('');
+  }, [selectedTeamId]);
+  const [selectedSpaceId, setSelectedSpaceId] = useState('');
+  const [selectedListId, setSelectedListId] = useState('');
+
+  const [loadingTeams, setLoadingTeams] = useState(false);
+  const [loadingSpaces, setLoadingSpaces] = useState(false);
+  const [loadingContent, setLoadingContent] = useState(false);
+  const [creatingTask, setCreatingTask] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Persist selections to localStorage
+  useEffect(() => {
+    if (selectedTeamId) {
+      localStorage.setItem('last-clickup-team-id', selectedTeamId);
+    }
+  }, [selectedTeamId]);
+
+  useEffect(() => {
+    if (selectedSpaceId) {
+      localStorage.setItem('last-clickup-space-id', selectedSpaceId);
+    }
+  }, [selectedSpaceId]);
+
+  useEffect(() => {
+    if (selectedListId) {
+      localStorage.setItem('last-clickup-list-id', selectedListId);
+    }
+  }, [selectedListId]);
+
+  // Load teams/workspaces on mount
+  useEffect(() => {
+    if (!isOpen) return;
+    const fetchTeams = async () => {
+      setLoadingTeams(true);
+      setError(null);
+      try {
+        const savedUserId = localStorage.getItem('logged-in-user-id') || '';
+        const response = await fetch('/api/data?action=clickup-teams', {
+          headers: { 'x-user-id': savedUserId }
+        });
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success && resData.teams) {
+            setTeams(resData.teams);
+            const lastTeamId = localStorage.getItem('last-clickup-team-id');
+            if (lastTeamId && resData.teams.some((t: any) => t.id === lastTeamId)) {
+              setSelectedTeamId(lastTeamId);
+            } else if (resData.teams.length === 1) {
+              setSelectedTeamId(resData.teams[0].id);
+            }
+          } else {
+            setError(resData.error || 'Failed to fetch teams');
+          }
+        } else {
+          setError('Failed to fetch workspaces from ClickUp API');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Error fetching teams');
+      } finally {
+        setLoadingTeams(false);
+      }
+    };
+    fetchTeams();
+  }, [isOpen]);
+
+  // Load spaces when team changes
+  useEffect(() => {
+    if (!selectedTeamId) {
+      setSpaces([]);
+      return;
+    }
+    const fetchSpaces = async () => {
+      setLoadingSpaces(true);
+      setError(null);
+      try {
+        const savedUserId = localStorage.getItem('logged-in-user-id') || '';
+        const response = await fetch(`/api/data?action=clickup-spaces&teamId=${selectedTeamId}`, {
+          headers: { 'x-user-id': savedUserId }
+        });
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success && resData.spaces) {
+            setSpaces(resData.spaces);
+            const lastSpaceId = localStorage.getItem('last-clickup-space-id');
+            if (lastSpaceId && resData.spaces.some((s: any) => s.id === lastSpaceId)) {
+              setSelectedSpaceId(lastSpaceId);
+            } else if (resData.spaces.length === 1) {
+              setSelectedSpaceId(resData.spaces[0].id);
+            }
+          } else {
+            setError(resData.error || 'Failed to fetch spaces');
+          }
+        } else {
+          setError('Failed to fetch spaces from ClickUp API');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Error fetching spaces');
+      } finally {
+        setLoadingSpaces(false);
+      }
+    };
+    fetchSpaces();
+  }, [selectedTeamId]);
+
+  // Load folders & lists when space changes
+  useEffect(() => {
+    if (!selectedSpaceId) {
+      setFolders([]);
+      setFolderlessLists([]);
+      return;
+    }
+    const fetchContent = async () => {
+      setLoadingContent(true);
+      setError(null);
+      try {
+        const savedUserId = localStorage.getItem('logged-in-user-id') || '';
+        const response = await fetch(`/api/data?action=clickup-space-content&spaceId=${selectedSpaceId}`, {
+          headers: { 'x-user-id': savedUserId }
+        });
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success) {
+            setFolders(resData.folders || []);
+            setFolderlessLists(resData.folderlessLists || []);
+            
+            const lastListId = localStorage.getItem('last-clickup-list-id');
+            const hasList = (resData.folderlessLists || []).some((l: any) => l.id === lastListId) ||
+                            (resData.folders || []).some((f: any) => (f.lists || []).some((l: any) => l.id === lastListId));
+            if (lastListId && hasList) {
+              setSelectedListId(lastListId);
+            }
+          } else {
+            setError(resData.error || 'Failed to fetch folder/list content');
+          }
+        } else {
+          setError('Failed to fetch folders and lists from ClickUp API');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Error fetching space contents');
+      } finally {
+        setLoadingContent(false);
+      }
+    };
+    fetchContent();
+  }, [selectedSpaceId]);
+
+  const handleCreate = async () => {
+    if (!selectedListId) return;
+    setCreatingTask(true);
+    setError(null);
+    try {
+      const savedUserId = localStorage.getItem('logged-in-user-id') || '';
+      const response = await fetch('/api/data?action=clickup-create-task', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': savedUserId
+        },
+        body: JSON.stringify({
+          data: {
+            listId: selectedListId,
+            name: featureTitle,
+            description: featureDesc,
+            assignees: selectedAssigneeIds
+          }
+        })
+      });
+      if (response.ok) {
+        const resData = await response.json();
+        if (resData.success) {
+          onTaskCreated(resData.taskUrl, resData.taskStatus, resData.taskAssignee);
+          onClose();
+        } else {
+          setError(resData.error || 'Failed to create task');
+        }
+      } else {
+        setError('Failed to create task on ClickUp API');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error creating task');
+    } finally {
+      setCreatingTask(false);
+    }
+  };
+
+  const modalRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [onClose]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div 
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        zIndex: 99999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}
+      onClick={onClose}
+    >
+      <div 
+        ref={modalRef}
+        style={{
+          width: '450px',
+          maxWidth: '92vw',
+          backgroundColor: 'var(--panel-bg)',
+          border: '1px solid var(--border-light)',
+          borderRadius: '12px',
+          padding: '1.25rem',
+          boxShadow: 'var(--shadow)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1rem'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+          <h4 style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Plus size={16} /> Create Task on ClickUp
+          </h4>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {error && (
+          <div style={{ 
+            color: 'var(--danger)', 
+            padding: '8px 12px', 
+            borderRadius: '6px', 
+            backgroundColor: 'rgba(239, 68, 68, 0.08)', 
+            border: '1px solid rgba(239, 68, 68, 0.15)',
+            fontSize: '0.75rem' 
+          }}>
+            {error}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', fontSize: '0.8rem' }}>
+          {/* Workspace Dropdown */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>ClickUp Workspace</label>
+            <select
+              value={selectedTeamId}
+              onChange={(e) => {
+                setSelectedTeamId(e.target.value);
+                setSelectedSpaceId('');
+                setSelectedListId('');
+              }}
+              style={{
+                width: '100%',
+                padding: '6px 10px',
+                borderRadius: '6px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--background)',
+                color: 'var(--text-primary)',
+                outline: 'none',
+                cursor: 'pointer'
+              }}
+              disabled={loadingTeams || creatingTask}
+            >
+              <option value="">-- Select Workspace --</option>
+              {teams.map(t => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+            {loadingTeams && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Loading workspaces...</span>}
+          </div>
+
+          {/* Space Dropdown */}
+          {selectedTeamId && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Space</label>
+              <select
+                value={selectedSpaceId}
+                onChange={(e) => {
+                  setSelectedSpaceId(e.target.value);
+                  setSelectedListId('');
+                }}
+                style={{
+                  width: '100%',
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--background)',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+                disabled={loadingSpaces || creatingTask}
+              >
+                <option value="">-- Select Space --</option>
+                {spaces.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+              {loadingSpaces && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Loading spaces...</span>}
+            </div>
+          )}
+
+          {/* List Dropdown */}
+          {selectedSpaceId && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>ClickUp List</label>
+              <select
+                value={selectedListId}
+                onChange={(e) => setSelectedListId(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--background)',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+                disabled={loadingContent || creatingTask}
+              >
+                <option value="">-- Select List --</option>
+                
+                {/* Folderless Lists */}
+                {folderlessLists.length > 0 && (
+                  <optgroup label="Folderless Lists">
+                    {folderlessLists.map(l => (
+                      <option key={l.id} value={l.id}>{l.name}</option>
+                    ))}
+                  </optgroup>
+                )}
+
+                {/* Folders & their lists */}
+                {folders.map(f => (
+                  <optgroup key={f.id} label={`Folder: ${f.name}`}>
+                    {f.lists.map(l => (
+                      <option key={l.id} value={l.id}>{l.name}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              {loadingContent && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Loading lists...</span>}
+            </div>
+          )}
+
+          {/* Assignees (Workspace Members) */}
+          {selectedTeamId && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Assign Task To</label>
+              <input
+                type="text"
+                placeholder="Search team members..."
+                value={assigneeSearchQuery}
+                onChange={(e) => setAssigneeSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--background)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.75rem',
+                  outline: 'none',
+                  marginBottom: '4px'
+                }}
+                disabled={creatingTask}
+              />
+              <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '8px', 
+                maxHeight: '130px', 
+                overflowY: 'auto',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                padding: '8px',
+                backgroundColor: 'var(--background)'
+              }}>
+                {(() => {
+                  const currentTeam = teams.find(t => t.id === selectedTeamId) as any;
+                  const members = currentTeam?.members || [];
+                  const filteredMembers = members.filter((m: any) => {
+                    const u = m.user;
+                    if (!u) return false;
+                    return u.username.toLowerCase().includes(assigneeSearchQuery.toLowerCase());
+                  });
+                  if (filteredMembers.length === 0) {
+                    return <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>No matching members.</span>;
+                  }
+                  return filteredMembers.map((m: any) => {
+                    const u = m.user;
+                    const isChecked = selectedAssigneeIds.includes(u.id);
+                    return (
+                      <label key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none', padding: '2px 0' }}>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            if (isChecked) {
+                              setSelectedAssigneeIds(selectedAssigneeIds.filter(id => id !== u.id));
+                            } else {
+                              setSelectedAssigneeIds([...selectedAssigneeIds, u.id]);
+                            }
+                          }}
+                          style={{ cursor: 'pointer' }}
+                          disabled={creatingTask}
+                        />
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{u.username}</span>
+                      </label>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid var(--border)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
+          <button
+            onClick={onClose}
+            className="btn btn-secondary btn-sm"
+            disabled={creatingTask}
+            style={{ padding: '6px 14px' }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleCreate}
+            className="btn btn-primary btn-sm"
+            disabled={!selectedListId || creatingTask}
+            style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            {creatingTask ? 'Creating...' : 'Create Task'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const ClickUpStatusBadge: React.FC<{ status: string; subtasksCount?: number; taskLink?: string }> = ({ status, subtasksCount, taskLink }) => {
   const { setActiveSubtasksTaskLink } = useDashboard();
   if (!status) return <span>—</span>;
@@ -3163,6 +3641,43 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const [syncError, setSyncError] = useState<string | null>(null);
   const [copiedClickup, setCopiedClickup] = useState(false);
   const [historyField, setHistoryField] = useState<{ name: string; label: string } | null>(null);
+  const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false);
+  const [activeDiscussionTab, setActiveDiscussionTab] = useState<'local' | 'clickup'>('local');
+  const [clickupComments, setClickupComments] = useState<any[]>([]);
+  const [loadingCuComments, setLoadingCuComments] = useState(false);
+  const [cuCommentError, setCuCommentError] = useState<string | null>(null);  const fetchClickupComments = async () => {
+    const taskId = extractClickupTaskId(item.taskLink);
+    if (!taskId) return;
+    setLoadingCuComments(true);
+    setCuCommentError(null);
+    try {
+      const savedUserId = localStorage.getItem('logged-in-user-id') || '';
+      const response = await fetch(`/api/data?action=clickup-comments&taskId=${taskId}`, {
+        headers: { 'x-user-id': savedUserId }
+      });
+      if (response.ok) {
+        const resData = await response.json();
+        if (resData.success) {
+          setClickupComments(resData.comments || []);
+        } else {
+          setCuCommentError(resData.error || 'Failed to fetch ClickUp comments');
+        }
+      } else {
+        setCuCommentError('Failed to fetch comments from ClickUp');
+      }
+    } catch (err: any) {
+      setCuCommentError(err.message || 'Error fetching comments');
+    } finally {
+      setLoadingCuComments(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeDiscussionTab === 'clickup' && item.taskLink) {
+      fetchClickupComments();
+    }
+  }, [activeDiscussionTab, item.taskLink]);
+
   const handleCopyClickupLink = async () => {
     if (!item.taskLink) return;
     try {
@@ -4122,7 +4637,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                       }}
                       defaultValue={item.taskLink}
                     />
-                    {item.taskLink && (
+                    {item.taskLink ? (
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', pointerEvents: 'auto', marginLeft: '6px' }}>
                         <a href={item.taskLink} target="_blank" rel="noreferrer" title="Open ClickUp Task" style={{ display: 'inline-flex', alignItems: 'center' }}>
                           <ExternalLink size={11} style={{ color: 'var(--text-muted)' }} />
@@ -4144,6 +4659,31 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                           {copiedClickup ? <Check size={11} /> : <Copy size={11} />}
                         </button>
                       </div>
+                    ) : (
+                      clickupApiKey && (
+                        <button
+                          type="button"
+                          onClick={() => setIsCreateTaskModalOpen(true)}
+                          style={{
+                            background: 'rgba(123, 97, 255, 0.08)',
+                            border: '1px solid rgba(123, 97, 255, 0.25)',
+                            borderRadius: '4px',
+                            color: '#7b61ff',
+                            cursor: 'pointer',
+                            fontSize: '0.65rem',
+                            fontWeight: 600,
+                            padding: '2px 8px',
+                            marginLeft: '6px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '2px',
+                            transition: 'all 0.15s ease'
+                          }}
+                          title="Create this task directly on ClickUp"
+                        >
+                          <Plus size={10} /> Create
+                        </button>
+                      )
                     )}
                   </div>
                 </div>
@@ -4151,8 +4691,14 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                 {/* ClickUp Status */}
                 {item.taskLink && (
                   <div className="property-row-flat">
-                    <span className="premium-property-label">
+                    <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <RefreshCw size={13} /> ClickUp Status
+                      <span title="View ClickUp Status Change History" style={{ display: 'inline-flex', cursor: 'pointer', opacity: 0.6 }}>
+                        <History 
+                          size={12} 
+                          onClick={() => setHistoryField({ name: 'clickupStatus', label: 'ClickUp Status' })} 
+                        />
+                      </span>
                     </span>
                     <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span
@@ -4213,8 +4759,14 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                 {/* ClickUp Assignee */}
                 {item.taskLink && (
                   <div className="property-row-flat">
-                    <span className="premium-property-label">
+                    <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <User size={13} /> ClickUp Assignee
+                      <span title="View ClickUp Assignee Change History" style={{ display: 'inline-flex', cursor: 'pointer', opacity: 0.6 }}>
+                        <History 
+                          size={12} 
+                          onClick={() => setHistoryField({ name: 'clickupAssignee', label: 'ClickUp Assignee' })} 
+                        />
+                      </span>
                     </span>
                     <div className="premium-property-value">
                       {item.clickupAssignee ? (
@@ -4440,75 +4992,200 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
         {/* RIGHT COLUMN: Pinned Chat / Discussion sidebar */}
         <div style={{ width: '380px', flexShrink: 0, height: '100%', minHeight: 0 }}>
           <div className="premium-discussion-sidebar">
-            <div className="discussion-sidebar-header">
-              <h4 className="discussion-sidebar-title">Discussion</h4>
-              <span className="discussion-sidebar-count">
-                {(() => {
-                  const taskComments = comments.filter((c: any) => c.itemId === item.id);
-                  return taskComments.length;
-                })()}
-              </span>
-            </div>
-
-            {/* Comments list */}
-            <div className="discussion-messages-container">
-              {(() => {
-                const taskComments = comments.filter((c: any) => c.itemId === item.id);
-                return taskComments.length === 0 ? (
-                  <div style={{
-                    padding: '1.5rem',
-                    background: 'var(--background-alt)',
-                    borderRadius: '8px',
-                    border: '1px dashed var(--border-light)',
-                    color: 'var(--text-muted)',
+            <div className="discussion-sidebar-header" style={{ flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid var(--border-light)', width: '100%', paddingBottom: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => setActiveDiscussionTab('local')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: activeDiscussionTab === 'local' ? 'var(--primary)' : 'var(--text-muted)',
+                    fontWeight: 750,
                     fontSize: '0.775rem',
-                    textAlign: 'center',
-                    margin: 'auto 0'
-                  }}>
-                    No comments yet on this task.
-                  </div>
-                ) : (
-                  taskComments.map((comment: any) => (
-                    <div key={comment.id} className="discussion-message-card">
-                      <div className="discussion-message-header">
-                        <span className="discussion-message-author">
-                          {comment.authorName}
-                        </span>
-                        <span className="discussion-message-time">
-                          {new Date(comment.createdAt).toLocaleDateString('default', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                      <div className="discussion-message-content">
-                        {comment.content}
-                      </div>
-                    </div>
-                  ))
-                );
-              })()}
+                    cursor: 'pointer',
+                    paddingBottom: '6px',
+                    borderBottom: activeDiscussionTab === 'local' ? '2px solid var(--primary)' : '2px solid transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    outline: 'none'
+                  }}
+                >
+                  Discussion ({comments.filter((c: any) => c.itemId === item.id).length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (item.taskLink) {
+                      setActiveDiscussionTab('clickup');
+                    }
+                  }}
+                  disabled={!item.taskLink}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: !item.taskLink
+                      ? 'var(--text-muted)'
+                      : activeDiscussionTab === 'clickup'
+                      ? 'var(--primary)'
+                      : 'var(--text-secondary)',
+                    fontWeight: 750,
+                    fontSize: '0.775rem',
+                    cursor: item.taskLink ? 'pointer' : 'not-allowed',
+                    opacity: !item.taskLink ? 0.4 : 1,
+                    paddingBottom: '6px',
+                    borderBottom: activeDiscussionTab === 'clickup' ? '2px solid var(--primary)' : '2px solid transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    outline: 'none'
+                  }}
+                  title={!item.taskLink ? "Link a ClickUp task to enable ClickUp Comments" : ""}
+                >
+                  ClickUp Comments {item.taskLink && `(${clickupComments.length})`}
+                </button>
+              </div>
             </div>
 
-            {/* Add comment textarea */}
-            <div className="discussion-input-area">
-              <textarea
-                className="discussion-textarea"
-                placeholder="Post a reply..."
-                value={newCommentText}
-                onChange={(e) => setNewCommentText(e.target.value)}
-                rows={2}
-              />
-              {commentError && (
-                <span style={{ fontSize: '0.725rem', color: 'var(--danger, #ef4444)' }}>
-                  {commentError}
-                </span>
-              )}
-              <button
-                onClick={handlePostComment}
-                disabled={isPostingComment || !newCommentText.trim()}
-                className="btn btn-primary discussion-submit-btn"
-              >
-                {isPostingComment ? 'Posting...' : 'Post Reply'}
-              </button>
-            </div>
+            {activeDiscussionTab === 'local' ? (
+              <>
+                {/* Comments list */}
+                <div className="discussion-messages-container">
+                  {(() => {
+                    const taskComments = comments.filter((c: any) => c.itemId === item.id);
+                    return taskComments.length === 0 ? (
+                      <div style={{
+                        padding: '1.5rem',
+                        background: 'var(--background-alt)',
+                        borderRadius: '8px',
+                        border: '1px dashed var(--border-light)',
+                        color: 'var(--text-muted)',
+                        fontSize: '0.775rem',
+                        textAlign: 'center',
+                        margin: 'auto 0'
+                      }}>
+                        No comments yet on this task.
+                      </div>
+                    ) : (
+                      taskComments.map((comment: any) => (
+                        <div key={comment.id} className="discussion-message-card">
+                          <div className="discussion-message-header">
+                            <span className="discussion-message-author">
+                              {comment.authorName}
+                            </span>
+                            <span className="discussion-message-time">
+                              {new Date(comment.createdAt).toLocaleDateString('default', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <div className="discussion-message-content">
+                            {comment.content}
+                          </div>
+                        </div>
+                      ))
+                    );
+                  })()}
+                </div>
+
+                {/* Add comment textarea */}
+                <div className="discussion-input-area">
+                  <textarea
+                    className="discussion-textarea"
+                    placeholder="Post a reply..."
+                    value={newCommentText}
+                    onChange={(e) => setNewCommentText(e.target.value)}
+                    rows={2}
+                  />
+                  {commentError && (
+                    <span style={{ fontSize: '0.725rem', color: 'var(--danger, #ef4444)' }}>
+                      {commentError}
+                    </span>
+                  )}
+                  <button
+                    onClick={handlePostComment}
+                    disabled={isPostingComment || !newCommentText.trim()}
+                    className="btn btn-primary discussion-submit-btn"
+                  >
+                    {isPostingComment ? 'Posting...' : 'Post Reply'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* ClickUp Comments list */}
+                <div className="discussion-messages-container">
+                  {loadingCuComments ? (
+                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', margin: 'auto 0' }}>
+                      <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} />
+                      <div>Loading comments from ClickUp...</div>
+                    </div>
+                  ) : cuCommentError ? (
+                    <div style={{ color: 'var(--danger)', padding: '1rem', textAlign: 'center', fontSize: '0.75rem' }}>
+                      {cuCommentError}
+                    </div>
+                  ) : clickupComments.length === 0 ? (
+                    <div style={{
+                      padding: '1.5rem',
+                      background: 'var(--background-alt)',
+                      borderRadius: '8px',
+                      border: '1px dashed var(--border-light)',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.775rem',
+                      textAlign: 'center',
+                      margin: 'auto 0'
+                    }}>
+                      No ClickUp comments found on this task.
+                    </div>
+                  ) : (
+                    clickupComments.map((comment: any) => {
+                      const cuDate = comment.date ? new Date(Number(comment.date)) : new Date();
+                      return (
+                        <div key={comment.id} className="discussion-message-card" style={{ borderLeft: '3px solid #7b61ff' }}>
+                          <div className="discussion-message-header">
+                            <span className="discussion-message-author" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ 
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                width: '16px', 
+                                height: '16px', 
+                                borderRadius: '50%', 
+                                fontSize: '0.55rem', 
+                                fontWeight: 700, 
+                                backgroundColor: comment.user?.color || '#7b61ff', 
+                                color: '#fff',
+                                marginRight: '2px'
+                              }}>
+                                {comment.user?.initials || 'CU'}
+                              </span>
+                              {comment.user?.username || 'ClickUp User'}
+                            </span>
+                            <span className="discussion-message-time">
+                              {cuDate.toLocaleDateString('default', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <div className="discussion-message-content" style={{ whiteSpace: 'pre-wrap' }}>
+                            {(() => {
+                              let text = comment.comment_text || '';
+                              if (text.startsWith('undefined')) {
+                                text = text.slice(9);
+                              }
+                              if (!text && comment.comment) {
+                                text = comment.comment.map((part: any) => part.text || '').join('');
+                                if (text.startsWith('undefined')) {
+                                  text = text.slice(9);
+                                }
+                              }
+                              return text;
+                            })()}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -4522,6 +5199,20 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
           onClose={() => setHistoryField(null)}
         />
       )}
+      <CreateClickupTaskModal
+        isOpen={isCreateTaskModalOpen}
+        onClose={() => setIsCreateTaskModalOpen(false)}
+        featureTitle={item.feature || `Task #${item.id}`}
+        featureDesc={item.description || item.notes || ''}
+        onTaskCreated={(taskUrl, taskStatus, taskAssignee) => {
+          onUpdate(item.id, { 
+            taskLink: taskUrl, 
+            clickupStatus: taskStatus,
+            clickupAssignee: taskAssignee,
+            clickupSubtasksCount: 0
+          });
+        }}
+      />
     </div>
   );
 };
