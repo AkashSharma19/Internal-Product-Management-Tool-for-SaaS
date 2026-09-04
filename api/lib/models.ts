@@ -90,7 +90,8 @@ const AMASessionSchema = new Schema({
   status: { type: String, default: "Scheduled" },
   program: { type: String, default: "" },
   pinned: { type: Boolean, default: false },
-  feedbackFormId: { type: String, default: "" }
+  feedbackFormId: { type: String, default: "" },
+  discussion: { type: String, default: "" }
 }, { timestamps: true });
 
 // 5. StudentMeeting

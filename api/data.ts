@@ -137,7 +137,7 @@ export default async function handler(req: any, res: any) {
       const action = url.searchParams.get('action');
 
       if (action) {
-        if (!isAuthenticated && action !== 'init' && !(isPublicCalendar && action === 'calendar-events') && action !== 'get-public-doc') {
+        if (!isAuthenticated && action !== 'init' && !(isPublicCalendar && action === 'calendar-events') && action !== 'get-public-doc' && action !== 'unreleased-meeting-task-counts') {
           return res.status(401).json({ success: false, error: 'Unauthorized action request.' });
         }
 
@@ -355,6 +355,72 @@ export default async function handler(req: any, res: any) {
           });
         }
 
+        if (action === 'unreleased-meeting-task-counts') {
+          const ProductItem = modelsMap['products'];
+          const unreleasedCondition = {
+            id: { $not: /^prod-temp-/ },
+            finalReleaseCompleted: { $ne: true },
+            status: { $nin: ['Delivered', 'Completed', 'Done', 'Closed', 'Released', 'delivered', 'completed', 'done', 'closed', 'released'] }
+          };
+
+          const tarunQuery = {
+            ...unreleasedCondition,
+            $and: [
+              {
+                $or: [
+                  { id: /^prod-tarun-/ },
+                  { notes: /Tarun Sir Meeting ID:/i }
+                ]
+              },
+              { id: { $not: /^prod-ama-/ } },
+              { id: { $not: /^prod-call-/ } }
+            ]
+          };
+
+          const studentQuery = {
+            ...unreleasedCondition,
+            $and: [
+              {
+                $or: [
+                  { id: /^prod-ama-/ },
+                  { notes: /AMA Session ID:/i }
+                ]
+              },
+              { id: { $not: /^prod-tarun-/ } },
+              { id: { $not: /^prod-call-/ } }
+            ]
+          };
+
+          const adminQuery = {
+            ...unreleasedCondition,
+            $and: [
+              {
+                $or: [
+                  { id: /^prod-call-/ },
+                  { notes: /Admin Call ID:/i }
+                ]
+              },
+              { id: { $not: /^prod-ama-/ } },
+              { id: { $not: /^prod-tarun-/ } }
+            ]
+          };
+
+          const [tarunCount, studentCount, adminCount] = await Promise.all([
+            ProductItem.countDocuments(tarunQuery),
+            ProductItem.countDocuments(studentQuery),
+            ProductItem.countDocuments(adminQuery)
+          ]);
+
+          return res.status(200).json({
+            success: true,
+            counts: {
+              'tarun-meetings': tarunCount,
+              'meetings': studentCount,
+              'admin': adminCount
+            }
+          });
+        }
+
         if (action === 'dashboard-counts') {
           const dateRangeType = url.searchParams.get('dateRangeType') || 'all';
           const customStartDate = url.searchParams.get('startDate') || '';
@@ -370,7 +436,7 @@ export default async function handler(req: any, res: any) {
             ConfigSpeakerModel.find({}, 'name').lean(),
             ConfigProductGroupModel.find({}).lean(),
             ConfigStatusModel.find({}).lean(),
-            AMASessionModel.find({}, 'id date cohort topic speaker link status pinned').lean(),
+            AMASessionModel.find({}, 'id date cohort topic speaker link status pinned discussion').lean(),
             AdminCallModel.find({}, 'id date cohortTopic adminPoc status discussion actions pinned').lean(),
             TarunSirMeetingModel.find({}, 'id date cohortTopic adminPoc status discussion actions pinned').lean(),
             FeedbackFormConfigModel.find({}).lean(),
@@ -4296,7 +4362,10 @@ ${text}`;
           feature: p.feature,
           description: p.description || '',
           product: p.product || 'Other',
-          finalRelease: p.finalRelease || ''
+          finalRelease: p.finalRelease || '',
+          supportDocsRequired: !!p.supportDocsRequired,
+          supportDocLink: p.supportDocLink || '',
+          taskLink: p.taskLink || ''
         }));
 
         return res.status(200).json({ success: true, features: formatted });
@@ -4339,7 +4408,7 @@ ${text}`;
 
         // Fetch geminiModel from settings in DB
         const modelSetting = await GlobalSettings.findOne({ key: 'geminiModel' }).lean();
-                const selectedModel = modelSetting?.value || 'gemini-1.5-flash-latest';
+        const selectedModel = modelSetting?.value || 'gemini-1.5-flash-latest';
 
         const prompt = `You are a SaaS Product Manager. Please compile and write professional, structured, and polished Release Notes in HTML email update format based on the list of completed features/tasks built between ${startDate} and ${endDate}.
         
@@ -4356,7 +4425,8 @@ INSTRUCTIONS:
    - Place a div with class "feature-label" containing the category label.
    - Place a div with class "feature-title" containing a clear, catchy Title (e.g., "Ask to Resubmit").
    - Place a div with class "description" containing a descriptive summary (2-3 sentences max) explaining what was built and how it works.
-   - Place a link with class "cta-link" pointing to the task URL. Use the ClickUp task link if available in the input JSON (the "taskLink" property), or provide a placeholder URL like "#" or a standard help URL.
+   - SUPPORT DOC LINK: If the feature has a "supportDocLink" (and it is not empty), you MUST include a link: <a href="THE_SUPPORT_DOC_URL" class="doc-link" target="_blank">📖 View Support Guide →</a>.
+   - TASK LINK: If the feature has a "taskLink" (ClickUp or task link), include a link: <a href="THE_TASK_URL" class="cta-link" target="_blank">View Task →</a>.
 4. Write a warm introductory greeting paragraph of class "intro-text" summarizing the release cycle focus.
 5. In the hero header, display "Coach LMS<br>${title}" as the main heading, and "Product Release" inside the hero-tag.
 6. The styling rules MUST be embedded in the <style> tag exactly as shown below.
@@ -4451,11 +4521,22 @@ HTML TEMPLATE:
         .cta-link {
             display: inline-block;
             margin-top: 8px;
+            margin-right: 12px;
             color: #000000;
             text-decoration: none;
             font-size: 13px;
             font-weight: 700;
             border-bottom: 1px solid #000000;
+        }
+        .doc-link {
+            display: inline-block;
+            margin-top: 8px;
+            margin-right: 12px;
+            color: #2563eb;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 700;
+            border-bottom: 1px solid #2563eb;
         }
         .footer {
             padding: 30px 40px;

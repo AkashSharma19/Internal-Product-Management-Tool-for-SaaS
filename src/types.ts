@@ -89,6 +89,7 @@ export interface AMASession {
   program?: string;
   pinned?: boolean;
   feedbackFormId?: string;
+  discussion?: string;
 }
 
 export interface StudentMeeting {

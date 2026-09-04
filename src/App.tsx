@@ -57,7 +57,8 @@ import {
   Quote,
   GraduationCap,
   Briefcase,
-  FileText
+  Rocket,
+  BookMarked
 } from 'lucide-react';
 
 import { isAudioMuted, toggleAudioMute, playPopSound } from './utils/audio';
@@ -901,7 +902,9 @@ const DashboardContent: React.FC = () => {
     isLoading,
     comments,
     lastOpenedMap,
-    loadedTabs
+    loadedTabs,
+    unreleasedMeetingCounts,
+    fetchUnreleasedMeetingCounts
   } = useDashboard();
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [isRefreshingClickup, setIsRefreshingClickup] = useState(false);
@@ -1320,7 +1323,10 @@ const DashboardContent: React.FC = () => {
   const handleRefreshAllData = async () => {
     setIsRefreshingData(true);
     try {
-      const res = await refreshAllData();
+      const [res] = await Promise.all([
+        refreshAllData(),
+        fetchUnreleasedMeetingCounts()
+      ]);
       if (res.success) {
         await alert(
           `Data refreshed!\nPulled latest data from ${res.updatedSheets} sheets. All views are now up to date.`,
@@ -2025,8 +2031,8 @@ const DashboardContent: React.FC = () => {
         { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
         { id: 'calendar', label: 'Calendar View', icon: <CalendarDays size={18} /> },
         { id: 'plan', label: 'Sprint Planning', icon: <Calendar size={18} /> },
-        { id: 'release-notes', label: 'Release Notes', icon: <FileText size={18} /> },
-        { id: 'support-docs', label: 'Support Docs', icon: <FileText size={18} /> },
+        { id: 'release-notes', label: 'Release Notes', icon: <Rocket size={18} /> },
+        { id: 'support-docs', label: 'Support Docs', icon: <BookMarked size={18} /> },
       ]
     },
     {
@@ -2167,62 +2173,117 @@ const DashboardContent: React.FC = () => {
               {groupIdx > 0 && (
                 <div style={{ borderTop: '1px solid var(--border-light)', margin: '0.35rem 0.5rem', marginBottom: '0.5rem' }} />
               )}
-              {group.items.map(item => (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`menu-item ${activeTab === item.id ? 'active' : ''}`}
-                  style={{
-                    position: 'relative',
-                    width: '100%',
-                    border: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: isCollapsed ? 'center' : 'flex-start',
-                    gap: isCollapsed ? '0' : '0.65rem',
-                    height: '35px',
-                    padding: '0.4rem 0.65rem',
-                    borderRadius: '8px',
-                    fontSize: '0.775rem'
-                  }}
-                  title={item.label}
-                >
-                  {item.icon}
-                  {!isCollapsed && <span className="menu-item-text">{item.label}</span>}
-                  {item.id === 'feature-requests' && unreadCommentsCount > 0 && (
-                    <span style={isCollapsed ? {
-                      position: 'absolute',
-                      top: '2px',
-                      right: '2px',
-                      backgroundColor: 'var(--danger, #ef4444)',
-                      color: 'white',
-                      fontSize: '0.55rem',
-                      fontWeight: 900,
-                      borderRadius: '50%',
-                      width: '12px',
-                      height: '12px',
+              {group.items.map(item => {
+                const unreleasedCount = (unreleasedMeetingCounts as any)?.[item.id] || 0;
+                const isMeetingItem = item.id === 'tarun-meetings' || item.id === 'meetings' || item.id === 'admin';
+
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
+                    className={`menu-item ${activeTab === item.id ? 'active' : ''}`}
+                    style={{
+                      position: 'relative',
+                      width: '100%',
+                      border: 'none',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center'
-                    } : {
-                      marginLeft: 'auto',
-                      backgroundColor: 'var(--danger, #ef4444)',
-                      color: 'white',
-                      fontSize: '0.65rem',
-                      fontWeight: 800,
-                      borderRadius: '10px',
-                      padding: '1px 6px',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      minWidth: '14px',
-                      height: '14px'
-                    }}>
-                      {unreadCommentsCount}
-                    </span>
-                  )}
-                </button>
-              ))}
+                      justifyContent: isCollapsed ? 'center' : 'flex-start',
+                      gap: isCollapsed ? '0' : '0.65rem',
+                      height: '35px',
+                      padding: '0.4rem 0.65rem',
+                      borderRadius: '8px',
+                      fontSize: '0.775rem'
+                    }}
+                    title={
+                      isMeetingItem && unreleasedCount > 0
+                        ? `${item.label} (${unreleasedCount} unreleased task${unreleasedCount === 1 ? '' : 's'})`
+                        : item.label
+                    }
+                  >
+                    {item.icon}
+                    {!isCollapsed && <span className="menu-item-text">{item.label}</span>}
+                    {item.id === 'feature-requests' && unreadCommentsCount > 0 && (
+                      <span style={isCollapsed ? {
+                        position: 'absolute',
+                        top: '2px',
+                        right: '2px',
+                        backgroundColor: 'var(--danger, #ef4444)',
+                        color: 'white',
+                        fontSize: '0.55rem',
+                        fontWeight: 900,
+                        borderRadius: '50%',
+                        width: '12px',
+                        height: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      } : {
+                        marginLeft: 'auto',
+                        backgroundColor: 'var(--danger, #ef4444)',
+                        color: 'white',
+                        fontSize: '0.65rem',
+                        fontWeight: 800,
+                        borderRadius: '10px',
+                        padding: '1px 6px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: '14px',
+                        height: '14px'
+                      }}>
+                        {unreadCommentsCount}
+                      </span>
+                    )}
+                    {isMeetingItem && unreleasedCount > 0 && (
+                      <span
+                        title={`${unreleasedCount} unreleased task${unreleasedCount === 1 ? '' : 's'}`}
+                        style={isCollapsed ? {
+                          position: 'absolute',
+                          top: '2px',
+                          right: '2px',
+                          backgroundColor: activeTab === item.id 
+                            ? '#ffffff' 
+                            : (item.id === 'tarun-meetings' ? '#ef4444' : item.id === 'meetings' ? '#8b5cf6' : '#3b82f6'),
+                          color: activeTab === item.id 
+                            ? (item.id === 'tarun-meetings' ? '#ef4444' : item.id === 'meetings' ? '#8b5cf6' : '#3b82f6')
+                            : '#ffffff',
+                          fontSize: '0.55rem',
+                          fontWeight: 900,
+                          borderRadius: '50%',
+                          width: '13px',
+                          height: '13px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                        } : {
+                          marginLeft: 'auto',
+                          backgroundColor: activeTab === item.id
+                            ? 'rgba(255, 255, 255, 0.22)'
+                            : (item.id === 'tarun-meetings' ? 'rgba(239, 68, 68, 0.12)' : item.id === 'meetings' ? 'rgba(139, 92, 246, 0.12)' : 'rgba(59, 130, 246, 0.12)'),
+                          color: activeTab === item.id
+                            ? '#ffffff'
+                            : (item.id === 'tarun-meetings' ? '#ef4444' : item.id === 'meetings' ? '#8b5cf6' : '#3b82f6'),
+                          border: activeTab === item.id
+                            ? '1px solid rgba(255, 255, 255, 0.35)'
+                            : (item.id === 'tarun-meetings' ? '1px solid rgba(239, 68, 68, 0.25)' : item.id === 'meetings' ? '1px solid rgba(139, 92, 246, 0.25)' : '1px solid rgba(59, 130, 246, 0.25)'),
+                          fontSize: '0.65rem',
+                          fontWeight: 800,
+                          borderRadius: '10px',
+                          padding: '1px 6px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          minWidth: '16px',
+                          height: '15px'
+                        }}>
+                        {unreleasedCount}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           ))}
         </nav>

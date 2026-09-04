@@ -273,6 +273,14 @@ interface DashboardContextType {
   lastOpenedMap: Record<string, number>;
   markTaskAsRead: (itemId: string) => void;
 
+  // Meeting unreleased task counts
+  unreleasedMeetingCounts: {
+    'tarun-meetings': number;
+    'meetings': number;
+    'admin': number;
+  };
+  fetchUnreleasedMeetingCounts: () => Promise<void>;
+
   // Scalable additions
   dashboardCounts: any;
   isLoadingCounts: boolean;
@@ -1135,6 +1143,35 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Mounting effect to fetch all data from MongoDB
   const [isLoading, setIsLoading] = useState(true);
 
+  const [unreleasedMeetingCounts, setUnreleasedMeetingCounts] = useState<{
+    'tarun-meetings': number;
+    'meetings': number;
+    'admin': number;
+  }>({
+    'tarun-meetings': 0,
+    'meetings': 0,
+    'admin': 0
+  });
+
+  const fetchUnreleasedMeetingCounts = useCallback(async () => {
+    try {
+      const headers: Record<string, string> = {};
+      const savedUserId = localStorage.getItem('logged-in-user-id');
+      if (savedUserId) {
+        headers['x-user-id'] = savedUserId;
+      }
+      const response = await dedupedFetch('/api/data?action=unreleased-meeting-task-counts', { headers });
+      if (response.ok) {
+        const resData = await response.json();
+        if (resData.success && resData.counts) {
+          setUnreleasedMeetingCounts(resData.counts);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch unreleased meeting task counts:', err);
+    }
+  }, []);
+
   const [dashboardCounts, setDashboardCounts] = useState<any>(null);
   const [isLoadingCounts, setIsLoadingCounts] = useState(false);
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
@@ -1874,6 +1911,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           // Always preload calendar events for overdue badge accuracy
           const today = new Date();
           loadCalendarMonth(today.getFullYear(), today.getMonth());
+          fetchUnreleasedMeetingCounts();
         }
 
         const loadedKeys = [
@@ -3112,6 +3150,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       feedbackSubmissions, setFeedbackSubmissions, addFeedbackSubmission, deleteFeedbackSubmission,
       
       // Scalable additions
+      unreleasedMeetingCounts,
+      fetchUnreleasedMeetingCounts,
       dashboardCounts,
       isLoadingCounts,
       fetchDashboardCounts,

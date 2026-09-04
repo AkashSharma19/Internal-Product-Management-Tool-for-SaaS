@@ -8215,6 +8215,12 @@ export const StudentMeetingsTable: React.FC = () => {
   const [filterPrograms, setFilterPrograms] = useState<string[]>([]);
   const [filterPocs, setFilterPocs] = useState<string[]>([]);
   const [assignModalItem, setAssignModalItem] = useState<{ id: string; title: string; formId?: string; } | null>(null);
+  const [selectedAiMeeting, setSelectedAiMeeting] = useState<{
+    id: string;
+    text: string;
+    title: string;
+    type: 'ama' | 'call' | 'tarun';
+  } | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -8543,7 +8549,8 @@ export const StudentMeetingsTable: React.FC = () => {
         cohort: '',
         program: '',
         link: '',
-        status: 'Scheduled'
+        status: 'Scheduled',
+        discussion: ''
       };
       addAMASession(newAMA);
       setInlineAMATopicValue('New AMA Session');
@@ -9221,46 +9228,112 @@ export const StudentMeetingsTable: React.FC = () => {
                               border: '1px solid var(--border)',
                               borderRadius: '8px',
                               padding: '1.25rem',
-                              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)'
+                              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '1.25rem'
                             }}>
-                              {/* Header of expanded section */}
-                              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const newItem: ProductItem = {
-                                      id: `prod-ama-${Date.now()}`,
-                                      feature: '',
-                                      description: '',
-                                      tarunSirApproval: false,
-                                      raisedByTarunSir: false,
-                                      priority: '',
-                                      poc: currentUser?.name || 'Akash Sharma',
-                                      status: '',
-                                      clickupStatus: '',
-                                      taskLink: '',
-                                      blocker: '',
-                                      deadline: '',
-                                      notes: `AMA Session ID: ${ama.id} | AMA Cohort: ${ama.cohort || ''}`,
-                                      product: '',
-                                      module: ama.cohort,
-                                      uiux: '',
-                                      finalRelease: '',
-                                      productDeadline: '',
-                                      createdAt: new Date().toISOString()
-                                    };
-                                    addProductItem(newItem);
-                                    setInlineRelatedFeatureValue('');
-                                    setTimeout(() => {
-                                      setPreviewProductId(newItem.id);
-                                    }, 50);
-                                  }}
-                                  className="btn btn-secondary"
-                                  style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                >
-                                  + Add Related Feature
-                                </button>
+                              {/* Top Split: Discussion & Description */}
+                              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                                <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', margin: 0 }}>Discussion / Description</label>
+                                    {ama.discussion && ama.discussion.trim() && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedAiMeeting({
+                                            id: ama.id,
+                                            text: ama.discussion || '',
+                                            title: ama.topic || ama.cohort || 'Student Meeting',
+                                            type: 'ama'
+                                          });
+                                        }}
+                                        className="btn btn-secondary"
+                                        style={{
+                                          padding: '2px 8px',
+                                          fontSize: '0.7rem',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          background: 'rgba(99,102,241,0.08)',
+                                          border: '1px solid rgba(99,102,241,0.25)',
+                                          color: 'var(--primary)',
+                                          cursor: 'pointer',
+                                          borderRadius: '4px',
+                                          fontWeight: 600,
+                                          transition: 'all 0.15s ease'
+                                        }}
+                                        title="Summarize meeting and extract feature requests using AI"
+                                      >
+                                        <Sparkles size={10} /> Summarize & Extract
+                                      </button>
+                                    )}
+                                  </div>
+                                  <DiscussionTextArea
+                                    initialValue={ama.discussion || ''}
+                                    onSave={(val) => updateAMASession(ama.id, { discussion: val })}
+                                    placeholder="Enter meeting description and discussion details..."
+                                    style={{
+                                      width: '100%',
+                                      minHeight: '80px',
+                                      padding: '8px 10px',
+                                      backgroundColor: 'var(--background)',
+                                      border: '1px solid var(--border)',
+                                      borderRadius: '6px',
+                                      color: 'var(--text-primary)',
+                                      fontSize: '0.8rem',
+                                      fontFamily: 'inherit',
+                                      resize: 'none',
+                                      overflowY: 'hidden',
+                                      outline: 'none'
+                                    }}
+                                  />
+                                </div>
                               </div>
+
+                              <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: 0 }} />
+
+                              {/* Bottom Section: Related Features table */}
+                              <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                  <h4 style={{ fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', margin: 0 }}>Related Feature Requests</h4>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const newItem: ProductItem = {
+                                        id: `prod-ama-${Date.now()}`,
+                                        feature: '',
+                                        description: '',
+                                        tarunSirApproval: false,
+                                        raisedByTarunSir: false,
+                                        priority: '',
+                                        poc: currentUser?.name || 'Akash Sharma',
+                                        status: '',
+                                        clickupStatus: '',
+                                        taskLink: '',
+                                        blocker: '',
+                                        deadline: '',
+                                        notes: `AMA Session ID: ${ama.id} | AMA Cohort: ${ama.cohort || ''}`,
+                                        product: '',
+                                        module: ama.cohort,
+                                        uiux: '',
+                                        finalRelease: '',
+                                        productDeadline: '',
+                                        createdAt: new Date().toISOString()
+                                      };
+                                      addProductItem(newItem);
+                                      setInlineRelatedFeatureValue('');
+                                      setTimeout(() => {
+                                        setPreviewProductId(newItem.id);
+                                      }, 50);
+                                    }}
+                                    className="btn btn-secondary"
+                                    style={{ padding: '4px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                  >
+                                    + Add Related Feature
+                                  </button>
+                                </div>
 
                               {related.length > 0 ? (
                                 <div className="table-responsive" style={{ border: '1px solid var(--border)', borderRadius: '6px' }}>
@@ -9512,8 +9585,7 @@ export const StudentMeetingsTable: React.FC = () => {
                                   </button>
                                 </div>
                               )}
-                              
-
+                              </div>
                             </div>
                           </td>
                         </tr>
@@ -10249,6 +10321,19 @@ export const StudentMeetingsTable: React.FC = () => {
               setCopiedId(assignModalItem.id);
               setTimeout(() => setCopiedId(null), 2000);
             });
+          }}
+        />
+      )}
+      {selectedAiMeeting && (
+        <AIMeetingAssistantModal
+          isOpen={!!selectedAiMeeting}
+          onClose={() => setSelectedAiMeeting(null)}
+          meetingId={selectedAiMeeting.id}
+          meetingText={selectedAiMeeting.text}
+          meetingTitle={selectedAiMeeting.title}
+          meetingType={selectedAiMeeting.type}
+          onApplySummary={(sum) => {
+            updateAMASession(selectedAiMeeting.id, { discussion: sum });
           }}
         />
       )}

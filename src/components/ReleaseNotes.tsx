@@ -12,7 +12,9 @@ import {
   Check, 
   X,
   AlertCircle,
-  Mail
+  Mail,
+  BookMarked,
+  ExternalLink
 } from 'lucide-react';
 
 const KEEP_COLORS = [
@@ -84,10 +86,23 @@ export const ReleaseNotes: React.FC = () => {
     setEndDate(note.endDate);
     setSelectedColorId(note.color || 'default');
     setContent(note.content);
-    setFeatures(note.features || []);
+    const mapped = (note.features || []).map((f: any) => ({
+      ...f,
+      selected: f.selected !== false
+    }));
+    setFeatures(mapped);
     setErrorMsg(null);
     setEditingNoteId(note.id);
     setIsOpen(true);
+  };
+
+  const handleToggleFeature = (idx: number) => {
+    setFeatures(prev => prev.map((f, i) => i === idx ? { ...f, selected: !f.selected } : f));
+  };
+
+  const handleToggleSelectAll = () => {
+    const allSelected = features.length > 0 && features.every(f => f.selected !== false);
+    setFeatures(prev => prev.map(f => ({ ...f, selected: !allSelected })));
   };
 
   const handleFetchFeatures = async () => {
@@ -112,8 +127,12 @@ export const ReleaseNotes: React.FC = () => {
       });
       const res = await response.json();
       if (res.success) {
-        setFeatures(res.features);
-        if (res.features.length === 0) {
+        const mapped = (res.features || []).map((f: any) => ({
+          ...f,
+          selected: true
+        }));
+        setFeatures(mapped);
+        if (mapped.length === 0) {
           setErrorMsg('No features found with release dates in this range.');
         }
       } else {
@@ -127,8 +146,9 @@ export const ReleaseNotes: React.FC = () => {
   };
 
   const handleGenerateAI = async () => {
-    if (features.length === 0) {
-      setErrorMsg('Cannot generate notes: Please fetch and check at least one completed feature first.');
+    const selectedFeatures = features.filter(f => f.selected !== false);
+    if (selectedFeatures.length === 0) {
+      setErrorMsg('Cannot generate notes: Please select at least one feature from the list.');
       return;
     }
     setIsGenerating(true);
@@ -147,7 +167,7 @@ export const ReleaseNotes: React.FC = () => {
             title: title || 'Sprint Release Notes',
             startDate,
             endDate,
-            features
+            features: selectedFeatures
           }
         })
       });
@@ -667,10 +687,30 @@ export const ReleaseNotes: React.FC = () => {
               padding: '1rem',
               backgroundColor: 'var(--background-alt)'
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  Features list ({features.length} completed features)
-                </span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Features list ({features.filter(f => f.selected !== false).length}/{features.length} selected)
+                  </span>
+                  {features.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleToggleSelectAll}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--primary)',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        padding: '2px 4px',
+                        textDecoration: 'underline'
+                      }}
+                    >
+                      {features.length > 0 && features.every(f => f.selected !== false) ? 'Deselect All' : 'Select All'}
+                    </button>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={handleFetchFeatures}
@@ -683,27 +723,102 @@ export const ReleaseNotes: React.FC = () => {
 
               {features.length > 0 ? (
                 <div style={{ 
-                  maxHeight: '120px', 
+                  maxHeight: '150px', 
                   overflowY: 'auto', 
                   display: 'flex', 
                   flexDirection: 'column', 
                   gap: '6px',
                   scrollbarWidth: 'thin'
                 }}>
-                  {features.map((f, idx) => (
-                    <div key={idx} style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      fontSize: '0.75rem', 
-                      background: 'var(--background)', 
-                      padding: '4px 8px', 
-                      borderRadius: '4px',
-                      border: '1px solid var(--border-light)'
-                    }}>
-                      <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{f.feature}</span>
-                      <span style={{ color: 'var(--text-secondary)' }}>{f.product} ({f.finalRelease})</span>
-                    </div>
-                  ))}
+                  {features.map((f, idx) => {
+                    const isSelected = f.selected !== false;
+                    return (
+                      <label 
+                        key={idx} 
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center',
+                          gap: '10px',
+                          fontSize: '0.75rem', 
+                          background: isSelected ? 'var(--background)' : 'var(--background-alt)', 
+                          padding: '6px 10px', 
+                          borderRadius: '6px', 
+                          border: isSelected ? '1px solid var(--border)' : '1px dashed var(--border-light)',
+                          opacity: isSelected ? 1 : 0.55,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          userSelect: 'none'
+                        }}
+                      >
+                        <input 
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleFeature(idx)}
+                          style={{ cursor: 'pointer', accentColor: 'var(--primary)', width: '14px', height: '14px' }}
+                        />
+                        <span style={{ 
+                          fontWeight: 500, 
+                          color: isSelected ? 'var(--text-primary)' : 'var(--text-muted)',
+                          flex: 1,
+                          textDecoration: isSelected ? 'none' : 'line-through',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          flexWrap: 'wrap'
+                        }}>
+                          <span>{f.feature}</span>
+                          {f.supportDocLink && f.supportDocLink.trim() !== '' && (
+                            <a
+                              href={f.supportDocLink.startsWith('http') ? f.supportDocLink : `https://${f.supportDocLink}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              title={`Support Doc: ${f.supportDocLink}`}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                fontSize: '0.65rem',
+                                fontWeight: 650,
+                                padding: '1px 6px',
+                                borderRadius: '4px',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                color: '#3b82f6',
+                                border: '1px solid rgba(59, 130, 246, 0.25)',
+                                textDecoration: 'none',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              <BookMarked size={10} /> Doc Added <ExternalLink size={8} style={{ opacity: 0.7 }} />
+                            </a>
+                          )}
+                          {f.supportDocsRequired && (!f.supportDocLink || f.supportDocLink.trim() === '') && (
+                            <span
+                              title="Support docs required but link not provided yet"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                fontSize: '0.65rem',
+                                fontWeight: 650,
+                                padding: '1px 6px',
+                                borderRadius: '4px',
+                                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                                color: '#f59e0b',
+                                border: '1px solid rgba(245, 158, 11, 0.25)'
+                              }}
+                            >
+                              Doc Needed
+                            </span>
+                          )}
+                        </span>
+                        <span style={{ color: 'var(--text-secondary)', fontSize: '0.7rem' }}>
+                          {f.product ? `${f.product} • ` : ''}{f.finalRelease}
+                        </span>
+                      </label>
+                    );
+                  })}
                 </div>
               ) : (
                 <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textAlign: 'center', padding: '0.5rem 0' }}>
@@ -721,7 +836,7 @@ export const ReleaseNotes: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleGenerateAI}
-                  disabled={isGenerating || features.length === 0}
+                  disabled={isGenerating || features.filter(f => f.selected !== false).length === 0}
                   className="btn btn-primary btn-sm"
                 >
                   <Sparkles size={11} /> {isGenerating ? 'Analyzing...' : 'Generate with AI'}
