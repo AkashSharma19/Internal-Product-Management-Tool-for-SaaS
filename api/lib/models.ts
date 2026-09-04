@@ -27,7 +27,9 @@ const ProductItemSchema = new Schema({
   uiuxCompleted: { type: Boolean, default: false },
   deadlineCompleted: { type: Boolean, default: false },
   finalReleaseCompleted: { type: Boolean, default: false },
-  committedDate: { type: String, default: "" }
+  committedDate: { type: String, default: "" },
+  supportDocsRequired: { type: Boolean, default: false },
+  supportDocLink: { type: String, default: "" }
 }, { timestamps: true });
 
 // 2. PlanItem (Sprint Planning)

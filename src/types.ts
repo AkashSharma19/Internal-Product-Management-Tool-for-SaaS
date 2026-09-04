@@ -27,6 +27,8 @@ export interface ProductItem {
   clickupSubtasksCount?: number;
   clickupAssignee?: string;
   createdAt?: string;
+  supportDocsRequired?: boolean;
+  supportDocLink?: string;
 }
 
 export interface PlanItem {

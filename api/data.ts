@@ -2192,6 +2192,77 @@ export default async function handler(req: any, res: any) {
           });
         }
 
+        if (action === 'support-docs-data') {
+          const page = parseInt(url.searchParams.get('page') || '1', 10);
+          const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+          const search = (url.searchParams.get('search') || '').trim().toLowerCase();
+          const docStatus = url.searchParams.get('docStatus') || 'all'; // 'all' | 'has-link' | 'missing-link'
+          const sortField = url.searchParams.get('sortField') || 'feature';
+          const sortAsc = url.searchParams.get('sortAsc') !== 'false';
+
+          const dbFilter: any = {
+            supportDocsRequired: true
+          };
+
+          const rawItems = await modelsMap['products'].find(dbFilter).lean();
+
+          // Calculate total counts
+          const totalRequired = rawItems.length;
+          const totalWithDocs = rawItems.filter((i: any) => !!i.supportDocLink && i.supportDocLink.trim() !== '').length;
+          const totalMissing = totalRequired - totalWithDocs;
+
+          // Filter by search & docStatus
+          let filtered = rawItems.filter((item: any) => {
+            const matchesSearch = !search ||
+              (item.feature && item.feature.toLowerCase().includes(search)) ||
+              (item.poc && item.poc.toLowerCase().includes(search)) ||
+              (item.product && item.product.toLowerCase().includes(search)) ||
+              (item.supportDocLink && item.supportDocLink.toLowerCase().includes(search)) ||
+              (item.notes && item.notes.toLowerCase().includes(search));
+
+            const hasDoc = !!item.supportDocLink && item.supportDocLink.trim() !== '';
+            let matchesDocStatus = true;
+            if (docStatus === 'has-link') matchesDocStatus = hasDoc;
+            else if (docStatus === 'missing-link') matchesDocStatus = !hasDoc;
+
+            return matchesSearch && matchesDocStatus;
+          });
+
+          // Sort - missing link items first, items with docs at bottom
+          filtered.sort((a: any, b: any) => {
+            const hasLinkA = !!a.supportDocLink && a.supportDocLink.trim() !== '';
+            const hasLinkB = !!b.supportDocLink && b.supportDocLink.trim() !== '';
+            if (hasLinkA !== hasLinkB) {
+              return hasLinkA ? 1 : -1;
+            }
+            if (sortField) {
+              const valA = String(a[sortField] || '').toLowerCase();
+              const valB = String(b[sortField] || '').toLowerCase();
+              return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+            return 0;
+          });
+
+          const totalItems = filtered.length;
+          const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+          const activePage = Math.min(page, totalPages);
+          const startIndex = totalItems === 0 ? 0 : (activePage - 1) * limit;
+          const endIndex = Math.min(startIndex + limit, totalItems);
+          const paginatedData = filtered.slice(startIndex, endIndex);
+
+          return res.status(200).json({
+            success: true,
+            data: paginatedData,
+            totalItems,
+            totalPages,
+            page: activePage,
+            limit,
+            totalRequired,
+            totalWithDocs,
+            totalMissing
+          });
+        }
+
         if (action === 'team-assignees') {
           const page = parseInt(url.searchParams.get('page') || '1', 10);
           const limit = parseInt(url.searchParams.get('limit') || '20', 10);

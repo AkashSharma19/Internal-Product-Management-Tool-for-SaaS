@@ -43,7 +43,8 @@ import {
   Download,
   Upload,
   Mail,
-  Lock
+  Lock,
+  FileText
 } from 'lucide-react';
 import type { 
   ProductItem, 
@@ -5366,6 +5367,79 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                     </div>
                   </div>
                 </div>
+
+                {/* Required Support Docs */}
+                <div className="property-row-flat">
+                  <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <FileText size={13} /> Required Support Docs
+                  </span>
+                  <div className="premium-property-value">
+                    <label className="premium-toggle-wrapper">
+                      <input 
+                        type="checkbox" 
+                        className="premium-toggle-checkbox" 
+                        checked={!!item.supportDocsRequired} 
+                        onChange={(e) => handleFieldUpdate('supportDocsRequired', e.target.checked)} 
+                      />
+                      <span className="premium-toggle-slider" />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Support Doc Link (visible when supportDocsRequired is ON) */}
+                {item.supportDocsRequired && (
+                  <div className="property-row-flat" style={{ alignItems: 'flex-start' }}>
+                    <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingTop: '4px' }}>
+                      <Link size={13} /> Support Doc Link
+                    </span>
+                    <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%', justifyContent: 'flex-end' }}>
+                      <input
+                        type="text"
+                        style={{
+                          width: '180px',
+                          textAlign: 'left',
+                          fontSize: '0.8rem',
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          border: '1px solid var(--border)',
+                          background: 'var(--background)',
+                          color: 'var(--text-primary)',
+                          outline: 'none'
+                        }}
+                        placeholder="https://docs.google.com/..."
+                        defaultValue={item.supportDocLink || ''}
+                        onBlur={(e) => {
+                          if (e.target.value !== (item.supportDocLink || '')) {
+                            handleFieldUpdate('supportDocLink', e.target.value.trim());
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.currentTarget.blur();
+                          }
+                        }}
+                      />
+                      {item.supportDocLink && (
+                        <a
+                          href={item.supportDocLink.startsWith('http') ? item.supportDocLink : `https://${item.supportDocLink}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            color: 'var(--primary)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            padding: '4px',
+                            borderRadius: '4px',
+                            background: 'var(--primary-glow)'
+                          }}
+                          title="Open Support Doc in new tab"
+                        >
+                          <ExternalLink size={13} />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
             </div>
@@ -20516,5 +20590,667 @@ export const ChallengesTable: React.FC = () => {
         </div>
       )}
     </TabContainer>
+  );
+};
+
+// ==========================================
+// 15. SUPPORT DOCS TABLE
+// ==========================================
+export const SupportDocsTable: React.FC = () => {
+  const { 
+    updateProductItem, 
+    setPreviewProductId,
+    previewProductId,
+    productItems,
+    canUserEdit,
+    fetchSupportDocsData 
+  } = useDashboard();
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterDocStatus, setFilterDocStatus] = useState<'all' | 'has-link' | 'missing-link'>('all');
+
+  // Sorting
+  const [sortField, setSortField] = useState<keyof ProductItem | null>('feature');
+  const [sortAsc, setSortAsc] = useState(true);
+
+  // Inline editing link
+  const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
+  const [inlineLinkValue, setInlineLinkValue] = useState('');
+  const linkInputRef = useRef<HTMLInputElement>(null);
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
+
+  // Server-side paginated state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [items, setItems] = useState<ProductItem[]>([]);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRequired, setTotalRequired] = useState(0);
+  const [totalWithDocs, setTotalWithDocs] = useState(0);
+  const [totalMissing, setTotalMissing] = useState(0);
+  const [isFetching, setIsFetching] = useState(false);
+
+  const handleCopyLink = (e: React.MouseEvent, id: string, link: string) => {
+    e.stopPropagation();
+    const fullLink = link.startsWith('http') ? link : `https://${link}`;
+    navigator.clipboard.writeText(fullLink);
+    setCopiedLinkId(id);
+    setTimeout(() => {
+      setCopiedLinkId(prev => prev === id ? null : prev);
+    }, 2000);
+  };
+
+  useEffect(() => {
+    if (editingLinkId && linkInputRef.current) {
+      linkInputRef.current.focus();
+      linkInputRef.current.select();
+    }
+  }, [editingLinkId]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterDocStatus, pageSize]);
+
+  const loadData = useCallback(async () => {
+    setIsFetching(true);
+    const res = await fetchSupportDocsData({
+      page: currentPage,
+      limit: pageSize,
+      search: searchQuery,
+      docStatus: filterDocStatus,
+      sortField: sortField || 'feature',
+      sortAsc: sortAsc
+    });
+    if (res && res.success) {
+      setItems(res.data || []);
+      setTotalItems(res.totalItems || 0);
+      setTotalPages(res.totalPages || 1);
+      setTotalRequired(res.totalRequired || 0);
+      setTotalWithDocs(res.totalWithDocs || 0);
+      setTotalMissing(res.totalMissing || 0);
+    }
+    setIsFetching(false);
+  }, [fetchSupportDocsData, currentPage, pageSize, searchQuery, filterDocStatus, sortField, sortAsc]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData, productItems, previewProductId]);
+
+  const handleSort = (field: keyof ProductItem) => {
+    if (sortField === field) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+  };
+
+  const handleSaveInlineLink = async (id: string, link: string) => {
+    setItems(prev => prev.map(item => item.id === id ? { ...item, supportDocLink: link } : item));
+    await updateProductItem(id, { supportDocLink: link });
+    loadData();
+  };
+
+  const activePage = Math.min(currentPage, totalPages);
+  const startIndex = totalItems === 0 ? 0 : (activePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+
+  return (
+    <>
+      <TabContainer
+        title="Support Docs"
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        filterComponent={
+          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+            <button
+              onClick={() => setFilterDocStatus('all')}
+              style={{
+                padding: '5px 12px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                border: filterDocStatus === 'all' ? '1.5px solid var(--primary)' : '1px solid var(--border)',
+                background: filterDocStatus === 'all' ? 'var(--primary-glow)' : 'var(--panel-bg)',
+                color: filterDocStatus === 'all' ? 'var(--primary)' : 'var(--text-secondary)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              All ({totalRequired})
+            </button>
+            <button
+              onClick={() => setFilterDocStatus('has-link')}
+              style={{
+                padding: '5px 12px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                border: filterDocStatus === 'has-link' ? '1.5px solid #10b981' : '1px solid var(--border)',
+                background: filterDocStatus === 'has-link' ? 'rgba(16, 185, 129, 0.15)' : 'var(--panel-bg)',
+                color: filterDocStatus === 'has-link' ? '#10b981' : 'var(--text-secondary)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              Doc Added ({totalWithDocs})
+            </button>
+            <button
+              onClick={() => setFilterDocStatus('missing-link')}
+              style={{
+                padding: '5px 12px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                border: filterDocStatus === 'missing-link' ? '1.5px solid #ef4444' : '1px solid var(--border)',
+                background: filterDocStatus === 'missing-link' ? 'rgba(239, 68, 68, 0.15)' : 'var(--panel-bg)',
+                color: filterDocStatus === 'missing-link' ? '#ef4444' : 'var(--text-secondary)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              Missing Link ({totalMissing})
+            </button>
+          </div>
+        }
+      >
+        {!isFetching && totalRequired === 0 ? (
+          <div style={{
+            padding: '3.5rem 1.5rem',
+            textAlign: 'center',
+            background: 'var(--panel-bg)',
+            border: '1px dashed var(--border-light)',
+            borderRadius: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '1rem',
+            margin: '1rem 0'
+          }}>
+            <div style={{
+              width: '52px',
+              height: '52px',
+              borderRadius: '14px',
+              background: 'var(--primary-glow)',
+              color: 'var(--primary)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <FileText size={26} />
+            </div>
+            <div>
+              <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                No Tasks Require Support Docs Yet
+              </h4>
+              <p style={{ margin: '6px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '460px', lineHeight: '1.5' }}>
+                To track support documentation for a task, open any task's detail view in <strong>Product Breakdown</strong> or <strong>Priority Requests</strong>, and toggle <strong>"Required Support Docs"</strong> to ON.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="table-responsive">
+              <table className="grid-table">
+                <thead>
+                  <tr>
+                    <th className="sticky-header-col" onClick={() => handleSort('feature')} style={{ width: '360px', minWidth: '360px', maxWidth: '400px', cursor: 'pointer' }}>
+                      Feature / Task {sortField === 'feature' ? (sortAsc ? '▲' : '▼') : ''}
+                    </th>
+                    <th onClick={() => handleSort('poc')} style={{ width: '160px', cursor: 'pointer' }}>
+                      Assignee {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}
+                    </th>
+                    <th style={{ width: '220px' }}>Support Documentation</th>
+                    <th onClick={() => handleSort('clickupStatus')} style={{ width: '140px', cursor: 'pointer' }}>
+                      ClickUp Status {sortField === 'clickupStatus' ? (sortAsc ? '▲' : '▼') : ''}
+                    </th>
+                    <th onClick={() => handleSort('finalRelease')} style={{ width: '130px', cursor: 'pointer' }}>
+                      Release Date {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isFetching ? (
+                    Array.from({ length: Math.min(pageSize, 8) }).map((_, idx) => (
+                      <tr key={`skeleton-${idx}`} style={{ height: '56px' }}>
+                        {/* Feature / Task Name */}
+                        <td className="sticky-col" style={{ padding: '12px 16px' }}>
+                          <div className="skeleton-line" style={{ height: '14px', width: '85%', marginBottom: '6px', borderRadius: '4px', background: 'var(--border)', opacity: 0.4, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                          <div className="skeleton-line" style={{ height: '10px', width: '45%', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                        </td>
+                        {/* Assignee */}
+                        <td style={{ padding: '12px 16px' }}>
+                          <div className="skeleton-line" style={{ height: '18px', width: '90px', borderRadius: '12px', background: 'var(--border)', opacity: 0.4, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                        </td>
+                        {/* Support Doc */}
+                        <td style={{ padding: '12px 16px' }}>
+                          <div className="skeleton-line" style={{ height: '22px', width: '130px', borderRadius: '6px', background: 'var(--border)', opacity: 0.35, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                        </td>
+                        {/* ClickUp Status */}
+                        <td style={{ padding: '12px 16px' }}>
+                          <div className="skeleton-line" style={{ height: '18px', width: '75px', borderRadius: '12px', background: 'var(--border)', opacity: 0.35, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                        </td>
+                        {/* Release Date */}
+                        <td style={{ padding: '12px 16px' }}>
+                          <div className="skeleton-line" style={{ height: '14px', width: '90px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : items.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                        No support documentation tasks found matching current filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    items.map((item) => {
+                      const isEditingLink = editingLinkId === item.id;
+                      const hasLink = !!item.supportDocLink && item.supportDocLink.trim() !== '';
+
+                      return (
+                        <tr 
+                          key={item.id}
+                          onClick={() => setPreviewProductId(item.id)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          {/* Feature / Task Name & Product Group */}
+                          <td className="sticky-col" style={{ fontWeight: 600, width: '360px', minWidth: '360px', maxWidth: '400px', whiteSpace: 'normal' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.35rem', width: '100%' }}>
+                            <span style={{ fontSize: '0.875rem', color: 'var(--text-primary)', lineHeight: '1.35' }}>
+                              {item.feature}
+                            </span>
+                            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
+                              {item.product && (
+                                <span style={{
+                                  fontSize: '0.7rem',
+                                  fontWeight: 600,
+                                  color: 'var(--text-secondary)',
+                                  background: 'var(--panel-bg)',
+                                  border: '1px solid var(--border)',
+                                  padding: '1px 6px',
+                                  borderRadius: '4px'
+                                }}>
+                                  {item.product}
+                                </span>
+                              )}
+                              {item.priority && (
+                                <span className={`badge badge-${item.priority.toLowerCase()}`} style={{ padding: '1px 5px', fontSize: '0.625rem', borderRadius: '4px' }}>
+                                  {item.priority}
+                                </span>
+                              )}
+                              {item.raisedByTarunSir && (
+                                <span className="badge-super-priority" style={{ padding: '1px 5px', fontSize: '0.625rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                                  <Star size={9} fill="currentColor" /> Super Priority
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Assignee (Portal POC & ClickUp Assignee) */}
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                            {item.poc ? (
+                              <span style={getPOCBadgeStyle(item.poc)}>
+                                {item.poc}
+                              </span>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)' }}>—</span>
+                            )}
+                            {item.clickupAssignee && (
+                              <div className="cu-tooltip-container">
+                                <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
+                                  CU: {formatClickupAssignee(item.clickupAssignee)}
+                                </span>
+                                <span className="cu-tooltip-text">
+                                  {item.clickupAssignee.split(',').map(s => s.trim()).join('\n')}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Support Doc Link */}
+                        <td onClick={(e) => e.stopPropagation()}>
+                          {isEditingLink ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <input
+                                ref={linkInputRef}
+                                type="text"
+                                placeholder="https://docs.google.com/..."
+                                value={inlineLinkValue}
+                                onChange={(e) => setInlineLinkValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    const val = inlineLinkValue.trim();
+                                    handleSaveInlineLink(item.id, val);
+                                    setEditingLinkId(null);
+                                  } else if (e.key === 'Escape') {
+                                    e.preventDefault();
+                                    setEditingLinkId(null);
+                                  }
+                                }}
+                                onBlur={() => {
+                                  const val = inlineLinkValue.trim();
+                                  handleSaveInlineLink(item.id, val);
+                                  setEditingLinkId(null);
+                                }}
+                                style={{
+                                  width: '180px',
+                                  padding: '4px 6px',
+                                  fontSize: '0.75rem',
+                                  borderRadius: '6px',
+                                  border: '1.5px solid var(--primary)',
+                                  background: 'var(--background)',
+                                  color: 'var(--text-primary)',
+                                  outline: 'none'
+                                }}
+                              />
+                            </div>
+                          ) : hasLink ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <a
+                                href={item.supportDocLink!.startsWith('http') ? item.supportDocLink : `https://${item.supportDocLink}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  background: 'var(--primary-glow)',
+                                  color: 'var(--primary)',
+                                  border: '1px solid var(--primary-border)',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 650,
+                                  textDecoration: 'none'
+                                }}
+                                title={item.supportDocLink}
+                              >
+                                <FileText size={12} />
+                                <span>Open Document</span>
+                                <ExternalLink size={10} />
+                              </a>
+                              <button
+                                onClick={(e) => handleCopyLink(e, item.id, item.supportDocLink!)}
+                                style={{
+                                  background: copiedLinkId === item.id ? 'rgba(16, 185, 129, 0.15)' : 'none',
+                                  border: copiedLinkId === item.id ? '1px solid #10b981' : 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  color: copiedLinkId === item.id ? '#10b981' : 'var(--text-muted)',
+                                  padding: '3px 5px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '2px',
+                                  fontSize: '0.7rem',
+                                  transition: 'all 0.15s ease'
+                                }}
+                                title={copiedLinkId === item.id ? "Copied to clipboard!" : "Copy document link"}
+                              >
+                                {copiedLinkId === item.id ? <Check size={12} /> : <Copy size={12} />}
+                                {copiedLinkId === item.id && <span style={{ fontSize: '0.65rem', fontWeight: 600 }}>Copied</span>}
+                              </button>
+                              {canUserEdit && (
+                                <button
+                                  onClick={() => {
+                                    setEditingLinkId(item.id);
+                                    setInlineLinkValue(item.supportDocLink || '');
+                                  }}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-muted)',
+                                    padding: '2px',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                  }}
+                                  title="Edit document link"
+                                >
+                                  <Edit2 size={11} />
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                padding: '2px 7px',
+                                borderRadius: '6px',
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                color: '#ef4444',
+                                border: '1px solid rgba(239, 68, 68, 0.25)',
+                                fontSize: '0.725rem',
+                                fontWeight: 650
+                              }}>
+                                <AlertCircle size={11} /> Missing Link
+                              </span>
+                              {canUserEdit && (
+                                <button
+                                  onClick={() => {
+                                    setEditingLinkId(item.id);
+                                    setInlineLinkValue('');
+                                  }}
+                                  style={{
+                                    background: 'none',
+                                    border: '1px dashed var(--border)',
+                                    borderRadius: '6px',
+                                    padding: '2px 6px',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 600,
+                                    color: 'var(--primary)',
+                                    cursor: 'pointer'
+                                  }}
+                                  title="Paste document URL"
+                                >
+                                  + Add Link
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* ClickUp Status */}
+                        <td>
+                          {item.clickupStatus ? (
+                            <span style={getClickupBadgeStyle(item.clickupStatus)}>
+                              {item.clickupStatus}{item.clickupSubtasksCount ? ` (${item.clickupSubtasksCount})` : ""}
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)' }}>—</span>
+                          )}
+                        </td>
+
+                        {/* Release Date */}
+                        <td style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                          {item.finalRelease ? (
+                            <span style={getDateSpanStyle(item.finalRelease, item.finalReleaseCompleted)}>
+                              {formatDateToUserPattern(item.finalRelease)}
+                            </span>
+                          ) : item.finalReleaseCompleted ? (
+                            <span style={{
+                              fontSize: '0.68rem',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              background: 'rgba(16, 185, 129, 0.15)',
+                              color: '#10b981',
+                              fontWeight: 700
+                            }}>
+                              Done
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)' }}>—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  }))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Product Breakdown Style Pagination Footer */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.75rem 1.5rem',
+              borderTop: '1px solid var(--border)',
+              backgroundColor: 'var(--panel-bg)',
+              fontSize: '0.8rem',
+              color: 'var(--text-secondary)',
+              borderBottomLeftRadius: '8px',
+              borderBottomRightRadius: '8px',
+              flexWrap: 'wrap',
+              gap: '0.75rem'
+            }}>
+              {/* Left: Info */}
+              <div>
+                Showing <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{totalItems === 0 ? 0 : startIndex + 1}</span> to{' '}
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{endIndex}</span> of{' '}
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{totalItems}</span> features
+              </div>
+
+              {/* Right: Controls */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                {/* Page Size Select */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span>Rows per page:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    style={{
+                      padding: '4px 24px 4px 8px',
+                      borderRadius: '6px',
+                      border: '1.5px solid var(--border)',
+                      backgroundColor: 'var(--background)',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.75rem',
+                      outline: 'none',
+                      cursor: 'pointer',
+                      fontWeight: 600
+                    }}
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+
+                {/* Navigation Buttons */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={activePage === 1}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '6px',
+                      border: '1.5px solid var(--border)',
+                      backgroundColor: 'var(--background)',
+                      color: activePage === 1 ? 'var(--text-muted)' : 'var(--text-primary)',
+                      cursor: activePage === 1 ? 'not-allowed' : 'pointer',
+                      opacity: activePage === 1 ? 0.5 : 1,
+                      outline: 'none',
+                      transition: 'all 0.2s',
+                      fontWeight: 'bold'
+                    }}
+                    title="First Page"
+                  >
+                    «
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={activePage === 1}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '6px',
+                      border: '1.5px solid var(--border)',
+                      backgroundColor: 'var(--background)',
+                      color: activePage === 1 ? 'var(--text-muted)' : 'var(--text-primary)',
+                      cursor: activePage === 1 ? 'not-allowed' : 'pointer',
+                      opacity: activePage === 1 ? 0.5 : 1,
+                      outline: 'none',
+                      transition: 'all 0.2s',
+                      fontWeight: 'bold'
+                    }}
+                    title="Previous Page"
+                  >
+                    ‹
+                  </button>
+                  
+                  <span style={{ fontSize: '0.75rem', padding: '0 0.5rem', fontWeight: 650 }}>
+                    Page {activePage} of {totalPages}
+                  </span>
+
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={activePage === totalPages}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '6px',
+                      border: '1.5px solid var(--border)',
+                      backgroundColor: 'var(--background)',
+                      color: activePage === totalPages ? 'var(--text-muted)' : 'var(--text-primary)',
+                      cursor: activePage === totalPages ? 'not-allowed' : 'pointer',
+                      opacity: activePage === totalPages ? 0.5 : 1,
+                      outline: 'none',
+                      transition: 'all 0.2s',
+                      fontWeight: 'bold'
+                    }}
+                    title="Next Page"
+                  >
+                    ›
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={activePage === totalPages}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '6px',
+                      border: '1.5px solid var(--border)',
+                      backgroundColor: 'var(--background)',
+                      color: activePage === totalPages ? 'var(--text-muted)' : 'var(--text-primary)',
+                      cursor: activePage === totalPages ? 'not-allowed' : 'pointer',
+                      opacity: activePage === totalPages ? 0.5 : 1,
+                      outline: 'none',
+                      transition: 'all 0.2s',
+                      fontWeight: 'bold'
+                    }}
+                    title="Last Page"
+                  >
+                    »
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </TabContainer>
+    </>
   );
 };

@@ -315,6 +315,24 @@ interface DashboardContextType {
     sortField?: string;
     sortAsc?: boolean;
   }) => Promise<{ success: boolean; data: any[]; totalItems: number; totalPages: number; productCounts?: Record<string, { total: number; completed: number }>; completedItems?: number }>;
+  fetchSupportDocsData: (options: {
+    page: number;
+    limit: number;
+    search?: string;
+    docStatus?: 'all' | 'has-link' | 'missing-link';
+    sortField?: string;
+    sortAsc?: boolean;
+  }) => Promise<{
+    success: boolean;
+    data: any[];
+    totalItems: number;
+    totalPages: number;
+    page: number;
+    limit: number;
+    totalRequired: number;
+    totalWithDocs: number;
+    totalMissing: number;
+  }>;
   fetchTeamAssignees: (options: {
     page: number;
     limit: number;
@@ -1351,6 +1369,46 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       console.error('Failed to fetch product breakdown data:', err);
       setSyncStatus('error');
       return { success: false, data: [], totalItems: 0, totalPages: 1 };
+    }
+  }, []);
+
+  const fetchSupportDocsData = useCallback(async (options: {
+    page: number;
+    limit: number;
+    search?: string;
+    docStatus?: 'all' | 'has-link' | 'missing-link';
+    sortField?: string;
+    sortAsc?: boolean;
+  }) => {
+    setSyncStatus('syncing');
+    try {
+      const params = new URLSearchParams();
+      params.append('action', 'support-docs-data');
+      params.append('page', String(options.page));
+      params.append('limit', String(options.limit));
+      if (options.search) params.append('search', options.search);
+      if (options.docStatus) params.append('docStatus', options.docStatus);
+      if (options.sortField) params.append('sortField', options.sortField);
+      if (options.sortAsc !== undefined) params.append('sortAsc', String(options.sortAsc));
+
+      const headers: Record<string, string> = {};
+      const savedUserId = localStorage.getItem('logged-in-user-id');
+      if (savedUserId) {
+        headers['x-user-id'] = savedUserId;
+      }
+
+      const response = await dedupedFetch(`/api/data?${params.toString().replace(/\+/g, '%20')}`, { headers });
+      if (response.ok) {
+        const resData = await response.json();
+        setSyncStatus('synced');
+        return resData;
+      }
+      setSyncStatus('error');
+      return { success: false, data: [], totalItems: 0, totalPages: 1, page: 1, limit: options.limit, totalRequired: 0, totalWithDocs: 0, totalMissing: 0 };
+    } catch (err) {
+      console.error('Failed to fetch support docs data:', err);
+      setSyncStatus('error');
+      return { success: false, data: [], totalItems: 0, totalPages: 1, page: 1, limit: options.limit, totalRequired: 0, totalWithDocs: 0, totalMissing: 0 };
     }
   }, []);
 
@@ -3067,6 +3125,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       isLoadingSprint,
       fetchSprintData,
       fetchProductBreakdownData,
+      fetchSupportDocsData,
       fetchTeamAssignees,
       fetchTeamMemberTasks,
       fetchPaginatedMeetingsData,
