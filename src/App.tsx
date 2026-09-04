@@ -2026,6 +2026,7 @@ const DashboardContent: React.FC = () => {
         { id: 'calendar', label: 'Calendar View', icon: <CalendarDays size={18} /> },
         { id: 'plan', label: 'Sprint Planning', icon: <Calendar size={18} /> },
         { id: 'release-notes', label: 'Release Notes', icon: <FileText size={18} /> },
+        { id: 'support-docs', label: 'Support Docs', icon: <FileText size={18} /> },
       ]
     },
     {
@@ -2049,7 +2050,6 @@ const DashboardContent: React.FC = () => {
         { id: 'issues', label: 'Daily Issues Log', icon: <AlertTriangle size={18} /> },
         { id: 'feature-requests', label: 'Requested Features', icon: <Lightbulb size={18} /> },
         { id: 'challenges', label: 'Challenges Tracker', icon: <Flame size={18} /> },
-        { id: 'support-docs', label: 'Support Docs', icon: <FileText size={18} /> },
       ]
     },
     {
