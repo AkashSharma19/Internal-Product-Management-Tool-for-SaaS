@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDashboard } from '../context/DashboardContext';
-import type { ConfigSpeaker, ConfigProductGroup, ConfigStatus, ConfigProgram, ConfigCohort, FeedbackFormField } from '../types';
-import { Plus, Trash2, Check, X, Pencil, Users, Layers, Tag, Key, Eye, EyeOff, RefreshCw, AlertCircle, ClipboardList, ChevronUp, ChevronDown, Shield, Calendar, Copy, Link, Zap, Mail, Sparkles, Lock, GripVertical } from 'lucide-react';
+import type { ConfigSpeaker, ConfigProductGroup, ConfigStatus, ConfigProgram, ConfigCohort, FeedbackFormField, FeedbackFormConfig } from '../types';
+import { Plus, Trash2, Check, X, Pencil, Users, Layers, Tag, Key, Eye, EyeOff, RefreshCw, AlertCircle, ClipboardList, ChevronUp, ChevronDown, Shield, Calendar, Copy, Link, Zap, Mail, Sparkles, Lock, GripVertical, CheckCircle } from 'lucide-react';
 
 // ─── Colour palette ────────────────────────────────────────────────────────────
 const PALETTE = [
@@ -1873,22 +1873,883 @@ const OptionsInput: React.FC<{
   );
 };
 
+// ─── Local Rule-Based Fallback Parser ──────────────────────────────────────────
+const fallbackParseQuestionnaire = (rawText: string, _category: string): { title?: string; description?: string; fields: FeedbackFormField[] } => {
+  const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+  if (lines.length === 0) return { fields: [] };
+
+  let title = '';
+  let description = '';
+  const parsedFields: FeedbackFormField[] = [];
+
+  let currentField: Partial<FeedbackFormField> | null = null;
+  const currentOptions: string[] = [];
+
+  const finalizeField = () => {
+    if (currentField && currentField.label) {
+      let finalType: FeedbackFormField['type'] = currentField.type || 'text';
+      if (currentOptions.length > 0 && (finalType === 'text' || finalType === 'textarea')) {
+        finalType = 'select';
+      }
+      parsedFields.push({
+        id: currentField.id || `field-${Date.now()}-${parsedFields.length}`,
+        label: currentField.label,
+        type: finalType,
+        required: currentField.required !== false,
+        placeholder: currentField.placeholder || '',
+        options: currentOptions.length > 0 ? [...currentOptions] : (currentField.options || []),
+        order: parsedFields.length
+      });
+    }
+    currentField = null;
+    currentOptions.length = 0;
+  };
+
+  const questionRegex = /^(\d+[\.\)]|Q\d+[:\.]?|\*|\-|\•)\s*(.+)/i;
+  const optionRegex = /^([a-zA-Z][\.\)]|\-|\•|\[\s*\]|\(\s*\))\s*(.+)/;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (i === 0 && !line.match(questionRegex) && !line.match(optionRegex) && lines.length > 1 && !line.includes('?')) {
+      title = line.replace(/^[#\s]+/, '').replace(/^title:\s*/i, '');
+      continue;
+    }
+
+    if (i === 1 && !line.match(questionRegex) && !line.match(optionRegex) && lines.length > 2 && title && !line.includes('?')) {
+      description = line.replace(/^description:\s*/i, '').replace(/^instructions:\s*/i, '');
+      continue;
+    }
+
+    const qMatch = line.match(questionRegex);
+    if (qMatch) {
+      finalizeField();
+      let label = qMatch[2].trim();
+      const lower = label.toLowerCase();
+      let type: FeedbackFormField['type'] = 'text';
+
+      if (lower.includes('rate') || lower.includes('rating') || lower.includes('scale 1-5') || lower.includes('1 to 5') || lower.includes('1-10') || lower.includes('stars') || lower.includes('satisfaction')) {
+        type = 'rating';
+      } else if (lower.includes('explain') || lower.includes('feedback') || lower.includes('suggestions') || lower.includes('comments') || lower.includes('why') || lower.includes('describe') || lower.includes('what went well') || lower.includes('improvements') || lower.includes('detailed')) {
+        type = 'textarea';
+      } else if (lower.includes('select all') || lower.includes('check all') || lower.includes('checkbox')) {
+        type = 'checkbox';
+      } else if (lower.includes('choose one') || lower.includes('select one') || lower.includes('option')) {
+        type = 'select';
+      }
+
+      const isRequired = !lower.includes('(optional)') && !lower.includes('optional');
+      label = label.replace(/\s*\(optional\)\s*/i, '').trim();
+
+      currentField = {
+        id: `field-${Date.now()}-${parsedFields.length + 1}`,
+        label,
+        type,
+        required: isRequired,
+        options: []
+      };
+      continue;
+    }
+
+    const optMatch = line.match(optionRegex);
+    if (optMatch && currentField) {
+      const optText = optMatch[2].trim();
+      if (optText) {
+        currentOptions.push(optText);
+      }
+      continue;
+    }
+
+    if (currentField) {
+      if (line.includes(',') || line.includes('/') || line.includes('|')) {
+        const parts = line.split(/[,/|]/).map(p => p.trim()).filter(Boolean);
+        if (parts.length > 1) {
+          currentOptions.push(...parts);
+          continue;
+        }
+      }
+    } else {
+      finalizeField();
+      currentField = {
+        id: `field-${Date.now()}-${parsedFields.length + 1}`,
+        label: line,
+        type: line.toLowerCase().includes('rate') ? 'rating' : (line.length > 60 ? 'textarea' : 'text'),
+        required: true,
+        options: []
+      };
+    }
+  }
+
+  finalizeField();
+  return { title, description, fields: parsedFields };
+};
+
+// ─── AI Questionnaire Generator Modal ──────────────────────────────────────────
+export const AIQuestionnaireModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  category: 'admin-calls' | 'ama-meetings' | 'student-projects';
+  categoryLabel: string;
+  hasExistingFields: boolean;
+  onApply: (data: { title?: string; description?: string; fields: FeedbackFormField[]; mode: 'replace' | 'append' }) => void;
+}> = ({ isOpen, onClose, category, categoryLabel, hasExistingFields, onApply }) => {
+  const { geminiModel, currentUser } = useDashboard();
+  const [inputText, setInputText] = useState('');
+  const [selectedModel, setSelectedModel] = useState(geminiModel || 'gemini-1.5-flash-latest');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successInfo, setSuccessInfo] = useState<string | null>(null);
+
+  // Parsed Output State
+  const [parsedTitle, setParsedTitle] = useState('');
+  const [parsedDesc, setParsedDesc] = useState('');
+  const [applyTitleDesc, setApplyTitleDesc] = useState(true);
+  const [parsedFields, setParsedFields] = useState<FeedbackFormField[]>([]);
+  const [applyMode, setApplyMode] = useState<'replace' | 'append'>(hasExistingFields ? 'replace' : 'replace');
+
+  useEffect(() => {
+    if (isOpen) {
+      setError(null);
+      setSuccessInfo(null);
+      setSelectedModel(geminiModel || 'gemini-1.5-flash-latest');
+      if (hasExistingFields) {
+        setApplyMode('replace');
+      }
+    }
+  }, [isOpen, geminiModel, hasExistingFields]);
+
+  if (!isOpen) return null;
+
+  const handleGenerateAI = async () => {
+    if (!inputText.trim()) {
+      setError('Please paste your questionnaire content first.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setSuccessInfo(null);
+
+    try {
+      const headers: Record<string, string> = {};
+      if (currentUser?.id) {
+        headers['x-user-id'] = currentUser.id;
+      }
+
+      const response = await fetch('/api/data?action=ai-generate-questionnaire', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers
+        },
+        body: JSON.stringify({
+          data: {
+            text: inputText,
+            category,
+            model: selectedModel
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({ error: 'Network error' }));
+        if (errData.error && (errData.error.includes('API Key') || errData.error.includes('Unauthorized') || response.status === 400 || response.status === 401)) {
+          console.warn('Falling back to local rule-based questionnaire parser:', errData.error);
+          const localResult = fallbackParseQuestionnaire(inputText, category);
+          if (localResult.fields.length > 0) {
+            setParsedFields(localResult.fields);
+            if (localResult.title) setParsedTitle(localResult.title);
+            if (localResult.description) setParsedDesc(localResult.description);
+            setSuccessInfo(`Parsed ${localResult.fields.length} questions using intelligent local parser (${errData.error}).`);
+            return;
+          }
+        }
+        throw new Error(errData.error || 'Failed to generate questionnaire with AI');
+      }
+
+      const resData = await response.json();
+      if (resData.success && resData.result) {
+        const { title, description, fields } = resData.result;
+        if (Array.isArray(fields) && fields.length > 0) {
+          setParsedFields(fields);
+          if (title) setParsedTitle(title);
+          if (description) setParsedDesc(description);
+          setSuccessInfo(`Successfully extracted ${fields.length} questions! All original questions were strictly preserved.`);
+        } else {
+          throw new Error('AI could not identify questions from the provided text. Please check the text format.');
+        }
+      } else {
+        throw new Error(resData.error || 'Invalid AI response structure');
+      }
+    } catch (err: any) {
+      console.error('AI Questionnaire generation error:', err);
+      const localResult = fallbackParseQuestionnaire(inputText, category);
+      if (localResult.fields.length > 0) {
+        setParsedFields(localResult.fields);
+        if (localResult.title) setParsedTitle(localResult.title);
+        if (localResult.description) setParsedDesc(localResult.description);
+        setSuccessInfo(`Parsed ${localResult.fields.length} questions locally (${err.message}).`);
+      } else {
+        setError(err.message || 'Failed to generate questionnaire');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleLocalParse = () => {
+    if (!inputText.trim()) {
+      setError('Please paste your questionnaire content first.');
+      return;
+    }
+    setError(null);
+    const localResult = fallbackParseQuestionnaire(inputText, category);
+    if (localResult.fields.length > 0) {
+      setParsedFields(localResult.fields);
+      if (localResult.title) setParsedTitle(localResult.title);
+      if (localResult.description) setParsedDesc(localResult.description);
+      setSuccessInfo(`Parsed ${localResult.fields.length} questions using rule-based parser.`);
+    } else {
+      setError('Could not extract any questions from the text.');
+    }
+  };
+
+  const handleUpdateParsedField = (index: number, updated: Partial<FeedbackFormField>) => {
+    const updatedFields = [...parsedFields];
+    updatedFields[index] = { ...updatedFields[index], ...updated };
+    setParsedFields(updatedFields);
+  };
+
+  const handleDeleteParsedField = (index: number) => {
+    setParsedFields(parsedFields.filter((_, i) => i !== index).map((f, i) => ({ ...f, order: i })));
+  };
+
+  const handleConfirmApply = () => {
+    if (parsedFields.length === 0) return;
+    onApply({
+      title: applyTitleDesc && parsedTitle ? parsedTitle : undefined,
+      description: applyTitleDesc && parsedDesc ? parsedDesc : undefined,
+      fields: parsedFields,
+      mode: applyMode
+    });
+    onClose();
+  };
+
+  return (
+    <div className="modal-overlay" style={{ zIndex: 10005 }} onClick={onClose}>
+      <div 
+        className="modal-content" 
+        onClick={e => e.stopPropagation()} 
+        style={{ 
+          maxWidth: '780px', 
+          width: '95%', 
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          background: 'var(--panel-bg)',
+          border: '1px solid var(--border)',
+          borderRadius: '16px',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+          padding: '1.75rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1.25rem'
+        }}
+      >
+        {/* Modal Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '36px', height: '36px', borderRadius: '10px',
+              background: 'linear-gradient(135deg, var(--primary), #8b5cf6)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#fff', boxShadow: '0 4px 12px var(--primary-glow)'
+            }}>
+              <Sparkles size={18} />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                AI Questionnaire Creator & Parser
+              </h3>
+              <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                Create full feedback forms by pasting existing questions, surveys, or notes for {categoryLabel}.
+              </p>
+            </div>
+          </div>
+          <button 
+            onClick={onClose} 
+            style={{ 
+              background: 'none', border: 'none', color: 'var(--text-muted)', 
+              cursor: 'pointer', padding: '4px' 
+            }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Strict Question Preservation Notice */}
+        <div style={{
+          background: 'rgba(99, 102, 241, 0.08)',
+          border: '1px solid rgba(99, 102, 241, 0.25)',
+          borderRadius: '10px',
+          padding: '0.8rem 1rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px'
+        }}>
+          <Shield size={18} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>
+            <strong>Exact Question Preservation Active:</strong> AI is strictly instructed to keep 100% of original questions without removing, condensing, or altering wording.
+          </div>
+        </div>
+
+        {/* Input Text Area */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+              Paste Questionnaire Content / Document Text *
+            </label>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+              Supports Google Docs, Notion, Word, or plain text
+            </span>
+          </div>
+          <textarea
+            rows={7}
+            value={inputText}
+            onChange={e => setInputText(e.target.value)}
+            placeholder={`Example content to paste:
+Title: Weekly AMA Feedback Form
+Description: Please share your honest rating and suggestions.
+
+1. How would you rate the overall session content and delivery? (Rating 1-5)
+2. What was the most valuable takeaway from today?
+3. Which of the following topics would you like to see next?
+   - System Design & Architecture
+   - Microservices & Docker
+   - Frontend Performance
+4. Did the speaker answer all audience questions thoroughly? (Yes/No)
+5. Any additional suggestions or topics for future meetings? (optional)`}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              background: 'var(--background)',
+              border: '1.5px solid var(--border-light)',
+              borderRadius: '10px',
+              color: 'var(--text-primary)',
+              fontSize: '0.82rem',
+              lineHeight: '1.5',
+              outline: 'none',
+              fontFamily: 'inherit',
+              boxSizing: 'border-box',
+              resize: 'vertical'
+            }}
+          />
+        </div>
+
+        {/* Controls Row: Model Selector + Generate Action */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+              AI Model:
+            </span>
+            <select
+              value={selectedModel}
+              onChange={e => setSelectedModel(e.target.value)}
+              style={{
+                padding: '6px 10px',
+                background: 'var(--background)',
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                color: 'var(--text-primary)',
+                fontSize: '0.75rem',
+                outline: 'none'
+              }}
+            >
+              <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash (Fast)</option>
+              <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
+              <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+              <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro (Deep Reasoning)</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={handleLocalParse}
+              type="button"
+              style={{
+                background: 'var(--background-alt)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-secondary)',
+                padding: '7px 12px',
+                borderRadius: '8px',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+              title="Parse questions instantly using local rule-based parser without API"
+            >
+              <Zap size={13} /> Parse Locally
+            </button>
+            <button
+              onClick={handleGenerateAI}
+              disabled={isLoading || !inputText.trim()}
+              type="button"
+              style={{
+                background: isLoading ? 'var(--text-muted)' : 'linear-gradient(135deg, var(--primary), #8b5cf6)',
+                border: 'none',
+                color: '#fff',
+                padding: '7px 16px',
+                borderRadius: '8px',
+                fontSize: '0.78rem',
+                fontWeight: 650,
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 4px 12px var(--primary-glow)'
+              }}
+            >
+              {isLoading ? (
+                <>
+                  <RefreshCw size={13} className="spin" /> Generating Questions...
+                </>
+              ) : (
+                <>
+                  <Sparkles size={13} /> Generate with AI
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Error / Success Notifications */}
+        {error && (
+          <div style={{
+            padding: '8px 12px',
+            borderRadius: '8px',
+            background: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            color: 'var(--danger)',
+            fontSize: '0.78rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <AlertCircle size={15} style={{ flexShrink: 0 }} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {successInfo && (
+          <div style={{
+            padding: '8px 12px',
+            borderRadius: '8px',
+            background: 'rgba(16, 185, 129, 0.1)',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            color: '#10b981',
+            fontSize: '0.78rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <CheckCircle size={15} style={{ flexShrink: 0 }} />
+            <span>{successInfo}</span>
+          </div>
+        )}
+
+        {/* Preview of Extracted Questions */}
+        {parsedFields.length > 0 && (
+          <div style={{
+            marginTop: '0.5rem',
+            padding: '1.25rem',
+            background: 'var(--background-alt)',
+            border: '1.5px solid var(--primary)',
+            borderRadius: '12px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{
+                  fontSize: '0.75rem', fontWeight: 750, padding: '3px 10px', borderRadius: '12px',
+                  background: 'var(--primary)', color: '#fff'
+                }}>
+                  ✨ {parsedFields.length} {parsedFields.length === 1 ? 'Question' : 'Questions'} Ready
+                </span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  Review & fine-tune questions before applying
+                </span>
+              </div>
+
+              {hasExistingFields && (
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <label style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="applyMode"
+                      checked={applyMode === 'replace'}
+                      onChange={() => setApplyMode('replace')}
+                    />
+                    Replace Current Form
+                  </label>
+                  <label style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="applyMode"
+                      checked={applyMode === 'append'}
+                      onChange={() => setApplyMode('append')}
+                    />
+                    Append to Current Form
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* Title & Desc Fields */}
+            {(parsedTitle || parsedDesc) && (
+              <div style={{
+                background: 'var(--background)',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-light)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                    Extracted Form Details
+                  </span>
+                  <label style={{ fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                    <input
+                      type="checkbox"
+                      checked={applyTitleDesc}
+                      onChange={e => setApplyTitleDesc(e.target.checked)}
+                    />
+                    Apply Title & Description to Form
+                  </label>
+                </div>
+                {parsedTitle && (
+                  <input
+                    type="text"
+                    value={parsedTitle}
+                    onChange={e => setParsedTitle(e.target.value)}
+                    placeholder="Form Title"
+                    disabled={!applyTitleDesc}
+                    style={{
+                      width: '100%',
+                      padding: '6px 10px',
+                      background: 'var(--panel-bg)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.8rem',
+                      fontWeight: 650,
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                )}
+                {parsedDesc && (
+                  <input
+                    type="text"
+                    value={parsedDesc}
+                    onChange={e => setParsedDesc(e.target.value)}
+                    placeholder="Form Description"
+                    disabled={!applyTitleDesc}
+                    style={{
+                      width: '100%',
+                      padding: '6px 10px',
+                      background: 'var(--panel-bg)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.75rem',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Questions list preview */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto' }}>
+              {parsedFields.map((f, idx) => (
+                <div
+                  key={f.id || idx}
+                  style={{
+                    background: 'var(--background)',
+                    border: '1px solid var(--border-light)',
+                    borderRadius: '8px',
+                    padding: '10px 12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', width: '22px' }}>
+                      #{idx + 1}
+                    </span>
+                    <input
+                      type="text"
+                      value={f.label}
+                      onChange={e => handleUpdateParsedField(idx, { label: e.target.value })}
+                      placeholder="Question text"
+                      style={{
+                        flex: 1,
+                        padding: '6px 8px',
+                        background: 'var(--panel-bg)',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: '6px',
+                        color: 'var(--text-primary)',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        outline: 'none'
+                      }}
+                    />
+                    <select
+                      value={f.type}
+                      onChange={e => handleUpdateParsedField(idx, { type: e.target.value as any })}
+                      style={{
+                        padding: '6px 8px',
+                        background: 'var(--panel-bg)',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: '6px',
+                        color: 'var(--text-primary)',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        outline: 'none'
+                      }}
+                    >
+                      <option value="rating">Rating (1-5)</option>
+                      <option value="text">Short Text</option>
+                      <option value="textarea">Paragraph</option>
+                      <option value="select">Dropdown</option>
+                      <option value="checkbox">Multi-Select</option>
+                    </select>
+
+                    <label style={{ fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                      <input
+                        type="checkbox"
+                        checked={f.required}
+                        onChange={e => handleUpdateParsedField(idx, { required: e.target.checked })}
+                      />
+                      Required
+                    </label>
+
+                    <button
+                      onClick={() => handleDeleteParsedField(idx)}
+                      type="button"
+                      style={{
+                        background: 'none', border: 'none', color: 'var(--danger)',
+                        cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center'
+                      }}
+                      title="Remove Question"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+
+                  {(f.type === 'select' || f.type === 'checkbox') && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '30px' }}>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Options:</span>
+                      <OptionsInput
+                        options={f.options || []}
+                        onChange={opts => handleUpdateParsedField(idx, { options: opts })}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Modal Footer */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '0.5rem', borderTop: '1px solid var(--border-light)', paddingTop: '1rem' }}>
+          <button
+            onClick={onClose}
+            type="button"
+            style={{
+              background: 'var(--background-alt)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-secondary)',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            Cancel
+          </button>
+          
+          <button
+            onClick={handleConfirmApply}
+            disabled={parsedFields.length === 0}
+            type="button"
+            style={{
+              background: parsedFields.length === 0 ? 'var(--border)' : 'var(--primary)',
+              border: 'none',
+              color: parsedFields.length === 0 ? 'var(--text-muted)' : '#fff',
+              padding: '8px 20px',
+              borderRadius: '8px',
+              fontSize: '0.8rem',
+              fontWeight: 650,
+              cursor: parsedFields.length === 0 ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: parsedFields.length > 0 ? '0 4px 12px var(--primary-glow)' : 'none'
+            }}
+          >
+            <Sparkles size={14} /> Apply {parsedFields.length > 0 ? `${parsedFields.length} Questions` : ''} to Form
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const FormBuilderSection: React.FC = () => {
-  const { formConfigs, saveFormConfig, canUserEdit, alert } = useDashboard();
+  const { formConfigs, saveFormConfig, deleteFormConfig, canUserEdit, alert, confirm } = useDashboard();
   const [selectedCategory, setSelectedCategory] = useState<'admin-calls' | 'ama-meetings' | 'student-projects'>('admin-calls');
+  
+  // View mode: 'list' or 'edit'
+  const [viewMode, setViewMode] = useState<'list' | 'edit'>('list');
+  const [editingFormId, setEditingFormId] = useState<string | null>(null);
+
+  // Form Editor fields
+  const [formTitle, setFormTitle] = useState('');
+  const [formDesc, setFormDesc] = useState('');
+  const [isDefault, setIsDefault] = useState(false);
   const [enabled, setEnabled] = useState(true);
   const [fields, setFields] = useState<FeedbackFormField[]>([]);
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
 
-  React.useEffect(() => {
-    const config = formConfigs.find(c => c.category === selectedCategory);
-    if (config) {
-      setEnabled(config.enabled);
-      setFields(config.fields || []);
+  const categoryLabels: Record<string, string> = {
+    'admin-calls': 'Admin Meetings',
+    'ama-meetings': 'Student Meetings',
+    'student-projects': 'Student Projects'
+  };
+
+  const categoryForms = formConfigs.filter(c => c.category === selectedCategory);
+
+  const handleApplyFromAI = (data: { title?: string; description?: string; fields: FeedbackFormField[]; mode: 'replace' | 'append' }) => {
+    if (viewMode === 'list') {
+      const isFirstForm = categoryForms.length === 0;
+      setEditingFormId(`form-${selectedCategory}-${Date.now()}`);
+      setFormTitle(data.title || `${categoryLabels[selectedCategory]} Form ${categoryForms.length + 1}`);
+      setFormDesc(data.description || '');
+      setIsDefault(isFirstForm);
+      setEnabled(true);
+      setFields(data.fields.map((f, i) => ({ ...f, order: i })));
+      setViewMode('edit');
     } else {
-      setEnabled(false);
-      setFields([]);
+      if (data.title) setFormTitle(data.title);
+      if (data.description) setFormDesc(data.description);
+      if (data.mode === 'append') {
+        const combined = [...fields, ...data.fields].map((f, i) => ({ ...f, order: i }));
+        setFields(combined);
+      } else {
+        setFields(data.fields.map((f, i) => ({ ...f, order: i })));
+      }
     }
-  }, [selectedCategory, formConfigs]);
+  };
+
+  // Open Form for Editing
+  const handleOpenEdit = (form: FeedbackFormConfig) => {
+    setEditingFormId(form.id);
+    setFormTitle(form.title || `${categoryLabels[selectedCategory]} Feedback Form`);
+    setFormDesc(form.description || '');
+    setIsDefault(!!form.isDefault || (categoryForms.length === 1));
+    setEnabled(form.enabled !== false);
+    setFields(form.fields ? JSON.parse(JSON.stringify(form.fields)) : []);
+    setViewMode('edit');
+  };
+
+  // Open Form for Creation
+  const handleOpenCreate = () => {
+    const isFirstForm = categoryForms.length === 0;
+    setEditingFormId(`form-${selectedCategory}-${Date.now()}`);
+    setFormTitle(`${categoryLabels[selectedCategory]} Form ${categoryForms.length + 1}`);
+    setFormDesc('');
+    setIsDefault(isFirstForm);
+    setEnabled(true);
+    setFields([
+      {
+        id: `field-${Date.now()}-1`,
+        label: 'Overall Rating & Experience',
+        type: 'rating',
+        required: true,
+        options: [],
+        order: 0
+      },
+      {
+        id: `field-${Date.now()}-2`,
+        label: 'What went well / key takeaways?',
+        type: 'textarea',
+        required: false,
+        options: [],
+        order: 1
+      }
+    ]);
+    setViewMode('edit');
+  };
+
+  const handleDuplicate = async (form: FeedbackFormConfig, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newId = `form-${selectedCategory}-${Date.now()}`;
+    const duplicated: FeedbackFormConfig = {
+      ...form,
+      id: newId,
+      title: `${form.title || categoryLabels[selectedCategory]} (Copy)`,
+      isDefault: false,
+      createdAt: new Date().toISOString()
+    };
+    try {
+      await saveFormConfig(duplicated);
+      await alert('Form duplicated successfully!', 'Success', 'OK', 'success');
+    } catch (err: any) {
+      await alert(`Failed to duplicate: ${err.message}`, 'Error', 'OK', 'danger');
+    }
+  };
+
+  const handleSetDefault = async (form: FeedbackFormConfig, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await saveFormConfig({
+        ...form,
+        isDefault: true
+      });
+      await alert(`"${form.title || 'Form'}" is now the default form for ${categoryLabels[selectedCategory]}.`, 'Default Form Updated', 'OK', 'success');
+    } catch (err: any) {
+      await alert(`Failed to set default: ${err.message}`, 'Error', 'OK', 'danger');
+    }
+  };
+
+  const handleDelete = async (form: FeedbackFormConfig, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const ok = await confirm(
+      `Are you sure you want to delete "${form.title || 'this form'}"? Historical submissions will be preserved.`,
+      'Delete Feedback Form',
+      'Delete Form',
+      'danger'
+    );
+    if (!ok) return;
+
+    try {
+      await deleteFormConfig(form.id);
+      await alert('Form deleted successfully.', 'Deleted', 'OK', 'success');
+    } catch (err: any) {
+      await alert(`Failed to delete: ${err.message}`, 'Error', 'OK', 'danger');
+    }
+  };
 
   const handleAddField = () => {
     const newField: FeedbackFormField = {
@@ -1928,21 +2789,36 @@ const FormBuilderSection: React.FC = () => {
     setFields(newFields.map((f, i) => ({ ...f, order: i })));
   };
 
-  const handleSave = async () => {
-    if (fields.some(f => !f.label.trim())) {
-      await alert('All questions must have a label.', 'Validation Error', 'OK', 'danger');
+  const handleSaveCurrentForm = async () => {
+    if (!formTitle.trim()) {
+      await alert('Please enter a Form Title.', 'Validation Error', 'OK', 'danger');
       return;
     }
 
-    const configId = `form-${selectedCategory}`;
+    if (fields.length === 0) {
+      await alert('Please add at least one question to the form.', 'Validation Error', 'OK', 'danger');
+      return;
+    }
+
+    if (fields.some(f => !f.label.trim())) {
+      await alert('All questions must have a question label.', 'Validation Error', 'OK', 'danger');
+      return;
+    }
+
+    const configId = editingFormId || `form-${selectedCategory}-${Date.now()}`;
     try {
       await saveFormConfig({
         id: configId,
+        title: formTitle.trim(),
+        description: formDesc.trim(),
         category: selectedCategory,
         enabled,
+        isDefault: isDefault || (categoryForms.length === 0),
         fields
       });
-      await alert('Form configuration saved successfully!', 'Saved', 'OK', 'success');
+      await alert('Feedback form saved successfully!', 'Saved', 'OK', 'success');
+      setViewMode('list');
+      setEditingFormId(null);
     } catch (err: any) {
       await alert(`Failed to save: ${err.message}`, 'Save Failed', 'OK', 'danger');
     }
@@ -1952,11 +2828,11 @@ const FormBuilderSection: React.FC = () => {
     <SectionCard
       icon={<ClipboardList size={16} />}
       title="Feedback Form Builder"
-      subtitle="Configure dynamic feedback questionnaires for each meeting/project type"
+      subtitle="Create and customize multiple feedback questionnaires for each meeting or project category"
       actionButton={
-        canUserEdit && (
+        canUserEdit && viewMode === 'list' ? (
           <button
-            onClick={handleSave}
+            onClick={handleOpenCreate}
             style={{
               background: 'var(--primary)',
               color: '#fff',
@@ -1974,30 +2850,65 @@ const FormBuilderSection: React.FC = () => {
             onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
             onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
           >
-            <Check size={14} /> Save Configuration
+            <Plus size={14} /> Create New Form
           </button>
-        )
+        ) : canUserEdit && viewMode === 'edit' ? (
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => setViewMode('list')}
+              style={{
+                background: 'var(--background-alt)',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border)',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: 600
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveCurrentForm}
+              style={{
+                background: 'var(--primary)',
+                color: '#fff',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <Check size={14} /> Save Form
+            </button>
+          </div>
+        ) : null
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '800px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '850px' }}>
         
         {/* Category selector */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Choose Target Category
           </label>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {(['admin-calls', 'ama-meetings', 'student-projects'] as const).map(cat => {
-              const labelMap = {
-                'admin-calls': 'Admin Meetings',
-                'ama-meetings': 'Student Meetings',
-                'student-projects': 'Student Projects'
-              };
               const isSelected = selectedCategory === cat;
+              const count = formConfigs.filter(c => c.category === cat).length;
               return (
                 <button
                   key={cat}
-                  onClick={() => setSelectedCategory(cat)}
+                  onClick={() => {
+                    setSelectedCategory(cat);
+                    setViewMode('list');
+                  }}
                   style={{
                     padding: '8px 16px',
                     borderRadius: '8px',
@@ -2008,243 +2919,785 @@ const FormBuilderSection: React.FC = () => {
                     fontWeight: 600,
                     fontSize: '0.8rem',
                     cursor: 'pointer',
-                    transition: 'all 0.15s'
+                    transition: 'all 0.15s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
                   }}
                 >
-                  {labelMap[cat]}
+                  <span>{categoryLabels[cat]}</span>
+                  <span style={{
+                    fontSize: '0.7rem',
+                    padding: '2px 6px',
+                    borderRadius: '10px',
+                    background: isSelected ? 'var(--primary)' : 'var(--border-light)',
+                    color: isSelected ? '#fff' : 'var(--text-muted)'
+                  }}>
+                    {count}
+                  </span>
                 </button>
               );
             })}
           </div>
         </div>
 
-        <div 
-          onClick={() => canUserEdit && setEnabled(!enabled)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '12px',
-            background: 'var(--background-alt)', padding: '1rem', borderRadius: '12px',
-            border: '1px solid var(--border)',
-            cursor: canUserEdit ? 'pointer' : 'default',
-            userSelect: 'none'
-          }}
-        >
-          <div style={{
-            width: '28px',
-            height: '16px',
-            backgroundColor: enabled ? 'var(--primary)' : 'var(--text-muted)',
-            borderRadius: '9px',
-            position: 'relative',
-            transition: 'background-color 0.2s',
-            flexShrink: 0
-          }}>
-            <div style={{
-              width: '12px',
-              height: '12px',
-              backgroundColor: '#fff',
-              borderRadius: '50%',
-              position: 'absolute',
-              top: '2px',
-              left: enabled ? '14px' : '2px',
-              transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-            }} />
-          </div>
-          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-            Enable feedback form links for this category
-          </span>
-        </div>
+        {/* ─── VIEW MODE: LIST ─────────────────────────────────────────── */}
+        {viewMode === 'list' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  {categoryLabels[selectedCategory]} Forms ({categoryForms.length})
+                </h4>
+                <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  Manage multiple questionnaires. When sharing feedback from meetings, you can pick any of these forms.
+                </p>
+              </div>
 
-        {/* Questions list */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-              Form Questions ({fields.length})
-            </h4>
-            {canUserEdit && (
-              <button
-                onClick={handleAddField}
-                style={{
-                  background: 'var(--background-alt)',
-                  color: 'var(--text-primary)',
-                  border: '1px solid var(--border)',
-                  padding: '5px 12px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
-                <Plus size={12} /> Add Question
-              </button>
+              {canUserEdit && (
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button
+                    onClick={() => setIsAIModalOpen(true)}
+                    style={{
+                      background: 'linear-gradient(135deg, var(--primary), #8b5cf6)',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '7px 14px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '0.78rem',
+                      fontWeight: 650,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 4px 12px var(--primary-glow)'
+                    }}
+                  >
+                    <Sparkles size={13} /> Generate with AI
+                  </button>
+                  <button
+                    onClick={handleOpenCreate}
+                    style={{
+                      background: 'var(--primary)',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '7px 12px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    <Plus size={13} /> New Form
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {categoryForms.length === 0 ? (
+              <div style={{
+                textAlign: 'center', padding: '3rem 1.5rem', borderRadius: '12px',
+                border: '1.5px dashed var(--border-light)', color: 'var(--text-muted)',
+                background: 'var(--background)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem'
+              }}>
+                <ClipboardList size={32} style={{ opacity: 0.5 }} />
+                <div>
+                  <div style={{ fontWeight: 650, color: 'var(--text-primary)', fontSize: '0.9rem' }}>No forms configured yet</div>
+                  <div style={{ fontSize: '0.8rem', marginTop: '2px' }}>Create your first feedback form for {categoryLabels[selectedCategory]}.</div>
+                </div>
+                {canUserEdit && (
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <button
+                      onClick={() => setIsAIModalOpen(true)}
+                      style={{
+                        background: 'linear-gradient(135deg, var(--primary), #8b5cf6)',
+                        color: '#fff',
+                        border: 'none',
+                        padding: '8px 16px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: 650,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 4px 12px var(--primary-glow)'
+                      }}
+                    >
+                      <Sparkles size={14} /> Generate with AI
+                    </button>
+                    <button
+                      onClick={handleOpenCreate}
+                      style={{
+                        background: 'var(--background-alt)',
+                        color: 'var(--text-primary)',
+                        border: '1px solid var(--border)',
+                        padding: '8px 16px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <Plus size={14} /> Create Blank Form
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1rem' }}>
+                {categoryForms.map((form, idx) => {
+                  const isDef = !!form.isDefault || (categoryForms.length === 1 && !categoryForms.some(f => f.isDefault && f.id !== form.id));
+                  const fieldCount = form.fields?.length || 0;
+                  const ratingCount = form.fields?.filter(f => f.type === 'rating').length || 0;
+
+                  return (
+                    <div
+                      key={form.id}
+                      onClick={() => handleOpenEdit(form)}
+                      style={{
+                        background: 'var(--background)',
+                        border: isDef ? '1.5px solid var(--primary)' : '1px solid var(--border-light)',
+                        borderRadius: '12px',
+                        padding: '1.25rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '1rem',
+                        cursor: 'pointer',
+                        position: 'relative',
+                        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                        boxShadow: isDef ? '0 4px 12px var(--primary-glow)' : 'none'
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.borderColor = 'var(--primary)';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.borderColor = isDef ? 'var(--primary)' : 'var(--border-light)';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      <div>
+                        {/* Top badges */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            {isDef && (
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                fontSize: '0.68rem', fontWeight: 750, padding: '2px 8px', borderRadius: '12px',
+                                background: 'var(--primary-glow)', color: 'var(--primary)', border: '1px solid var(--primary)'
+                              }}>
+                                ★ Default Form
+                              </span>
+                            )}
+                            <span style={{
+                              fontSize: '0.68rem', fontWeight: 650, padding: '2px 8px', borderRadius: '12px',
+                              background: form.enabled ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                              color: form.enabled ? '#10b981' : '#ef4444'
+                            }}>
+                              {form.enabled ? 'Active' : 'Disabled'}
+                            </span>
+                          </div>
+                          
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                            {fieldCount} {fieldCount === 1 ? 'Question' : 'Questions'}{ratingCount > 0 ? ` • ${ratingCount} Rating` : ''}
+                          </span>
+                        </div>
+
+                        {/* Title & Desc */}
+                        <h4 style={{ margin: '0 0 4px 0', fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                          {form.title || `${categoryLabels[selectedCategory]} Form #${idx + 1}`}
+                        </h4>
+                        {form.description ? (
+                          <p style={{ margin: '0 0 8px 0', fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                            {form.description}
+                          </p>
+                        ) : (
+                          <p style={{ margin: '0 0 8px 0', fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                            No description provided
+                          </p>
+                        )}
+
+                        {/* Questions preview */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '6px' }}>
+                          {form.fields && form.fields.slice(0, 3).map((f, fIdx) => (
+                            <div key={f.id || fIdx} style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>#{fIdx + 1}</span>
+                              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '280px' }}>
+                                {f.label || 'Untitled Question'}
+                              </span>
+                            </div>
+                          ))}
+                          {fieldCount > 3 && (
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                              + {fieldCount - 3} more questions
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Footer Actions */}
+                      <div style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        paddingTop: '0.75rem', borderTop: '1px solid var(--border-light)', marginTop: '4px'
+                      }}>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          {!isDef && canUserEdit && (
+                            <button
+                              onClick={(e) => handleSetDefault(form, e)}
+                              style={{
+                                background: 'var(--background-alt)',
+                                border: '1px solid var(--border)',
+                                color: 'var(--text-secondary)',
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '0.72rem',
+                                fontWeight: 600,
+                                transition: 'all 0.15s'
+                              }}
+                              title="Make this the default form for new meetings"
+                            >
+                              Set as Default
+                            </button>
+                          )}
+                        </div>
+
+                        {canUserEdit && (
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <button
+                              onClick={(e) => handleDuplicate(form, e)}
+                              style={{
+                                background: 'var(--background-alt)',
+                                border: '1px solid var(--border)',
+                                color: 'var(--text-secondary)',
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '0.72rem',
+                                fontWeight: 600
+                              }}
+                              title="Duplicate Form"
+                            >
+                              Duplicate
+                            </button>
+                            <button
+                              onClick={() => handleOpenEdit(form)}
+                              style={{
+                                background: 'var(--primary-glow)',
+                                border: '1px solid var(--primary)',
+                                color: 'var(--primary)',
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '0.72rem',
+                                fontWeight: 650
+                              }}
+                            >
+                              Edit
+                            </button>
+                            {categoryForms.length > 1 && (
+                              <button
+                                onClick={(e) => handleDelete(form, e)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: 'var(--danger)',
+                                  padding: '4px 6px',
+                                  borderRadius: '6px',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center'
+                                }}
+                                title="Delete Form"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
+        )}
 
-          {fields.length === 0 ? (
-            <div style={{
-              textAlign: 'center', padding: '2.5rem', borderRadius: '12px',
-              border: '1.5px dashed var(--border-light)', color: 'var(--text-muted)',
-              fontSize: '0.85rem'
-            }}>
-              No questions configured. Click "Add Question" to start building this feedback form.
+        {/* ─── VIEW MODE: EDIT ─────────────────────────────────────────── */}
+        {viewMode === 'edit' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            
+            {/* Top Back bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button
+                onClick={() => setViewMode('list')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--primary)',
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  fontWeight: 650,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: 0
+                }}
+              >
+                ← Back to {categoryLabels[selectedCategory]} Forms
+              </button>
+
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Editing Form Details & Questions
+              </span>
             </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {fields.map((field, index) => (
-                <div
-                  key={field.id}
+
+            {/* Form Meta Box */}
+            <div style={{
+              background: 'var(--background-alt)',
+              border: '1px solid var(--border)',
+              borderRadius: '12px',
+              padding: '1.25rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem'
+            }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                  Form Title *
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Weekly AMA Speaker Feedback"
+                  value={formTitle}
+                  disabled={!canUserEdit}
+                  onChange={e => setFormTitle(e.target.value)}
                   style={{
-                    background: 'var(--background)',
-                    border: '1px solid var(--border-light)',
-                    borderRadius: '12px',
-                    padding: '1.25rem',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.75rem',
-                    position: 'relative'
+                    width: '100%',
+                    padding: '8px 12px',
+                    background: 'var(--panel-bg)',
+                    border: '1.5px solid var(--border-light)',
+                    borderRadius: '8px',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                  Description / Instructions for Attendees (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Please take 2 minutes to provide feedback on today's session."
+                  value={formDesc}
+                  disabled={!canUserEdit}
+                  onChange={e => setFormDesc(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    background: 'var(--panel-bg)',
+                    border: '1.5px solid var(--border-light)',
+                    borderRadius: '8px',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.82rem',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', paddingTop: '4px' }}>
+                {/* Default Toggle */}
+                <div 
+                  onClick={() => canUserEdit && setIsDefault(!isDefault)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    cursor: canUserEdit ? 'pointer' : 'default',
+                    userSelect: 'none'
                   }}
                 >
-                  {/* Top Row: Input and Controls */}
-                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', width: '20px' }}>
-                      #{index + 1}
-                    </span>
-                    <input
-                      type="text"
-                      placeholder="Enter question text..."
-                      value={field.label}
-                      disabled={!canUserEdit}
-                      onChange={e => handleUpdateField(field.id, { label: e.target.value })}
+                  <div style={{
+                    width: '28px',
+                    height: '16px',
+                    backgroundColor: isDefault ? 'var(--primary)' : 'var(--text-muted)',
+                    borderRadius: '9px',
+                    position: 'relative',
+                    transition: 'background-color 0.2s',
+                    flexShrink: 0
+                  }}>
+                    <div style={{
+                      width: '12px',
+                      height: '12px',
+                      backgroundColor: '#fff',
+                      borderRadius: '50%',
+                      position: 'absolute',
+                      top: '2px',
+                      left: isDefault ? '14px' : '2px',
+                      transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                    }} />
+                  </div>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Make this the Default Form for {categoryLabels[selectedCategory]}
+                  </span>
+                </div>
+
+                {/* Enabled Toggle */}
+                <div 
+                  onClick={() => canUserEdit && setEnabled(!enabled)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    cursor: canUserEdit ? 'pointer' : 'default',
+                    userSelect: 'none'
+                  }}
+                >
+                  <div style={{
+                    width: '28px',
+                    height: '16px',
+                    backgroundColor: enabled ? 'var(--primary)' : 'var(--text-muted)',
+                    borderRadius: '9px',
+                    position: 'relative',
+                    transition: 'background-color 0.2s',
+                    flexShrink: 0
+                  }}>
+                    <div style={{
+                      width: '12px',
+                      height: '12px',
+                      backgroundColor: '#fff',
+                      borderRadius: '50%',
+                      position: 'absolute',
+                      top: '2px',
+                      left: enabled ? '14px' : '2px',
+                      transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                    }} />
+                  </div>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Active & Accepting Submissions
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Questions list */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  Questions ({fields.length})
+                </h4>
+                {canUserEdit && (
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <button
+                      onClick={() => setIsAIModalOpen(true)}
                       style={{
-                        flex: 1,
-                        padding: '8px 12px',
-                        background: 'var(--panel-bg)',
-                        border: '1.5px solid var(--border-light)',
-                        borderRadius: '8px',
-                        color: 'var(--text-primary)',
-                        fontSize: '0.85rem',
-                        outline: 'none'
-                      }}
-                    />
-                    
-                    <div 
-                      style={{
-                        display: 'inline-flex',
+                        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(139, 92, 246, 0.12))',
+                        color: 'var(--primary)',
+                        border: '1px solid var(--primary)',
+                        padding: '5px 12px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '0.75rem',
+                        fontWeight: 650,
+                        display: 'flex',
                         alignItems: 'center',
-                        gap: '0.35rem',
-                        cursor: canUserEdit ? 'pointer' : 'default',
-                        userSelect: 'none',
+                        gap: '5px'
+                      }}
+                      title="Paste questionnaire content to parse and add questions with AI"
+                    >
+                      <Sparkles size={12} /> AI Questionnaire Import
+                    </button>
+                    <button
+                      onClick={handleAddField}
+                      style={{
+                        background: 'var(--background-alt)',
+                        color: 'var(--text-primary)',
+                        border: '1px solid var(--border)',
+                        padding: '5px 12px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
                         fontSize: '0.75rem',
                         fontWeight: 600,
-                        color: field.required ? 'var(--text-primary)' : 'var(--text-secondary)'
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
                       }}
-                      onClick={() => canUserEdit && handleUpdateField(field.id, { required: !field.required })}
                     >
-                      <div style={{
-                        width: '28px',
-                        height: '16px',
-                        backgroundColor: field.required ? 'var(--primary)' : 'var(--text-muted)',
-                        borderRadius: '9px',
-                        position: 'relative',
-                        transition: 'background-color 0.2s'
-                      }}>
-                        <div style={{
-                          width: '12px',
-                          height: '12px',
-                          backgroundColor: '#fff',
-                          borderRadius: '50%',
-                          position: 'absolute',
-                          top: '2px',
-                          left: field.required ? '14px' : '2px',
-                          transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                        }} />
-                      </div>
-                      <span>Required</span>
-                    </div>
-
-                    {/* Sorting & Delete buttons */}
-                    {canUserEdit && (
-                      <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
-                        <button
-                          disabled={index === 0}
-                          onClick={() => handleMoveUp(index)}
-                          style={{
-                            background: 'none', border: 'none', color: index === 0 ? 'var(--text-muted)' : 'var(--text-secondary)',
-                            cursor: index === 0 ? 'default' : 'pointer', padding: '4px', borderRadius: '4px', opacity: index === 0 ? 0.3 : 1
-                          }}
-                        >
-                          <ChevronUp size={14} />
-                        </button>
-                        <button
-                          disabled={index === fields.length - 1}
-                          onClick={() => handleMoveDown(index)}
-                          style={{
-                            background: 'none', border: 'none', color: index === fields.length - 1 ? 'var(--text-muted)' : 'var(--text-secondary)',
-                            cursor: index === fields.length - 1 ? 'default' : 'pointer', padding: '4px', borderRadius: '4px', opacity: index === fields.length - 1 ? 0.3 : 1
-                          }}
-                        >
-                          <ChevronDown size={14} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteField(field.id)}
-                          style={{
-                            background: 'none', border: 'none', color: 'var(--danger)',
-                            cursor: 'pointer', padding: '4px', borderRadius: '4px', marginLeft: '4px'
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    )}
+                      <Plus size={12} /> Add Question
+                    </button>
                   </div>
+                )}
+              </div>
 
-                  {/* Middle Row: Question Type & Extra options */}
-                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', paddingLeft: '28px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Type:</span>
-                      <select
-                        value={field.type}
-                        disabled={!canUserEdit}
-                        onChange={e => handleUpdateField(field.id, { type: e.target.value as any, options: [] })}
+              {fields.length === 0 ? (
+                <div style={{
+                  textAlign: 'center', padding: '2.5rem 1.5rem', borderRadius: '12px',
+                  border: '1.5px dashed var(--border-light)', color: 'var(--text-muted)',
+                  fontSize: '0.85rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem'
+                }}>
+                  <div>No questions configured yet. Add questions manually or import with AI.</div>
+                  {canUserEdit && (
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => setIsAIModalOpen(true)}
                         style={{
-                          padding: '4px 8px',
-                          background: 'var(--panel-bg)',
-                          border: '1.5px solid var(--border-light)',
+                          background: 'linear-gradient(135deg, var(--primary), #8b5cf6)',
+                          color: '#fff',
+                          border: 'none',
+                          padding: '6px 14px',
                           borderRadius: '6px',
-                          color: 'var(--text-primary)',
-                          fontSize: '0.75rem',
-                          cursor: canUserEdit ? 'pointer' : 'default',
-                          outline: 'none'
+                          cursor: 'pointer',
+                          fontSize: '0.78rem',
+                          fontWeight: 650,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px'
                         }}
                       >
-                        <option value="rating">Rating (1-5 Stars)</option>
-                        <option value="text">Short Answer</option>
-                        <option value="textarea">Paragraph Comment</option>
-                        <option value="select">Dropdown Select</option>
-                        <option value="checkbox">Multiple Checkboxes</option>
-                      </select>
+                        <Sparkles size={12} /> AI Questionnaire Import
+                      </button>
+                      <button
+                        onClick={handleAddField}
+                        style={{
+                          background: 'var(--background-alt)',
+                          color: 'var(--text-primary)',
+                          border: '1px solid var(--border)',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '0.78rem',
+                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}
+                      >
+                        <Plus size={12} /> Add Question
+                      </button>
                     </div>
-
-                    {/* Options list for select/checkbox */}
-                    {(field.type === 'select' || field.type === 'checkbox') && (
-                      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Choices:</span>
-                        <OptionsInput
-                          options={field.options || []}
-                          disabled={!canUserEdit}
-                          onChange={opts => handleUpdateField(field.id, { options: opts })}
-                        />
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
-              ))}
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {fields.map((field, index) => (
+                    <div
+                      key={field.id}
+                      style={{
+                        background: 'var(--background)',
+                        border: '1px solid var(--border-light)',
+                        borderRadius: '12px',
+                        padding: '1.25rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.75rem',
+                        position: 'relative'
+                      }}
+                    >
+                      {/* Top Row: Input and Controls */}
+                      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', width: '20px' }}>
+                          #{index + 1}
+                        </span>
+                        <input
+                          type="text"
+                          placeholder="Enter question text..."
+                          value={field.label}
+                          disabled={!canUserEdit}
+                          onChange={e => handleUpdateField(field.id, { label: e.target.value })}
+                          style={{
+                            flex: 1,
+                            padding: '8px 12px',
+                            background: 'var(--panel-bg)',
+                            border: '1.5px solid var(--border-light)',
+                            borderRadius: '8px',
+                            color: 'var(--text-primary)',
+                            fontSize: '0.85rem',
+                            outline: 'none'
+                          }}
+                        />
+                        
+                        <div 
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            cursor: canUserEdit ? 'pointer' : 'default',
+                            userSelect: 'none',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            color: field.required ? 'var(--text-primary)' : 'var(--text-secondary)'
+                          }}
+                          onClick={() => canUserEdit && handleUpdateField(field.id, { required: !field.required })}
+                        >
+                          <div style={{
+                            width: '28px',
+                            height: '16px',
+                            backgroundColor: field.required ? 'var(--primary)' : 'var(--text-muted)',
+                            borderRadius: '9px',
+                            position: 'relative',
+                            transition: 'background-color 0.2s'
+                          }}>
+                            <div style={{
+                              width: '12px',
+                              height: '12px',
+                              backgroundColor: '#fff',
+                              borderRadius: '50%',
+                              position: 'absolute',
+                              top: '2px',
+                              left: field.required ? '14px' : '2px',
+                              transition: 'left 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                            }} />
+                          </div>
+                          <span>Required</span>
+                        </div>
+
+                        {/* Sorting & Delete buttons */}
+                        {canUserEdit && (
+                          <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+                            <button
+                              disabled={index === 0}
+                              onClick={() => handleMoveUp(index)}
+                              style={{
+                                background: 'none', border: 'none', color: index === 0 ? 'var(--text-muted)' : 'var(--text-secondary)',
+                                cursor: index === 0 ? 'default' : 'pointer', padding: '4px', borderRadius: '4px', opacity: index === 0 ? 0.3 : 1
+                              }}
+                            >
+                              <ChevronUp size={14} />
+                            </button>
+                            <button
+                              disabled={index === fields.length - 1}
+                              onClick={() => handleMoveDown(index)}
+                              style={{
+                                background: 'none', border: 'none', color: index === fields.length - 1 ? 'var(--text-muted)' : 'var(--text-secondary)',
+                                cursor: index === fields.length - 1 ? 'default' : 'pointer', padding: '4px', borderRadius: '4px', opacity: index === fields.length - 1 ? 0.3 : 1
+                              }}
+                            >
+                              <ChevronDown size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteField(field.id)}
+                              style={{
+                                background: 'none', border: 'none', color: 'var(--danger)',
+                                cursor: 'pointer', padding: '4px', borderRadius: '4px', marginLeft: '4px'
+                              }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Middle Row: Question Type & Extra options */}
+                      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', paddingLeft: '28px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Type:</span>
+                          <select
+                            value={field.type}
+                            disabled={!canUserEdit}
+                            onChange={e => handleUpdateField(field.id, { type: e.target.value as any, options: [] })}
+                            style={{
+                              padding: '4px 8px',
+                              background: 'var(--panel-bg)',
+                              border: '1.5px solid var(--border-light)',
+                              borderRadius: '6px',
+                              color: 'var(--text-primary)',
+                              fontSize: '0.75rem',
+                              cursor: canUserEdit ? 'pointer' : 'default',
+                              outline: 'none'
+                            }}
+                          >
+                            <option value="rating">Rating (1-5 Stars)</option>
+                            <option value="text">Short Answer</option>
+                            <option value="textarea">Paragraph Comment</option>
+                            <option value="select">Dropdown Select</option>
+                            <option value="checkbox">Multiple Checkboxes</option>
+                          </select>
+                        </div>
+
+                        {/* Options list for select/checkbox */}
+                        {(field.type === 'select' || field.type === 'checkbox') && (
+                          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Choices:</span>
+                            <OptionsInput
+                              options={field.options || []}
+                              disabled={!canUserEdit}
+                              onChange={opts => handleUpdateField(field.id, { options: opts })}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
+
+            {/* Bottom Save Action */}
+            {canUserEdit && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+                <button
+                  onClick={() => setViewMode('list')}
+                  style={{
+                    background: 'var(--background-alt)',
+                    color: 'var(--text-secondary)',
+                    border: '1px solid var(--border)',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    fontWeight: 600
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveCurrentForm}
+                  style={{
+                    background: 'var(--primary)',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '8px 20px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Check size={14} /> Save Form
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* AI Questionnaire Creator Modal */}
+        <AIQuestionnaireModal
+          isOpen={isAIModalOpen}
+          onClose={() => setIsAIModalOpen(false)}
+          category={selectedCategory}
+          categoryLabel={categoryLabels[selectedCategory]}
+          hasExistingFields={viewMode === 'edit' && fields.length > 0}
+          onApply={handleApplyFromAI}
+        />
+
       </div>
     </SectionCard>
   );

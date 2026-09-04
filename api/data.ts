@@ -4031,6 +4031,147 @@ ${formattedSubmissions}`;
       }
     }
 
+    if (action === 'ai-generate-questionnaire') {
+      try {
+        await connectToDatabase();
+        // Authenticate
+        const userId = req.headers['x-user-id'];
+        const host = req.headers.host || '';
+        const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('3000') || host.includes('5173');
+        let isAuthenticated = isLocalhost;
+
+        if (userId) {
+          const ConfigSpeaker = modelsMap['speakers'];
+          const speaker = await ConfigSpeaker.findOne({ id: userId }).lean();
+          if (speaker) {
+            isAuthenticated = true;
+          }
+        }
+        if (!isAuthenticated) {
+          return res.status(401).json({ success: false, error: 'Unauthorized AI operation.' });
+        }
+
+        const { text, category, model } = data || {};
+        if (!text || typeof text !== 'string' || !text.trim()) {
+          return res.status(400).json({ success: false, error: 'Text content is required to generate questionnaire.' });
+        }
+
+        // Fetch geminiApiKey from settings in DB
+        const GlobalSettings = modelsMap['settings'];
+        const geminiSetting = await GlobalSettings.findOne({ key: 'geminiApiKey' }).lean();
+        const apiKey = geminiSetting?.value || process.env.GEMINI_API_KEY;
+
+        if (!apiKey || !apiKey.trim()) {
+          return res.status(400).json({ success: false, error: 'Gemini API Key is not configured. Please set it in Admin Config.' });
+        }
+
+        const prompt = `You are an expert survey and feedback questionnaire parser and creator.
+Your task is to convert the user's pasted questionnaire content into a structured feedback form JSON.
+
+CRITICAL MANDATORY INSTRUCTIONS:
+1. STRICTLY PRESERVE ALL ORIGINAL QUESTIONS: Do NOT summarize, shorten, remove, condense, rephrase, rewrite, or omit ANY question from the input text. Every single question mentioned in the input MUST be captured in full with its EXACT original wording.
+2. PRESERVE ORIGINAL ORDER: Maintain the exact sequence of the questions as they appear in the original text.
+3. EXTRACT TITLE & DESCRIPTION: If the text includes a form title, header, or introductory instructions, extract them into 'title' and 'description'. If no explicit title is found, generate an appropriate title based on category "${category || 'Feedback'}".
+4. DETERMINE THE MOST ACCURATE QUESTION TYPE: Choose from one of these exact types:
+   - 'rating': For star ratings, satisfaction scales (e.g. 1-5, 1-10, Poor to Excellent, etc.).
+   - 'single-select': For multiple choice questions where respondent chooses one option (radio/dropdown).
+   - 'multi-select': For checkbox questions where respondent can select multiple options.
+   - 'text': For short one-line text responses (e.g., name, topic, single-sentence response).
+   - 'long-text': For open-ended comments, suggestions, detailed feedback, explanations.
+   - 'number': For numeric inputs (e.g., hours spent, count, percentage).
+   - 'boolean': For yes/no, agree/disagree or binary questions.
+5. EXTRACT OPTIONS ACCURATELY: If the question has explicit choices/options (e.g., bullet points, A/B/C/D, comma-separated choices), extract each choice as a string in the 'options' array. Do not invent or remove options.
+6. DETECT REQUIRED: Set 'required': true unless the question explicitly specifies it is '(optional)'.
+7. GENERATE PLACEHOLDERS: Provide a clear, helpful 'placeholder' string for text/long-text fields where appropriate.
+
+Return a JSON object conforming EXACTLY to this structure:
+{
+  "title": "Extracted or inferred form title",
+  "description": "Extracted form description or instructions",
+  "fields": [
+    {
+      "id": "field_1",
+      "label": "Exact original question text here (DO NOT CHANGE)",
+      "type": "rating",
+      "required": true,
+      "placeholder": "Optional helpful placeholder",
+      "options": ["Option 1", "Option 2"],
+      "order": 0
+    }
+  ]
+}
+
+Do not include markdown fences like \`\`\`json. Output ONLY the raw JSON string.
+
+INPUT TEXT TO CONVERT:
+${text}`;
+
+        const selectedModel = model || 'gemini-1.5-flash-latest';
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
+        const requestBody = {
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.1,
+            responseMimeType: "application/json"
+          }
+        };
+
+        const response = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          console.error('Gemini API request failed for questionnaire generator:', errText);
+          return res.status(response.status).json({ success: false, error: `Gemini API Error: ${errText}` });
+        }
+
+        const resData = await response.json();
+        const generatedText = resData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        
+        let parsedResult;
+        try {
+          parsedResult = JSON.parse(generatedText.trim());
+        } catch (parseErr) {
+          console.error('Failed to parse Gemini JSON output for questionnaire generator:', generatedText);
+          return res.status(500).json({ success: false, error: 'AI returned invalid JSON format. Please try again.', raw: generatedText });
+        }
+
+        if (parsedResult && Array.isArray(parsedResult.fields)) {
+          parsedResult.fields = parsedResult.fields.map((f: any, idx: number) => {
+            let type = f.type || 'text';
+            let options = Array.isArray(f.options) ? f.options.filter(Boolean) : [];
+            if (type === 'single-select') type = 'select';
+            if (type === 'multi-select') type = 'checkbox';
+            if (type === 'long-text' || type === 'paragraph') type = 'textarea';
+            if (type === 'boolean') {
+              type = 'select';
+              if (options.length === 0) options = ['Yes', 'No'];
+            }
+            if (!['rating', 'text', 'textarea', 'select', 'checkbox'].includes(type)) {
+              type = 'text';
+            }
+            return {
+              id: f.id || `field-${Date.now()}-${idx}`,
+              label: f.label || `Question ${idx + 1}`,
+              type,
+              required: f.required !== false,
+              placeholder: f.placeholder || '',
+              options,
+              order: idx
+            };
+          });
+        }
+
+        return res.status(200).json({ success: true, result: parsedResult });
+      } catch (err: any) {
+        console.error('AI Questionnaire Generator error:', err);
+        return res.status(500).json({ success: false, error: err.message || 'An error occurred during AI questionnaire generation' });
+      }
+    }
+
     if (action === 'release-notes-fetch-features') {
       try {
         await connectToDatabase();

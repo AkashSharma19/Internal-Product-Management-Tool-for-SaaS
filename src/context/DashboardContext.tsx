@@ -257,10 +257,10 @@ interface DashboardContextType {
     variant?: 'danger' | 'warning' | 'primary' | 'success'
   ) => Promise<void>;
 
-  // Form Configurations & Feedback Submissions
   formConfigs: FeedbackFormConfig[];
   setFormConfigs: React.Dispatch<React.SetStateAction<FeedbackFormConfig[]>>;
   saveFormConfig: (config: FeedbackFormConfig) => Promise<void>;
+  deleteFormConfig: (id: string) => Promise<void>;
   
   feedbackSubmissions: FeedbackSubmission[];
   setFeedbackSubmissions: React.Dispatch<React.SetStateAction<FeedbackSubmission[]>>;
@@ -2694,14 +2694,31 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const saveFormConfig = async (config: FeedbackFormConfig) => {
     setFormConfigs(prev => {
+      let updated = prev.map(c => {
+        if (c.id === config.id) {
+          return config;
+        }
+        // If the saved config is set as default, clear isDefault for others in this category
+        if (config.isDefault && c.category === config.category) {
+          return { ...c, isDefault: false };
+        }
+        return c;
+      });
       const exists = prev.some(c => c.id === config.id);
-      if (exists) {
-        return prev.map(c => c.id === config.id ? config : c);
-      } else {
-        return [...prev, config];
+      if (!exists) {
+        if (config.isDefault) {
+          updated = updated.map(c => c.category === config.category ? { ...c, isDefault: false } : c);
+        }
+        updated.push(config);
       }
+      return updated;
     });
     await persistChange('update', 'formConfigs', config.id, config);
+  };
+
+  const deleteFormConfig = async (id: string) => {
+    setFormConfigs(prev => prev.filter(c => c.id !== id));
+    await persistChange('delete', 'formConfigs', id, null);
   };
 
   const addFeedbackSubmission = async (submission: Omit<FeedbackSubmission, 'id'>) => {
@@ -3033,7 +3050,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       isLoading, syncStatus,
       confirm,
       alert,
-      formConfigs, setFormConfigs, saveFormConfig,
+      formConfigs, setFormConfigs, saveFormConfig, deleteFormConfig,
       feedbackSubmissions, setFeedbackSubmissions, addFeedbackSubmission, deleteFeedbackSubmission,
       
       // Scalable additions

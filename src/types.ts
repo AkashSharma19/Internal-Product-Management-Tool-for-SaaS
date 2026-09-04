@@ -73,6 +73,7 @@ export interface StudentProject {
   deadlineCompleted?: boolean;
   finalReleaseCompleted?: boolean;
   committedDate?: string;
+  feedbackFormId?: string;
 }
 
 export interface AMASession {
@@ -85,6 +86,7 @@ export interface AMASession {
   status: 'Scheduled' | 'Completed' | 'Postponed';
   program?: string;
   pinned?: boolean;
+  feedbackFormId?: string;
 }
 
 export interface StudentMeeting {
@@ -116,6 +118,7 @@ export interface StudentMeeting {
   deadlineCompleted?: boolean;
   finalReleaseCompleted?: boolean;
   committedDate?: string;
+  feedbackFormId?: string;
 }
 
 export interface AdminCall {
@@ -128,6 +131,7 @@ export interface AdminCall {
   status: 'Completed' | 'Pending Actions' | 'Scheduled';
   program?: string;
   pinned?: boolean;
+  feedbackFormId?: string;
 }
 
 export interface TarunSirMeeting {
@@ -140,6 +144,7 @@ export interface TarunSirMeeting {
   status: 'Completed' | 'Pending Actions' | 'Scheduled';
   program?: string;
   pinned?: boolean;
+  feedbackFormId?: string;
 }
 
 export interface ContentItem {
@@ -276,20 +281,27 @@ export interface FeedbackFormField {
   type: 'rating' | 'text' | 'textarea' | 'select' | 'checkbox';
   required: boolean;
   options?: string[];
+  placeholder?: string;
   order: number;
 }
 
 export interface FeedbackFormConfig {
-  id: string; // e.g. "form-admin-calls", "form-ama-meetings", "form-student-projects"
+  id: string; // e.g. "form-admin-calls", "form-ama-meetings", "form-student-projects", "form-123"
+  title?: string;
+  description?: string;
   category: 'admin-calls' | 'ama-meetings' | 'student-projects';
   enabled: boolean;
+  isDefault?: boolean;
   fields: FeedbackFormField[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface FeedbackSubmission {
   id: string;
   category: 'admin-calls' | 'ama-meetings' | 'student-projects';
   itemId: string; // matches the admin call id, meeting id, or project id
+  formId?: string;
   answers: Record<string, any>; // fieldId -> value
   submittedBy?: string;
   submittedByEmail?: string;

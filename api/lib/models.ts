@@ -73,7 +73,8 @@ const StudentProjectSchema = new Schema({
   uiuxCompleted: { type: Boolean, default: false },
   deadlineCompleted: { type: Boolean, default: false },
   finalReleaseCompleted: { type: Boolean, default: false },
-  committedDate: { type: String, default: "" }
+  committedDate: { type: String, default: "" },
+  feedbackFormId: { type: String, default: "" }
 }, { timestamps: true });
 
 // 4. AMASession
@@ -86,7 +87,8 @@ const AMASessionSchema = new Schema({
   link: { type: String, default: "" },
   status: { type: String, default: "Scheduled" },
   program: { type: String, default: "" },
-  pinned: { type: Boolean, default: false }
+  pinned: { type: Boolean, default: false },
+  feedbackFormId: { type: String, default: "" }
 }, { timestamps: true });
 
 // 5. StudentMeeting
@@ -117,7 +119,8 @@ const StudentMeetingSchema = new Schema({
   uiuxCompleted: { type: Boolean, default: false },
   deadlineCompleted: { type: Boolean, default: false },
   finalReleaseCompleted: { type: Boolean, default: false },
-  committedDate: { type: String, default: "" }
+  committedDate: { type: String, default: "" },
+  feedbackFormId: { type: String, default: "" }
 }, { timestamps: true });
 
 // 6. AdminCall
@@ -130,7 +133,8 @@ const AdminCallSchema = new Schema({
   actions: { type: String, default: "" },
   status: { type: String, default: "Scheduled" },
   program: { type: String, default: "" },
-  pinned: { type: Boolean, default: false }
+  pinned: { type: Boolean, default: false },
+  feedbackFormId: { type: String, default: "" }
 }, { timestamps: true });
 
 // 6b. TarunSirMeeting
@@ -143,7 +147,8 @@ const TarunSirMeetingSchema = new Schema({
   actions: { type: String, default: "" },
   status: { type: String, default: "Scheduled" },
   program: { type: String, default: "" },
-  pinned: { type: Boolean, default: false }
+  pinned: { type: Boolean, default: false },
+  feedbackFormId: { type: String, default: "" }
 }, { timestamps: true });
 
 // 7. ContentItem
@@ -329,8 +334,11 @@ const FeedbackFormFieldSchema = new Schema({
 
 const FeedbackFormConfigSchema = new Schema({
   id: { type: String, required: true, unique: true },
+  title: { type: String, default: "" },
+  description: { type: String, default: "" },
   category: { type: String, required: true }, // 'admin-calls', 'ama-meetings', 'student-projects'
   enabled: { type: Boolean, default: true },
+  isDefault: { type: Boolean, default: false },
   fields: [FeedbackFormFieldSchema]
 }, { timestamps: true });
 
@@ -338,6 +346,7 @@ const FeedbackSubmissionSchema = new Schema({
   id: { type: String, required: true, unique: true },
   category: { type: String, required: true },
   itemId: { type: String, required: true },
+  formId: { type: String, default: "" },
   answers: { type: Schema.Types.Mixed, default: {} }, // map of fieldId -> answer
   submittedBy: { type: String, default: "Anonymous" },
   submittedByEmail: { type: String, default: "" }

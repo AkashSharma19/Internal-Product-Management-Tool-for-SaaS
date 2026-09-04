@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDashboard } from '../context/DashboardContext';
-import { Star, CheckCircle, AlertCircle, ClipboardList, Shield } from 'lucide-react';
+import { Star, CheckCircle, AlertCircle, ClipboardList, Shield, Mail, User, ArrowRight } from 'lucide-react';
 
 interface PublicFeedbackFormProps {
   itemId: string;
@@ -47,11 +47,17 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
   const [validationError, setValidationError] = useState<string | null>(null);
   const [googleLoginError, setGoogleLoginError] = useState<string | null>(null);
 
-  // Authenticated Google User State
+  // Manual Email Auth States
+  const [manualEmail, setManualEmail] = useState('');
+  const [manualName, setManualName] = useState('');
+  const [emailAuthError, setEmailAuthError] = useState<string | null>(null);
+
+  // Authenticated User State (Google or Email)
   const [googleUser, setGoogleUser] = useState<{
     email: string;
     name: string;
     picture?: string;
+    authMethod?: 'google' | 'email';
   } | null>(() => {
     const saved = localStorage.getItem('feedback-google-user');
     return saved ? JSON.parse(saved) : null;
@@ -73,12 +79,14 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
   let itemTitle = 'Meeting / Project';
   let itemSubtitle = '';
   let foundItem = false;
+  let itemFeedbackFormId: string | undefined;
 
   if (resolvedCategory === 'admin-calls') {
     const call = adminCalls.find(c => c.id === itemId);
     if (call) {
       itemTitle = call.cohortTopic;
       itemSubtitle = `Admin Call • ${call.adminPoc} • ${call.date}`;
+      itemFeedbackFormId = call.feedbackFormId;
       foundItem = true;
     }
   } else if (resolvedCategory === 'ama-meetings') {
@@ -86,12 +94,14 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
     if (meeting) {
       itemTitle = meeting.cohort;
       itemSubtitle = `Student Meeting • ${meeting.poc || 'N/A'} • ${meeting.date}`;
+      itemFeedbackFormId = meeting.feedbackFormId;
       foundItem = true;
     } else {
       const ama = amaSessions.find(a => a.id === itemId);
       if (ama) {
         itemTitle = ama.topic;
         itemSubtitle = `AMA Session • ${ama.speaker} • ${ama.date}`;
+        itemFeedbackFormId = ama.feedbackFormId;
         foundItem = true;
       }
     }
@@ -100,12 +110,20 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
     if (project) {
       itemTitle = project.title;
       itemSubtitle = `Student Project • POC: ${project.poc || 'N/A'}`;
+      itemFeedbackFormId = project.feedbackFormId;
       foundItem = true;
     }
   }
 
-  // 3. Retrieve Form Config
-  const config = formConfigs.find(c => c.category === resolvedCategory);
+  // 3. Retrieve Form Config (support explicit query param, meeting-assigned form, category default, or fallback)
+  const urlFormId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('formId') : null;
+  const targetFormId = urlFormId || itemFeedbackFormId;
+
+  const config = (targetFormId ? formConfigs.find(c => c.id === targetFormId) : null)
+    || formConfigs.find(c => c.category === resolvedCategory && c.isDefault)
+    || formConfigs.find(c => c.category === resolvedCategory && c.enabled !== false)
+    || formConfigs.find(c => c.category === resolvedCategory);
+
   const isFormConfigured = config && config.enabled && config.fields && config.fields.length > 0;
 
   // 4. Check past submissions
@@ -196,12 +214,45 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
     };
   }, [googleUser, googleClientId, googleAllowedDomains, isLoading]);
 
+  const handleEmailAuthSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailAuthError(null);
+    const email = manualEmail.trim().toLowerCase();
+    if (!email || !email.includes('@') || !email.includes('.')) {
+      setEmailAuthError('Please enter a valid email address.');
+      return;
+    }
+
+    if (googleAllowedDomains) {
+      const domains = googleAllowedDomains.split(',')
+        .map(d => d.trim().toLowerCase())
+        .filter(Boolean);
+      const userDomain = email.split('@')[1]?.toLowerCase();
+      if (domains.length > 0 && !domains.includes(userDomain)) {
+        setEmailAuthError(`Access Denied: Your email domain (@${userDomain}) is not authorized to submit feedback.`);
+        return;
+      }
+    }
+
+    const name = manualName.trim() || email.split('@')[0];
+    const user = {
+      email,
+      name,
+      authMethod: 'email' as const
+    };
+    setGoogleUser(user);
+    localStorage.setItem('feedback-google-user', JSON.stringify(user));
+  };
+
   const handleGoogleLogout = () => {
     setGoogleUser(null);
     localStorage.removeItem('feedback-google-user');
     setAnswers({});
     setValidationError(null);
     setGoogleLoginError(null);
+    setEmailAuthError(null);
+    setManualEmail('');
+    setManualName('');
   };
 
   const handleRatingClick = (fieldId: string, rating: number) => {
@@ -248,6 +299,7 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
       await addFeedbackSubmission({
         category: resolvedCategory,
         itemId,
+        formId: config?.id || '',
         answers,
         submittedBy: googleUser ? googleUser.name : (submittedBy.trim() || 'Anonymous'),
         submittedByEmail: googleUser ? googleUser.email : ''
@@ -313,7 +365,7 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
     );
   }
 
-  // Render Google Login Secured state (when login required but not logged in)
+  // Render Google / Email Login Secured state (when login required but not logged in)
   if (requireGoogleLogin && !googleUser) {
     return (
       <div style={{
@@ -323,59 +375,150 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
       }}>
         <div style={{
           background: 'var(--panel-bg)', border: '1px solid var(--border-light)', borderRadius: '24px',
-          padding: '3rem 2rem', width: '100%', maxWidth: '480px', boxShadow: 'var(--shadow)',
-          textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem'
+          padding: '2.5rem 2rem', width: '100%', maxWidth: '480px', boxShadow: 'var(--shadow)',
+          textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.25rem'
         }}>
           <div style={{
-            width: '60px', height: '60px', borderRadius: '18px',
+            width: '56px', height: '56px', borderRadius: '16px',
             background: 'rgba(99, 102, 241, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: 'var(--primary)'
           }}>
-            <Shield size={28} />
+            <Shield size={26} />
           </div>
           <div>
-            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+            <h3 style={{ margin: '0 0 0.35rem 0', fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
               Authentication Required
             </h3>
-            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
-              This feedback portal is secured. Please sign in with your Google account to submit your responses.
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+              Please sign in with Google or enter your email to access and submit the feedback form.
             </p>
           </div>
 
-          {/* Alert Message for unconfigured Client ID */}
-          {!googleClientId ? (
-            <div style={{
-              display: 'flex', gap: '0.5rem', alignItems: 'start', padding: '10px 14px', borderRadius: '12px',
-              background: 'var(--danger-bg)', border: '1px solid rgba(239, 68, 68, 0.25)',
-              color: 'var(--danger)', fontSize: '0.8rem', textAlign: 'left'
-            }}>
-              <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
-              <span>Google Login client credential ID is not yet configured. Please contact the administrator to setup the Client ID.</span>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%', alignItems: 'center', margin: '0.5rem 0' }}>
+          {/* Google Sign In Option */}
+          {googleClientId ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%', alignItems: 'center' }}>
               <div id="google-signin-btn-container" style={{ minHeight: '40px' }} />
               {googleLoginError && (
                 <div style={{
-                  display: 'flex', gap: '0.5rem', alignItems: 'start', padding: '10px 14px', borderRadius: '12px',
+                  display: 'flex', gap: '0.5rem', alignItems: 'start', padding: '8px 12px', borderRadius: '10px',
                   background: 'var(--danger-bg)', border: '1px solid rgba(239, 68, 68, 0.25)',
-                  color: 'var(--danger)', fontSize: '0.8rem', textAlign: 'left', marginTop: '0.5rem'
+                  color: 'var(--danger)', fontSize: '0.78rem', textAlign: 'left', marginTop: '0.25rem'
                 }}>
-                  <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <AlertCircle size={15} style={{ flexShrink: 0, marginTop: '2px' }} />
                   <span>{googleLoginError}</span>
                 </div>
               )}
             </div>
-          )}
+          ) : null}
+
+          {/* OR Divider */}
+          <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '12px', margin: '0.25rem 0' }}>
+            <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+            <span style={{ fontSize: '0.72rem', fontWeight: 750, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              {googleClientId ? 'OR ENTER EMAIL' : 'ENTER EMAIL TO CONTINUE'}
+            </span>
+            <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
+          </div>
+
+          {/* Email Authentication Form */}
+          <form onSubmit={handleEmailAuthSubmit} style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left' }}>
+              <label style={{ fontSize: '0.78rem', fontWeight: 650, color: 'var(--text-primary)' }}>
+                Email Address <span style={{ color: 'var(--danger)' }}>*</span>
+              </label>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <Mail size={15} style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)' }} />
+                <input
+                  type="email"
+                  required
+                  placeholder="student@tetr.org"
+                  value={manualEmail}
+                  onChange={(e) => {
+                    setManualEmail(e.target.value);
+                    if (emailAuthError) setEmailAuthError(null);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px 10px 36px',
+                    borderRadius: '10px',
+                    background: 'var(--background)',
+                    border: '1.5px solid var(--border)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.85rem',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left' }}>
+              <label style={{ fontSize: '0.78rem', fontWeight: 650, color: 'var(--text-primary)' }}>
+                Your Name <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 400 }}>(Optional)</span>
+              </label>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <User size={15} style={{ position: 'absolute', left: '12px', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  placeholder="e.g. Akash Sharma"
+                  value={manualName}
+                  onChange={(e) => setManualName(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px 10px 36px',
+                    borderRadius: '10px',
+                    background: 'var(--background)',
+                    border: '1.5px solid var(--border)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.85rem',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+            </div>
+
+            {emailAuthError && (
+              <div style={{
+                display: 'flex', gap: '0.5rem', alignItems: 'start', padding: '8px 12px', borderRadius: '10px',
+                background: 'var(--danger-bg)', border: '1px solid rgba(239, 68, 68, 0.25)',
+                color: 'var(--danger)', fontSize: '0.78rem', textAlign: 'left'
+              }}>
+                <AlertCircle size={15} style={{ flexShrink: 0, marginTop: '2px' }} />
+                <span>{emailAuthError}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              style={{
+                width: '100%',
+                padding: '10px 16px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, var(--primary), #4f46e5)',
+                color: '#fff',
+                border: 'none',
+                fontWeight: 650,
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                marginTop: '4px',
+                boxShadow: '0 4px 12px var(--primary-glow)'
+              }}
+            >
+              Continue to Feedback Form <ArrowRight size={15} />
+            </button>
+          </form>
 
           {foundItem && (
             <div style={{
               background: 'var(--background-alt)', borderRadius: '12px', padding: '0.85rem 1.25rem',
-              width: '100%', border: '1px solid var(--border)', fontSize: '0.85rem', color: 'var(--text-primary)',
+              width: '100%', border: '1px solid var(--border)', fontSize: '0.825rem', color: 'var(--text-primary)',
               textAlign: 'left'
             }}>
               <strong style={{ display: 'block', marginBottom: '2px' }}>{itemTitle}</strong>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{itemSubtitle}</span>
+              <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>{itemSubtitle}</span>
             </div>
           )}
         </div>
@@ -452,14 +595,14 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.5rem', opacity: 0.9 }}>
               <ClipboardList size={16} />
               <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                SESSION FEEDBACK PORTAL
+                {config?.title || 'SESSION FEEDBACK PORTAL'}
               </span>
             </div>
             <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800, lineHeight: '1.3', letterSpacing: '-0.02em' }}>
               {itemTitle}
             </h2>
             <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.8rem', opacity: 0.85, fontWeight: 500 }}>
-              {itemSubtitle || 'We appreciate your honest feedback.'}
+              {config?.description || itemSubtitle || 'We appreciate your honest feedback.'}
             </p>
           </div>
 
@@ -660,8 +803,12 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
                   Submitting As
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--background-alt)', padding: '10px 14px', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
-                  {googleUser.picture && (
+                  {googleUser.picture ? (
                     <img src={googleUser.picture} alt="Google Profile" style={{ width: '28px', height: '28px', borderRadius: '50%' }} />
+                  ) : (
+                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--primary-glow)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Mail size={14} />
+                    </div>
                   )}
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{googleUser.name}</span>
@@ -673,7 +820,7 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
                       onClick={handleGoogleLogout} 
                       style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
                     >
-                      Switch Account
+                      {googleUser.authMethod === 'email' ? 'Change Email' : 'Switch Account'}
                     </button>
                   )}
                 </div>

@@ -42,7 +42,8 @@ import {
   Eye,
   Download,
   Upload,
-  Mail
+  Mail,
+  Lock
 } from 'lucide-react';
 import type { 
   ProductItem, 
@@ -640,141 +641,7 @@ export const downloadCSV = (filename: string, headers: string[], rows: (string |
   URL.revokeObjectURL(url);
 };
 
-export const exportItemFeedbackToExcel = (
-  itemId: string,
-  category: 'admin-calls' | 'ama-meetings' | 'student-projects',
-  feedbackSubmissions: FeedbackSubmission[],
-  formConfigs: FeedbackFormConfig[]
-) => {
-  const config = formConfigs.find(c => c.category === category);
-  if (!config || !config.fields || config.fields.length === 0) {
-    alert('No form configuration found for this category.');
-    return;
-  }
 
-  const sortedFields = [...config.fields].sort((a, b) => a.order - b.order);
-  const submissions = feedbackSubmissions.filter(sub => sub.itemId === itemId);
-
-  if (submissions.length === 0) {
-    alert('No feedback submissions to export for this item.');
-    return;
-  }
-
-  const headers = [
-    'Submission ID',
-    'Respondent Name',
-    'Respondent Email',
-    'Submitted At',
-    ...sortedFields.map(f => f.label)
-  ];
-
-  const rows = submissions.map(sub => {
-    const fieldAnswers = sortedFields.map(f => {
-      const val = sub.answers[f.id];
-      if (val === undefined || val === null) return '';
-      if (Array.isArray(val)) return val.join(', ');
-      return String(val);
-    });
-
-    return [
-      sub.id,
-      sub.submittedBy || 'Anonymous',
-      sub.submittedByEmail || '',
-      sub.createdAt ? new Date(sub.createdAt).toLocaleString() : '',
-      ...fieldAnswers
-    ];
-  });
-
-  const fileName = `Feedback_${itemId}_${new Date().toISOString().slice(0, 10)}.csv`;
-  downloadCSV(fileName, headers, rows);
-};
-
-export const exportAttendeeFeedbackToExcel = (
-  category: 'admin-calls' | 'ama-meetings' | 'student-projects',
-  feedbackSubmissions: FeedbackSubmission[],
-  formConfigs: FeedbackFormConfig[],
-  adminCalls: AdminCall[] = [],
-  studentMeetings: any[] = [],
-  studentProjects: StudentProject[] = []
-) => {
-  const config = formConfigs.find(c => c.category === category);
-  if (!config || !config.fields || config.fields.length === 0) {
-    alert('No form configuration found for this category.');
-    return;
-  }
-
-  const sortedFields = [...config.fields].sort((a, b) => a.order - b.order);
-  const submissions = feedbackSubmissions.filter(sub => sub.category === category);
-
-  if (submissions.length === 0) {
-    alert(`No attendee feedback submissions found for ${category.replace('-', ' ')}.`);
-    return;
-  }
-
-  const headers = [
-    'Submission ID',
-    'Item ID',
-    'Item Name / Topic',
-    'Date / POC',
-    'Program',
-    'Respondent Name',
-    'Respondent Email',
-    'Submitted At',
-    ...sortedFields.map(f => f.label)
-  ];
-
-  const rows = submissions.map(sub => {
-    let itemName = sub.itemId;
-    let itemMeta = '';
-    let itemProgram = '';
-
-    if (category === 'admin-calls') {
-      const call = adminCalls.find(c => c.id === sub.itemId);
-      if (call) {
-        itemName = call.cohortTopic;
-        itemMeta = `${call.date} • ${call.adminPoc}`;
-        itemProgram = call.program || '';
-      }
-    } else if (category === 'ama-meetings') {
-      const meeting = studentMeetings.find(m => m.id === sub.itemId);
-      if (meeting) {
-        itemName = meeting.cohort || meeting.topic || sub.itemId;
-        itemMeta = `${meeting.date || ''} • ${meeting.poc || meeting.speaker || ''}`;
-        itemProgram = meeting.program || '';
-      }
-    } else if (category === 'student-projects') {
-      const project = studentProjects.find(p => p.id === sub.itemId);
-      if (project) {
-        itemName = project.title;
-        itemMeta = `${project.poc || ''}`;
-        itemProgram = (project as any).program || '';
-      }
-    }
-
-    const fieldAnswers = sortedFields.map(f => {
-      const val = sub.answers[f.id];
-      if (val === undefined || val === null) return '';
-      if (Array.isArray(val)) return val.join(', ');
-      return String(val);
-    });
-
-    return [
-      sub.id,
-      sub.itemId,
-      itemName,
-      itemMeta,
-      itemProgram,
-      sub.submittedBy || 'Anonymous',
-      sub.submittedByEmail || '',
-      sub.createdAt ? new Date(sub.createdAt).toLocaleString() : '',
-      ...fieldAnswers
-    ];
-  });
-
-  const categoryLabel = category === 'admin-calls' ? 'Admin_Calls' : category === 'ama-meetings' ? 'AMA_Meetings' : 'Student_Projects';
-  const fileName = `Overall_Feedback_${categoryLabel}_${new Date().toISOString().slice(0, 10)}.csv`;
-  downloadCSV(fileName, headers, rows);
-};
 
 const ExpandableTextCell: React.FC<{ text: string; maxLength?: number }> = ({ text, maxLength = 75 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -1006,11 +873,381 @@ const FeedbackSubmissionModal: React.FC<{
   );
 };
 
+export const exportItemFeedbackToExcel = (
+  itemId: string,
+  category: 'admin-calls' | 'ama-meetings' | 'student-projects',
+  feedbackSubmissions: FeedbackSubmission[],
+  formConfigs: FeedbackFormConfig[],
+  formId?: string
+) => {
+  const config = (formId ? formConfigs.find(c => c.id === formId) : null)
+    || formConfigs.find(c => c.category === category && c.isDefault)
+    || formConfigs.find(c => c.category === category && c.enabled !== false)
+    || formConfigs.find(c => c.category === category);
+
+  if (!config || !config.fields || config.fields.length === 0) {
+    alert('No form configuration found for this category.');
+    return;
+  }
+
+  const sortedFields = [...config.fields].sort((a, b) => a.order - b.order);
+  const submissions = feedbackSubmissions.filter(sub => sub.itemId === itemId);
+
+  if (submissions.length === 0) {
+    alert('No feedback submissions to export for this item.');
+    return;
+  }
+
+  const headers = [
+    'Submission ID',
+    'Respondent Name',
+    'Respondent Email',
+    'Submitted At',
+    ...sortedFields.map(f => f.label)
+  ];
+
+  const rows = submissions.map(sub => {
+    const fieldAnswers = sortedFields.map(f => {
+      const val = sub.answers[f.id];
+      if (val === undefined || val === null) return '';
+      if (Array.isArray(val)) return val.join(', ');
+      return String(val);
+    });
+
+    return [
+      sub.id,
+      sub.submittedBy || 'Anonymous',
+      sub.submittedByEmail || '',
+      sub.createdAt ? new Date(sub.createdAt).toLocaleString() : '',
+      ...fieldAnswers
+    ];
+  });
+
+  const fileName = `Feedback_${itemId}_${new Date().toISOString().slice(0, 10)}.csv`;
+  downloadCSV(fileName, headers, rows);
+};
+
+export const exportAttendeeFeedbackToExcel = (
+  category: 'admin-calls' | 'ama-meetings' | 'student-projects',
+  feedbackSubmissions: FeedbackSubmission[],
+  formConfigs: FeedbackFormConfig[],
+  adminCalls: AdminCall[] = [],
+  studentMeetings: any[] = [],
+  studentProjects: StudentProject[] = []
+) => {
+  const config = formConfigs.find(c => c.category === category && c.isDefault)
+    || formConfigs.find(c => c.category === category && c.enabled !== false)
+    || formConfigs.find(c => c.category === category);
+
+  if (!config || !config.fields || config.fields.length === 0) {
+    alert('No form configuration found for this category.');
+    return;
+  }
+
+  const sortedFields = [...config.fields].sort((a, b) => a.order - b.order);
+  const submissions = feedbackSubmissions.filter(sub => sub.category === category);
+
+  if (submissions.length === 0) {
+    alert(`No attendee feedback submissions found for ${category.replace('-', ' ')}.`);
+    return;
+  }
+
+  const headers = [
+    'Submission ID',
+    'Item ID',
+    'Item Name / Topic',
+    'Date / POC',
+    'Program',
+    'Respondent Name',
+    'Respondent Email',
+    'Submitted At',
+    ...sortedFields.map(f => f.label)
+  ];
+
+  const rows = submissions.map(sub => {
+    let itemName = sub.itemId;
+    let itemMeta = '';
+    let itemProgram = '';
+
+    if (category === 'admin-calls') {
+      const call = adminCalls.find(c => c.id === sub.itemId);
+      if (call) {
+        itemName = call.cohortTopic;
+        itemMeta = `${call.date} • ${call.adminPoc}`;
+        itemProgram = call.program || '';
+      }
+    } else if (category === 'ama-meetings') {
+      const meeting = studentMeetings.find(m => m.id === sub.itemId);
+      if (meeting) {
+        itemName = meeting.cohort;
+        itemMeta = `${meeting.date} • ${meeting.poc || 'N/A'}`;
+      } else {
+        const ama = studentMeetings.find(a => a.id === sub.itemId); // fallback
+        if (ama) {
+          itemName = (ama as any).topic || (ama as any).cohort || sub.itemId;
+        }
+      }
+    } else if (category === 'student-projects') {
+      const project = studentProjects.find(p => p.id === sub.itemId);
+      if (project) {
+        itemName = project.title;
+        itemMeta = `POC: ${project.poc || 'N/A'}`;
+      }
+    }
+
+    const fieldAnswers = sortedFields.map(f => {
+      const val = sub.answers[f.id];
+      if (val === undefined || val === null) return '';
+      if (Array.isArray(val)) return val.join(', ');
+      return String(val);
+    });
+
+    return [
+      sub.id,
+      sub.itemId,
+      itemName,
+      itemMeta,
+      itemProgram,
+      sub.submittedBy || 'Anonymous',
+      sub.submittedByEmail || '',
+      sub.createdAt ? new Date(sub.createdAt).toLocaleString() : '',
+      ...fieldAnswers
+    ];
+  });
+
+  const fileName = `Attendee_Feedback_${category}_${new Date().toISOString().slice(0, 10)}.csv`;
+  downloadCSV(fileName, headers, rows);
+};
+
+// ─── Modal to assign feedback form to a meeting/project once ─────────────────
+export const AssignFeedbackModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  itemId: string;
+  itemTitle: string;
+  category: 'admin-calls' | 'ama-meetings' | 'student-projects';
+  currentFormId?: string;
+  onAssigned: (assignedFormId: string) => void;
+}> = ({ isOpen, onClose, itemId, itemTitle, category, currentFormId, onAssigned }) => {
+  const { formConfigs, updateAMASession, updateStudentMeeting, updateAdminCall, updateStudentProject, studentMeetings, feedbackSubmissions } = useDashboard();
+  
+  const hasSubmissions = feedbackSubmissions.some(sub => sub.itemId === itemId);
+  const submissionsCount = feedbackSubmissions.filter(sub => sub.itemId === itemId).length;
+
+  const categoryForms = useMemo(() => {
+    return formConfigs.filter(c => c.category === category && c.enabled !== false);
+  }, [formConfigs, category]);
+
+  const defaultForm = useMemo(() => {
+    return categoryForms.find(c => c.isDefault) || categoryForms[0];
+  }, [categoryForms]);
+
+  const [selectedFormId, setSelectedFormId] = useState<string>(() => {
+    return currentFormId || defaultForm?.id || '';
+  });
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedFormId(currentFormId || defaultForm?.id || (categoryForms[0]?.id || ''));
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const categoryLabels = {
+    'admin-calls': 'Admin Meeting',
+    'ama-meetings': 'Student Meeting',
+    'student-projects': 'Student Project'
+  };
+
+  const handleConfirmAssign = () => {
+    if (!selectedFormId) return;
+
+    if (!hasSubmissions) {
+      if (category === 'admin-calls') {
+        updateAdminCall(itemId, { feedbackFormId: selectedFormId });
+      } else if (category === 'ama-meetings') {
+        if (studentMeetings.some(m => m.id === itemId)) {
+          updateStudentMeeting(itemId, { feedbackFormId: selectedFormId });
+        } else {
+          updateAMASession(itemId, { feedbackFormId: selectedFormId });
+        }
+      } else if (category === 'student-projects') {
+        updateStudentProject(itemId, { feedbackFormId: selectedFormId });
+      }
+    }
+
+    onAssigned(selectedFormId);
+    onClose();
+  };
+
+  return (
+    <div className="modal-overlay" style={{ zIndex: 10005 }} onClick={onClose}>
+      <div 
+        className="modal-container" 
+        style={{ maxWidth: '520px', width: '90%', padding: '1.5rem', background: 'var(--panel-bg)', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ClipboardList size={18} style={{ color: 'var(--primary)' }} />
+              {hasSubmissions ? 'Feedback Form Details' : 'Assign Feedback Form'}
+            </h3>
+            <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+              {hasSubmissions ? 'Questionnaire assigned to: ' : 'Choose which questionnaire to use for: '}
+              <strong style={{ color: 'var(--text-primary)' }}>{itemTitle}</strong>
+            </p>
+          </div>
+          <button 
+            onClick={onClose} 
+            style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px', borderRadius: '6px' }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {hasSubmissions && (
+          <div style={{
+            background: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.25)',
+            borderRadius: '10px',
+            padding: '0.75rem 1rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            marginBottom: '1rem'
+          }}>
+            <Lock size={16} style={{ color: 'var(--danger)', flexShrink: 0 }} />
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>
+              <strong>Questionnaire Locked:</strong> {submissionsCount} feedback {submissionsCount === 1 ? 'response has' : 'responses have'} already been received. The questionnaire cannot be changed.
+            </div>
+          </div>
+        )}
+
+        {categoryForms.length === 0 ? (
+          <div style={{ padding: '2rem 1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+            No active feedback forms found for {categoryLabels[category]}. Please create or enable a form in Configuration → Form Builder.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '340px', overflowY: 'auto', padding: '2px' }}>
+            {categoryForms.map(form => {
+              const isSelected = selectedFormId === form.id;
+              const isDef = !!form.isDefault;
+              const fieldCount = form.fields?.length || 0;
+
+              return (
+                <div
+                  key={form.id}
+                  onClick={() => {
+                    if (!hasSubmissions) setSelectedFormId(form.id);
+                  }}
+                  style={{
+                    border: isSelected ? '2px solid var(--primary)' : '1px solid var(--border)',
+                    background: isSelected ? 'var(--primary-glow)' : 'var(--background)',
+                    borderRadius: '12px',
+                    padding: '1rem',
+                    cursor: hasSubmissions ? 'default' : 'pointer',
+                    opacity: hasSubmissions && !isSelected ? 0.5 : 1,
+                    transition: 'all 0.15s',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '12px'
+                  }}
+                >
+                  <div style={{
+                    width: '18px', height: '18px', borderRadius: '50%',
+                    border: isSelected ? '5px solid var(--primary)' : '2px solid var(--text-muted)',
+                    background: '#fff',
+                    marginTop: '2px',
+                    flexShrink: 0
+                  }} />
+
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 750, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                        {form.title || 'Feedback Form'}
+                      </span>
+                      {isDef && (
+                        <span style={{ fontSize: '0.65rem', fontWeight: 750, background: 'var(--primary-glow)', color: 'var(--primary)', border: '1px solid var(--primary)', padding: '1px 6px', borderRadius: '10px' }}>
+                          ★ Default
+                        </span>
+                      )}
+                      {hasSubmissions && isSelected && (
+                        <span style={{ fontSize: '0.65rem', fontWeight: 700, background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', padding: '1px 6px', borderRadius: '10px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                          <Lock size={9} /> Active & Locked
+                        </span>
+                      )}
+                    </div>
+                    {form.description && (
+                      <p style={{ margin: '2px 0 6px 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        {form.description}
+                      </p>
+                    )}
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      {fieldCount} {fieldCount === 1 ? 'Question' : 'Questions'} • {form.fields?.map(f => f.label).slice(0, 2).join(', ')}{fieldCount > 2 ? '...' : ''}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '1.25rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '8px 14px', borderRadius: '8px', background: 'var(--background-alt)',
+              border: '1px solid var(--border)', color: 'var(--text-secondary)',
+              fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer'
+            }}
+          >
+            {hasSubmissions ? 'Close' : 'Cancel'}
+          </button>
+          <button
+            disabled={!selectedFormId}
+            onClick={handleConfirmAssign}
+            style={{
+              padding: '8px 18px', borderRadius: '8px', background: 'var(--primary)',
+              border: 'none', color: '#fff', fontSize: '0.8rem', fontWeight: 600,
+              cursor: selectedFormId ? 'pointer' : 'not-allowed',
+              opacity: selectedFormId ? 1 : 0.6,
+              display: 'flex', alignItems: 'center', gap: '6px'
+            }}
+          >
+            <Link size={14} /> {hasSubmissions ? 'Copy Form Link' : 'Assign & Copy Link'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AttendeeFeedbackDetails: React.FC<{
   itemId: string;
   category: 'admin-calls' | 'ama-meetings' | 'student-projects';
 }> = ({ itemId, category }) => {
-  const { formConfigs, feedbackSubmissions, currentUser, confirm, deleteFeedbackSubmission, geminiModel, addProductItem, productGroups } = useDashboard();
+  const {
+    formConfigs,
+    feedbackSubmissions,
+    currentUser,
+    confirm,
+    deleteFeedbackSubmission,
+    geminiModel,
+    addProductItem,
+    productGroups,
+    amaSessions,
+    studentMeetings,
+    adminCalls,
+    studentProjects,
+    updateAMASession,
+    updateStudentMeeting,
+    updateAdminCall,
+    updateStudentProject,
+    canUserEdit
+  } = useDashboard();
+
   const [copied, setCopied] = useState(false);
   const [viewingSubmission, setViewingSubmission] = useState<FeedbackSubmission | null>(null);
   const isCurrentUserAdmin = currentUser ? (currentUser.isAdmin !== false) : false;
@@ -1024,7 +1261,23 @@ const AttendeeFeedbackDetails: React.FC<{
   const [activeTab, setActiveTab] = useState<'responses' | 'ai'>('responses');
   const [recProducts, setRecProducts] = useState<Record<number, string>>({});
 
-  const config = formConfigs.find(c => c.category === category);
+  // Find parent meeting/project item
+  let currentItem: any = null;
+  if (category === 'admin-calls') {
+    currentItem = adminCalls.find(c => c.id === itemId);
+  } else if (category === 'ama-meetings') {
+    currentItem = studentMeetings.find(m => m.id === itemId) || amaSessions.find(a => a.id === itemId);
+  } else if (category === 'student-projects') {
+    currentItem = studentProjects.find(p => p.id === itemId);
+  }
+
+  const categoryForms = formConfigs.filter(c => c.category === category && c.enabled !== false);
+  const assignedFormId = currentItem?.feedbackFormId;
+  const config = (assignedFormId ? formConfigs.find(c => c.id === assignedFormId) : null)
+    || formConfigs.find(c => c.category === category && c.isDefault)
+    || formConfigs.find(c => c.category === category && c.enabled !== false)
+    || formConfigs.find(c => c.category === category);
+
   const isFormConfigured = config && config.enabled && config.fields && config.fields.length > 0;
   const submissions = feedbackSubmissions.filter(sub => sub.itemId === itemId);
 
@@ -1129,15 +1382,15 @@ const AttendeeFeedbackDetails: React.FC<{
       description: rec.details.trim(),
       tarunSirApproval: false,
       raisedByTarunSir: rec.priority === 'P0',
-      priority: (rec.priority || '') as "" | "P0" | "P1" | "P2" | "P3" | "P4", // Don't pre-populate priority if it's not set
-      poc: currentUser?.name || 'Akash Sharma', // assigned who are adding them
+      priority: (rec.priority || '') as "" | "P0" | "P1" | "P2" | "P3" | "P4",
+      poc: currentUser?.name || 'Akash Sharma',
       status: '',
       clickupStatus: '',
       taskLink: '',
       blocker: '',
       deadline: '',
       notes: noteText,
-      product: recProducts[idx] || '', // Map to correct product group
+      product: recProducts[idx] || '',
       module: '',
       uiux: '',
       finalRelease: '',
@@ -1158,7 +1411,8 @@ const AttendeeFeedbackDetails: React.FC<{
 
   const handleCopyLink = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const link = `${window.location.origin}/?feedback=${itemId}&category=${category}`;
+    const formIdParam = config?.id ? `&formId=${encodeURIComponent(config.id)}` : '';
+    const link = `${window.location.origin}/?feedback=${itemId}&category=${category}${formIdParam}`;
     navigator.clipboard.writeText(link).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -1208,11 +1462,75 @@ const AttendeeFeedbackDetails: React.FC<{
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {categoryForms.length > 0 && (
+            submissions.length > 0 ? (
+              <div 
+                style={{ 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '6px', 
+                  background: 'var(--panel-bg)', 
+                  padding: '4px 10px', 
+                  borderRadius: '6px', 
+                  border: '1px solid var(--border)',
+                  cursor: 'not-allowed'
+                }}
+                title={`Questionnaire is locked because ${submissions.length} feedback response(s) have been received.`}
+              >
+                <Lock size={12} style={{ color: 'var(--text-muted)' }} />
+                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Assigned Form:</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)' }}>
+                  {config?.title || 'Feedback Form'} {config?.isDefault ? '★' : ''}
+                </span>
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', background: 'var(--background-alt)', padding: '1px 6px', borderRadius: '4px', fontWeight: 650 }}>
+                  Locked
+                </span>
+              </div>
+            ) : (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--panel-bg)', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Assigned Form:</span>
+                <select
+                  value={config?.id || ''}
+                  disabled={!canUserEdit}
+                  onChange={(e) => {
+                    const newFormId = e.target.value;
+                    if (category === 'admin-calls') {
+                      updateAdminCall(itemId, { feedbackFormId: newFormId });
+                    } else if (category === 'ama-meetings') {
+                      if (studentMeetings.some(m => m.id === itemId)) {
+                        updateStudentMeeting(itemId, { feedbackFormId: newFormId });
+                      } else {
+                        updateAMASession(itemId, { feedbackFormId: newFormId });
+                      }
+                    } else if (category === 'student-projects') {
+                      updateStudentProject(itemId, { feedbackFormId: newFormId });
+                    }
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary)',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    cursor: canUserEdit ? 'pointer' : 'default',
+                    outline: 'none'
+                  }}
+                >
+                  {categoryForms.map(f => (
+                    <option key={f.id} value={f.id}>
+                      {f.title || f.id} {f.isDefault ? '★ (Default)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )
+          )}
+
           {submissions.length > 0 && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                exportItemFeedbackToExcel(itemId, category, feedbackSubmissions, formConfigs);
+                exportItemFeedbackToExcel(itemId, category, feedbackSubmissions, formConfigs, config?.id);
               }}
               style={{
                 background: 'var(--panel-bg)',
@@ -1689,8 +2007,60 @@ const AttendeeFeedbackDetails: React.FC<{
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {/* Tabular Feedback View */}
       {submissions.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.75rem', border: '1px dashed var(--border)', borderRadius: '8px', background: 'var(--panel-bg)' }}>
-          No feedback responses submitted yet for this item.
+        <div style={{
+          padding: '2rem 1.5rem',
+          textAlign: 'center',
+          border: '1.5px dashed var(--border-light)',
+          borderRadius: '12px',
+          background: 'var(--panel-bg)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '0.85rem'
+        }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '10px',
+            background: 'var(--primary-glow)',
+            color: 'var(--primary)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <ClipboardList size={20} />
+          </div>
+          <div>
+            <h5 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              No feedback responses received yet
+            </h5>
+            <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)', maxWidth: '440px', lineHeight: '1.4' }}>
+              Currently using <strong>"{config?.title || 'Default Form'}"</strong> ({sortedFields.length} {sortedFields.length === 1 ? 'question' : 'questions'}). You can change the assigned form using the dropdown above anytime before attendees submit answers.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+            <button
+              onClick={handleCopyLink}
+              style={{
+                background: copied ? 'var(--success-bg)' : 'var(--primary)',
+                color: copied ? 'var(--success)' : '#fff',
+                border: copied ? '1px solid var(--success)' : 'none',
+                padding: '7px 16px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '0.75rem',
+                fontWeight: 650,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 4px 10px var(--primary-glow)'
+              }}
+            >
+              {copied ? <Check size={13} /> : <Link size={13} />}
+              {copied ? 'Link Copied!' : 'Copy Feedback Link'}
+            </button>
+          </div>
         </div>
       ) : (
         <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid var(--border)' }}>
@@ -1826,15 +2196,63 @@ const FeedbackRatingCell: React.FC<{
   category: 'admin-calls' | 'ama-meetings' | 'student-projects';
   onCellClick: (itemId: string, category: 'admin-calls' | 'ama-meetings' | 'student-projects') => void;
 }> = ({ itemId, category, onCellClick }) => {
-  const { feedbackSubmissions, formConfigs } = useDashboard();
+  const { feedbackSubmissions, formConfigs, adminCalls, studentMeetings, amaSessions, studentProjects } = useDashboard();
   
-  const config = formConfigs.find(c => c.category === category);
+  let currentItem: any = null;
+  if (category === 'admin-calls') currentItem = adminCalls.find(c => c.id === itemId);
+  else if (category === 'ama-meetings') currentItem = studentMeetings.find(m => m.id === itemId) || amaSessions.find(a => a.id === itemId);
+  else if (category === 'student-projects') currentItem = studentProjects.find(p => p.id === itemId);
+
+  const assignedFormId = currentItem?.feedbackFormId;
+  const config = (assignedFormId ? formConfigs.find(c => c.id === assignedFormId) : null)
+    || formConfigs.find(c => c.category === category && c.isDefault)
+    || formConfigs.find(c => c.category === category && c.enabled !== false)
+    || formConfigs.find(c => c.category === category);
+
   if (!config || !config.enabled) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
 
   const submissions = feedbackSubmissions.filter(sub => sub.itemId === itemId);
-  if (submissions.length === 0) return <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>—</span>;
+  const formTitle = config.title || (config.isDefault ? 'Default Form' : 'Feedback Form');
+  const isExplicitlyAssigned = !!assignedFormId;
 
-  const ratingFields = config.fields.filter(f => f.type === 'rating');
+  if (submissions.length === 0) {
+    return (
+      <span 
+        className="badge" 
+        onClick={(e) => {
+          e.stopPropagation();
+          onCellClick(itemId, category);
+        }}
+        style={{
+          fontSize: '0.7rem',
+          padding: '3px 8px',
+          background: isExplicitlyAssigned ? 'var(--primary-glow)' : 'var(--background-alt)',
+          color: isExplicitlyAssigned ? 'var(--primary)' : 'var(--text-muted)',
+          border: isExplicitlyAssigned ? '1px solid var(--primary)' : '1px dashed var(--border)',
+          fontWeight: 600,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          transition: 'all 0.2s',
+          userSelect: 'none',
+          maxWidth: '160px',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap'
+        }}
+        title={`Assigned Form: "${formTitle}" (0 responses yet) • Click to open feedback drawer & manage form`}
+      >
+        <ClipboardList size={11} style={{ flexShrink: 0 }} />
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {isExplicitlyAssigned ? formTitle : '0 / Manage Form'}
+        </span>
+      </span>
+    );
+  }
+
+  const ratingFields = (config.fields || []).filter(f => f.type === 'rating');
   let avg: string | null = null;
   let totalCount = 0;
 
@@ -1853,6 +2271,8 @@ const FeedbackRatingCell: React.FC<{
       totalCount = submissions.length;
     }
   }
+
+  const tooltipText = `Assigned Form: "${formTitle}" • Click to view ${submissions.length} response(s)`;
 
   if (avg) {
     return (
@@ -1877,7 +2297,7 @@ const FeedbackRatingCell: React.FC<{
           transition: 'all 0.2s',
           userSelect: 'none'
         }}
-        title="Click to view feedback submissions"
+        title={tooltipText}
       >
         <Star size={11} fill="#d97706" />
         {avg} <span style={{ opacity: 0.6, fontSize: '0.625rem', fontWeight: 500 }}>({totalCount})</span>
@@ -7009,7 +7429,7 @@ export const PlanTable: React.FC = () => {
 // ProjectDetailModal is deprecated in favor of unified ProductDetailView
 
 export const StudentProjectsTable: React.FC = () => {
-  const { studentProjects, updateStudentProject, addStudentProject, deleteStudentProject, openPreviewForFeature, statuses, productItems, canUserEdit, currentUser, confirm } = useDashboard();
+  const { studentProjects, updateStudentProject, addStudentProject, deleteStudentProject, openPreviewForFeature, statuses, productItems, canUserEdit, currentUser, confirm, formConfigs } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [drawerItemId, setDrawerItemId] = useState<string | null>(null);
@@ -7019,6 +7439,7 @@ export const StudentProjectsTable: React.FC = () => {
   const editInputRef = useRef<HTMLInputElement>(null);
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const [assignModalProject, setAssignModalProject] = useState<StudentProject | null>(null);
   
   // Sorting state
   const [sortField, setSortField] = useState<keyof StudentProject | null>(null);
@@ -7448,28 +7869,40 @@ export const StudentProjectsTable: React.FC = () => {
 
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const link = `${window.location.origin}/?feedback=${p.id}&category=student-projects`;
-                          navigator.clipboard.writeText(link).then(() => {
-                            setCopiedId(p.id);
-                            setTimeout(() => setCopiedId(null), 2000);
-                          });
-                        }}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          color: copiedId === p.id ? 'var(--success)' : 'var(--text-secondary)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          padding: '4px'
-                        }}
-                        title={copiedId === p.id ? "Link Copied!" : "Copy Feedback Link"}
-                      >
-                        {copiedId === p.id ? <Check size={12} /> : <Link size={12} />}
-                      </button>
+                      {(() => {
+                        const projForm = p.feedbackFormId ? formConfigs.find(f => f.id === p.feedbackFormId) : null;
+                        const tip = copiedId === p.id 
+                          ? "Link Copied!" 
+                          : (projForm ? `Feedback Form: "${projForm.title || projForm.id}" (Click to copy link)` : (p.feedbackFormId ? "Copy Feedback Link" : "Assign Form & Copy Link"));
+                        return (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (p.feedbackFormId) {
+                                const link = `${window.location.origin}/?feedback=${p.id}&category=student-projects&formId=${p.feedbackFormId}`;
+                                navigator.clipboard.writeText(link).then(() => {
+                                  setCopiedId(p.id);
+                                  setTimeout(() => setCopiedId(null), 2000);
+                                });
+                              } else {
+                                setAssignModalProject(p);
+                              }
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              color: copiedId === p.id ? 'var(--success)' : (p.feedbackFormId ? 'var(--primary)' : 'var(--text-secondary)'),
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '4px'
+                            }}
+                            title={tip}
+                          >
+                            {copiedId === p.id ? <Check size={12} /> : <Link size={12} />}
+                          </button>
+                        );
+                      })()}
                       {canUserEdit && (
                         <button 
                           onClick={async (e) => {
@@ -7500,6 +7933,23 @@ export const StudentProjectsTable: React.FC = () => {
           setDrawerCategory(null);
         }}
       />
+      {assignModalProject && (
+        <AssignFeedbackModal
+          isOpen={!!assignModalProject}
+          onClose={() => setAssignModalProject(null)}
+          itemId={assignModalProject.id}
+          itemTitle={assignModalProject.title}
+          category="student-projects"
+          currentFormId={assignModalProject.feedbackFormId}
+          onAssigned={(assignedFormId) => {
+            const link = `${window.location.origin}/?feedback=${assignModalProject.id}&category=student-projects&formId=${assignedFormId}`;
+            navigator.clipboard.writeText(link).then(() => {
+              setCopiedId(assignModalProject.id);
+              setTimeout(() => setCopiedId(null), 2000);
+            });
+          }}
+        />
+      )}
     </>
   );
 };
@@ -7616,43 +8066,84 @@ export const StudentMeetingDetailModal: React.FC<StudentMeetingDetailModalProps>
 
 
 
-const programsList = ['UG', 'PGP', 'YLC', 'All'];
-const allStandardCohorts = ['UG-27,28,29', 'UGTBM 1', 'UGTBM 2', 'UG-DSAI-2029', 'PGP TBM', 'PGP-26', 'PGP-27', 'YLC 27', 'YLC 28', 'All Cohorts'];
-
-const programCohortsMap: Record<string, string[]> = {
-  'UG': ['UG-27,28,29', 'UGTBM 1', 'UGTBM 2', 'UG-DSAI-2029'],
-  'PGP': ['PGP TBM', 'PGP-26', 'PGP-27'],
-  'YLC': ['YLC 27', 'YLC 28'],
-  'All': ['All Cohorts']
-};
-
-
-
-const getProgramForCohort = (cohort: string): string => {
-  for (const [prog, cohorts] of Object.entries(programCohortsMap)) {
-    if (cohorts.includes(cohort)) {
-      return prog;
-    }
-  }
-  if (cohort.startsWith('UG')) return 'UG';
-  if (cohort.startsWith('PGP')) return 'PGP';
-  if (cohort.startsWith('YLC')) return 'YLC';
-  return 'UG';
-};
-
 export const StudentMeetingsTable: React.FC = () => {
   const { 
     amaSessions, addAMASession, updateAMASession, deleteAMASession,
     productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
     speakers: configSpeakers, statuses, currentUser, confirm,
-    programs, fetchPaginatedMeetingsData,
+    programs: configPrograms, cohorts: configCohorts, fetchPaginatedMeetingsData,
     meetingSearchQuery, setMeetingSearchQuery,
     highlightedCallId, setHighlightedCallId,
     feedbackSubmissions, formConfigs
   } = useDashboard();
 
   // Derive speakers list from configuration context (live — updates when Config tab changes)
-  const speakersList = configSpeakers.map(s => s.name);
+  const speakersList = (configSpeakers || []).map(s => s.name);
+
+  // Dynamic Programs list derived from configuration
+  const programsList = useMemo(() => {
+    const list = (configPrograms || []).map(p => p.name).filter(Boolean);
+    if (list.length === 0) return ['UG', 'PGP', 'YLC', 'All'];
+    return list;
+  }, [configPrograms]);
+
+  // Dynamic programCohortsMap derived from configuration
+  const programCohortsMap = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    const programIdToName: Record<string, string> = {};
+    (configPrograms || []).forEach(p => {
+      programIdToName[p.id] = p.name;
+      map[p.name] = [];
+    });
+
+    (configCohorts || []).forEach(c => {
+      if (c.active !== false && c.name) {
+        const progName = programIdToName[c.programId] || c.programId;
+        if (progName) {
+          if (!map[progName]) map[progName] = [];
+          if (!map[progName].includes(c.name)) map[progName].push(c.name);
+        }
+      }
+    });
+
+    if (Object.keys(map).length === 0) {
+      return {
+        'UG': ['UG-27,28,29', 'UGTBM 1', 'UGTBM 2', 'UG-DSAI-2029'],
+        'PGP': ['PGP TBM', 'PGP-26', 'PGP-27'],
+        'YLC': ['YLC 27', 'YLC 28'],
+        'All': ['All Cohorts']
+      };
+    }
+    return map;
+  }, [configPrograms, configCohorts]);
+
+  // All active standard cohorts list derived from configuration
+  const allStandardCohorts = useMemo(() => {
+    const list = (configCohorts || [])
+      .filter(c => c.active !== false && c.name)
+      .map(c => c.name);
+    if (list.length === 0) {
+      return ['UG-27,28,29', 'UGTBM 1', 'UGTBM 2', 'UG-DSAI-2029', 'PGP TBM', 'PGP-26', 'PGP-27', 'YLC 27', 'YLC 28', 'All Cohorts'];
+    }
+    return list;
+  }, [configCohorts]);
+
+  const getProgramForCohort = useCallback((cohortName: string): string => {
+    for (const [prog, cohortList] of Object.entries(programCohortsMap)) {
+      if (cohortList.includes(cohortName)) {
+        return prog;
+      }
+    }
+    const matchingCohort = (configCohorts || []).find(c => c.name === cohortName);
+    if (matchingCohort) {
+      const prog = (configPrograms || []).find(p => p.id === matchingCohort.programId);
+      if (prog) return prog.name;
+    }
+    if (cohortName.startsWith('UG')) return 'UG';
+    if (cohortName.startsWith('PGP')) return 'PGP';
+    if (cohortName.startsWith('YLC')) return 'YLC';
+    return programsList[0] || 'UG';
+  }, [programCohortsMap, configCohorts, configPrograms, programsList]);
 
   const [subTab, setSubTab] = useState<'schedule' | 'feedback'>('schedule');
   const [searchQuery, setSearchQuery] = useState('');
@@ -7663,6 +8154,7 @@ export const StudentMeetingsTable: React.FC = () => {
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
   const [filterPrograms, setFilterPrograms] = useState<string[]>([]);
   const [filterPocs, setFilterPocs] = useState<string[]>([]);
+  const [assignModalItem, setAssignModalItem] = useState<{ id: string; title: string; formId?: string; } | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -8021,7 +8513,7 @@ export const StudentMeetingsTable: React.FC = () => {
               placeholder="Status"
             />
             <MultiSelectDropdown
-              options={programs.map(p => p.name)}
+              options={programsList}
               selectedValues={filterPrograms}
               onChange={setFilterPrograms}
               placeholder="Program"
@@ -8576,42 +9068,50 @@ export const StudentMeetingsTable: React.FC = () => {
                                 color: ama.pinned ? 'var(--primary)' : 'var(--text-secondary)', 
                                 display: 'flex', 
                                 alignItems: 'center',
-                                padding: '4px',
-                                transition: 'all 0.2s ease'
-                              }}
-                              title={ama.pinned ? "Unpin Session" : "Pin Session"}
-                            >
-                              <Pin 
-                                size={12} 
-                                style={{ 
-                                  transform: ama.pinned ? 'rotate(0deg)' : 'rotate(45deg)',
-                                  fill: ama.pinned ? 'var(--primary)' : 'none',
-                                  transition: 'transform 0.2s/fill 0.2s ease'
-                                }} 
-                              />
-                            </button>
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const link = `${window.location.origin}/?feedback=${ama.id}&category=ama-meetings`;
-                                navigator.clipboard.writeText(link).then(() => {
-                                  setCopiedId(ama.id);
-                                  setTimeout(() => setCopiedId(null), 2000);
-                                });
-                              }}
-                              style={{ 
-                                background: 'none', 
-                                border: 'none', 
-                                cursor: 'pointer', 
-                                color: copiedId === ama.id ? 'var(--success)' : 'var(--text-secondary)', 
-                                display: 'flex', 
-                                alignItems: 'center',
                                 padding: '4px'
                               }}
-                              title={copiedId === ama.id ? "Link Copied!" : "Copy Feedback Link"}
+                              title={ama.pinned ? "Unpin Row" : "Pin Row"}
                             >
-                              {copiedId === ama.id ? <Check size={12} /> : <Link size={12} />}
+                              <Pin size={12} style={{ transform: ama.pinned ? 'none' : 'rotate(45deg)' }} />
                             </button>
+                            {(() => {
+                              const amaForm = ama.feedbackFormId ? formConfigs.find(f => f.id === ama.feedbackFormId) : null;
+                              const tip = copiedId === ama.id 
+                                ? "Link Copied!" 
+                                : (amaForm ? `Feedback Form: "${amaForm.title || amaForm.id}" (Click to copy link)` : (ama.feedbackFormId ? "Copy Feedback Link" : "Assign Form & Copy Link"));
+                              return (
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (ama.feedbackFormId) {
+                                      const link = `${window.location.origin}/?feedback=${ama.id}&category=ama-meetings&formId=${ama.feedbackFormId}`;
+                                      navigator.clipboard.writeText(link).then(() => {
+                                        setCopiedId(ama.id);
+                                        setTimeout(() => setCopiedId(null), 2000);
+                                      });
+                                    } else {
+                                      setAssignModalItem({
+                                        id: ama.id,
+                                        title: ama.topic || ama.speaker || 'AMA Session',
+                                        formId: ama.feedbackFormId
+                                      });
+                                    }
+                                  }}
+                                  style={{ 
+                                    background: 'none', 
+                                    border: 'none', 
+                                    cursor: 'pointer', 
+                                    color: copiedId === ama.id ? 'var(--success)' : (ama.feedbackFormId ? 'var(--primary)' : 'var(--text-secondary)'), 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    padding: '4px'
+                                  }}
+                                  title={tip}
+                                >
+                                  {copiedId === ama.id ? <Check size={12} /> : <Link size={12} />}
+                                </button>
+                              );
+                            })()}
                             <button 
                               onClick={() => {
                                 setEditingAMATopicId(ama.id);
@@ -9675,6 +10175,23 @@ export const StudentMeetingsTable: React.FC = () => {
           setDrawerCategory(null);
         }}
       />
+      {assignModalItem && (
+        <AssignFeedbackModal
+          isOpen={!!assignModalItem}
+          onClose={() => setAssignModalItem(null)}
+          itemId={assignModalItem.id}
+          itemTitle={assignModalItem.title}
+          category="ama-meetings"
+          currentFormId={assignModalItem.formId}
+          onAssigned={(assignedFormId) => {
+            const link = `${window.location.origin}/?feedback=${assignModalItem.id}&category=ama-meetings&formId=${assignedFormId}`;
+            navigator.clipboard.writeText(link).then(() => {
+              setCopiedId(assignModalItem.id);
+              setTimeout(() => setCopiedId(null), 2000);
+            });
+          }}
+        />
+      )}
     </>
   );
 };
@@ -9709,6 +10226,7 @@ export const AdminCallsTable: React.FC = () => {
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
   const [filterPrograms, setFilterPrograms] = useState<string[]>([]);
   const [filterPocs, setFilterPocs] = useState<string[]>([]);
+  const [assignModalItem, setAssignModalItem] = useState<{ id: string; title: string; formId?: string; } | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -10501,42 +11019,50 @@ export const AdminCallsTable: React.FC = () => {
                                 color: call.pinned ? 'var(--primary)' : 'var(--text-secondary)', 
                                 display: 'flex', 
                                 alignItems: 'center',
-                                padding: '4px',
-                                transition: 'all 0.2s ease'
-                              }}
-                              title={call.pinned ? "Unpin Call" : "Pin Call"}
-                            >
-                              <Pin 
-                                size={12} 
-                                style={{ 
-                                  transform: call.pinned ? 'rotate(0deg)' : 'rotate(45deg)',
-                                  fill: call.pinned ? 'var(--primary)' : 'none',
-                                  transition: 'transform 0.2s/fill 0.2s ease'
-                                }} 
-                              />
-                            </button>
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const link = `${window.location.origin}/?feedback=${call.id}&category=admin-calls`;
-                                navigator.clipboard.writeText(link).then(() => {
-                                  setCopiedId(call.id);
-                                  setTimeout(() => setCopiedId(null), 2000);
-                                });
-                              }}
-                              style={{ 
-                                background: 'none', 
-                                border: 'none', 
-                                cursor: 'pointer', 
-                                color: copiedId === call.id ? 'var(--success)' : 'var(--text-secondary)', 
-                                display: 'flex', 
-                                alignItems: 'center',
                                 padding: '4px'
                               }}
-                              title={copiedId === call.id ? "Link Copied!" : "Copy Feedback Link"}
+                              title={call.pinned ? "Unpin Row" : "Pin Row"}
                             >
-                              {copiedId === call.id ? <Check size={12} /> : <Link size={12} />}
+                              <Pin size={12} style={{ transform: call.pinned ? 'none' : 'rotate(45deg)' }} />
                             </button>
+                            {(() => {
+                              const callForm = call.feedbackFormId ? formConfigs.find(f => f.id === call.feedbackFormId) : null;
+                              const tip = copiedId === call.id 
+                                ? "Link Copied!" 
+                                : (callForm ? `Feedback Form: "${callForm.title || callForm.id}" (Click to copy link)` : (call.feedbackFormId ? "Copy Feedback Link" : "Assign Form & Copy Link"));
+                              return (
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (call.feedbackFormId) {
+                                      const link = `${window.location.origin}/?feedback=${call.id}&category=admin-calls&formId=${call.feedbackFormId}`;
+                                      navigator.clipboard.writeText(link).then(() => {
+                                        setCopiedId(call.id);
+                                        setTimeout(() => setCopiedId(null), 2000);
+                                      });
+                                    } else {
+                                      setAssignModalItem({
+                                        id: call.id,
+                                        title: call.cohortTopic || call.adminPoc || 'Admin Call',
+                                        formId: call.feedbackFormId
+                                      });
+                                    }
+                                  }}
+                                  style={{ 
+                                    background: 'none', 
+                                    border: 'none', 
+                                    cursor: 'pointer', 
+                                    color: copiedId === call.id ? 'var(--success)' : (call.feedbackFormId ? 'var(--primary)' : 'var(--text-secondary)'), 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    padding: '4px'
+                                  }}
+                                  title={tip}
+                                >
+                                  {copiedId === call.id ? <Check size={12} /> : <Link size={12} />}
+                                </button>
+                              );
+                            })()}
                             <button 
                               onClick={() => {
                                 setEditingCallTopicId(call.id);
@@ -11527,6 +12053,23 @@ export const AdminCallsTable: React.FC = () => {
           meetingType={selectedAiMeeting.type}
           onApplySummary={(sum) => {
             updateAdminCall(selectedAiMeeting.id, { discussion: sum });
+          }}
+        />
+      )}
+      {assignModalItem && (
+        <AssignFeedbackModal
+          isOpen={!!assignModalItem}
+          onClose={() => setAssignModalItem(null)}
+          itemId={assignModalItem.id}
+          itemTitle={assignModalItem.title}
+          category="admin-calls"
+          currentFormId={assignModalItem.formId}
+          onAssigned={(assignedFormId) => {
+            const link = `${window.location.origin}/?feedback=${assignModalItem.id}&category=admin-calls&formId=${assignedFormId}`;
+            navigator.clipboard.writeText(link).then(() => {
+              setCopiedId(assignModalItem.id);
+              setTimeout(() => setCopiedId(null), 2000);
+            });
           }}
         />
       )}
