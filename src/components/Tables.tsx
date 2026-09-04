@@ -6512,7 +6512,7 @@ const PlanDetailModal: React.FC<PlanDetailModalProps> = ({ item, onClose, onUpda
 
 export const PlanTable: React.FC = () => {
   const {
-    planItems, updatePlanItem, addPlanItem, deletePlanItem,
+    planItems, updatePlanItem, deletePlanItem,
     productItems, studentProjects, contentItems, studentMeetings,
     dailyIssues,
     openPreviewForFeature, canUserEdit, confirm, comments, lastOpenedMap,
@@ -6948,18 +6948,6 @@ export const PlanTable: React.FC = () => {
     return matchesSearch && matchesSuperPriority;
   });
 
-  const handleAddNew = () => {
-    const newTask: PlanItem = {
-      id: `plan-${Date.now()}`,
-      month: selectedMonth,
-      category: 'Development',
-      task: 'New Sprint Task Description',
-      link: '',
-      status: 'open'
-    };
-    addPlanItem(newTask);
-    setEditingItem(newTask);
-  };
 
   // HTML5 Drag-and-drop operations (manual items only)
   const handleDragStart = (e: React.DragEvent, id: string) => {
