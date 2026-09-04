@@ -333,8 +333,8 @@ export default async function handler(req: any, res: any) {
             return res.status(200).json({ success: true, data: [], total: 0, page: 1, pageSize });
           }
 
-          const filter = {
-            id: { $ne: excludeId },
+          const filter: any = {
+            id: { $ne: excludeId, $not: /^prod-temp-/ },
             feature: { $regex: query, $options: 'i' }
           };
 

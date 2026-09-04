@@ -7016,8 +7016,6 @@ export const PlanTable: React.FC = () => {
         title="Sprint Planning"
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-        onAddClick={handleAddNew}
-        addLabel="Add Task"
         filterComponent={
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <div className="calendar-nav-buttons" style={{ height: '32px' }}>
