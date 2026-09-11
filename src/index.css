@@ -3984,6 +3984,115 @@ body.read-only-mode .btn:has(svg.lucide-plus) {
   transform: translateY(-50%) translateX(0); /* Slide in to place */
 }
 
+.cu-tooltip-bottom {
+  top: 100% !important;
+  left: 50% !important;
+  transform: translateX(-50%) translateY(6px) !important;
+}
+
+.cu-tooltip-container:hover .cu-tooltip-bottom {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) !important;
+}
+
+/* ── Premium Permission Popover Cards ── */
+.perm-header-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+  user-select: none;
+}
+
+.perm-header-wrapper:hover {
+  background: var(--background-alt);
+}
+
+.perm-info-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--primary);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  flex-shrink: 0;
+}
+
+.perm-header-wrapper:hover .perm-info-badge {
+  background: var(--primary);
+  color: #fff;
+  transform: scale(1.15);
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+}
+
+.perm-popover-card {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: calc(100% + 9px);
+  left: 50%;
+  transform: translateX(-50%) translateY(6px) scale(0.97);
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.2s;
+  z-index: 99999;
+  width: 290px;
+  background: var(--panel-bg);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 100%);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 13px 15px;
+  box-shadow: 0 16px 38px -6px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  text-align: left;
+  font-family: inherit;
+}
+
+.perm-popover-card.align-right {
+  left: auto;
+  right: -25px;
+  transform: translateY(6px) scale(0.97);
+}
+
+.perm-header-wrapper:hover .perm-popover-card {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+}
+
+.perm-header-wrapper:hover .perm-popover-card.align-right {
+  transform: translateY(0) scale(1);
+}
+
+.perm-popover-card::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 9px;
+  height: 9px;
+  background: var(--panel-bg);
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  z-index: 2;
+}
+
+.perm-popover-card.align-right::before {
+  left: auto;
+  right: 52px;
+  transform: rotate(45deg);
+}
+
 /* Similar task suggestions list item hover styling */
 .similar-task-item {
   background-color: var(--panel-bg);

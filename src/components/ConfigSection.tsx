@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import type { ConfigSpeaker, ConfigProductGroup, ConfigStatus, ConfigProgram, ConfigCohort, FeedbackFormField, FeedbackFormConfig } from '../types';
-import { Plus, Trash2, Check, X, Pencil, Users, Layers, Tag, Key, Eye, EyeOff, RefreshCw, AlertCircle, ClipboardList, ChevronUp, ChevronDown, Shield, Calendar, Copy, Link, Zap, Mail, Sparkles, Lock, GripVertical, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, Check, X, Pencil, Users, Layers, Tag, Key, Eye, EyeOff, RefreshCw, AlertCircle, ClipboardList, ChevronUp, ChevronDown, Shield, Calendar, Copy, Link, Zap, Mail, Sparkles, Lock, GripVertical, CheckCircle, Info } from 'lucide-react';
 
 // ─── Colour palette ────────────────────────────────────────────────────────────
 const PALETTE = [
@@ -224,8 +224,134 @@ const SpeakersSection: React.FC = () => {
             <th>Name</th>
             <th>Email</th>
             <th>Role / Title</th>
-            <th style={{ width: 90, textAlign: 'center' }}>Can Edit</th>
-            <th style={{ width: 90, textAlign: 'center' }}>Admin</th>
+            <th style={{ width: 110, textAlign: 'center' }}>
+              <div className="perm-header-wrapper">
+                <span>Can Edit</span>
+                <span className="perm-info-badge">
+                  <Info size={11} strokeWidth={2.5} />
+                </span>
+                <div className="perm-popover-card">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <div style={{
+                      width: 24, height: 24, borderRadius: 6,
+                      background: 'rgba(99, 102, 241, 0.15)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: 'var(--primary)',
+                      flexShrink: 0
+                    }}>
+                      <Pencil size={12} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--text-primary)' }}>Can Edit Permission</div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Workspace Write & Mutation Access</div>
+                    </div>
+                  </div>
+
+                  <div style={{ height: 1, background: 'var(--border)', margin: '8px 0' }} />
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: '0.73rem', lineHeight: 1.4 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                      <span style={{ 
+                        background: 'rgba(16, 185, 129, 0.15)', 
+                        color: '#10b981', 
+                        padding: '1px 5px', 
+                        borderRadius: 4, 
+                        fontWeight: 700,
+                        fontSize: '0.65rem',
+                        marginTop: 1,
+                        flexShrink: 0
+                      }}>
+                        ON
+                      </span>
+                      <span style={{ color: 'var(--text-secondary)' }}>
+                        Grants write access to add, edit, or delete items across all workspace modules.
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                      <span style={{ 
+                        background: 'rgba(148, 163, 184, 0.15)', 
+                        color: 'var(--text-muted)', 
+                        padding: '1px 5px', 
+                        borderRadius: 4, 
+                        fontWeight: 700,
+                        fontSize: '0.65rem',
+                        marginTop: 1,
+                        flexShrink: 0
+                      }}>
+                        OFF
+                      </span>
+                      <span style={{ color: 'var(--text-muted)' }}>
+                        Read-Only / Viewer mode (view dashboards without making changes).
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </th>
+            <th style={{ width: 100, textAlign: 'center' }}>
+              <div className="perm-header-wrapper">
+                <span>Admin</span>
+                <span className="perm-info-badge">
+                  <Info size={11} strokeWidth={2.5} />
+                </span>
+                <div className="perm-popover-card align-right">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <div style={{
+                      width: 24, height: 24, borderRadius: 6,
+                      background: 'rgba(236, 72, 153, 0.15)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#ec4899',
+                      flexShrink: 0
+                    }}>
+                      <Shield size={12} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--text-primary)' }}>Admin Permission</div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>User Governance & Permissions</div>
+                    </div>
+                  </div>
+
+                  <div style={{ height: 1, background: 'var(--border)', margin: '8px 0' }} />
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: '0.73rem', lineHeight: 1.4 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                      <span style={{ 
+                        background: 'rgba(16, 185, 129, 0.15)', 
+                        color: '#10b981', 
+                        padding: '1px 5px', 
+                        borderRadius: 4, 
+                        fontWeight: 700,
+                        fontSize: '0.65rem',
+                        marginTop: 1,
+                        flexShrink: 0
+                      }}>
+                        ON
+                      </span>
+                      <span style={{ color: 'var(--text-secondary)' }}>
+                        Full admin access: add/delete team members, toggle permissions, and manage configs.
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                      <span style={{ 
+                        background: 'rgba(148, 163, 184, 0.15)', 
+                        color: 'var(--text-muted)', 
+                        padding: '1px 5px', 
+                        borderRadius: 4, 
+                        fontWeight: 700,
+                        fontSize: '0.65rem',
+                        marginTop: 1,
+                        flexShrink: 0
+                      }}>
+                        OFF
+                      </span>
+                      <span style={{ color: 'var(--text-muted)' }}>
+                        Standard member without user management or permission toggle rights.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </th>
             <th style={{ width: 72 }}>Actions</th>
           </tr>
         </thead>
@@ -288,6 +414,7 @@ const SpeakersSection: React.FC = () => {
                   {editingId === s.id ? (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <div 
+                        title={editCanEdit ? "Can Edit: Enabled (User can add/edit records)" : "Can Edit: Disabled (Read-only viewer)"}
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
@@ -321,7 +448,10 @@ const SpeakersSection: React.FC = () => {
                     </div>
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: 0.7 }}>
+                      <div 
+                        title={(s.canEdit !== false) ? "Can Edit: Enabled (User can add/edit records)" : "Can Edit: Disabled (Read-only viewer)"}
+                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: 0.85, cursor: 'help' }}
+                      >
                         <div style={{
                           width: '28px',
                           height: '16px',
@@ -350,6 +480,7 @@ const SpeakersSection: React.FC = () => {
                   {editingId === s.id ? (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <div 
+                        title={editIsAdmin ? "Admin: Enabled (Full administrator privileges)" : "Admin: Disabled (Standard member)"}
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
@@ -383,7 +514,10 @@ const SpeakersSection: React.FC = () => {
                     </div>
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: 0.7 }}>
+                      <div 
+                        title={(s.isAdmin !== false) ? "Admin: Enabled (Full administrator privileges)" : "Admin: Disabled (Standard member)"}
+                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: 0.85, cursor: 'help' }}
+                      >
                         <div style={{
                           width: '28px',
                           height: '16px',
@@ -470,6 +604,7 @@ const SpeakersSection: React.FC = () => {
               <td>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <div 
+                    title={addCanEdit ? "Can Edit: Enabled (User can add/edit records)" : "Can Edit: Disabled (Read-only viewer)"}
                     style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                     onClick={() => setAddCanEdit(!addCanEdit)}
                   >
@@ -499,6 +634,7 @@ const SpeakersSection: React.FC = () => {
               <td>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <div 
+                    title={addIsAdmin ? "Admin: Enabled (Full administrator privileges)" : "Admin: Disabled (Standard member)"}
                     style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                     onClick={() => setAddIsAdmin(!addIsAdmin)}
                   >
@@ -1470,10 +1606,41 @@ const ProgramsSection: React.FC = () => {
 // CLICKUP INTEGRATION SECTION
 // ═══════════════════════════════════════════════════════════════════════════════
 const ClickupSettingsSection: React.FC = () => {
-  const { clickupApiKey, setClickupApiKey, syncClickupTask, registerClickupWebhook, checkClickupWebhookStatus, canUserEdit } = useDashboard();
+  const { clickupApiKey, setClickupApiKey, syncClickupTask, registerClickupWebhook, checkClickupWebhookStatus, refreshAllClickupStatuses, canUserEdit } = useDashboard();
   const [apiKeyInput, setApiKeyInput] = useState(clickupApiKey);
   const [showKey, setShowKey] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+
+  // Bulk status fetch states
+  const [isBulkSyncing, setIsBulkSyncing] = useState(false);
+  const [bulkSyncResult, setBulkSyncResult] = useState<{
+    success: boolean;
+    totalScanned: number;
+    updatedCount: number;
+    error?: string;
+  } | null>(null);
+
+  const handleBulkFetchStatus = async () => {
+    if (!canUserEdit || isBulkSyncing || !apiKeyInput.trim()) return;
+    setIsBulkSyncing(true);
+    setBulkSyncResult(null);
+    try {
+      if (apiKeyInput.trim() !== clickupApiKey) {
+        setClickupApiKey(apiKeyInput.trim());
+      }
+      const res = await refreshAllClickupStatuses();
+      setBulkSyncResult(res);
+    } catch (err: any) {
+      setBulkSyncResult({
+        success: false,
+        totalScanned: 0,
+        updatedCount: 0,
+        error: err.message || 'Failed to fetch ClickUp statuses.'
+      });
+    } finally {
+      setIsBulkSyncing(false);
+    }
+  };
 
   // Webhook states
   const [webhookStatus, setWebhookStatus] = useState<'loading' | 'registered' | 'unregistered'>('loading');
@@ -1592,7 +1759,7 @@ const ClickupSettingsSection: React.FC = () => {
       title="ClickUp Settings"
       subtitle="Configure your ClickUp API credentials to pull task status automatically"
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '600px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '680px' }}>
         
         {/* Credentials Form */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -1641,29 +1808,18 @@ const ClickupSettingsSection: React.FC = () => {
           <button
             onClick={handleSave}
             disabled={!canUserEdit}
+            className="btn btn-primary btn-sm"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 16px',
-              background: isSaved ? '#10b981' : 'var(--primary)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: canUserEdit ? 'pointer' : 'default',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              transition: 'background-color 0.15s, opacity 0.15s',
               opacity: canUserEdit ? 1 : 0.5,
+              background: isSaved ? '#10b981' : undefined
             }}
-            onMouseEnter={e => { if (!isSaved && canUserEdit) e.currentTarget.style.opacity = '0.85'; }}
-            onMouseLeave={e => { if (!isSaved && canUserEdit) e.currentTarget.style.opacity = '1'; }}
           >
             {isSaved ? <Check size={14} /> : null}
             {isSaved ? 'Saved Settings!' : 'Save Credentials'}
           </button>
         </div>
 
+        {/* Test Connection */}
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem', marginTop: '0.5rem' }}>
           <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
             Test Connection
@@ -1688,19 +1844,9 @@ const ClickupSettingsSection: React.FC = () => {
             <button
               onClick={handleTest}
               disabled={!canUserEdit || isTesting || !testLink.trim() || !apiKeyInput.trim()}
+              className="btn btn-secondary btn-sm"
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 16px',
-                background: 'var(--background-alt)',
-                color: 'var(--text-primary)',
-                border: '1.5px solid var(--border)',
-                borderRadius: '8px',
-                cursor: (canUserEdit && !isTesting && testLink.trim() && apiKeyInput.trim()) ? 'pointer' : 'default',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                transition: 'all 0.15s',
+                whiteSpace: 'nowrap',
                 opacity: (!canUserEdit || isTesting || !testLink.trim() || !apiKeyInput.trim()) ? 0.5 : 1,
               }}
             >
@@ -1753,6 +1899,61 @@ const ClickupSettingsSection: React.FC = () => {
           )}
         </div>
 
+        {/* Bulk Fetch Task Statuses */}
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem', marginTop: '0.5rem' }}>
+          <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+            Fetch All Task Statuses
+          </h4>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0 0 1rem 0' }}>
+            Scan all linked tasks across Products, Sprints, Student Projects, Meetings, and Daily Issues to fetch and update live ClickUp statuses.
+          </p>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button
+              onClick={handleBulkFetchStatus}
+              disabled={!canUserEdit || isBulkSyncing || !apiKeyInput.trim()}
+              className="btn btn-primary btn-sm"
+              style={{
+                opacity: (!canUserEdit || isBulkSyncing || !apiKeyInput.trim()) ? 0.6 : 1,
+              }}
+            >
+              <RefreshCw size={14} style={{ animation: isBulkSyncing ? 'spin 1s linear infinite' : 'none' }} />
+              {isBulkSyncing ? 'Fetching All Statuses...' : 'Fetch All Current Statuses'}
+            </button>
+          </div>
+
+          {bulkSyncResult && (
+            <div
+              style={{
+                marginTop: '1rem',
+                padding: '0.75rem 1rem',
+                borderRadius: '8px',
+                border: `1px solid ${bulkSyncResult.success ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                background: bulkSyncResult.success ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: '0.8rem',
+              }}
+            >
+              {bulkSyncResult.success ? (
+                <Check size={16} style={{ color: '#10b981', flexShrink: 0 }} />
+              ) : (
+                <AlertCircle size={16} style={{ color: 'var(--danger)', flexShrink: 0 }} />
+              )}
+              <div style={{ color: bulkSyncResult.success ? 'var(--text-primary)' : 'var(--danger)' }}>
+                {bulkSyncResult.success ? (
+                  <span>
+                    Successfully synchronized! Scanned <strong>{bulkSyncResult.totalScanned}</strong> linked task(s) and updated <strong>{bulkSyncResult.updatedCount}</strong> item(s).
+                  </span>
+                ) : (
+                  <span>{bulkSyncResult.error || 'Failed to fetch ClickUp statuses.'}</span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Real-time Webhooks */}
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem', marginTop: '0.5rem' }}>
           <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -1766,19 +1967,8 @@ const ClickupSettingsSection: React.FC = () => {
             <button
               onClick={handleRegisterWebhook}
               disabled={!canUserEdit || isRegisteringWebhook || webhookStatus === 'loading' || !apiKeyInput.trim() || webhookStatus === 'registered'}
+              className="btn btn-secondary btn-sm"
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 16px',
-                background: webhookStatus === 'registered' ? '#10b981' : 'var(--background-alt)',
-                color: webhookStatus === 'registered' ? '#fff' : 'var(--text-primary)',
-                border: webhookStatus === 'registered' ? '1.5px solid #10b981' : '1.5px solid var(--border)',
-                borderRadius: '8px',
-                cursor: (canUserEdit && !isRegisteringWebhook && webhookStatus !== 'loading' && apiKeyInput.trim() && webhookStatus !== 'registered') ? 'pointer' : 'default',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                transition: 'all 0.15s',
                 opacity: (!canUserEdit || isRegisteringWebhook || webhookStatus === 'loading' || !apiKeyInput.trim() || webhookStatus === 'registered') ? 0.8 : 1,
               }}
             >

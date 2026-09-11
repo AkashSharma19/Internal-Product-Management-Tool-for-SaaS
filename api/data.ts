@@ -5097,9 +5097,12 @@ Respond ONLY with clean, raw HTML string. Do not wrap it in any markdown code bl
           console.log(`[Webhook Register] Registration result for team ${teamId}:`, registerResult._statusCode);
 
           if (registerResult._statusCode >= 200 && registerResult._statusCode < 300) {
-            registeredWebhooks.push({ teamId, webhookId: registerResult.id });
+            registeredWebhooks.push({ teamId, webhookId: registerResult.id, workspaceName: team.name });
           } else {
-            const errMsg = registerResult?.err || registerResult?.error || registerResult?._raw || `ClickUp returned status ${registerResult._statusCode}`;
+            let errMsg = registerResult?.err || registerResult?.error || registerResult?._raw || `ClickUp returned status ${registerResult._statusCode}`;
+            if (isLocalhost || (typeof errMsg === 'string' && errMsg.includes('Specified URL not allowed'))) {
+              errMsg = `Specified URL not allowed. ClickUp requires a public HTTPS domain (e.g., your deployed Vercel URL or ngrok proxy) and rejects localhost endpoints.`;
+            }
             return res.status(200).json({ success: false, error: `Registration failed on workspace "${team.name}": ${errMsg}` });
           }
         }
