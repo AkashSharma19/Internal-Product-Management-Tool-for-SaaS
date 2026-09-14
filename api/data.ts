@@ -5886,26 +5886,57 @@ Respond ONLY with clean, raw HTML string. Do not wrap it in any markdown code bl
               return res.status(401).json({ success: false, error: 'Unauthorized: Missing user credentials.' });
             }
             
-            const ConfigSpeaker = modelsMap['speakers'];
-            const speaker = await ConfigSpeaker.findOne({ id: userId }).lean() as any;
+            let speaker: any = null;
+            if (typeof userId === 'string' && userId.startsWith('guest-')) {
+              const guestEmail = userId.replace('guest-', '');
+              const guestName = guestEmail.split('@')[0];
+              speaker = {
+                id: userId,
+                name: guestName,
+                email: guestEmail,
+                role: 'Guest',
+                isGuest: true,
+                canEdit: false
+              };
+            } else {
+              const ConfigSpeaker = modelsMap['speakers'];
+              speaker = await ConfigSpeaker.findOne({ id: userId }).lean() as any;
+            }
+
             if (!speaker) {
               return res.status(401).json({ success: false, error: 'Unauthorized: User profile not found.' });
             }
             
             const existingProduct = await Model.findOne(query).lean() as any;
             if (existingProduct) {
-              const userName = speaker.name.toLowerCase().trim();
+              const userName = (speaker.name || '').toLowerCase().trim();
+              const userEmail = (speaker.email || '').toLowerCase().trim();
               const docPoc = (existingProduct.poc || '').toLowerCase().trim();
+              const docAssignee = (existingProduct.clickupAssignee || '').toLowerCase().trim();
               
-              const isTarun = userName.includes('tarun') || speaker.id === 'speaker-1' || speaker.role === 'Admin';
-              const nameParts = userName.split(/\s+/);
-              const isMatched = nameParts.some((part: string) => part.length > 2 && docPoc.includes(part)) || docPoc.includes(userName);
+              // Team members registered in ConfigSpeaker (who aren't explicitly denied edit rights) or admins are authorized
+              const isAdmin = speaker.isAdmin === true || speaker.role === 'Admin' || speaker.id === 'speaker-1' || userName.includes('tarun');
+              const isTeamMember = !speaker.isGuest && speaker.role !== 'Guest' && speaker.canEdit !== false;
               
-              // Only restrict to POC if they are editing the description document itself
-              const isEditingDescription = data && (data.description || '') !== (existingProduct.description || '');
+              const nameParts = userName.split(/\s+/).filter((part: string) => part.length > 2);
+              const isPocMatched = !docPoc || 
+                (docPoc && nameParts.some((part: string) => docPoc.includes(part))) || 
+                (docPoc && docPoc.includes(userName)) ||
+                (userEmail && docPoc.includes(userEmail));
+
+              const isAssigneeMatched = docAssignee && (
+                nameParts.some((part: string) => docAssignee.includes(part)) ||
+                docAssignee.includes(userName) ||
+                (userEmail && docAssignee.includes(userEmail))
+              );
               
-              if (isEditingDescription && !isTarun && !isMatched) {
-                return res.status(403).json({ success: false, error: 'Access Denied: You are not authorized as a Point of Contact (POC) to edit this document.' });
+              // Only restrict if someone is explicitly editing the description text
+              const isEditingDescription = data && data.description !== undefined && (data.description || '') !== (existingProduct.description || '');
+              
+              if (isEditingDescription) {
+                if (!isAdmin && !isTeamMember && !isPocMatched && !isAssigneeMatched) {
+                  return res.status(403).json({ success: false, error: 'Access Denied: You are not authorized as a Point of Contact (POC) to edit this document.' });
+                }
               }
             }
           }
