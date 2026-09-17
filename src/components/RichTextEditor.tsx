@@ -122,6 +122,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const [hoveredRows, setHoveredRows] = useState(0);
   const [hoveredCols, setHoveredCols] = useState(0);
   const tableModalRef = useRef<HTMLDivElement>(null);
+  // Remembers where the caret was before the table modal steals focus, so the table
+  // can be inserted at that exact spot instead of wherever focus lands afterwards
+  const savedRangeRef = useRef<Range | null>(null);
 
   // Dragged row and column states
   const [draggedRowIndex, setDraggedRowIndex] = useState<number | null>(null);
@@ -601,6 +604,22 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   const handleInsertTable = () => {
     if (!canEdit) return;
+
+    // Capture the current caret position before the modal opens and steals focus,
+    // so we can restore it later and insert the table exactly where the user was typing
+    const activeEditor = isExpanded ? canvasRef.current : editorRef.current;
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0 && activeEditor) {
+      const range = selection.getRangeAt(0);
+      if (activeEditor.contains(range.startContainer)) {
+        savedRangeRef.current = range.cloneRange();
+      } else {
+        savedRangeRef.current = null;
+      }
+    } else {
+      savedRangeRef.current = null;
+    }
+
     setTableRowsInput(3);
     setTableColsInput(3);
     setHoveredRows(0);
@@ -635,6 +654,20 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     }
     
     tableHtml += '</tbody></table>';
+
+    // Restore the caret to where it was when "Insert Table" was clicked, so the
+    // table lands at that spot rather than wherever focus happens to be after the
+    // modal closes (which defaulted to the end of the document).
+    const activeEditor = isExpanded ? canvasRef.current : editorRef.current;
+    if (savedRangeRef.current && activeEditor) {
+      activeEditor.focus();
+      const selection = window.getSelection();
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(savedRangeRef.current);
+      }
+    }
+    savedRangeRef.current = null;
 
     // Insert the table at cursor
     executeCommand('insertHTML', tableHtml);
@@ -1106,7 +1139,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     }
   };
 
-  // Intercept Ctrl+A / Cmd+A inside contenteditable to select only editable text
+  // Intercept Ctrl+A / Cmd+A inside contenteditable to select only editable text,
+  // and Tab / Shift+Tab to indent/outdent list items into nested sub-pointers
+  // (list-only handling; regular tab-in-a-paragraph inserts a plain tab character
+  // instead, since execCommand('indent'/'outdent') only affects list items).
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
       e.preventDefault();
@@ -1116,6 +1152,33 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       if (selection) {
         selection.removeAllRanges();
         selection.addRange(range);
+      }
+      return;
+    }
+
+    if (e.key === 'Tab') {
+      // Only intercept Tab while the caret is inside a list item; otherwise let
+      // the browser handle normal tab/focus behavior (or fall through to a plain
+      // tab character insert below).
+      const selection = window.getSelection();
+      let inListItem = false;
+      if (selection && selection.rangeCount > 0) {
+        let node: Node | null = selection.getRangeAt(0).startContainer;
+        while (node && node !== e.currentTarget) {
+          if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === 'LI') {
+            inListItem = true;
+            break;
+          }
+          node = node.parentNode;
+        }
+      }
+
+      if (inListItem) {
+        e.preventDefault();
+        document.execCommand(e.shiftKey ? 'outdent' : 'indent', false);
+        const target = e.currentTarget;
+        onChange(target.innerHTML);
+        updateActiveStates();
       }
     }
   };
@@ -1469,11 +1532,26 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
         <div style={{ marginLeft: 'auto' }} />
 
+        {/* Keep sharing available from the compact editor without opening the full canvas */}
+        {!isExpanded && itemId && (
+          <button
+            type="button"
+            className={`rich-editor-btn rich-editor-copy-link-btn ${copiedLink ? 'success-copied' : ''}`}
+            title="Copy Public Share Link"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={handleShare}
+          >
+            <Share2 size={12} />
+            <span>{copiedLink ? 'Copied!' : 'Copy link'}</span>
+          </button>
+        )}
+
         {/* Expand / Minimize (Only show when not expanded) */}
         {!isExpanded && (
           <button 
             type="button" 
             className="rich-editor-btn"
+            aria-label="Expand document editor"
             title="Expand to Google Doc View"
             onMouseDown={(e) => e.preventDefault()}
             onClick={handleToggleExpand}
@@ -1554,7 +1632,6 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           onMouseUp={updateActiveStates}
           onClick={updateActiveStates}
           data-placeholder={placeholder}
-          style={{ minHeight: '120px' }}
         />
       </div>
 

@@ -5524,12 +5524,54 @@ body.read-only-mode .btn:has(svg.lucide-plus) {
 .rich-editor-content {
   padding: 0.75rem;
   min-height: 120px;
+  max-height: 240px;
   outline: none;
   font-size: 0.825rem;
   line-height: 1.6;
   color: var(--text-primary);
-  overflow-y: auto;
+  overflow: auto;
+  overscroll-behavior: contain;
   word-break: break-word;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-light) transparent;
+}
+
+.rich-editor-content::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.rich-editor-content::-webkit-scrollbar-thumb {
+  background-color: var(--border-light);
+  border-radius: 999px;
+}
+
+.rich-editor-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.rich-editor-copy-link-btn {
+  width: auto;
+  padding: 0 10px;
+  gap: 5px;
+  white-space: nowrap;
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 35%, transparent);
+  background-color: var(--primary-glow);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.rich-editor-copy-link-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background-color: color-mix(in srgb, var(--primary) 16%, transparent);
+}
+
+.rich-editor-copy-link-btn.success-copied {
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.35);
+  background-color: rgba(16, 185, 129, 0.12);
 }
 
 /* Rich text editor placeholders for contenteditable divs */
@@ -5597,6 +5639,37 @@ body.read-only-mode .btn:has(svg.lucide-plus) {
 .rich-editor-content li,
 .google-doc-canvas li {
   margin-bottom: 0.25rem;
+}
+
+/* Nested sub-pointers (created via Tab/Shift+Tab indent-outdent) get their own
+   margin and an alternating marker style per depth, matching Google Docs-style
+   outline conventions, so sub-points are visually distinct from their parent. */
+.rich-editor-content li > ul,
+.google-doc-canvas li > ul,
+.rich-editor-content li > ol,
+.google-doc-canvas li > ol {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.rich-editor-content ul ul,
+.google-doc-canvas ul ul {
+  list-style-type: circle;
+}
+
+.rich-editor-content ul ul ul,
+.google-doc-canvas ul ul ul {
+  list-style-type: square;
+}
+
+.rich-editor-content ol ol,
+.google-doc-canvas ol ol {
+  list-style-type: lower-alpha;
+}
+
+.rich-editor-content ol ol ol,
+.google-doc-canvas ol ol ol {
+  list-style-type: lower-roman;
 }
 
 .rich-editor-content a,
