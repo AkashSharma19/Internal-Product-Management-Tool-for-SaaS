@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useDashboard } from '../context/DashboardContext';
-import type { ConfigSpeaker, ConfigProductGroup, ConfigStatus, ConfigProgram, ConfigCohort, FeedbackFormField, FeedbackFormConfig } from '../types';
+import type { ConfigSpeaker, ConfigProductGroup, ConfigStatus, ConfigCategory, ConfigProgram, ConfigCohort, FeedbackFormField, FeedbackFormConfig } from '../types';
 import { Plus, Trash2, Check, X, Pencil, Users, Layers, Tag, Key, Eye, EyeOff, RefreshCw, AlertCircle, ClipboardList, ChevronUp, ChevronDown, Shield, Calendar, Copy, Link, Zap, Mail, Sparkles, Lock, GripVertical, CheckCircle, Info } from 'lucide-react';
 
 // ─── Colour palette ────────────────────────────────────────────────────────────
@@ -1037,14 +1037,22 @@ const StatusesSection: React.FC = () => {
 
 const ProgramsSection: React.FC = () => {
   const { 
+    categories, addCategory, updateCategory, deleteCategory,
     programs, addProgram, updateProgram, deleteProgram,
-    cohorts, addCohort, updateCohort, deleteCohort, canUserEdit, confirm 
+    cohorts, addCohort, updateCohort, deleteCohort, canUserEdit, confirm, alert
   } = useDashboard();
+
+  const [activeCategoryId, setActiveCategoryId] = useState<string>('__all__');
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [categoryName, setCategoryName] = useState('');
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
 
   // Program edit states
   const [editingProgramId, setEditingProgramId] = useState<string | null>(null);
   const [editProgramName, setEditProgramName] = useState('');
   const [newProgramName, setNewProgramName] = useState('');
+  const [newProgramCategoryId, setNewProgramCategoryId] = useState('');
   const [showAddProgram, setShowAddProgram] = useState(false);
 
   // Cohort edit states
@@ -1197,8 +1205,10 @@ const ProgramsSection: React.FC = () => {
 
   const handleAddProgram = () => {
     if (!newProgramName.trim()) return;
-    addProgram({ id: `prog-${Date.now()}`, name: newProgramName.trim(), order: programs.length });
+    const categoryPrograms = programs.filter(p => (p.categoryId || '') === newProgramCategoryId);
+    addProgram({ id: `prog-${Date.now()}`, name: newProgramName.trim(), categoryId: newProgramCategoryId, order: categoryPrograms.length });
     setNewProgramName('');
+    setNewProgramCategoryId('');
     setShowAddProgram(false);
   };
 
@@ -1221,26 +1231,120 @@ const ProgramsSection: React.FC = () => {
     setAddingCohortForProgramId(null);
   };
 
+  const sortedCategories: ConfigCategory[] = [...categories].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const activeCategoryKey = activeCategoryId === '__all__'
+    ? null
+    : activeCategoryId === '__uncategorized__'
+      ? ''
+      : activeCategoryId;
   const filteredPrograms = localPrograms.filter(p => 
+    (activeCategoryKey === null || (p.categoryId || '') === activeCategoryKey) &&
     p.name.toLowerCase().includes(programSearch.toLowerCase())
   );
 
-  const activeProgram = localPrograms.find(p => p.id === activeProgramId);
+  const activeProgram = filteredPrograms.find(p => p.id === activeProgramId);
   const activeProgramCohorts = activeProgram 
     ? localCohorts.filter(c => c.programId === activeProgram.id && c.name.toLowerCase().includes(cohortSearch.toLowerCase()))
     : [];
 
+  const categoryNameExists = (name: string, excludeId?: string) => categories.some(category =>
+    category.id !== excludeId && category.name.trim().toLowerCase() === name.trim().toLowerCase()
+  );
+
+  const handleAddCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) return;
+    if (categoryNameExists(name)) {
+      await alert(`A category named "${name}" already exists.`, 'Duplicate Category', 'OK', 'warning');
+      return;
+    }
+    const id = `cat-${Date.now()}`;
+    const saved = await addCategory({ id, name, order: categories.length, active: true });
+    if (!saved) {
+      await alert('The category could not be saved. Refresh the page and verify that the name is unique.', 'Category Not Saved', 'OK', 'danger');
+      return;
+    }
+    setActiveCategoryId(id);
+    setNewCategoryName('');
+    setShowAddCategory(false);
+  };
+
+  const handleSaveCategory = async (categoryId: string) => {
+    const name = categoryName.trim();
+    if (!name) return;
+    if (categoryNameExists(name, categoryId)) {
+      await alert(`A category named "${name}" already exists.`, 'Duplicate Category', 'OK', 'warning');
+      return;
+    }
+    const saved = await updateCategory(categoryId, { name });
+    if (!saved) {
+      await alert('The category could not be renamed. Refresh the page and verify that the name is unique.', 'Category Not Saved', 'OK', 'danger');
+      return;
+    }
+    setEditingCategoryId(null);
+  };
+
   return (
     <SectionCard
       icon={<Layers size={16} />}
-      title="Programs & Cohorts"
-      subtitle="Manage academic programs and their associated student cohorts/sections in a unified split workspace"
+      title="Categories, Programs & Cohorts"
+      subtitle="Manage the three-level academic hierarchy used to classify meetings and student cohorts"
     >
-      <div style={{ display: 'flex', gap: '1.5rem', minHeight: '450px' }}>
+      <div style={{ display: 'flex', gap: '1.25rem', minHeight: '450px' }}>
+        {/* LEVEL 1: Categories */}
+        <div style={{ width: '230px', flexShrink: 0, borderRight: '1.5px solid var(--border)', paddingRight: '1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Categories</span>
+            {canUserEdit && <button onClick={() => setShowAddCategory(true)} style={{ background: 'none', border: 0, color: 'var(--primary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}><Plus size={12} /> Add</button>}
+          </div>
+          {showAddCategory && (
+            <div style={{ display: 'flex', gap: 4 }}>
+              <input autoFocus className="config-input" placeholder="Category name" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} onKeyDown={e => {
+                if (e.key === 'Enter') void handleAddCategory();
+                if (e.key === 'Escape') setShowAddCategory(false);
+              }} style={{ minWidth: 0, width: '100%', padding: '5px 7px' }} />
+              <IconBtn onClick={() => { void handleAddCategory(); }} success title="Add"><Check size={11} /></IconBtn>
+            </div>
+          )}
+          {[
+            { id: '__all__', name: 'All Programs', active: true } as ConfigCategory,
+            ...sortedCategories,
+            { id: '__uncategorized__', name: 'Uncategorized / Existing', active: true } as ConfigCategory
+          ].map(category => {
+            const isAll = category.id === '__all__';
+            const isUncategorized = category.id === '__uncategorized__';
+            const isVirtual = isAll || isUncategorized;
+            const selected = activeCategoryId === category.id;
+            const count = isAll
+              ? programs.length
+              : programs.filter(p => (p.categoryId || '') === (isUncategorized ? '' : category.id)).length;
+            return <div key={category.id} onClick={() => {
+              setActiveCategoryId(category.id);
+              const first = localPrograms.find(p => isAll || (p.categoryId || '') === (isUncategorized ? '' : category.id));
+              setActiveProgramId(first?.id || null);
+            }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 9px', borderRadius: 8, cursor: 'pointer', background: selected ? 'var(--primary-glow)' : 'transparent', border: `1px solid ${selected ? 'var(--primary)' : 'transparent'}` }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {editingCategoryId === category.id ? <input autoFocus className="config-input" value={categoryName} onClick={e => e.stopPropagation()} onChange={e => setCategoryName(e.target.value)} onKeyDown={e => {
+                  if (e.key === 'Enter') void handleSaveCategory(category.id);
+                  if (e.key === 'Escape') setEditingCategoryId(null);
+                }} style={{ width: '100%', padding: '2px 5px' }} /> : <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>{category.name}</span>}
+              </div>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{count}</span>
+              {canUserEdit && selected && !isVirtual && editingCategoryId !== category.id && <>
+                <IconBtn onClick={() => { setEditingCategoryId(category.id); setCategoryName(category.name); }} title="Rename"><Pencil size={10} /></IconBtn>
+                <IconBtn onClick={async () => {
+                  if (await confirm(`Delete category "${category.name}"? Its programs and cohorts will be moved to Uncategorized.`, 'Delete Category')) {
+                    deleteCategory(category.id); setActiveCategoryId('__uncategorized__'); setActiveProgramId(null);
+                  }
+                }} danger title="Delete"><Trash2 size={10} /></IconBtn>
+              </>}
+            </div>;
+          })}
+        </div>
         
-        {/* LEFT COLUMN: Programs Sidebar */}
+        {/* LEVEL 2: Programs Sidebar */}
         <div style={{
-          width: '280px',
+          width: '250px',
           flexShrink: 0,
           borderRight: '1.5px solid var(--border)',
           paddingRight: '1.25rem',
@@ -1250,11 +1354,17 @@ const ProgramsSection: React.FC = () => {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
-              Programs ({localPrograms.length})
+              Programs ({filteredPrograms.length})
             </span>
             {canUserEdit && !showAddProgram && (
               <button
-                onClick={() => { setShowAddProgram(true); setNewProgramName(''); }}
+                onClick={() => {
+                  setShowAddProgram(true);
+                  setNewProgramName('');
+                  setNewProgramCategoryId(
+                    activeCategoryId === '__all__' || activeCategoryId === '__uncategorized__' ? '' : activeCategoryId
+                  );
+                }}
                 style={{
                   background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '2px', fontSize: '0.75rem', fontWeight: 600, padding: 0
@@ -1277,21 +1387,35 @@ const ProgramsSection: React.FC = () => {
 
           {/* Add Program Inline Form */}
           {showAddProgram && (
-            <div style={{ display: 'flex', gap: '4px', background: 'var(--background)', padding: '6px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-              <input
-                autoFocus
-                placeholder="Program name..."
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'var(--background)', padding: '6px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+              <select
                 className="config-input"
-                style={{ padding: '4px 8px', fontSize: '0.8rem', flex: 1 }}
-                value={newProgramName}
-                onChange={e => setNewProgramName(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') handleAddProgram();
-                  if (e.key === 'Escape') setShowAddProgram(false);
-                }}
-              />
-              <IconBtn onClick={handleAddProgram} success title="Add"><Check size={12} /></IconBtn>
-              <IconBtn onClick={() => setShowAddProgram(false)} title="Cancel"><X size={12} /></IconBtn>
+                value={newProgramCategoryId}
+                onChange={e => setNewProgramCategoryId(e.target.value)}
+                style={{ padding: '4px 8px', fontSize: '0.75rem', width: '100%' }}
+                title="Choose the category for this program"
+              >
+                <option value="">Uncategorized / Existing</option>
+                {sortedCategories.map(category => (
+                  <option key={category.id} value={category.id}>{category.name}</option>
+                ))}
+              </select>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <input
+                  autoFocus
+                  placeholder="Program name..."
+                  className="config-input"
+                  style={{ padding: '4px 8px', fontSize: '0.8rem', flex: 1 }}
+                  value={newProgramName}
+                  onChange={e => setNewProgramName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleAddProgram();
+                    if (e.key === 'Escape') setShowAddProgram(false);
+                  }}
+                />
+                <IconBtn onClick={handleAddProgram} success title="Add"><Check size={12} /></IconBtn>
+                <IconBtn onClick={() => setShowAddProgram(false)} title="Cancel"><X size={12} /></IconBtn>
+              </div>
             </div>
           )}
 
@@ -1387,9 +1511,12 @@ const ProgramsSection: React.FC = () => {
                         <IconBtn onClick={() => startProgramEdit(p)} title="Rename"><Pencil size={11} /></IconBtn>
                         <IconBtn
                           onClick={async () => {
-                            if (await confirm(`Delete program "${p.name}"? All its cohorts will also be removed.`, 'Delete Program')) {
-                              const programCohorts = localCohorts.filter(c => c.programId === p.id);
-                              programCohorts.forEach(c => deleteCohort(c.id));
+                            const programCohorts = localCohorts.filter(c => c.programId === p.id);
+                            if (programCohorts.length > 0) {
+                              await confirm(`"${p.name}" still has ${programCohorts.length} cohort(s). Reassign or delete those cohorts before deleting the program.`, 'Program Has Cohorts', 'OK', 'Cancel', 'warning');
+                              return;
+                            }
+                            if (await confirm(`Delete program "${p.name}"? Existing meetings keep their legacy program value and are not deleted.`, 'Delete Program')) {
                               deleteProgram(p.id);
                             }
                           }}
@@ -1429,6 +1556,26 @@ const ProgramsSection: React.FC = () => {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {canUserEdit && (
+                    <select
+                      className="config-input"
+                      value={activeProgram.categoryId || ''}
+                      onChange={(e) => {
+                        const categoryId = e.target.value;
+                        updateProgram(activeProgram.id, { categoryId });
+                        setActiveCategoryId(categoryId || '__uncategorized__');
+                        setActiveProgramId(activeProgram.id);
+                      }}
+                      title="Move this program to another category"
+                      style={{ padding: '5px 8px', fontSize: '0.75rem', width: '170px' }}
+                    >
+                      <option value="">Uncategorized</option>
+                      {sortedCategories.map(category => (
+                        <option key={category.id} value={category.id}>{category.name}</option>
+                      ))}
+                    </select>
+                  )}
+
                   {/* Cohort Search */}
                   <input
                     type="text"
@@ -5308,7 +5455,7 @@ type ConfigTab = 'speakers' | 'groups' | 'statuses' | 'programs' | 'integrations
 const CONFIG_TABS: { id: ConfigTab; label: string; icon: React.ReactNode }[] = [
   { id: 'speakers', label: 'POC Owners / Speakers', icon: <Users size={15} /> },
   { id: 'groups',   label: 'Groups & Statuses',      icon: <Layers size={15} /> },
-  { id: 'programs', label: 'Programs & Cohorts',     icon: <Layers size={15} /> },
+  { id: 'programs', label: 'Categories & Programs',  icon: <Layers size={15} /> },
   { id: 'integrations', label: 'Integrations',       icon: <Link size={15} /> },
   { id: 'forms',    label: 'Form Builder',           icon: <ClipboardList size={15} /> },
   { id: 'calendar', label: 'Sharable Calendar',      icon: <Calendar size={15} /> },

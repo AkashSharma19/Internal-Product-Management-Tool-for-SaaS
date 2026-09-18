@@ -127,6 +127,8 @@ export interface StudentMeeting {
 export interface AdminCall {
   id: string;
   date: string;
+  categoryId?: string;
+  programId?: string;
   adminPoc: string;
   cohortTopic: string;
   discussion: string;
@@ -140,6 +142,8 @@ export interface AdminCall {
 export interface TarunSirMeeting {
   id: string;
   date: string;
+  categoryId?: string;
+  programId?: string;
   adminPoc: string;
   cohortTopic: string;
   discussion: string;
@@ -248,9 +252,17 @@ export interface ConfigStatus {
   scope: 'product' | 'ama' | 'student' | 'content' | 'all'; // which dropdowns this applies to
 }
 
+export interface ConfigCategory {
+  id: string;
+  name: string;
+  order?: number;
+  active?: boolean;
+}
+
 export interface ConfigProgram {
   id: string;
   name: string;
+  categoryId?: string;
   order?: number;
 }
 

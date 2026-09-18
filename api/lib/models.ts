@@ -135,6 +135,8 @@ const AdminCallSchema = new Schema({
   discussion: { type: String, default: "" },
   actions: { type: String, default: "" },
   status: { type: String, default: "Scheduled" },
+  categoryId: { type: String, default: "" },
+  programId: { type: String, default: "" },
   program: { type: String, default: "" },
   pinned: { type: Boolean, default: false },
   feedbackFormId: { type: String, default: "" }
@@ -149,6 +151,8 @@ const TarunSirMeetingSchema = new Schema({
   discussion: { type: String, default: "" },
   actions: { type: String, default: "" },
   status: { type: String, default: "Scheduled" },
+  categoryId: { type: String, default: "" },
+  programId: { type: String, default: "" },
   program: { type: String, default: "" },
   pinned: { type: Boolean, default: false },
   feedbackFormId: { type: String, default: "" }
@@ -256,10 +260,23 @@ const ConfigStatusSchema = new Schema({
   scope: { type: String, default: "all" }
 });
 
+// Category
+const ConfigCategorySchema = new Schema({
+  id: { type: String, required: true, unique: true },
+  name: { type: String, required: true, trim: true },
+  order: { type: Number, default: 0 },
+  active: { type: Boolean, default: true }
+});
+ConfigCategorySchema.index(
+  { name: 1 },
+  { unique: true, collation: { locale: 'en', strength: 2 } }
+);
+
 // Program
 const ConfigProgramSchema = new Schema({
   id: { type: String, required: true, unique: true },
   name: { type: String, required: true },
+  categoryId: { type: String, default: "" },
   order: { type: Number, default: 0 }
 });
 
@@ -317,6 +334,7 @@ export const FeatureAdoptionModel = mongoose.models.FeatureAdoption || mongoose.
 export const ConfigSpeakerModel = mongoose.models.ConfigSpeaker || mongoose.model('ConfigSpeaker', ConfigSpeakerSchema);
 export const ConfigProductGroupModel = mongoose.models.ConfigProductGroup || mongoose.model('ConfigProductGroup', ConfigProductGroupSchema);
 export const ConfigStatusModel = mongoose.models.ConfigStatus || mongoose.model('ConfigStatus', ConfigStatusSchema);
+export const ConfigCategoryModel = mongoose.models.ConfigCategory || mongoose.model('ConfigCategory', ConfigCategorySchema);
 export const ConfigProgramModel = mongoose.models.ConfigProgram || mongoose.model('ConfigProgram', ConfigProgramSchema);
 export const ConfigCohortModel = mongoose.models.ConfigCohort || mongoose.model('ConfigCohort', ConfigCohortSchema);
 

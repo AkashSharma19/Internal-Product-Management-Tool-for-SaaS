@@ -15,6 +15,7 @@ import {
   ConfigSpeakerModel,
   ConfigProductGroupModel,
   ConfigStatusModel,
+  ConfigCategoryModel,
   ConfigProgramModel,
   ConfigCohortModel,
   GlobalSettingsModel,
@@ -45,6 +46,7 @@ const modelsMap: Record<string, any> = {
   speakers: ConfigSpeakerModel,
   productGroups: ConfigProductGroupModel,
   statuses: ConfigStatusModel,
+  categories: ConfigCategoryModel,
   programs: ConfigProgramModel,
   cohorts: ConfigCohortModel,
   settings: GlobalSettingsModel,
@@ -229,7 +231,7 @@ export default async function handler(req: any, res: any) {
         if (action === 'init') {
           const results: Record<string, any[]> = {};
           const allowedKeys = [
-            'settings', 'speakers', 'statuses', 'productGroups', 'programs', 'cohorts', 
+            'settings', 'speakers', 'statuses', 'productGroups', 'categories', 'programs', 'cohorts',
             'formConfigs', 'products', 'feedbackSubmissions', 'comments', 'directoryContacts', 
             'repoTabs', 'repoDocs', 'challenges', 'stickyNotes',
             'plans', 'projects', 'amaSessions', 'studentMeetings', 'adminCalls', 'tarunSirMeetings', 
@@ -288,7 +290,7 @@ export default async function handler(req: any, res: any) {
                   }
                   return formatted;
                 });
-              } else if (key === 'programs' || key === 'cohorts') {
+              } else if (key === 'categories' || key === 'programs' || key === 'cohorts') {
                 results[key] = [...rawItems].sort((a: any, b: any) => (a.order || 0) - (b.order || 0));
               } else {
                 results[key] = rawItems.map((item: any) => ({
@@ -2751,17 +2753,55 @@ export default async function handler(req: any, res: any) {
           const search = (url.searchParams.get('search') || '').trim().toLowerCase();
           const superPriority = url.searchParams.get('superPriority') === 'true';
           const statusesParam = url.searchParams.get('statuses') || '';
+          const categoriesParam = url.searchParams.get('categories') || '';
           const programsParam = url.searchParams.get('programs') || '';
           const pocsParam = url.searchParams.get('pocs') || '';
           const sortField = url.searchParams.get('sortField') || '';
           const sortAsc = url.searchParams.get('sortAsc') !== 'false';
 
-          console.log(`[API LOG] paginated-meetings-data: type=${type}, page=${page}, limit=${limit}, search="${search}", statuses="${statusesParam}", programs="${programsParam}", pocs="${pocsParam}"`);
+          console.log(`[API LOG] paginated-meetings-data: type=${type}, page=${page}, limit=${limit}, search="${search}", statuses="${statusesParam}", categories="${categoriesParam}", programs="${programsParam}", pocs="${pocsParam}"`);
 
           if (!type || !['amaSessions', 'adminCalls', 'tarunSirMeetings', 'amaFeedback', 'adminFeedback', 'tarunFeedback', 'dailyIssues', 'featureRequests', 'challenges'].includes(type)) {
             console.log(`[API LOG] Invalid type requested: ${type}`);
             return res.status(400).json({ success: false, error: 'Invalid meeting type' });
           }
+
+          const [configCategories, configPrograms] = await Promise.all([
+            modelsMap['categories'].find({}).lean(),
+            modelsMap['programs'].find({}).lean()
+          ]);
+          const resolveProgram = (item: any) => configPrograms.find((program: any) =>
+            (item?.programId && program.id === item.programId) ||
+            (!item?.programId && item?.program && program.name === item.program)
+          );
+          const resolveProgramNames = (item: any): string[] => {
+            const resolved = resolveProgram(item);
+            if (resolved?.name) return [resolved.name];
+            return String(item?.program || '')
+              .split(',')
+              .map((name: string) => name.trim())
+              .filter(Boolean);
+          };
+          const resolveProgramName = (item: any) => resolveProgramNames(item).join(', ');
+          const resolveCategoryId = (item: any) => resolveProgram(item)?.categoryId || item?.categoryId || '';
+          const resolveCategoryName = (item: any) => {
+            const categoryId = resolveCategoryId(item);
+            return configCategories.find((category: any) => category.id === categoryId)?.name ||
+              (resolveProgramName(item) ? 'Uncategorized / Existing' : '');
+          };
+          const matchesCategoryFilter = (item: any, filterCategories: string[]) => {
+            if (filterCategories.length === 0) return true;
+            const categoryId = resolveCategoryId(item);
+            return filterCategories.includes(categoryId) ||
+              (!categoryId && filterCategories.includes('__uncategorized__'));
+          };
+          const matchesProgramFilter = (item: any, filterPrograms: string[]) => {
+            if (filterPrograms.length === 0) return true;
+            const resolved = resolveProgram(item);
+            return filterPrograms.includes(item?.programId || '') ||
+              filterPrograms.includes(resolved?.id || '') ||
+              resolveProgramNames(item).some((name: string) => filterPrograms.includes(name));
+          };
 
           if (type === 'challenges') {
             const rawChallenges = await modelsMap['challenges'].find({}).lean();
@@ -2975,6 +3015,7 @@ export default async function handler(req: any, res: any) {
             };
 
             const filterStatuses = statusesParam ? statusesParam.split(',') : [];
+            const filterCategories = categoriesParam ? categoriesParam.split(',') : [];
             const filterPrograms = programsParam ? programsParam.split(',') : [];
             const filterPocs = pocsParam ? pocsParam.split(',') : [];
 
@@ -2988,7 +3029,7 @@ export default async function handler(req: any, res: any) {
                   if (!parent) return false;
                 }
                 const matchesAma = parentMeetings.some((ama: any) => {
-                  if (filterPrograms.length > 0 && (!ama.program || !filterPrograms.includes(ama.program))) return false;
+                  if (!matchesProgramFilter(ama, filterPrograms)) return false;
                   if (item.id.startsWith('prod-ama-')) return item.notes && item.notes.includes(`AMA Session ID: ${ama.id}`);
                   if (!ama.topic.trim() && !ama.cohort.trim()) return false;
                   const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ');
@@ -3013,20 +3054,18 @@ export default async function handler(req: any, res: any) {
                 if (item.id.startsWith('prod-ama-') || item.id.startsWith('prod-tarun-')) return false;
                 const parent = getParent(item);
                 if (item.id.startsWith('prod-call-') && !parent) return false;
+                if (filterCategories.length > 0 && (!parent || !matchesCategoryFilter(parent, filterCategories))) return false;
                 if (filterPrograms.length > 0) {
-                  if (!parent || !parent.program) return false;
-                  const callPrograms = parent.program.split(',').map((p: string) => p.trim()).filter(Boolean);
-                  if (!callPrograms.some((p: string) => filterPrograms.includes(p))) return false;
+                  if (!matchesProgramFilter(parent, filterPrograms)) return false;
                 }
                 if (!item.notes?.includes('Admin Call ID:') && !item.id.startsWith('prod-call-')) return false;
               } else if (type === 'tarunFeedback') {
                 if (item.id.startsWith('prod-ama-') || item.id.startsWith('prod-call-')) return false;
                 const parent = getParent(item);
                 if (item.id.startsWith('prod-tarun-') && !parent) return false;
+                if (filterCategories.length > 0 && (!parent || !matchesCategoryFilter(parent, filterCategories))) return false;
                 if (filterPrograms.length > 0) {
-                  if (!parent || !parent.program) return false;
-                  const meetingPrograms = parent.program.split(',').map((p: string) => p.trim()).filter(Boolean);
-                  if (!meetingPrograms.some((p: string) => filterPrograms.includes(p))) return false;
+                  if (!matchesProgramFilter(parent, filterPrograms)) return false;
                 }
                 if (!item.notes?.includes('Tarun Sir Meeting ID:') && !item.id.startsWith('prod-tarun-')) return false;
               }
@@ -3036,12 +3075,15 @@ export default async function handler(req: any, res: any) {
               if (filterPocs.length > 0 && !filterPocs.includes(item.poc)) return false;
 
               if (search) {
+                const parent = getParent(item);
                 const matchesSearch =
                   (item.feature || '').toLowerCase().includes(search) ||
                   (item.poc || '').toLowerCase().includes(search) ||
                   (item.notes || '').toLowerCase().includes(search) ||
                   (item.product || '').toLowerCase().includes(search) ||
-                  (item.module || '').toLowerCase().includes(search);
+                  (item.module || '').toLowerCase().includes(search) ||
+                  resolveCategoryName(parent).toLowerCase().includes(search) ||
+                  resolveProgramName(parent).toLowerCase().includes(search);
                 if (!matchesSearch) return false;
               }
 
@@ -3146,22 +3188,29 @@ export default async function handler(req: any, res: any) {
 
           // 3. Filter items
           const filterStatuses = statusesParam ? statusesParam.split(',') : [];
+          const filterCategories = categoriesParam ? categoriesParam.split(',') : [];
           const filterPrograms = programsParam ? programsParam.split(',') : [];
           const filterPocs = pocsParam ? pocsParam.split(',') : [];
 
           const filtered = items.filter((item: any) => {
+            const resolvedCategoryName = resolveCategoryName(item);
+            const resolvedProgramName = resolveProgramName(item);
             // Search query
             let matchesSearch = false;
             if (type === 'amaSessions') {
               matchesSearch =
                 (item.topic || '').toLowerCase().includes(search) ||
                 (item.speaker || '').toLowerCase().includes(search) ||
-                (item.cohort || '').toLowerCase().includes(search);
+                (item.cohort || '').toLowerCase().includes(search) ||
+                resolvedCategoryName.toLowerCase().includes(search) ||
+                resolvedProgramName.toLowerCase().includes(search);
             } else {
               matchesSearch =
                 (item.cohortTopic || '').toLowerCase().includes(search) ||
                 (item.adminPoc || '').toLowerCase().includes(search) ||
-                (item.discussion || '').toLowerCase().includes(search);
+                (item.discussion || '').toLowerCase().includes(search) ||
+                resolvedCategoryName.toLowerCase().includes(search) ||
+                resolvedProgramName.toLowerCase().includes(search);
             }
 
             if (!matchesSearch) return false;
@@ -3169,10 +3218,11 @@ export default async function handler(req: any, res: any) {
             // Status filter
             if (filterStatuses.length > 0 && !filterStatuses.includes(item.status)) return false;
 
-            // Program filter
-            if (filterPrograms.length > 0) {
-              if (!item.program || !filterPrograms.includes(item.program)) return false;
-            }
+            // Category filter (legacy rows resolve through their configured program name)
+            if (!matchesCategoryFilter(item, filterCategories)) return false;
+
+            // Program filter accepts configured IDs and legacy names
+            if (!matchesProgramFilter(item, filterPrograms)) return false;
 
             // POC filter
             const related = getRelatedFeatures(item.id);
@@ -3203,8 +3253,16 @@ export default async function handler(req: any, res: any) {
              if (aComp !== bComp) return aComp ? 1 : -1;
 
              if (sortField) {
-               const valA = a[sortField] || '';
-               const valB = b[sortField] || '';
+               const valA = sortField === 'categoryId'
+                 ? resolveCategoryName(a)
+                 : sortField === 'programId'
+                   ? resolveProgramName(a)
+                   : a[sortField] || '';
+               const valB = sortField === 'categoryId'
+                 ? resolveCategoryName(b)
+                 : sortField === 'programId'
+                   ? resolveProgramName(b)
+                   : b[sortField] || '';
                const strA = String(valA).toLowerCase();
                const strB = String(valB).toLowerCase();
                return sortAsc ? strA.localeCompare(strB) : strB.localeCompare(strA);
@@ -3721,7 +3779,7 @@ export default async function handler(req: any, res: any) {
               }
               return s;
             });
-          } else if (key === 'statuses' || key === 'productGroups' || key === 'programs' || key === 'cohorts' || key === 'comments') {
+          } else if (key === 'statuses' || key === 'productGroups' || key === 'categories' || key === 'programs' || key === 'cohorts' || key === 'comments') {
             results[key] = await modelsMap[key].find({}).lean();
           } else if (key === 'speakers') {
             // Return speakers (without passwords) so the frontend can restore guest sessions on refresh
@@ -5886,6 +5944,17 @@ Respond ONLY with clean, raw HTML string. Do not wrap it in any markdown code bl
       }
 
       if (action === 'create') {
+        if (type === 'categories') {
+          const categoryName = String(data?.name || '').trim();
+          if (!categoryName) {
+            return res.status(400).json({ success: false, error: 'Category name is required.' });
+          }
+          const duplicate = await Model.findOne({ name: { $regex: `^${categoryName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' } }).lean();
+          if (duplicate) {
+            return res.status(409).json({ success: false, error: `A category named "${categoryName}" already exists.` });
+          }
+          data.name = categoryName;
+        }
         const newItem = new Model(data);
         await newItem.save();
         return res.status(201).json({ success: true, item: newItem });
@@ -5896,6 +5965,21 @@ Respond ONLY with clean, raw HTML string. Do not wrap it in any markdown code bl
         
         // Use key for settings, and id for all other tables
         const query = type === 'settings' ? { key: id } : { id };
+
+        if (type === 'categories' && data?.name !== undefined) {
+          const categoryName = String(data.name).trim();
+          if (!categoryName) {
+            return res.status(400).json({ success: false, error: 'Category name is required.' });
+          }
+          const duplicate = await Model.findOne({
+            id: { $ne: id },
+            name: { $regex: `^${categoryName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }
+          }).lean();
+          if (duplicate) {
+            return res.status(409).json({ success: false, error: `A category named "${categoryName}" already exists.` });
+          }
+          data.name = categoryName;
+        }
 
         if (type === 'products') {
           const userId = req.headers['x-user-id'];
@@ -5987,8 +6071,6 @@ Respond ONLY with clean, raw HTML string. Do not wrap it in any markdown code bl
               } else if (type === 'cohorts') {
                 await Promise.all([
                   modelsMap['amaSessions'].updateMany({ cohort: oldName }, { $set: { cohort: newName } }),
-                  modelsMap['adminCalls'].updateMany({ cohortTopic: oldName }, { $set: { cohortTopic: newName } }),
-                  modelsMap['tarunSirMeetings'].updateMany({ cohortTopic: oldName }, { $set: { cohortTopic: newName } }),
                   modelsMap['featureAdoptions'].updateMany({ cohort: oldName }, { $set: { cohort: newName } }),
                   modelsMap['studentMeetings'].updateMany({ cohort: oldName }, { $set: { cohort: newName } }),
                   modelsMap['dailyIssues'].updateMany({ cohort: oldName }, { $set: { cohort: newName } })
@@ -6101,6 +6183,13 @@ Respond ONLY with clean, raw HTML string. Do not wrap it in any markdown code bl
         
         // Use key for settings, and id for all other tables
         const query = type === 'settings' ? { key: id } : { id };
+        if (type === 'categories') {
+          await Promise.all([
+            modelsMap['programs'].updateMany({ categoryId: id }, { $set: { categoryId: '' } }),
+            modelsMap['adminCalls'].updateMany({ categoryId: id }, { $set: { categoryId: '' } }),
+            modelsMap['tarunSirMeetings'].updateMany({ categoryId: id }, { $set: { categoryId: '' } })
+          ]);
+        }
         await Model.findOneAndDelete(query);
         return res.status(200).json({ success: true });
       }

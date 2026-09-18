@@ -10349,7 +10349,7 @@ export const AdminCallsTable: React.FC = () => {
     adminCalls, updateAdminCall, addAdminCall, deleteAdminCall, 
     productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
     speakers: configSpeakers, statuses, currentUser, confirm,
-    programs, fetchPaginatedMeetingsData,
+    categories, programs, fetchPaginatedMeetingsData,
     meetingSearchQuery, setMeetingSearchQuery,
     highlightedCallId, setHighlightedCallId,
     feedbackSubmissions, formConfigs
@@ -10369,6 +10369,7 @@ export const AdminCallsTable: React.FC = () => {
   const [drawerCategory, setDrawerCategory] = useState<'admin-calls' | 'ama-meetings' | 'student-projects' | null>(null);
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const [filterCategories, setFilterCategories] = useState<string[]>([]);
   const [filterPrograms, setFilterPrograms] = useState<string[]>([]);
   const [filterPocs, setFilterPocs] = useState<string[]>([]);
   const [assignModalItem, setAssignModalItem] = useState<{ id: string; title: string; formId?: string; } | null>(null);
@@ -10378,6 +10379,7 @@ export const AdminCallsTable: React.FC = () => {
 
   useEffect(() => {
     setFilterStatuses([]);
+    setFilterCategories([]);
     setFilterPrograms([]);
     setFilterPocs([]);
     setCurrentPage(1);
@@ -10385,7 +10387,22 @@ export const AdminCallsTable: React.FC = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterSuperPriorityOnly, filterStatuses, filterPrograms, filterPocs]);
+  }, [searchQuery, filterSuperPriorityOnly, filterStatuses, filterCategories, filterPrograms, filterPocs]);
+
+  useEffect(() => {
+    if (filterCategories.length === 0) return;
+    const validPrograms = new Set(programs
+      .filter(program => filterCategories.includes(
+        program.categoryId
+          ? categories.find(category => category.id === program.categoryId)?.name || ''
+          : 'Uncategorized / Existing'
+      ))
+      .map(program => program.name));
+    setFilterPrograms(previous => {
+      const next = previous.filter(program => validPrograms.has(program));
+      return next.length === previous.length ? previous : next;
+    });
+  }, [filterCategories, categories, programs]);
 
   // Sorting states
   const [callSortField, setCallSortField] = useState<keyof AdminCall | null>('date');
@@ -10414,14 +10431,16 @@ export const AdminCallsTable: React.FC = () => {
 
   const statusOptions = statuses.map(s => s.label).length > 0 ? statuses.map(s => s.label) : ['Scheduled', 'Pending Actions', 'Completed', 'On Hold', 'In Progress', 'Ongoing'];
 
+  const resolveCallProgram = (call: AdminCall) => programs.find(p => p.id === call.programId) || programs.find(p => p.name === call.program);
+  const resolveCallCategoryId = (call: AdminCall) => resolveCallProgram(call)?.categoryId || call.categoryId || '';
+  const resolveCallCategorySelection = (call: AdminCall) => resolveCallCategoryId(call) || '__uncategorized__';
+  const resolveCallCategoryName = (call: AdminCall) => categories.find(c => c.id === resolveCallCategoryId(call))?.name || 'Uncategorized / Existing';
+
   // Inline editing states for Admin Calls
   const [editingCallDateId, setEditingCallDateId] = useState<string | null>(null);
 
   const [editingCallPocId, setEditingCallPocId] = useState<string | null>(null);
   const [inlineCallPocValue, setInlineCallPocValue] = useState('');
-
-  const [editingCallProgramId, setEditingCallProgramId] = useState<string | null>(null);
-  const [inlineCallProgramsValue, setInlineCallProgramsValue] = useState<string[]>([]);
 
   const [editingCallTopicId, setEditingCallTopicId] = useState<string | null>(null);
   const [inlineCallTopicValue, setInlineCallTopicValue] = useState('');
@@ -10595,6 +10614,8 @@ export const AdminCallsTable: React.FC = () => {
       discussion: '',
       actions: '',
       status: 'Scheduled',
+      categoryId: categories.find(c => c.active !== false)?.id || '',
+      programId: '',
       program: ''
     };
     addAdminCall(newCall);
@@ -10677,8 +10698,8 @@ export const AdminCallsTable: React.FC = () => {
         }}
         onExportCSV={() => {
           if (subTab === 'schedule') {
-            const headers = ['ID', 'Date', 'Admin POC', 'Program', 'Cohort / Topic', 'Status', 'Discussion', 'Actions'];
-            const rows = adminCalls.map(c => [c.id, c.date, c.adminPoc, c.program || '', c.cohortTopic, c.status, c.discussion, c.actions]);
+            const headers = ['ID', 'Date', 'Admin POC', 'Category', 'Program', 'Topic / Agenda', 'Status', 'Discussion', 'Actions'];
+            const rows = adminCalls.map(c => [c.id, c.date, c.adminPoc, resolveCallCategoryName(c), resolveCallProgram(c)?.name || c.program || '', c.cohortTopic, c.status, c.discussion, c.actions]);
             downloadCSV(`Admin_Calls_Schedule_${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
           } else {
             const headers = ['ID', 'Feature', 'POC', 'Status', 'Clickup Status', 'Priority', 'Blocker', 'Notes', 'Deadline'];
@@ -10696,7 +10717,18 @@ export const AdminCallsTable: React.FC = () => {
               placeholder="Status"
             />
             <MultiSelectDropdown
-              options={programs.map(p => p.name)}
+              options={[
+                ...categories.filter(c => c.active !== false).map(c => c.name),
+                'Uncategorized / Existing'
+              ]}
+              selectedValues={filterCategories}
+              onChange={setFilterCategories}
+              placeholder="Category"
+            />
+            <MultiSelectDropdown
+              options={programs.filter(p => filterCategories.length === 0 || filterCategories.includes(
+                p.categoryId ? categories.find(c => c.id === p.categoryId)?.name || '' : 'Uncategorized / Existing'
+              )).map(p => p.name)}
               selectedValues={filterPrograms}
               onChange={setFilterPrograms}
               placeholder="Program"
@@ -10786,7 +10818,8 @@ export const AdminCallsTable: React.FC = () => {
                 <tr>
                   <th onClick={() => handleCallSort('date')} style={{ width: '150px', cursor: 'pointer' }}>Call Date {callSortField === 'date' ? (callSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleCallSort('adminPoc')} style={{ width: '200px', cursor: 'pointer' }}>Admin / POC {callSortField === 'adminPoc' ? (callSortAsc ? '▲' : '▼') : ''}</th>
-                  <th onClick={() => handleCallSort('program')} style={{ width: '120px', cursor: 'pointer' }}>Program {callSortField === 'program' ? (callSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleCallSort('categoryId')} style={{ width: '150px', cursor: 'pointer' }}>Category {callSortField === 'categoryId' ? (callSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleCallSort('programId')} style={{ width: '150px', cursor: 'pointer' }}>Program {callSortField === 'programId' ? (callSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleCallSort('cohortTopic')} style={{ cursor: 'pointer' }}>Topic / Call Agenda {callSortField === 'cohortTopic' ? (callSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleCallSort('status')} style={{ width: '150px', cursor: 'pointer' }}>Status {callSortField === 'status' ? (callSortAsc ? '▲' : '▼') : ''}</th>
                   <th style={{ width: '120px' }}>Rating</th>
@@ -10816,12 +10849,15 @@ export const AdminCallsTable: React.FC = () => {
                       <td style={{ padding: '12px 16px' }}>
                         <div className="skeleton-line" style={{ height: '14px', width: '50px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
                       </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '14px', width: '50px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
                       <td style={{ padding: '12px 16px' }}></td>
                     </tr>
                   ))
                 ) : paginatedCalls.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                    <td colSpan={8} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
                       No admin calls found matching current filters.
                     </td>
                   </tr>
@@ -10918,118 +10954,35 @@ export const AdminCallsTable: React.FC = () => {
                             <span style={{ fontWeight: 600 }}>{call.adminPoc}</span>
                           )}
                         </td>
-                        <td
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingCallProgramId(call.id);
-                            const selected = call.program ? call.program.split(',').map(s => s.trim()).filter(Boolean) : [];
-                            setInlineCallProgramsValue(selected);
-                          }}
-                          style={{ position: 'relative', cursor: 'pointer' }}
-                          title="Click to edit Program"
-                        >
-                          {editingCallProgramId === call.id && (
-                            <div 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingCallProgramId(null);
-                              }}
-                              style={{
-                                position: 'fixed',
-                                top: 0,
-                                left: 0,
-                                right: 0,
-                                bottom: 0,
-                                zIndex: 99,
-                                background: 'transparent'
-                              }}
-                            />
-                          )}
-                          {editingCallProgramId === call.id ? (
-                            <div 
-                              onClick={(e) => e.stopPropagation()}
-                              style={{
-                                position: 'absolute',
-                                top: '100%',
-                                left: 0,
-                                zIndex: 100,
-                                backgroundColor: 'var(--panel-bg)',
-                                border: '1.5px solid var(--border)',
-                                borderRadius: '8px',
-                                padding: '8px',
-                                boxShadow: 'var(--shadow-lg)',
-                                minWidth: '160px',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '6px',
-                              }}
-                            >
-                              {programs.length === 0 ? (
-                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', padding: '4px' }}>No programs configured</span>
-                              ) : (
-                                programs.map(p => {
-                                  const isChecked = inlineCallProgramsValue.includes(p.name);
-                                  return (
-                                    <label 
-                                      key={p.id} 
-                                      style={{ 
-                                        display: 'flex', 
-                                        alignItems: 'center', 
-                                        gap: '8px', 
-                                        cursor: 'pointer',
-                                        fontSize: '0.8rem',
-                                        padding: '4px 6px',
-                                        borderRadius: '4px',
-                                        userSelect: 'none',
-                                        color: 'var(--text-primary)'
-                                      }}
-                                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--background-alt)'}
-                                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={isChecked}
-                                        onChange={(e) => {
-                                          let next;
-                                          if (e.target.checked) {
-                                            next = [...inlineCallProgramsValue, p.name];
-                                          } else {
-                                            next = inlineCallProgramsValue.filter(x => x !== p.name);
-                                          }
-                                          setInlineCallProgramsValue(next);
-                                          updateAdminCall(call.id, { program: next.join(', ') });
-                                        }}
-                                        style={{ cursor: 'pointer' }}
-                                      />
-                                      <span>{p.name}</span>
-                                    </label>
-                                  );
-                                })
-                              )}
-                              <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border)', paddingTop: '6px', marginTop: '4px' }}>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingCallProgramId(null);
-                                  }}
-                                  style={{
-                                    padding: '2px 8px',
-                                    fontSize: '0.75rem',
-                                    backgroundColor: 'var(--primary)',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                    fontWeight: 500
-                                  }}
-                                >
-                                  Done
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <span style={{ fontWeight: 600 }}>{call.program || '—'}</span>
-                          )}
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <select
+                            value={resolveCallCategorySelection(call)}
+                            onChange={(e) => updateAdminCall(call.id, {
+                              categoryId: e.target.value === '__uncategorized__' ? '' : e.target.value,
+                              programId: '',
+                              program: ''
+                            })}
+                            style={{ width: '100%', padding: '5px 6px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--background)', color: 'var(--text-primary)' }}
+                            title="Category is required for classified records"
+                          >
+                            <option value="">Select category</option>
+                            {categories.filter(c => c.active !== false).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            <option value="__uncategorized__">Uncategorized / Existing</option>
+                          </select>
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <select
+                            value={resolveCallProgram(call)?.id || ''}
+                            onChange={(e) => {
+                              const program = programs.find(p => p.id === e.target.value);
+                              updateAdminCall(call.id, { programId: program?.id || '', program: program?.name || '' });
+                            }}
+                            disabled={!resolveCallCategorySelection(call)}
+                            style={{ width: '100%', padding: '5px 6px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--background)', color: 'var(--text-primary)' }}
+                          >
+                            <option value="">{call.program && !resolveCallProgram(call) ? call.program : 'No program'}</option>
+                            {programs.filter(p => (p.categoryId || '__uncategorized__') === resolveCallCategorySelection(call)).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                          </select>
                         </td>
                         <td
                           onDoubleClick={(e) => {
@@ -11252,7 +11205,7 @@ export const AdminCallsTable: React.FC = () => {
                       {/* Accordion Expansion */}
                       {isExpanded && (
                         <tr style={{ background: 'var(--background)' }}>
-                          <td colSpan={7} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
+                          <td colSpan={8} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
                             <div style={{
                               background: 'var(--panel-bg)',
                               border: '1px solid var(--border)',
@@ -12227,7 +12180,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
     tarunSirMeetings, updateTarunSirMeeting, addTarunSirMeeting, deleteTarunSirMeeting, 
     productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
     speakers: configSpeakers, statuses, currentUser, confirm,
-    programs, fetchPaginatedMeetingsData,
+    categories, programs, fetchPaginatedMeetingsData,
     meetingSearchQuery, setMeetingSearchQuery,
     highlightedCallId, setHighlightedCallId,
     feedbackSubmissions, formConfigs
@@ -12244,6 +12197,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
   const [subTab, setSubTab] = useState<'schedule' | 'feedback'>('schedule');
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const [filterCategories, setFilterCategories] = useState<string[]>([]);
   const [filterPrograms, setFilterPrograms] = useState<string[]>([]);
   const [filterPocs, setFilterPocs] = useState<string[]>([]);
 
@@ -12252,6 +12206,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
 
   useEffect(() => {
     setFilterStatuses([]);
+    setFilterCategories([]);
     setFilterPrograms([]);
     setFilterPocs([]);
     setCurrentPage(1);
@@ -12259,7 +12214,22 @@ export const TarunSirMeetingsTable: React.FC = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterSuperPriorityOnly, filterStatuses, filterPrograms, filterPocs]);
+  }, [searchQuery, filterSuperPriorityOnly, filterStatuses, filterCategories, filterPrograms, filterPocs]);
+
+  useEffect(() => {
+    if (filterCategories.length === 0) return;
+    const validPrograms = new Set(programs
+      .filter(program => filterCategories.includes(
+        program.categoryId
+          ? categories.find(category => category.id === program.categoryId)?.name || ''
+          : 'Uncategorized / Existing'
+      ))
+      .map(program => program.name));
+    setFilterPrograms(previous => {
+      const next = previous.filter(program => validPrograms.has(program));
+      return next.length === previous.length ? previous : next;
+    });
+  }, [filterCategories, categories, programs]);
 
   // Sorting states
   const [meetingSortField, setMeetingSortField] = useState<keyof TarunSirMeeting | null>('date');
@@ -12288,6 +12258,10 @@ export const TarunSirMeetingsTable: React.FC = () => {
 
   const statusOptions = statuses.map(s => s.label).length > 0 ? statuses.map(s => s.label) : ['Scheduled', 'Pending Actions', 'Completed', 'On Hold', 'In Progress', 'Ongoing'];
 
+  const resolveMeetingProgram = (meeting: TarunSirMeeting) => programs.find(p => p.id === meeting.programId) || programs.find(p => p.name === meeting.program);
+  const resolveMeetingCategoryId = (meeting: TarunSirMeeting) => resolveMeetingProgram(meeting)?.categoryId || meeting.categoryId || '';
+  const resolveMeetingCategorySelection = (meeting: TarunSirMeeting) => resolveMeetingCategoryId(meeting) || '__uncategorized__';
+
   // Inline editing states for Tarun Sir Meetings
   const [editingMeetingDateId, setEditingMeetingDateId] = useState<string | null>(null);
 
@@ -12297,9 +12271,6 @@ export const TarunSirMeetingsTable: React.FC = () => {
   const [editingMeetingTopicId, setEditingMeetingTopicId] = useState<string | null>(null);
   const [inlineMeetingTopicValue, setInlineMeetingTopicValue] = useState('');
   const editMeetingTopicInputRef = useRef<HTMLInputElement>(null);
-
-  const [editingMeetingProgramId, setEditingMeetingProgramId] = useState<string | null>(null);
-  const [inlineMeetingProgramsValue, setInlineMeetingProgramsValue] = useState<string[]>([]);
 
   const [expandedMeetingId, setExpandedMeetingId] = useState<string | null>(null);
 
@@ -12374,6 +12345,8 @@ export const TarunSirMeetingsTable: React.FC = () => {
       discussion: '',
       actions: '',
       status: 'Scheduled',
+      categoryId: categories.find(c => c.active !== false)?.id || '',
+      programId: '',
       program: ''
     };
     addTarunSirMeeting(newMeeting);
@@ -12560,7 +12533,18 @@ export const TarunSirMeetingsTable: React.FC = () => {
               placeholder="Status"
             />
             <MultiSelectDropdown
-              options={programs.map(p => p.name)}
+              options={[
+                ...categories.filter(c => c.active !== false).map(c => c.name),
+                'Uncategorized / Existing'
+              ]}
+              selectedValues={filterCategories}
+              onChange={setFilterCategories}
+              placeholder="Category"
+            />
+            <MultiSelectDropdown
+              options={programs.filter(p => filterCategories.length === 0 || filterCategories.includes(
+                p.categoryId ? categories.find(c => c.id === p.categoryId)?.name || '' : 'Uncategorized / Existing'
+              )).map(p => p.name)}
               selectedValues={filterPrograms}
               onChange={setFilterPrograms}
               placeholder="Program"
@@ -12650,7 +12634,8 @@ export const TarunSirMeetingsTable: React.FC = () => {
                 <tr>
                   <th onClick={() => handleMeetingSort('date')} style={{ width: '150px', cursor: 'pointer' }}>Meeting Date {meetingSortField === 'date' ? (meetingSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleMeetingSort('adminPoc')} style={{ width: '200px', cursor: 'pointer' }}>Admin / POC {meetingSortField === 'adminPoc' ? (meetingSortAsc ? '▲' : '▼') : ''}</th>
-                  <th onClick={() => handleMeetingSort('program')} style={{ width: '120px', cursor: 'pointer' }}>Program {meetingSortField === 'program' ? (meetingSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleMeetingSort('categoryId')} style={{ width: '150px', cursor: 'pointer' }}>Category {meetingSortField === 'categoryId' ? (meetingSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleMeetingSort('programId')} style={{ width: '150px', cursor: 'pointer' }}>Program {meetingSortField === 'programId' ? (meetingSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleMeetingSort('cohortTopic')} style={{ cursor: 'pointer' }}>Topic / Meeting Agenda {meetingSortField === 'cohortTopic' ? (meetingSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleMeetingSort('status')} style={{ width: '150px', cursor: 'pointer' }}>Status {meetingSortField === 'status' ? (meetingSortAsc ? '▲' : '▼') : ''}</th>
                   <th style={{ width: '40px' }}></th>
@@ -12676,12 +12661,15 @@ export const TarunSirMeetingsTable: React.FC = () => {
                       <td style={{ padding: '12px 16px' }}>
                         <div className="skeleton-line" style={{ height: '20px', width: '80px', borderRadius: '12px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
                       </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '14px', width: '60px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
                       <td style={{ padding: '12px 16px' }}></td>
                     </tr>
                   ))
                 ) : paginatedMeetings.length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                    <td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
                       No meetings found matching current filters.
                     </td>
                   </tr>
@@ -12778,118 +12766,35 @@ export const TarunSirMeetingsTable: React.FC = () => {
                             <span style={{ fontWeight: 600 }}>{meeting.adminPoc}</span>
                           )}
                         </td>
-                        <td
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingMeetingProgramId(meeting.id);
-                            const selected = meeting.program ? meeting.program.split(',').map(s => s.trim()).filter(Boolean) : [];
-                            setInlineMeetingProgramsValue(selected);
-                          }}
-                          style={{ position: 'relative', cursor: 'pointer' }}
-                          title="Click to edit Program"
-                        >
-                          {editingMeetingProgramId === meeting.id && (
-                            <div 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingMeetingProgramId(null);
-                              }}
-                              style={{
-                                position: 'fixed',
-                                top: 0,
-                                left: 0,
-                                right: 0,
-                                bottom: 0,
-                                zIndex: 99,
-                                background: 'transparent'
-                              }}
-                            />
-                          )}
-                          {editingMeetingProgramId === meeting.id ? (
-                            <div 
-                              onClick={(e) => e.stopPropagation()}
-                              style={{
-                                position: 'absolute',
-                                top: '100%',
-                                left: 0,
-                                zIndex: 100,
-                                backgroundColor: 'var(--panel-bg)',
-                                border: '1.5px solid var(--border)',
-                                borderRadius: '8px',
-                                padding: '8px',
-                                boxShadow: 'var(--shadow-lg)',
-                                minWidth: '160px',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '6px',
-                              }}
-                            >
-                              {programs.length === 0 ? (
-                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', padding: '4px' }}>No programs configured</span>
-                              ) : (
-                                programs.map(p => {
-                                  const isChecked = inlineMeetingProgramsValue.includes(p.name);
-                                  return (
-                                    <label 
-                                      key={p.id} 
-                                      style={{ 
-                                        display: 'flex', 
-                                        alignItems: 'center', 
-                                        gap: '8px', 
-                                        cursor: 'pointer',
-                                        fontSize: '0.8rem',
-                                        padding: '4px 6px',
-                                        borderRadius: '4px',
-                                        userSelect: 'none',
-                                        color: 'var(--text-primary)'
-                                      }}
-                                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--background-alt)'}
-                                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={isChecked}
-                                        onChange={(e) => {
-                                          let next;
-                                          if (e.target.checked) {
-                                            next = [...inlineMeetingProgramsValue, p.name];
-                                          } else {
-                                            next = inlineMeetingProgramsValue.filter(x => x !== p.name);
-                                          }
-                                          setInlineMeetingProgramsValue(next);
-                                          updateTarunSirMeeting(meeting.id, { program: next.join(', ') });
-                                        }}
-                                        style={{ cursor: 'pointer' }}
-                                      />
-                                      <span>{p.name}</span>
-                                    </label>
-                                  );
-                                })
-                              )}
-                              <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border)', paddingTop: '6px', marginTop: '4px' }}>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingMeetingProgramId(null);
-                                  }}
-                                  style={{
-                                    padding: '2px 8px',
-                                    fontSize: '0.75rem',
-                                    backgroundColor: 'var(--primary)',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                    fontWeight: 500
-                                  }}
-                                >
-                                  Done
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <span style={{ fontWeight: 600 }}>{meeting.program || '—'}</span>
-                          )}
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <select
+                            value={resolveMeetingCategorySelection(meeting)}
+                            onChange={(e) => updateTarunSirMeeting(meeting.id, {
+                              categoryId: e.target.value === '__uncategorized__' ? '' : e.target.value,
+                              programId: '',
+                              program: ''
+                            })}
+                            style={{ width: '100%', padding: '5px 6px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--background)', color: 'var(--text-primary)' }}
+                            title="Category is required for classified records"
+                          >
+                            <option value="">Select category</option>
+                            {categories.filter(c => c.active !== false).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            <option value="__uncategorized__">Uncategorized / Existing</option>
+                          </select>
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <select
+                            value={resolveMeetingProgram(meeting)?.id || ''}
+                            onChange={(e) => {
+                              const program = programs.find(p => p.id === e.target.value);
+                              updateTarunSirMeeting(meeting.id, { programId: program?.id || '', program: program?.name || '' });
+                            }}
+                            disabled={!resolveMeetingCategorySelection(meeting)}
+                            style={{ width: '100%', padding: '5px 6px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--background)', color: 'var(--text-primary)' }}
+                          >
+                            <option value="">{meeting.program && !resolveMeetingProgram(meeting) ? meeting.program : 'No program'}</option>
+                            {programs.filter(p => (p.categoryId || '__uncategorized__') === resolveMeetingCategorySelection(meeting)).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                          </select>
                         </td>
                         <td
                           onDoubleClick={(e) => {
@@ -13071,7 +12976,7 @@ export const TarunSirMeetingsTable: React.FC = () => {
                       {/* Accordion Expansion */}
                       {isExpanded && (
                         <tr style={{ background: 'var(--background)' }}>
-                          <td colSpan={6} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
+                          <td colSpan={7} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
                             <div style={{
                               background: 'var(--panel-bg)',
                               border: '1px solid var(--border)',

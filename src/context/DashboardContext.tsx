@@ -15,6 +15,7 @@ import type {
   ConfigSpeaker,
   ConfigProductGroup,
   ConfigStatus,
+  ConfigCategory,
   ConfigProgram,
   ConfigCohort,
   FeedbackFormConfig,
@@ -32,6 +33,7 @@ import {
   initialSpeakers,
   initialProductGroups,
   initialStatuses,
+  initialCategories,
   initialPrograms,
   initialCohorts,
   initialTeamContacts,
@@ -156,6 +158,11 @@ interface DashboardContextType {
   addStatus: (item: ConfigStatus) => void;
   updateStatus: (id: string, updated: Partial<ConfigStatus>) => void;
   deleteStatus: (id: string) => void;
+
+  categories: ConfigCategory[];
+  addCategory: (item: ConfigCategory) => Promise<boolean>;
+  updateCategory: (id: string, updated: Partial<ConfigCategory>) => Promise<boolean>;
+  deleteCategory: (id: string) => void;
 
   programs: ConfigProgram[];
   addProgram: (item: ConfigProgram) => void;
@@ -365,6 +372,7 @@ interface DashboardContextType {
     priority?: string;
     product?: string;
     statuses?: string[];
+    categories?: string[];
     programs?: string[];
     pocs?: string[];
     sortField?: string;
@@ -399,7 +407,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       'data-ama-sessions', 'data-student-meetings', 'data-admin-calls',
       'data-content-items', 'data-daily-issues', 'data-feature-adoptions',
       'config-speakers', 'config-product-groups', 'config-statuses',
-      'config-programs', 'config-cohorts',
+      'config-categories', 'config-programs', 'config-cohorts',
     ];
     keysToRemove.forEach(k => localStorage.removeItem(k));
     localStorage.setItem('data-version', DATA_VERSION);
@@ -788,6 +796,11 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return data ? JSON.parse(data) : initialStatuses;
   });
 
+  const [categories, setCategories] = useState<ConfigCategory[]>(() => {
+    const data = localStorage.getItem('config-categories');
+    return data ? JSON.parse(data) : initialCategories;
+  });
+
   const [programs, setPrograms] = useState<ConfigProgram[]>(() => {
     const data = localStorage.getItem('config-programs');
     return data ? JSON.parse(data) : initialPrograms;
@@ -1042,6 +1055,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [statuses]);
 
   useEffect(() => {
+    localStorage.setItem('config-categories', JSON.stringify(categories));
+  }, [categories]);
+
+  useEffect(() => {
     localStorage.setItem('config-programs', JSON.stringify(programs));
   }, [programs]);
 
@@ -1128,13 +1145,16 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         });
         if (response.ok) {
           setSyncStatus('synced');
+          return true;
         } else {
           console.error(`Persist failed for ${type} ${action}:`, await response.text());
           setSyncStatus('error');
+          return false;
         }
       } catch (err) {
         console.error(`Failed to connect to API for ${type} ${action}:`, err);
         setSyncStatus('error');
+        return false;
       }
     })();
 
@@ -1538,6 +1558,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     priority?: string;
     product?: string;
     statuses?: string[];
+    categories?: string[];
     programs?: string[];
     pocs?: string[];
     sortField?: string;
@@ -1560,6 +1581,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (options.product) params.append('product', options.product);
       if (options.statuses && options.statuses.length > 0) {
         params.append('statuses', options.statuses.join(','));
+      }
+      if (options.categories && options.categories.length > 0) {
+        params.append('categories', options.categories.join(','));
       }
       if (options.programs && options.programs.length > 0) {
         params.append('programs', options.programs.join(','));
@@ -1849,6 +1873,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
         if (db.productGroups !== undefined)                  { setProductGroups(db.productGroups); updatedSheets++; }
         if (db.statuses !== undefined)                       { setStatuses(db.statuses);           updatedSheets++; }
+        if (db.categories !== undefined)                     { setCategories(db.categories);       updatedSheets++; }
         if (db.programs !== undefined)                       { setPrograms(db.programs);           updatedSheets++; }
         if (db.cohorts !== undefined)                         { setCohorts(db.cohorts);             updatedSheets++; }
         if (db.comments !== undefined)                        { setComments(db.comments);           updatedSheets++; }
@@ -2760,6 +2785,36 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     persistChange('delete', 'statuses', id, null);
   };
 
+  const addCategory = async (item: ConfigCategory): Promise<boolean> => {
+    setCategories(prev => [...prev, item]);
+    const saved = await persistChange('create', 'categories', null, item);
+    if (!saved) setCategories(prev => prev.filter(category => category.id !== item.id));
+    return saved;
+  };
+  const updateCategory = async (id: string, updated: Partial<ConfigCategory>): Promise<boolean> => {
+    const previous = categories.find(category => category.id === id);
+    const nextItem = previous ? { ...previous, ...updated } : undefined;
+    if (!nextItem) return false;
+    setCategories(prev => prev.map(category => category.id === id ? nextItem : category));
+    const saved = await persistChange('update', 'categories', id, nextItem);
+    if (!saved && previous) {
+      setCategories(prev => prev.map(category => category.id === id ? previous : category));
+    }
+    return saved;
+  };
+  const deleteCategory = (id: string) => {
+    setPrograms(prev => prev.map(p => {
+      if (p.categoryId !== id) return p;
+      const updated = { ...p, categoryId: '' };
+      persistChange('update', 'programs', p.id, updated);
+      return updated;
+    }));
+    setAdminCalls(prev => prev.map(call => call.categoryId === id ? { ...call, categoryId: '' } : call));
+    setTarunSirMeetings(prev => prev.map(meeting => meeting.categoryId === id ? { ...meeting, categoryId: '' } : meeting));
+    setCategories(prev => prev.filter(c => c.id !== id));
+    persistChange('delete', 'categories', id, null);
+  };
+
   const addProgram = (item: ConfigProgram) => {
     setPrograms(prev => [...prev, item]);
     persistChange('create', 'programs', null, item);
@@ -3133,6 +3188,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       speakers, addSpeaker, updateSpeaker, deleteSpeaker,
       productGroups, addProductGroup, updateProductGroup, deleteProductGroup,
       statuses, addStatus, updateStatus, deleteStatus,
+      categories, addCategory, updateCategory, deleteCategory,
       programs, addProgram, updateProgram, deleteProgram,
       cohorts, addCohort, updateCohort, deleteCohort,
       clickupApiKey, setClickupApiKey: updateClickupApiKey, syncClickupTask,

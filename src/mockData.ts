@@ -12,6 +12,7 @@ import type {
   ConfigSpeaker,
   ConfigProductGroup,
   ConfigStatus,
+  ConfigCategory,
   ConfigProgram,
   ConfigCohort,
   TeamContact,
@@ -45,6 +46,8 @@ export const initialSpeakers: ConfigSpeaker[] = [];
 export const initialProductGroups: ConfigProductGroup[] = [];
 
 export const initialStatuses: ConfigStatus[] = [];
+
+export const initialCategories: ConfigCategory[] = [];
 
 export const initialPrograms: ConfigProgram[] = [];
 
