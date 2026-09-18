@@ -918,6 +918,12 @@ const DashboardContent: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Keep sidebar unreleased counts fresh after navigation and backend restarts.
+  // The request layer deduplicates this with any concurrent initial data refresh.
+  useEffect(() => {
+    fetchUnreleasedMeetingCounts();
+  }, [activeTab, fetchUnreleasedMeetingCounts]);
+
   // Public document shared link states
   interface DocumentHeading {
     id: string;
@@ -2175,7 +2181,34 @@ const DashboardContent: React.FC = () => {
               )}
               {group.items.map(item => {
                 const unreleasedCount = (unreleasedMeetingCounts as any)?.[item.id] || 0;
-                const isMeetingItem = item.id === 'tarun-meetings' || item.id === 'meetings' || item.id === 'admin';
+                const showsUnreleasedCount = ['tarun-meetings', 'meetings', 'admin', 'issues', 'feature-requests'].includes(item.id);
+                const unreleasedBadgeColor = item.id === 'tarun-meetings'
+                  ? '#ef4444'
+                  : item.id === 'meetings'
+                    ? '#8b5cf6'
+                    : item.id === 'admin'
+                      ? '#3b82f6'
+                      : item.id === 'issues'
+                        ? '#f59e0b'
+                        : '#ec4899';
+                const unreleasedBadgeBackground = item.id === 'tarun-meetings'
+                  ? 'rgba(239, 68, 68, 0.12)'
+                  : item.id === 'meetings'
+                    ? 'rgba(139, 92, 246, 0.12)'
+                    : item.id === 'admin'
+                      ? 'rgba(59, 130, 246, 0.12)'
+                      : item.id === 'issues'
+                        ? 'rgba(245, 158, 11, 0.12)'
+                        : 'rgba(236, 72, 153, 0.12)';
+                const unreleasedBadgeBorder = item.id === 'tarun-meetings'
+                  ? '1px solid rgba(239, 68, 68, 0.25)'
+                  : item.id === 'meetings'
+                    ? '1px solid rgba(139, 92, 246, 0.25)'
+                    : item.id === 'admin'
+                      ? '1px solid rgba(59, 130, 246, 0.25)'
+                      : item.id === 'issues'
+                        ? '1px solid rgba(245, 158, 11, 0.25)'
+                        : '1px solid rgba(236, 72, 153, 0.25)';
 
                 return (
                   <button
@@ -2196,7 +2229,7 @@ const DashboardContent: React.FC = () => {
                       fontSize: '0.775rem'
                     }}
                     title={
-                      isMeetingItem && unreleasedCount > 0
+                      showsUnreleasedCount && unreleasedCount > 0
                         ? `${item.label} (${unreleasedCount} unreleased task${unreleasedCount === 1 ? '' : 's'})`
                         : item.label
                     }
@@ -2207,7 +2240,8 @@ const DashboardContent: React.FC = () => {
                       <span style={isCollapsed ? {
                         position: 'absolute',
                         top: '2px',
-                        right: '2px',
+                        left: unreleasedCount > 0 ? '2px' : undefined,
+                        right: unreleasedCount > 0 ? undefined : '2px',
                         backgroundColor: 'var(--danger, #ef4444)',
                         color: 'white',
                         fontSize: '0.55rem',
@@ -2235,19 +2269,15 @@ const DashboardContent: React.FC = () => {
                         {unreadCommentsCount}
                       </span>
                     )}
-                    {isMeetingItem && unreleasedCount > 0 && (
+                    {showsUnreleasedCount && unreleasedCount > 0 && (
                       <span
                         title={`${unreleasedCount} unreleased task${unreleasedCount === 1 ? '' : 's'}`}
                         style={isCollapsed ? {
                           position: 'absolute',
                           top: '2px',
                           right: '2px',
-                          backgroundColor: activeTab === item.id 
-                            ? '#ffffff' 
-                            : (item.id === 'tarun-meetings' ? '#ef4444' : item.id === 'meetings' ? '#8b5cf6' : '#3b82f6'),
-                          color: activeTab === item.id 
-                            ? (item.id === 'tarun-meetings' ? '#ef4444' : item.id === 'meetings' ? '#8b5cf6' : '#3b82f6')
-                            : '#ffffff',
+                          backgroundColor: activeTab === item.id ? '#ffffff' : unreleasedBadgeColor,
+                          color: activeTab === item.id ? unreleasedBadgeColor : '#ffffff',
                           fontSize: '0.55rem',
                           fontWeight: 900,
                           borderRadius: '50%',
@@ -2258,16 +2288,10 @@ const DashboardContent: React.FC = () => {
                           justifyContent: 'center',
                           boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
                         } : {
-                          marginLeft: 'auto',
-                          backgroundColor: activeTab === item.id
-                            ? 'rgba(255, 255, 255, 0.22)'
-                            : (item.id === 'tarun-meetings' ? 'rgba(239, 68, 68, 0.12)' : item.id === 'meetings' ? 'rgba(139, 92, 246, 0.12)' : 'rgba(59, 130, 246, 0.12)'),
-                          color: activeTab === item.id
-                            ? '#ffffff'
-                            : (item.id === 'tarun-meetings' ? '#ef4444' : item.id === 'meetings' ? '#8b5cf6' : '#3b82f6'),
-                          border: activeTab === item.id
-                            ? '1px solid rgba(255, 255, 255, 0.35)'
-                            : (item.id === 'tarun-meetings' ? '1px solid rgba(239, 68, 68, 0.25)' : item.id === 'meetings' ? '1px solid rgba(139, 92, 246, 0.25)' : '1px solid rgba(59, 130, 246, 0.25)'),
+                          marginLeft: item.id === 'feature-requests' && unreadCommentsCount > 0 ? '0.3rem' : 'auto',
+                          backgroundColor: activeTab === item.id ? 'rgba(255, 255, 255, 0.22)' : unreleasedBadgeBackground,
+                          color: activeTab === item.id ? '#ffffff' : unreleasedBadgeColor,
+                          border: activeTab === item.id ? '1px solid rgba(255, 255, 255, 0.35)' : unreleasedBadgeBorder,
                           fontSize: '0.65rem',
                           fontWeight: 800,
                           borderRadius: '10px',

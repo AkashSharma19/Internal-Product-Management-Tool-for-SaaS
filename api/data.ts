@@ -360,11 +360,18 @@ export default async function handler(req: any, res: any) {
 
         if (action === 'unreleased-meeting-task-counts') {
           const ProductItem = modelsMap['products'];
+          const DailyIssue = modelsMap['dailyIssues'];
+          const completedStatuses = ['Delivered', 'Completed', 'Done', 'Closed', 'Released', 'delivered', 'completed', 'done', 'closed', 'released'];
           const unreleasedCondition = {
             id: { $not: /^prod-temp-/ },
             finalReleaseCompleted: { $ne: true },
-            status: { $nin: ['Delivered', 'Completed', 'Done', 'Closed', 'Released', 'delivered', 'completed', 'done', 'closed', 'released'] }
+            status: { $nin: completedStatuses }
           };
+          const dailyIssueUnreleasedCondition = {
+            finalReleaseCompleted: { $ne: true },
+            status: { $nin: completedStatuses }
+          };
+          const requestedFeatureTypes = ['Feature Gap', 'Enhancement', 'BUG', 'New Feature', 'Data Needed', 'Term Report/ Transcript'];
 
           const tarunQuery = {
             ...unreleasedCondition,
@@ -408,10 +415,18 @@ export default async function handler(req: any, res: any) {
             ]
           };
 
-          const [tarunCount, studentCount, adminCount] = await Promise.all([
+          const [tarunCount, studentCount, adminCount, dailyIssuesCount, requestedFeaturesCount] = await Promise.all([
             ProductItem.countDocuments(tarunQuery),
             ProductItem.countDocuments(studentQuery),
-            ProductItem.countDocuments(adminQuery)
+            ProductItem.countDocuments(adminQuery),
+            DailyIssue.countDocuments({
+              ...dailyIssueUnreleasedCondition,
+              type: { $nin: requestedFeatureTypes }
+            }),
+            DailyIssue.countDocuments({
+              ...dailyIssueUnreleasedCondition,
+              type: { $in: requestedFeatureTypes }
+            })
           ]);
 
           return res.status(200).json({
@@ -419,7 +434,9 @@ export default async function handler(req: any, res: any) {
             counts: {
               'tarun-meetings': tarunCount,
               'meetings': studentCount,
-              'admin': adminCount
+              'admin': adminCount,
+              'issues': dailyIssuesCount,
+              'feature-requests': requestedFeaturesCount
             }
           });
         }

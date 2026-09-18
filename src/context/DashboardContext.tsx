@@ -278,6 +278,8 @@ interface DashboardContextType {
     'tarun-meetings': number;
     'meetings': number;
     'admin': number;
+    'issues': number;
+    'feature-requests': number;
   };
   fetchUnreleasedMeetingCounts: () => Promise<void>;
 
@@ -1147,10 +1149,14 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     'tarun-meetings': number;
     'meetings': number;
     'admin': number;
+    'issues': number;
+    'feature-requests': number;
   }>({
     'tarun-meetings': 0,
     'meetings': 0,
-    'admin': 0
+    'admin': 0,
+    'issues': 0,
+    'feature-requests': 0
   });
 
   const fetchUnreleasedMeetingCounts = useCallback(async () => {

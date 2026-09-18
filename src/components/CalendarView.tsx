@@ -103,6 +103,21 @@ const getEventBlocker = (evt: CalendarEvent): string => {
   return typeof blocker === 'string' ? blocker.trim() : '';
 };
 
+const isCalendarEventOverdue = (evt: CalendarEvent): boolean => {
+  return !evt.isCompleted && evt.dateStr < toLocalDateStr(new Date());
+};
+
+const getPocInitials = (name: string): string => {
+  if (!name.trim()) return '—';
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(part => part[0])
+    .join('')
+    .toUpperCase();
+};
+
 const isLinkedToMeetingOrCall = (notes: string | undefined) => {
   if (!notes) return false;
   return notes.includes('AMA Session ID:') || notes.includes('Admin Call ID:') || notes.includes('Tarun Sir Meeting ID:');
@@ -789,17 +804,37 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
   const selectedDateEvents = useMemo(() => {
     const evts = eventsByDate[selectedDateStr] || [];
     return [...evts].sort((a, b) => {
-      if (a.isCompleted && !b.isCompleted) return 1;
-      if (!a.isCompleted && b.isCompleted) return -1;
-      return 0;
+      if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1;
+
+      const aBlocked = Boolean(getEventBlocker(a));
+      const bBlocked = Boolean(getEventBlocker(b));
+      if (aBlocked !== bBlocked) return aBlocked ? -1 : 1;
+
+      const aOverdue = isCalendarEventOverdue(a);
+      const bOverdue = isCalendarEventOverdue(b);
+      if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
+
+      return a.title.localeCompare(b.title);
     });
   }, [selectedDateStr, eventsByDate]);
 
   const selectedDateLabel = useMemo(() => {
-    const d = new Date(selectedDateStr);
+    const [year, month, day] = selectedDateStr.split('-').map(Number);
+    const d = new Date(year, month - 1, day);
     if (isNaN(d.getTime())) return selectedDateStr;
     return d.toLocaleDateString('default', { day: 'numeric', month: 'long', year: 'numeric' });
   }, [selectedDateStr]);
+
+  const shiftSelectedDate = (days: number) => {
+    const [year, month, day] = selectedDateStr.split('-').map(Number);
+    const nextDate = new Date(year, month - 1, day + days);
+    if (isNaN(nextDate.getTime())) return;
+
+    setSelectedDateStr(toLocalDateStr(nextDate));
+    if (nextDate.getFullYear() !== currentMonth.getFullYear() || nextDate.getMonth() !== currentMonth.getMonth()) {
+      setCurrentMonth(new Date(nextDate.getFullYear(), nextDate.getMonth(), 1));
+    }
+  };
 
   // Count overdue events: not completed, date is before today
   const overdueCount = useMemo(() => {
@@ -816,12 +851,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
   return (
     <div className="full-canvas-workspace">
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-        <div className="calendar-dashboard-layout animate-slide-in" style={{
-          display: 'grid',
-          gridTemplateColumns: isPublic ? '280px 1fr 320px' : '1fr 320px',
-          gap: '0',
-          height: '100%'
-        }}>
+        <div className={`calendar-dashboard-layout animate-slide-in ${isPublic ? 'public-calendar-layout' : ''}`}>
           
           {/* Left Undated Tasks Panel (Only for Public View) */}
           {isPublic && (
@@ -1172,165 +1202,119 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
         </div>
 
         {/* Right Sidebar Panel */}
-        <div className="calendar-sidebar-panel" style={isPublic ? {
-          borderRadius: '0',
-          border: 'none',
-          height: '100%',
-          width: '100%',
-          padding: '0'
-        } : undefined}>
-          <div className="calendar-sidebar-header" style={isPublic ? {
-            padding: '0.75rem 1.25rem',
-            background: 'var(--background-alt)',
-            borderBottom: '1px solid var(--border-light)',
-            height: '56px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            flexShrink: 0,
-            marginBottom: '0',
-            boxSizing: 'border-box'
-          } : undefined}>
-            <h4 className="calendar-sidebar-title">Selected Date</h4>
-            <p className="calendar-sidebar-subtitle">{selectedDateLabel}</p>
+        <div className="calendar-sidebar-panel calendar-agenda-panel">
+          <div className="calendar-sidebar-header calendar-agenda-header">
+            <div className="calendar-agenda-heading-row">
+              <div>
+                <h4 className="calendar-sidebar-title">Selected Date</h4>
+                <p className="calendar-sidebar-subtitle">{selectedDateLabel}</p>
+              </div>
+              <div className="calendar-agenda-date-nav" aria-label="Selected date navigation">
+                <button type="button" onClick={() => shiftSelectedDate(-1)} aria-label="Previous date" title="Previous date">
+                  <ChevronLeft size={14} />
+                </button>
+                <button type="button" onClick={() => shiftSelectedDate(1)} aria-label="Next date" title="Next date">
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+
           </div>
 
           <div
             key={selectedDateStr}
-            className="calendar-sidebar-content-enter"
-            style={isPublic ? {
-              flex: 1,
-              overflowY: 'auto',
-              borderTop: 'none',
-              padding: '1rem'
-            } : {
-              flex: 1,
-              overflowY: 'auto',
-              margin: '0 -1.25rem',
-              borderTop: '1px solid var(--border-light)'
-            }}
+            className="calendar-sidebar-content-enter calendar-agenda-content"
           >
             {selectedDateEvents.length === 0 ? (
               <div className="calendar-sidebar-empty-state">
                 <div className="calendar-sidebar-empty-icon">
                   <Clock size={20} />
                 </div>
-                <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 700 }}>No Deadlines</p>
+                <p style={{ margin: 0, fontSize: '0.7rem', fontWeight: 500 }}>Nothing scheduled</p>
                 <span style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>
-                  There are no milestones or calls scheduled for this date.
+                  There are no milestones or calls planned for this date.
                 </span>
+                <button type="button" className="calendar-agenda-clear-btn" onClick={handleToday}>Go to today</button>
               </div>
             ) : (
-              <table className="grid-table" style={{ width: '100%' }}>
-                <thead>
-                  <tr style={{ background: 'var(--background-alt)' }}>
-                    <th style={{ fontSize: '0.65rem', padding: '8px 12px', fontWeight: 700 }}>Task</th>
-                    <th style={{ fontSize: '0.65rem', padding: '8px 12px', fontWeight: 700, textAlign: 'right', whiteSpace: 'nowrap' }}>POC</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedDateEvents.map(evt => (
-                    <tr 
-                      key={evt.id} 
+              <div className="calendar-agenda-list">
+                {selectedDateEvents.map(evt => {
+                  const blocker = getEventBlocker(evt);
+                  const isOverdue = isCalendarEventOverdue(evt);
+                  const taskLink = evt.taskLink || evt.rawItem?.taskLink || '';
+
+                  return (
+                    <article
+                      key={evt.id}
+                      className={`calendar-agenda-card ${blocker ? 'is-blocked' : ''} ${isOverdue ? 'is-overdue' : ''} ${evt.isCompleted ? 'is-completed' : ''}`}
                       draggable={!isPublic}
+                      tabIndex={0}
+                      aria-label={`${evt.title}, ${getStageLabel(evt.stage)}${blocker ? `, blocked: ${blocker}` : ''}`}
                       onDragStart={(e) => handleDragStart(e, evt)}
                       onDragEnd={handleDragEnd}
                       onClick={() => handleEventClick(evt)}
-                      style={{ 
-                        cursor: isPublic ? 'pointer' : 'grab', 
-                        opacity: draggedEvent?.id === evt.id ? 0.4 : evt.isCompleted ? 0.75 : 1,
-                        background: evt.isCompleted ? 'rgba(16, 185, 129, 0.04)' : 'transparent'
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleEventClick(evt);
+                        }
+                      }}
+                      style={{
+                        borderLeftColor: blocker ? '#f97316' : evt.isCompleted ? 'var(--success, #10b981)' : getEventColor(evt),
+                        opacity: draggedEvent?.id === evt.id ? 0.45 : 1,
+                        cursor: isPublic ? 'pointer' : 'grab'
                       }}
                     >
-                      <td style={{ 
-                        borderLeft: `3px solid ${evt.isCompleted ? 'var(--success, #10b981)' : getEventColor(evt)}`, 
-                        whiteSpace: 'normal', 
-                        padding: '8px 12px',
-                        verticalAlign: 'top'
-                      }}>
-                        {/* Stage pill — coloured by milestone type */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '3px' }}>
-                          <span style={{
-                            fontSize: '0.525rem',
-                            fontWeight: 800,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.04em',
-                            padding: '1px 5px',
-                            borderRadius: '3px',
-                            background: evt.isCompleted ? 'var(--success, #10b981)' : getEventColor(evt),
-                            color: '#fff',
-                            flexShrink: 0
-                          }}>
-                            {getStageLabel(evt.stage)}
-                          </span>
-                          {getEventBlocker(evt) && (
-                            <span
-                              className="calendar-blocker-warning calendar-blocker-warning-detail"
-                              role="img"
-                              aria-label={`Blocker: ${getEventBlocker(evt)}`}
-                              title={`Blocker: ${getEventBlocker(evt)}`}
-                            >
-                              <AlertTriangle size={13} aria-hidden="true" />
-                            </span>
-                          )}
-                          <span style={{ fontWeight: 700, fontSize: '0.775rem', color: 'var(--text-primary)', lineHeight: 1.25 }}>
-                            {evt.title}
-                          </span>
+                      <div className="calendar-agenda-card-topline">
+                        <span
+                          className="calendar-agenda-stage"
+                          style={{ backgroundColor: evt.isCompleted ? 'var(--success, #10b981)' : getEventColor(evt) }}
+                        >
+                          {getStageLabel(evt.stage)}
+                        </span>
+                        <div className="calendar-agenda-state-badges">
+                          {blocker && <span className="blocked"><AlertTriangle size={10} /> Blocked</span>}
+                          {isOverdue && <span className="overdue"><Clock size={10} /> Overdue</span>}
+                          {evt.isCompleted && <span className="completed"><Check size={10} /> Completed</span>}
                         </div>
-                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center', paddingLeft: '2px' }}>
-                          <span className={`badge badge-${evt.status ? evt.status.toLowerCase().replace(/\s+/g, '-') : 'default'}`} style={{ fontSize: '0.55rem', padding: '1px 4px' }}>
-                            {evt.status || 'Active'}
-                          </span>
-                          {evt.priority && (
-                            <span className={`badge badge-${evt.priority.toLowerCase()}`} style={{ fontSize: '0.55rem', padding: '1px 4px' }}>
-                              {evt.priority}
-                            </span>
-                          )}
-                          <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>
-                            {evt.source === 'Admin Calls' ? 'Admin Meetings' : evt.source}
-                          </span>
-                          {(evt.taskLink || evt.rawItem?.taskLink) && (
-                            <button
-                              onClick={(e) => handleCopyLink(e, evt.id, evt.taskLink || evt.rawItem?.taskLink)}
-                              title={copiedId === evt.id ? 'Copied!' : 'Copy ClickUp link'}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '3px',
-                                background: copiedId === evt.id ? 'rgba(16, 185, 129, 0.12)' : 'var(--background-alt)',
-                                border: `1px solid ${copiedId === evt.id ? 'rgba(16, 185, 129, 0.4)' : 'var(--border-light)'}`,
-                                borderRadius: '4px',
-                                padding: '1px 5px',
-                                cursor: 'pointer',
-                                fontSize: '0.55rem',
-                                fontWeight: 700,
-                                color: copiedId === evt.id ? '#10b981' : 'var(--text-secondary)',
-                                transition: 'all 0.2s',
-                                flexShrink: 0
-                              }}
-                            >
-                              {copiedId === evt.id
-                                ? <><Check size={9} /> Copied</>  
-                                : <><Copy size={9} /> ClickUp</>}
-                            </button>
-                          )}
+                      </div>
+
+                      <h5 className="calendar-agenda-task-title">{evt.title}</h5>
+
+                      {blocker && (
+                        <div className="calendar-agenda-blocker" title={blocker}>
+                          <AlertTriangle size={13} aria-hidden="true" />
+                          <span><strong>Blocker:</strong> {blocker}</span>
                         </div>
-                      </td>
-                      <td style={{ 
-                        padding: '8px 12px', 
-                        verticalAlign: 'top', 
-                        textAlign: 'right', 
-                        fontSize: '0.675rem', 
-                        fontWeight: 700, 
-                        color: 'var(--text-secondary)',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {evt.poc ? evt.poc.split(' ')[0] : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      )}
+
+                      <div className="calendar-agenda-meta">
+                        <span>{evt.status || 'Active'}</span>
+                        {evt.priority && <span className={`priority ${evt.priority.toLowerCase()}`}>{evt.priority}</span>}
+                        <span>{evt.source === 'Admin Calls' ? 'Admin Meetings' : evt.source}</span>
+                      </div>
+
+                      <div className="calendar-agenda-card-footer">
+                        <div className="calendar-agenda-poc" title={evt.poc || 'Unassigned'}>
+                          <span className="calendar-agenda-avatar">{getPocInitials(evt.poc || '')}</span>
+                          <span>{evt.poc || 'Unassigned'}</span>
+                        </div>
+
+                        {taskLink && (
+                          <button
+                            type="button"
+                            className={`calendar-agenda-clickup ${copiedId === evt.id ? 'copied' : ''}`}
+                            onClick={(e) => handleCopyLink(e, evt.id, taskLink)}
+                            title={copiedId === evt.id ? 'Copied!' : 'Copy ClickUp link'}
+                          >
+                            {copiedId === evt.id ? <><Check size={11} /> Copied</> : <><Copy size={11} /> ClickUp</>}
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
