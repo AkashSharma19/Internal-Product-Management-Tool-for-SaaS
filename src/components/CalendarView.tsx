@@ -9,7 +9,8 @@ import {
   X,
   RefreshCw,
   Copy,
-  Check
+  Check,
+  AlertTriangle
 } from 'lucide-react';
 import { getClickupBadgeStyle } from './Tables';
 import type { ProductItem } from '../types';
@@ -89,10 +90,18 @@ interface CalendarEvent {
   priority?: string;
   status?: string;
   taskLink?: string;
+  blocker?: string;
   rawItem: any;
   tab: string;
   isCompleted: boolean;
 }
+
+// Keep compatibility with an older API process during local hot reloads. Calendar
+// payloads already include rawItem, while newer API builds expose blocker directly.
+const getEventBlocker = (evt: CalendarEvent): string => {
+  const blocker = evt.blocker ?? evt.rawItem?.blocker;
+  return typeof blocker === 'string' ? blocker.trim() : '';
+};
 
 const isLinkedToMeetingOrCall = (notes: string | undefined) => {
   if (!notes) return false;
@@ -1112,7 +1121,9 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
                                     opacity: draggedEvent?.id === evt.id ? 0.4 : evt.isCompleted ? 0.6 : 1,
                                     cursor: isPublic ? 'pointer' : 'grab'
                                   }}
-                                  title={`[${getStageLabel(evt.stage)}] ${evt.title}${evt.isCompleted ? ' ✓' : ''} (Drag to reschedule)`}
+                                  title={getEventBlocker(evt)
+                                    ? `Blocker: ${getEventBlocker(evt)} · [${getStageLabel(evt.stage)}] ${evt.title}${evt.isCompleted ? ' ✓' : ''}`
+                                    : `[${getStageLabel(evt.stage)}] ${evt.title}${evt.isCompleted ? ' ✓' : ''}${isPublic ? '' : ' (Drag to reschedule)'}`}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleEventClick(evt);
@@ -1129,7 +1140,17 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
                                   }}>
                                     {getStageLabel(evt.stage)}
                                   </span>
-                                  {evt.title}
+                                  {getEventBlocker(evt) && (
+                                    <span
+                                      className="calendar-blocker-warning"
+                                      role="img"
+                                      aria-label={`Blocker: ${getEventBlocker(evt)}`}
+                                      title={`Blocker: ${getEventBlocker(evt)}`}
+                                    >
+                                      <AlertTriangle size={10} aria-hidden="true" />
+                                    </span>
+                                  )}
+                                  <span className="calendar-mini-event-title">{evt.title}</span>
                                 </div>
                               ))}
                               {dayEvents.length > 3 && (
@@ -1242,6 +1263,16 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
                           }}>
                             {getStageLabel(evt.stage)}
                           </span>
+                          {getEventBlocker(evt) && (
+                            <span
+                              className="calendar-blocker-warning calendar-blocker-warning-detail"
+                              role="img"
+                              aria-label={`Blocker: ${getEventBlocker(evt)}`}
+                              title={`Blocker: ${getEventBlocker(evt)}`}
+                            >
+                              <AlertTriangle size={13} aria-hidden="true" />
+                            </span>
+                          )}
                           <span style={{ fontWeight: 700, fontSize: '0.775rem', color: 'var(--text-primary)', lineHeight: 1.25 }}>
                             {evt.title}
                           </span>

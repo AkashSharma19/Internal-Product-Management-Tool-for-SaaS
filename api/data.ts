@@ -235,7 +235,10 @@ export default async function handler(req: any, res: any) {
             'plans', 'projects', 'amaSessions', 'studentMeetings', 'adminCalls', 'tarunSirMeetings', 
             'contentItems', 'dailyIssues', 'featureAdoptions', 'releaseNotes'
           ];
-          for (const key of allowedKeys) {
+          // These collections are independent. Loading them concurrently avoids multiplying
+          // database round-trip latency, which is especially noticeable during local
+          // development when MongoDB is hosted in a remote region.
+          await Promise.all(allowedKeys.map(async (key) => {
             if (key === 'speakers') {
               const rawSpeakers = await modelsMap[key].find({}).lean();
               results[key] = rawSpeakers.map((s: any) => {
@@ -294,7 +297,7 @@ export default async function handler(req: any, res: any) {
                 }));
               }
             }
-          }
+          }));
           return res.status(200).json({ success: true, data: results });
         }
 
@@ -1587,6 +1590,7 @@ export default async function handler(req: any, res: any) {
                 priority,
                 status: rawItem.status || '',
                 taskLink,
+                blocker: typeof rawItem.blocker === 'string' ? rawItem.blocker.trim() : '',
                 rawItem,
                 tab,
                 isCompleted

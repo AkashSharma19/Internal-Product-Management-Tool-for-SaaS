@@ -131,14 +131,23 @@ cd Internal-Product-Management-Tool-for-SaaS
 
 # Install dependencies
 npm install
-
-# Start dev server (with Vercel Functions support)
-npx vercel dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+For the fastest local workflow, use two terminals. The first runs the persistent API server and keeps its MongoDB connection pool warm; the second runs Vite with hot reload:
 
-> **Note:** Use `npx vercel dev` (not `npm run dev`) to ensure the serverless API functions in `/api` are available locally.
+```bash
+# Terminal 1 — API and database (http://localhost:3000)
+npm run dev:server
+
+# Terminal 2 — frontend with HMR (http://localhost:5173)
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+> **Important:** Stop `npx vercel dev` before using this workflow. Both commands listen on port 3000, and running them together can make `localhost` and `127.0.0.1` reach different servers. `dev:server` loads `.env` and `.env.local` without printing their values.
+
+`npx vercel dev` remains useful when specifically testing Vercel's serverless behavior, but it is slower against a remote MongoDB because local function workers may repeatedly establish database connections.
 
 ### Build for Production
 
