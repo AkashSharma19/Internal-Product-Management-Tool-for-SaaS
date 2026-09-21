@@ -44,7 +44,8 @@ import {
   Upload,
   Mail,
   Lock,
-  FileText
+  FileText,
+  Tag
 } from 'lucide-react';
 import type { 
   ProductItem, 
@@ -4547,7 +4548,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
             <ArrowLeft size={12} />
           </button>
           <span>
-            {activeTab === 'issues' ? 'Daily Issues Log' : 
+            {activeTab === 'issues' ? 'Daily Needs' : 
              activeTab === 'projects' ? 'Student Projects' : 
              activeTab === 'meetings' ? 'Student Meetings' : 
              activeTab === 'admin' ? 'Admin Meetings' : 
@@ -4620,6 +4621,25 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
             
             {/* Task Title (Editable) + inline link button */}
             <div style={{ position: 'relative' }}>
+              {(activeTab === 'issues' || item.type) && (
+                <div style={{ marginBottom: '6px' }}>
+                  <span style={{
+                    backgroundColor: item.type === 'Improvement' ? 'rgba(59, 130, 246, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                    color: item.type === 'Improvement' ? '#2563eb' : '#dc2626',
+                    border: `1px solid ${item.type === 'Improvement' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                    padding: '2px 8px',
+                    fontSize: '0.7rem',
+                    borderRadius: '4px',
+                    fontWeight: 700,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    <Tag size={10} />
+                    {item.type === 'Improvement' ? 'Improvement' : 'Bug'}
+                  </span>
+                </div>
+              )}
               <textarea
                 ref={titleTextareaRef}
                 className="premium-title-input"
@@ -5026,6 +5046,24 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                       onChange={(val) => handleFieldUpdate('status', val)}
                       productStatuses={productStatuses}
                     />
+                  </div>
+                </div>
+
+                {/* Need Type */}
+                <div className="property-row-flat">
+                  <span className="premium-property-label">
+                    <Tag size={13} /> Need Type
+                  </span>
+                  <div className="premium-property-value">
+                    <div className="premium-select-pill">
+                      <select
+                        value={item.type === 'Improvement' ? 'Improvement' : 'Bug'}
+                        onChange={(e) => handleFieldUpdate('type', e.target.value)}
+                      >
+                        <option value="Bug">Bug</option>
+                        <option value="Improvement">Improvement</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
@@ -15154,6 +15192,7 @@ export const ProductWiseSheet: React.FC = () => {
 
 export const IssuesTable: React.FC = () => {
   const { dailyIssues, addDailyIssue, deleteDailyIssue, statuses, setPreviewProductId, currentUser, confirm, fetchPaginatedMeetingsData } = useDashboard();
+  const [filterType, setFilterType] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState('All');
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
@@ -15173,7 +15212,7 @@ export const IssuesTable: React.FC = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterPriority, filterSuperPriorityOnly, filterStatuses]);
+  }, [searchQuery, filterPriority, filterSuperPriorityOnly, filterStatuses, filterType]);
 
   useEffect(() => {
     let active = true;
@@ -15192,7 +15231,14 @@ export const IssuesTable: React.FC = () => {
       });
       if (active) {
         if (res.success) {
-          setPaginatedIssues(res.data);
+          let items = res.data || [];
+          if (filterType !== 'All') {
+            items = items.filter((item: DailyIssue) => {
+              const isImprovement = item.type === 'Improvement';
+              return filterType === 'Improvement' ? isImprovement : !isImprovement;
+            });
+          }
+          setPaginatedIssues(items);
           setTotalItems(res.totalItems);
           setCompletedItems(res.completedItems || 0);
           setTotalPages(res.totalPages);
@@ -15211,6 +15257,7 @@ export const IssuesTable: React.FC = () => {
     filterPriority,
     filterSuperPriorityOnly,
     filterStatuses,
+    filterType,
     sortField,
     sortAsc,
     dailyIssues,
@@ -15236,8 +15283,8 @@ export const IssuesTable: React.FC = () => {
       id: newId,
       cohort: '',
       product: '',
-      module: 'New Daily Issue',
-      type: 'Bug/Defect',
+      module: 'New Daily Need',
+      type: 'Bug',
       issues: '',
       contact: '',
       priority: '',
@@ -15299,6 +15346,8 @@ export const IssuesTable: React.FC = () => {
   };
 
   const renderRow = (item: DailyIssue) => {
+    const isImprovement = item.type === 'Improvement';
+    const typeLabel = isImprovement ? 'Improvement' : 'Bug';
     return (
       <tr 
         key={item.id} 
@@ -15314,6 +15363,19 @@ export const IssuesTable: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
                 {item.module || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
+              </span>
+              <span style={{
+                backgroundColor: isImprovement ? 'rgba(59, 130, 246, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                color: isImprovement ? '#2563eb' : '#dc2626',
+                border: `1px solid ${isImprovement ? 'rgba(59, 130, 246, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                padding: '2px 6px',
+                fontSize: '0.65rem',
+                borderRadius: '4px',
+                fontWeight: 650,
+                display: 'inline-flex',
+                alignItems: 'center',
+              }}>
+                {typeLabel}
               </span>
               {item.priority && (
                 <span className={`badge badge-${item.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
@@ -15387,7 +15449,7 @@ export const IssuesTable: React.FC = () => {
           <button 
             onClick={async (e) => {
               e.stopPropagation();
-              if (await confirm("Are you sure you want to delete this daily issue?", "Delete Daily Issue")) {
+              if (await confirm("Are you sure you want to delete this daily need?", "Delete Daily Need")) {
                 deleteDailyIssue(item.id);
               }
             }} 
@@ -15402,13 +15464,18 @@ export const IssuesTable: React.FC = () => {
 
   return (
     <TabContainer
-      title="Daily Issues Log"
+      title="Daily Needs"
       searchQuery={searchQuery}
       setSearchQuery={setSearchQuery}
       onAddClick={handleAddNew}
-      addLabel="Add Issue"
+      addLabel="Add Need"
       filterComponent={
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <select className="filter-select" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+            <option value="All">All Types</option>
+            <option value="Bug">Bug</option>
+            <option value="Improvement">Improvement</option>
+          </select>
           <select className="filter-select" value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)}>
             <option value="All">All Priorities</option>
             <option value="P0">P0 (Critical)</option>

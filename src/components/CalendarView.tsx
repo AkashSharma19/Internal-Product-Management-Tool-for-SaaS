@@ -82,7 +82,7 @@ const isCompletedStatus = (status?: string): boolean => {
 
 interface CalendarEvent {
   id: string;
-  source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA Sessions' | 'Student Meetings' | 'Admin Calls' | 'Tarun Sir Meetings' | 'Daily Issues Log';
+  source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA Sessions' | 'Student Meetings' | 'Admin Calls' | 'Tarun Sir Meetings' | 'Daily Issues Log' | 'Daily Needs';
   title: string;
   stage: 'Specs' | 'UI/UX' | 'Dev' | 'Final Release' | 'AMA Date' | 'Call Date' | 'Meeting Date' | 'Publish Date' | 'Deadline' | 'Commited';
   dateStr: string; // normalized YYYY-MM-DD
@@ -329,7 +329,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
         } else {
           updateContentItem(evt.rawItem.id, { [fieldToUpdate]: targetDateStr });
         }
-      } else if (evt.source === 'Daily Issues Log') {
+      } else if (evt.source === 'Daily Issues Log' || evt.source === 'Daily Needs') {
         updateDailyIssue(evt.rawItem.id, { [fieldToUpdate]: targetDateStr });
       } else if (evt.source === 'Student Meetings') {
         updateStudentMeeting(evt.rawItem.id, { [fieldToUpdate]: targetDateStr });
@@ -572,7 +572,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
             list.push({
               id: item.id,
               title: item.module || `Issue #${item.id}`,
-              source: 'Daily Issues Log',
+              source: 'Daily Needs',
               poc: item.poc || '',
               priority: item.priority,
               status: item.status,
@@ -749,7 +749,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
         openPreviewForFeature(evt.title, evt.rawItem as unknown as Partial<ProductItem>);
       } else if (evt.source === 'Content Pipeline') {
         setPreviewProductId(evt.rawItem.id);
-      } else if (evt.source === 'Daily Issues Log') {
+      } else if (evt.source === 'Daily Issues Log' || evt.source === 'Daily Needs') {
         setPreviewProductId(evt.rawItem.id);
       }
     }, 50);

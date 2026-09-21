@@ -4456,7 +4456,7 @@ const CalendarConfigSection: React.FC = () => {
     { id: 'admin',          label: 'Admin Meetings',            description: 'Scheduled call dates and follow-up deadlines' },
     { id: 'tarun-meetings', label: 'Tarun Sir Meetings',     description: 'Scheduled meeting dates' },
     { id: 'content',        label: 'Content Pipeline',       description: 'Content publish dates and content dev deadlines' },
-    { id: 'issues',         label: 'Daily Issues Log',       description: 'Reported bugs and UX issues resolution deadlines' },
+    { id: 'issues',         label: 'Daily Needs',            description: 'Reported bugs and UX needs resolution deadlines' },
   ];
 
   return (
@@ -5201,7 +5201,7 @@ const EmailDigestSettingsSection: React.FC = () => {
                     </tr>
                     <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
                       <td style={{ padding: '10px 8px', fontWeight: 600, color: '#1e293b' }}>
-                        ⚠️ Daily Issues Log
+                        ⚠️ Daily Needs
                       </td>
                       <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: 700, color: '#ef4444' }}>
                         8 / 12 unresolved

@@ -472,7 +472,7 @@ export const DashboardOverview: React.FC = () => {
     } else if (task.source === 'Content Pipeline') {
       setActiveTab('content');
       setPreviewProductId(task.id);
-    } else if (task.source === 'Daily Issues Log') {
+    } else if (task.source === 'Daily Issues Log' || task.source === 'Daily Needs') {
       setActiveTab(task.type === 'Feature Gap' || task.type === 'Enhancement' ? 'feature-requests' : 'issues');
       setPreviewProductId(task.id);
     } else if (task.source === 'AMA & Meetings') {
@@ -598,6 +598,7 @@ export const DashboardOverview: React.FC = () => {
       'Admin Calls': 'admin-calls',
       'Tarun Sir Meetings': 'tarun-meetings',
       'Daily Issues Log': 'daily-issues',
+      'Daily Needs': 'daily-issues',
       'Requested Features': 'priority-requests',
     };
     return map[source] || '';

@@ -20,7 +20,7 @@ interface UnifiedTask {
   id: string;
   sourceId: string;
   feature: string;
-  source: 'Priority Requests' | 'Feedback' | 'Product Breakdown' | 'Sprint Planning' | 'Student Projects' | 'Content Pipeline' | 'Daily Issues' | 'Feature Requests';
+  source: 'Priority Requests' | 'Feedback' | 'Product Breakdown' | 'Sprint Planning' | 'Student Projects' | 'Content Pipeline' | 'Daily Issues' | 'Daily Needs' | 'Feature Requests';
   product: string;
   module?: string;
   status: string;
@@ -208,7 +208,7 @@ export const TeamView: React.FC = () => {
           await deleteStudentProject(task.sourceId);
         } else if (src === 'Content Pipeline') {
           await deleteContentItem(task.sourceId);
-        } else if (src === 'Daily Issues' || src === 'Feature Requests') {
+        } else if (src === 'Daily Issues' || src === 'Daily Needs' || src === 'Feature Requests') {
           await deleteDailyIssue(task.sourceId);
         }
         
@@ -542,6 +542,7 @@ export const TeamView: React.FC = () => {
                                                                task.source === 'Feedback' || 
                                                                task.source === 'Product Breakdown' || 
                                                                task.source === 'Daily Issues' || 
+                                                               task.source === 'Daily Needs' || 
                                                                task.source === 'Feature Requests' || 
                                                                task.source === 'Content Pipeline';
                                             return (

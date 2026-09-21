@@ -3572,7 +3572,7 @@ export default async function handler(req: any, res: any) {
               id: `issue-${itemId}`,
               title: item.module || `Issue #${itemId}`,
               subtitle: `Product: ${item.product || 'No Product'} • Issue: ${item.issues ? item.issues.substring(0, 60) : ''}`,
-              category: 'Daily Issues Log',
+              category: 'Daily Needs',
               tab: 'issues',
               rawItem: { ...item, id: itemId }
             });

@@ -584,7 +584,7 @@ const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         id: `issue-${item.id}`,
         title: item.module || `Issue #${item.id}`,
         subtitle: `Product: ${item.product} • Issue: ${item.issues ? item.issues.substring(0, 60) : ''}`,
-        category: 'Daily Issues Log',
+        category: 'Daily Needs',
         tab: 'issues',
         onSelect: () => setPreviewProductId(item.id),
         searchContent: ''
@@ -644,7 +644,7 @@ const CommandPalette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             };
           } else if (item.category === 'Content Pipeline') {
             onSelect = () => setPreviewProductId(raw.id);
-          } else if (item.category === 'Daily Issues Log') {
+          } else if (item.category === 'Daily Needs') {
             onSelect = () => setPreviewProductId(raw.id);
           }
 
@@ -2059,7 +2059,7 @@ const DashboardContent: React.FC = () => {
         { id: 'admin', label: 'Admin Meetings', icon: <Briefcase size={18} /> },
         { id: 'contacts', label: 'Contacts Directory', icon: <Users size={18} /> },
         { id: 'content', label: 'Content Pipeline', icon: <BookOpen size={18} /> },
-        { id: 'issues', label: 'Daily Issues Log', icon: <AlertTriangle size={18} /> },
+        { id: 'issues', label: 'Daily Needs', icon: <AlertTriangle size={18} /> },
         { id: 'feature-requests', label: 'Requested Features', icon: <Lightbulb size={18} /> },
         { id: 'challenges', label: 'Challenges Tracker', icon: <Flame size={18} /> },
       ]
