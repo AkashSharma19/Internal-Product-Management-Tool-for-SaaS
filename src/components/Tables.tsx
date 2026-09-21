@@ -68,6 +68,68 @@ import type {
 import { triggerReleaseConfetti } from '../utils/confetti';
 import { playPopSound } from '../utils/audio';
 
+export const getAutoCategoryProgramStyle = (valName: string | undefined | null): React.CSSProperties => {
+  if (
+    !valName ||
+    valName === '__uncategorized__' ||
+    valName === 'Uncategorized' ||
+    valName === 'Uncategorized / Existing' ||
+    valName === 'No program' ||
+    valName === 'No Cohort' ||
+    valName === 'Select category' ||
+    valName.trim() === ''
+  ) {
+    return {
+      width: '100%',
+      padding: '5px 6px',
+      border: '1px solid var(--border)',
+      borderRadius: '6px',
+      background: 'var(--background)',
+      color: 'var(--text-primary)',
+      fontSize: '0.8rem',
+      fontWeight: 500,
+      cursor: 'pointer',
+      outline: 'none',
+      transition: 'all 0.15s ease'
+    };
+  }
+
+  const PRESET_PALETTES = [
+    { bg: 'rgba(99, 102, 241, 0.12)',  color: '#4f46e5', border: 'rgba(99, 102, 241, 0.3)' },  // Indigo
+    { bg: 'rgba(236, 72, 153, 0.12)',  color: '#db2777', border: 'rgba(236, 72, 153, 0.3)' },  // Pink
+    { bg: 'rgba(16, 185, 129, 0.12)',  color: '#059669', border: 'rgba(16, 185, 129, 0.3)' },  // Emerald
+    { bg: 'rgba(245, 158, 11, 0.12)',  color: '#d97706', border: 'rgba(245, 158, 11, 0.3)' },  // Amber
+    { bg: 'rgba(14, 165, 233, 0.12)',  color: '#0284c7', border: 'rgba(14, 165, 233, 0.3)' },  // Sky
+    { bg: 'rgba(139, 92, 246, 0.12)',  color: '#7c3aed', border: 'rgba(139, 92, 246, 0.3)' },  // Violet
+    { bg: 'rgba(20, 184, 166, 0.12)',  color: '#0d9488', border: 'rgba(20, 184, 166, 0.3)' },  // Teal
+    { bg: 'rgba(249, 115, 22, 0.12)',  color: '#ea580c', border: 'rgba(249, 115, 22, 0.3)' },  // Orange
+    { bg: 'rgba(168, 85, 247, 0.12)',  color: '#9333ea', border: 'rgba(168, 85, 247, 0.3)' },  // Purple
+    { bg: 'rgba(6, 182, 212, 0.12)',   color: '#0891b2', border: 'rgba(6, 182, 212, 0.3)' },  // Cyan
+  ];
+
+  let hash = 0;
+  const str = valName.trim();
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const paletteIndex = Math.abs(hash) % PRESET_PALETTES.length;
+  const palette = PRESET_PALETTES[paletteIndex];
+
+  return {
+    width: '100%',
+    padding: '5px 6px',
+    border: `1px solid ${palette.border}`,
+    borderRadius: '6px',
+    backgroundColor: palette.bg,
+    color: palette.color,
+    fontSize: '0.8rem',
+    fontWeight: 650,
+    cursor: 'pointer',
+    outline: 'none',
+    transition: 'all 0.15s ease'
+  };
+};
+
 const isTaskLinked = (notes: string | undefined, taskId?: string): boolean => {
   if (!notes) return false;
   if (notes.includes("Linked Task: true")) return true;
@@ -10993,34 +11055,47 @@ export const AdminCallsTable: React.FC = () => {
                           )}
                         </td>
                         <td onClick={(e) => e.stopPropagation()}>
-                          <select
-                            value={resolveCallCategorySelection(call)}
-                            onChange={(e) => updateAdminCall(call.id, {
-                              categoryId: e.target.value === '__uncategorized__' ? '' : e.target.value,
-                              programId: '',
-                              program: ''
-                            })}
-                            style={{ width: '100%', padding: '5px 6px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--background)', color: 'var(--text-primary)' }}
-                            title="Category is required for classified records"
-                          >
-                            <option value="">Select category</option>
-                            {categories.filter(c => c.active !== false).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            <option value="__uncategorized__">Uncategorized / Existing</option>
-                          </select>
+                          {(() => {
+                            const selectedCat = resolveCallCategorySelection(call);
+                            const catObj = categories.find(c => c.id === selectedCat);
+                            const catName = catObj ? catObj.name : (selectedCat === '__uncategorized__' ? 'Uncategorized' : '');
+                            return (
+                              <select
+                                value={selectedCat}
+                                onChange={(e) => updateAdminCall(call.id, {
+                                  categoryId: e.target.value === '__uncategorized__' ? '' : e.target.value,
+                                  programId: '',
+                                  program: ''
+                                })}
+                                style={getAutoCategoryProgramStyle(catName)}
+                                title="Category is required for classified records"
+                              >
+                                <option value="" style={{ background: 'var(--panel-bg)', color: 'var(--text-primary)' }}>Select category</option>
+                                {categories.filter(c => c.active !== false).map(c => <option key={c.id} value={c.id} style={{ background: 'var(--panel-bg)', color: 'var(--text-primary)' }}>{c.name}</option>)}
+                                <option value="__uncategorized__" style={{ background: 'var(--panel-bg)', color: 'var(--text-primary)' }}>Uncategorized / Existing</option>
+                              </select>
+                            );
+                          })()}
                         </td>
                         <td onClick={(e) => e.stopPropagation()}>
-                          <select
-                            value={resolveCallProgram(call)?.id || ''}
-                            onChange={(e) => {
-                              const program = programs.find(p => p.id === e.target.value);
-                              updateAdminCall(call.id, { programId: program?.id || '', program: program?.name || '' });
-                            }}
-                            disabled={!resolveCallCategorySelection(call)}
-                            style={{ width: '100%', padding: '5px 6px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--background)', color: 'var(--text-primary)' }}
-                          >
-                            <option value="">{call.program && !resolveCallProgram(call) ? call.program : 'No program'}</option>
-                            {programs.filter(p => (p.categoryId || '__uncategorized__') === resolveCallCategorySelection(call)).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                          </select>
+                          {(() => {
+                            const progObj = resolveCallProgram(call);
+                            const progName = progObj ? progObj.name : (call.program && call.program !== 'No program' ? call.program : '');
+                            return (
+                              <select
+                                value={progObj?.id || ''}
+                                onChange={(e) => {
+                                  const program = programs.find(p => p.id === e.target.value);
+                                  updateAdminCall(call.id, { programId: program?.id || '', program: program?.name || '' });
+                                }}
+                                disabled={!resolveCallCategorySelection(call)}
+                                style={getAutoCategoryProgramStyle(progName)}
+                              >
+                                <option value="" style={{ background: 'var(--panel-bg)', color: 'var(--text-primary)' }}>{call.program && !progObj ? call.program : 'No program'}</option>
+                                {programs.filter(p => (p.categoryId || '__uncategorized__') === resolveCallCategorySelection(call)).map(p => <option key={p.id} value={p.id} style={{ background: 'var(--panel-bg)', color: 'var(--text-primary)' }}>{p.name}</option>)}
+                              </select>
+                            );
+                          })()}
                         </td>
                         <td
                           onDoubleClick={(e) => {
@@ -12805,34 +12880,47 @@ export const TarunSirMeetingsTable: React.FC = () => {
                           )}
                         </td>
                         <td onClick={(e) => e.stopPropagation()}>
-                          <select
-                            value={resolveMeetingCategorySelection(meeting)}
-                            onChange={(e) => updateTarunSirMeeting(meeting.id, {
-                              categoryId: e.target.value === '__uncategorized__' ? '' : e.target.value,
-                              programId: '',
-                              program: ''
-                            })}
-                            style={{ width: '100%', padding: '5px 6px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--background)', color: 'var(--text-primary)' }}
-                            title="Category is required for classified records"
-                          >
-                            <option value="">Select category</option>
-                            {categories.filter(c => c.active !== false).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                            <option value="__uncategorized__">Uncategorized / Existing</option>
-                          </select>
+                          {(() => {
+                            const selectedCat = resolveMeetingCategorySelection(meeting);
+                            const catObj = categories.find(c => c.id === selectedCat);
+                            const catName = catObj ? catObj.name : (selectedCat === '__uncategorized__' ? 'Uncategorized' : '');
+                            return (
+                              <select
+                                value={selectedCat}
+                                onChange={(e) => updateTarunSirMeeting(meeting.id, {
+                                  categoryId: e.target.value === '__uncategorized__' ? '' : e.target.value,
+                                  programId: '',
+                                  program: ''
+                                })}
+                                style={getAutoCategoryProgramStyle(catName)}
+                                title="Category is required for classified records"
+                              >
+                                <option value="" style={{ background: 'var(--panel-bg)', color: 'var(--text-primary)' }}>Select category</option>
+                                {categories.filter(c => c.active !== false).map(c => <option key={c.id} value={c.id} style={{ background: 'var(--panel-bg)', color: 'var(--text-primary)' }}>{c.name}</option>)}
+                                <option value="__uncategorized__" style={{ background: 'var(--panel-bg)', color: 'var(--text-primary)' }}>Uncategorized / Existing</option>
+                              </select>
+                            );
+                          })()}
                         </td>
                         <td onClick={(e) => e.stopPropagation()}>
-                          <select
-                            value={resolveMeetingProgram(meeting)?.id || ''}
-                            onChange={(e) => {
-                              const program = programs.find(p => p.id === e.target.value);
-                              updateTarunSirMeeting(meeting.id, { programId: program?.id || '', program: program?.name || '' });
-                            }}
-                            disabled={!resolveMeetingCategorySelection(meeting)}
-                            style={{ width: '100%', padding: '5px 6px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--background)', color: 'var(--text-primary)' }}
-                          >
-                            <option value="">{meeting.program && !resolveMeetingProgram(meeting) ? meeting.program : 'No program'}</option>
-                            {programs.filter(p => (p.categoryId || '__uncategorized__') === resolveMeetingCategorySelection(meeting)).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                          </select>
+                          {(() => {
+                            const progObj = resolveMeetingProgram(meeting);
+                            const progName = progObj ? progObj.name : (meeting.program && meeting.program !== 'No program' ? meeting.program : '');
+                            return (
+                              <select
+                                value={progObj?.id || ''}
+                                onChange={(e) => {
+                                  const program = programs.find(p => p.id === e.target.value);
+                                  updateTarunSirMeeting(meeting.id, { programId: program?.id || '', program: program?.name || '' });
+                                }}
+                                disabled={!resolveMeetingCategorySelection(meeting)}
+                                style={getAutoCategoryProgramStyle(progName)}
+                              >
+                                <option value="" style={{ background: 'var(--panel-bg)', color: 'var(--text-primary)' }}>{meeting.program && !progObj ? meeting.program : 'No program'}</option>
+                                {programs.filter(p => (p.categoryId || '__uncategorized__') === resolveMeetingCategorySelection(meeting)).map(p => <option key={p.id} value={p.id} style={{ background: 'var(--panel-bg)', color: 'var(--text-primary)' }}>{p.name}</option>)}
+                              </select>
+                            );
+                          })()}
                         </td>
                         <td
                           onDoubleClick={(e) => {
