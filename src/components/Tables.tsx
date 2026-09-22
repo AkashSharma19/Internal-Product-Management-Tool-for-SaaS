@@ -45,7 +45,8 @@ import {
   Mail,
   Lock,
   FileText,
-  Tag
+  Tag,
+  Presentation
 } from 'lucide-react';
 import type { 
   ProductItem, 
@@ -57,7 +58,6 @@ import type {
   TarunSirMeeting,
   ContentItem, 
   DailyIssue, 
-  FeatureAdoption,
   FeedbackSubmission,
   FeedbackFormField,
   FeedbackFormConfig,
@@ -127,6 +127,89 @@ export const getAutoCategoryProgramStyle = (valName: string | undefined | null):
     cursor: 'pointer',
     outline: 'none',
     transition: 'all 0.15s ease'
+  };
+};
+
+export const getAutoCategoryProgramPalette = (valName: string | undefined | null) => {
+  const PRESET_PALETTES = [
+    { bg: 'rgba(99, 102, 241, 0.12)',  color: '#4f46e5', border: 'rgba(99, 102, 241, 0.3)' },  // Indigo
+    { bg: 'rgba(236, 72, 153, 0.12)',  color: '#db2777', border: 'rgba(236, 72, 153, 0.3)' },  // Pink
+    { bg: 'rgba(16, 185, 129, 0.12)',  color: '#059669', border: 'rgba(16, 185, 129, 0.3)' },  // Emerald
+    { bg: 'rgba(245, 158, 11, 0.12)',  color: '#d97706', border: 'rgba(245, 158, 11, 0.3)' },  // Amber
+    { bg: 'rgba(14, 165, 233, 0.12)',  color: '#0284c7', border: 'rgba(14, 165, 233, 0.3)' },  // Sky
+    { bg: 'rgba(139, 92, 246, 0.12)',  color: '#7c3aed', border: 'rgba(139, 92, 246, 0.3)' },  // Violet
+    { bg: 'rgba(20, 184, 166, 0.12)',  color: '#0d9488', border: 'rgba(20, 184, 166, 0.3)' },  // Teal
+    { bg: 'rgba(249, 115, 22, 0.12)',  color: '#ea580c', border: 'rgba(249, 115, 22, 0.3)' },  // Orange
+    { bg: 'rgba(168, 85, 247, 0.12)',  color: '#9333ea', border: 'rgba(168, 85, 247, 0.3)' },  // Purple
+    { bg: 'rgba(6, 182, 212, 0.12)',   color: '#0891b2', border: 'rgba(6, 182, 212, 0.3)' },  // Cyan
+  ];
+
+  if (!valName || valName.trim() === '') {
+    return { bg: 'var(--background-alt, rgba(255,255,255,0.04))', color: 'var(--text-secondary, #94a3b8)', border: 'var(--border)' };
+  }
+
+  let hash = 0;
+  const str = valName.trim();
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const paletteIndex = Math.abs(hash) % PRESET_PALETTES.length;
+  return PRESET_PALETTES[paletteIndex];
+};
+
+export const getAutoCategoryProgramCompactStyle = (valName: string | undefined | null): React.CSSProperties => {
+  if (
+    !valName ||
+    valName === '__uncategorized__' ||
+    valName === 'Uncategorized' ||
+    valName === 'Uncategorized / Existing' ||
+    valName === 'No program' ||
+    valName === 'No Cohort' ||
+    valName === 'Select category' ||
+    valName === 'Select program' ||
+    valName.trim() === ''
+  ) {
+    return {
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: '4px',
+      padding: '2px 8px',
+      height: '24px',
+      border: '1px solid var(--border)',
+      borderRadius: '6px',
+      backgroundColor: 'var(--background-alt, rgba(255,255,255,0.04))',
+      color: 'var(--text-secondary, #94a3b8)',
+      fontSize: '0.72rem',
+      fontWeight: 500,
+      cursor: 'pointer',
+      maxWidth: '135px',
+      transition: 'all 0.15s ease',
+      boxSizing: 'border-box',
+      userSelect: 'none'
+    };
+  }
+
+  const palette = getAutoCategoryProgramPalette(valName);
+
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '4px',
+    padding: '2px 8px',
+    height: '24px',
+    border: `1px solid ${palette.border}`,
+    borderRadius: '6px',
+    backgroundColor: palette.bg,
+    color: palette.color,
+    fontSize: '0.72rem',
+    fontWeight: 650,
+    cursor: 'pointer',
+    maxWidth: '135px',
+    transition: 'all 0.15s ease',
+    boxSizing: 'border-box',
+    userSelect: 'none'
   };
 };
 
@@ -4121,6 +4204,7 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({ value, onChange, produc
 
 export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBack, onUpdate }) => {
   const { studentProjects, speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser, productItems, contentItems, dailyIssues, studentMeetings, setActiveSubtasksTaskLink, setPreviewProductId, deleteProductItem, comments, addComment, confirm } = useDashboard();
+  const isDailyNeed = activeTab === 'issues' || dailyIssues.some(d => d.id === item.id);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [copiedClickup, setCopiedClickup] = useState(false);
@@ -4683,7 +4767,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
             
             {/* Task Title (Editable) + inline link button */}
             <div style={{ position: 'relative' }}>
-              {(activeTab === 'issues' || item.type) && (
+              {isDailyNeed && (
                 <div style={{ marginBottom: '6px' }}>
                   <span style={{
                     backgroundColor: item.type === 'Improvement' ? 'rgba(59, 130, 246, 0.12)' : 'rgba(239, 68, 68, 0.12)',
@@ -5111,23 +5195,25 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                   </div>
                 </div>
 
-                {/* Need Type */}
-                <div className="property-row-flat">
-                  <span className="premium-property-label">
-                    <Tag size={13} /> Need Type
-                  </span>
-                  <div className="premium-property-value">
-                    <div className="premium-select-pill">
-                      <select
-                        value={item.type === 'Improvement' ? 'Improvement' : 'Bug'}
-                        onChange={(e) => handleFieldUpdate('type', e.target.value)}
-                      >
-                        <option value="Bug">Bug</option>
-                        <option value="Improvement">Improvement</option>
-                      </select>
+                {/* Need Type - Only for Daily Needs */}
+                {isDailyNeed && (
+                  <div className="property-row-flat">
+                    <span className="premium-property-label">
+                      <Tag size={13} /> Need Type
+                    </span>
+                    <div className="premium-property-value">
+                      <div className="premium-select-pill">
+                        <select
+                          value={item.type === 'Improvement' ? 'Improvement' : 'Bug'}
+                          onChange={(e) => handleFieldUpdate('type', e.target.value)}
+                        >
+                          <option value="Bug">Bug</option>
+                          <option value="Improvement">Improvement</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* ClickUp Task Link */}
                 <div className="property-row-flat">
@@ -5465,6 +5551,24 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                         <option value="P4">P4 (Low)</option>
                       </select>
                     </div>
+                  </div>
+                </div>
+
+                {/* Conduct Demo */}
+                <div className="property-row-flat">
+                  <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Presentation size={13} /> Conduct Demo
+                  </span>
+                  <div className="premium-property-value">
+                    <label className="premium-toggle-wrapper">
+                      <input 
+                        type="checkbox" 
+                        className="premium-toggle-checkbox" 
+                        checked={!!item.conductDemo} 
+                        onChange={(e) => handleFieldUpdate('conductDemo', e.target.checked)} 
+                      />
+                      <span className="premium-toggle-slider" />
+                    </label>
                   </div>
                 </div>
 
@@ -10441,6 +10545,456 @@ export const StudentMeetingsTable: React.FC = () => {
   );
 };
 
+interface CategoryPillSelectProps {
+  value: string;
+  categories: { id: string; name: string; active?: boolean }[];
+  onChange: (categoryId: string) => void;
+  title?: string;
+}
+
+const CategoryPillSelect: React.FC<CategoryPillSelectProps> = ({ value, categories, onChange, title }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const catObj = categories.find(c => c.id === value);
+  const catName = catObj ? catObj.name : (value === '__uncategorized__' ? 'Uncategorized' : '');
+  const displayText = catName || 'Select category';
+  const pillStyle = getAutoCategoryProgramCompactStyle(catName);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{ position: 'relative', display: 'inline-block', zIndex: isOpen ? 60 : 'auto' }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        style={pillStyle}
+        title={title || (catName ? `Category: ${catName}` : 'Select Category')}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '105px' }}>
+          {displayText}
+        </span>
+        <ChevronDown
+          size={11}
+          style={{
+            flexShrink: 0,
+            opacity: 0.7,
+            transform: isOpen ? 'rotate(180deg)' : 'none',
+            transition: 'transform 0.15s'
+          }}
+        />
+      </button>
+
+      {isOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            left: 0,
+            zIndex: 100,
+            minWidth: '175px',
+            maxWidth: '220px',
+            maxHeight: '230px',
+            overflowY: 'auto',
+            backgroundColor: 'var(--panel-bg)',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.22)',
+            padding: '4px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px',
+            animation: 'fadeIn 0.15s ease-out'
+          }}
+        >
+          <div
+            onClick={() => {
+              onChange('');
+              setIsOpen(false);
+            }}
+            style={{
+              padding: '5px 8px',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '0.75rem',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              transition: 'background-color 0.15s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--background-alt)'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <span>Select category</span>
+            {!value && <Check size={12} color="var(--primary)" />}
+          </div>
+
+          {categories.filter(c => c.active !== false).map(c => {
+            const isSelected = value === c.id;
+            const pal = getAutoCategoryProgramPalette(c.name);
+            return (
+              <div
+                key={c.id}
+                onClick={() => {
+                  onChange(c.id);
+                  setIsOpen(false);
+                }}
+                style={{
+                  padding: '5px 8px',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: isSelected ? 650 : 500,
+                  color: isSelected ? pal.color : 'var(--text-primary)',
+                  backgroundColor: isSelected ? pal.bg : 'transparent',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '6px',
+                  transition: 'background-color 0.15s'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--background-alt)';
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+                  <span
+                    style={{
+                      width: '7px',
+                      height: '7px',
+                      borderRadius: '50%',
+                      backgroundColor: pal.color,
+                      flexShrink: 0
+                    }}
+                  />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {c.name}
+                  </span>
+                </div>
+                {isSelected && <Check size={12} color={pal.color} style={{ flexShrink: 0 }} />}
+              </div>
+            );
+          })}
+
+          <div
+            onClick={() => {
+              onChange('__uncategorized__');
+              setIsOpen(false);
+            }}
+            style={{
+              padding: '5px 8px',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '0.75rem',
+              color: value === '__uncategorized__' ? 'var(--primary)' : 'var(--text-secondary)',
+              backgroundColor: value === '__uncategorized__' ? 'var(--primary-glow)' : 'transparent',
+              borderTop: '1px solid var(--border-light, var(--border))',
+              marginTop: '2px',
+              paddingTop: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              transition: 'background-color 0.15s'
+            }}
+            onMouseEnter={(e) => {
+              if (value !== '__uncategorized__') e.currentTarget.style.backgroundColor = 'var(--background-alt)';
+            }}
+            onMouseLeave={(e) => {
+              if (value !== '__uncategorized__') e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+          >
+            <span>Uncategorized / Existing</span>
+            {value === '__uncategorized__' && <Check size={12} color="var(--primary)" />}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+interface ProgramMultiSelectPillProps {
+  programIds: string;
+  programNames: string;
+  programs: { id: string; name: string; categoryId?: string }[];
+  categoryId: string;
+  onChange: (newIds: string, newNames: string) => void;
+  disabled?: boolean;
+}
+
+const ProgramMultiSelectPill: React.FC<ProgramMultiSelectPillProps> = ({
+  programIds,
+  programNames,
+  programs,
+  categoryId,
+  onChange,
+  disabled
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const availablePrograms = programs.filter(p => (p.categoryId || '__uncategorized__') === categoryId);
+
+  const selectedIds = (programIds || '').split(',').map(s => s.trim()).filter(Boolean);
+  const selectedNames = (programNames || '').split(',').map(s => s.trim()).filter(Boolean);
+
+  const isSelected = (p: { id: string; name: string }) => {
+    return selectedIds.includes(p.id) || selectedNames.includes(p.name);
+  };
+
+  const selectedPrograms = availablePrograms.filter(isSelected);
+  const effectiveCount = Math.max(selectedPrograms.length, selectedNames.length);
+
+  let displayText = 'No program';
+  let primaryName = '';
+  if (selectedPrograms.length > 0) {
+    primaryName = selectedPrograms[0].name;
+    displayText = selectedPrograms.length > 1 ? `${primaryName} (+${selectedPrograms.length - 1})` : primaryName;
+  } else if (selectedNames.length > 0 && selectedNames[0] !== 'No program') {
+    primaryName = selectedNames[0];
+    displayText = selectedNames.length > 1 ? `${primaryName} (+${selectedNames.length - 1})` : primaryName;
+  }
+
+  const tooltip = selectedPrograms.length > 0
+    ? selectedPrograms.map(p => p.name).join(', ')
+    : selectedNames.join(', ');
+
+  const pillStyle = getAutoCategoryProgramCompactStyle(primaryName);
+
+  if (disabled) {
+    return (
+      <div
+        style={{
+          ...getAutoCategoryProgramCompactStyle(''),
+          opacity: 0.45,
+          cursor: 'not-allowed',
+          display: 'inline-flex'
+        }}
+        title="Select category first"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '105px' }}>
+          No program
+        </span>
+        <ChevronDown size={11} style={{ opacity: 0.5, flexShrink: 0 }} />
+      </div>
+    );
+  }
+
+  const handleToggle = (prog: { id: string; name: string }) => {
+    let nextIds: string[];
+    let nextNames: string[];
+    if (isSelected(prog)) {
+      nextIds = selectedIds.filter(id => id !== prog.id);
+      nextNames = selectedNames.filter(name => name !== prog.name);
+    } else {
+      nextIds = selectedIds.includes(prog.id) ? selectedIds : [...selectedIds, prog.id];
+      nextNames = selectedNames.includes(prog.name) ? selectedNames : [...selectedNames, prog.name];
+    }
+    onChange(nextIds.join(', '), nextNames.join(', '));
+  };
+
+  const handleSelectAll = () => {
+    const nextIds = availablePrograms.map(p => p.id);
+    const nextNames = availablePrograms.map(p => p.name);
+    onChange(nextIds.join(', '), nextNames.join(', '));
+  };
+
+  const handleClear = () => {
+    onChange('', '');
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      style={{ position: 'relative', display: 'inline-block', zIndex: isOpen ? 60 : 'auto' }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        style={pillStyle}
+        title={tooltip ? `Programs: ${tooltip}` : 'Select Program(s)'}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '105px' }}>
+          {displayText}
+        </span>
+        <ChevronDown
+          size={11}
+          style={{
+            flexShrink: 0,
+            opacity: 0.7,
+            transform: isOpen ? 'rotate(180deg)' : 'none',
+            transition: 'transform 0.15s'
+          }}
+        />
+      </button>
+
+      {isOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            left: 0,
+            zIndex: 100,
+            minWidth: '200px',
+            maxWidth: '260px',
+            maxHeight: '260px',
+            overflowY: 'auto',
+            backgroundColor: 'var(--panel-bg)',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.22)',
+            padding: '6px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '3px',
+            animation: 'fadeIn 0.15s ease-out'
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '2px 4px 6px 4px',
+              borderBottom: '1px solid var(--border-light, var(--border))',
+              marginBottom: '2px'
+            }}
+          >
+            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Programs ({effectiveCount})
+            </span>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {availablePrograms.length > 0 && selectedPrograms.length < availablePrograms.length && (
+                <button
+                  type="button"
+                  onClick={handleSelectAll}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary)',
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    padding: '0 2px'
+                  }}
+                >
+                  All
+                </button>
+              )}
+              {effectiveCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--danger, #ef4444)',
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    padding: '0 2px'
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          {availablePrograms.length === 0 ? (
+            <div style={{ padding: '8px', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+              No programs found for this category
+            </div>
+          ) : (
+            availablePrograms.map(p => {
+              const checked = isSelected(p);
+              const pal = getAutoCategoryProgramPalette(p.name);
+              return (
+                <label
+                  key={p.id}
+                  onClick={() => handleToggle(p)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '7px',
+                    padding: '5px 8px',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                    fontSize: '0.75rem',
+                    fontWeight: checked ? 650 : 500,
+                    color: checked ? pal.color : 'var(--text-primary)',
+                    backgroundColor: checked ? pal.bg : 'transparent',
+                    userSelect: 'none',
+                    transition: 'background-color 0.15s'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!checked) e.currentTarget.style.backgroundColor = 'var(--background-alt)';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!checked) e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => {}}
+                    style={{
+                      cursor: 'pointer',
+                      accentColor: pal.color,
+                      margin: 0,
+                      width: '13px',
+                      height: '13px'
+                    }}
+                  />
+                  <span
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      backgroundColor: pal.color,
+                      flexShrink: 0
+                    }}
+                  />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                    {p.name}
+                  </span>
+                </label>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 /* =========================================================================
    5. ADMIN CALLS LOGS (INLINE EDITING & RELATED FEATURES SYSTEM)
    ========================================================================= */
@@ -10531,8 +11085,21 @@ export const AdminCallsTable: React.FC = () => {
 
   const statusOptions = statuses.map(s => s.label).length > 0 ? statuses.map(s => s.label) : ['Scheduled', 'Pending Actions', 'Completed', 'On Hold', 'In Progress', 'Ongoing'];
 
-  const resolveCallProgram = (call: AdminCall) => programs.find(p => p.id === call.programId) || programs.find(p => p.name === call.program);
-  const resolveCallCategoryId = (call: AdminCall) => resolveCallProgram(call)?.categoryId || call.categoryId || '';
+  const resolveCallPrograms = (call: AdminCall) => {
+    const ids = (call.programId || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (ids.length > 0) {
+      const matched = programs.filter(p => ids.includes(p.id));
+      if (matched.length > 0) return matched;
+    }
+    const names = (call.program || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (names.length > 0) {
+      const matched = programs.filter(p => names.includes(p.name));
+      if (matched.length > 0) return matched;
+    }
+    return [];
+  };
+  const resolveCallProgram = (call: AdminCall) => resolveCallPrograms(call)[0] || null;
+  const resolveCallCategoryId = (call: AdminCall) => call.categoryId || resolveCallProgram(call)?.categoryId || '';
   const resolveCallCategorySelection = (call: AdminCall) => resolveCallCategoryId(call) || '__uncategorized__';
   const resolveCallCategoryName = (call: AdminCall) => categories.find(c => c.id === resolveCallCategoryId(call))?.name || 'Uncategorized / Existing';
 
@@ -11054,46 +11621,37 @@ export const AdminCallsTable: React.FC = () => {
                             <span style={{ fontWeight: 600 }}>{call.adminPoc}</span>
                           )}
                         </td>
-                        <td onClick={(e) => e.stopPropagation()}>
+                        <td onClick={(e) => e.stopPropagation()} style={{ position: 'relative' }}>
                           {(() => {
                             const selectedCat = resolveCallCategorySelection(call);
-                            const catObj = categories.find(c => c.id === selectedCat);
-                            const catName = catObj ? catObj.name : (selectedCat === '__uncategorized__' ? 'Uncategorized' : '');
                             return (
-                              <select
+                              <CategoryPillSelect
                                 value={selectedCat}
-                                onChange={(e) => updateAdminCall(call.id, {
-                                  categoryId: e.target.value === '__uncategorized__' ? '' : e.target.value,
+                                categories={categories}
+                                onChange={(newCatId) => updateAdminCall(call.id, {
+                                  categoryId: newCatId === '__uncategorized__' ? '' : newCatId,
                                   programId: '',
                                   program: ''
                                 })}
-                                style={getAutoCategoryProgramStyle(catName)}
-                                title="Category is required for classified records"
-                              >
-                                <option value="" style={{ background: 'var(--panel-bg)', color: 'var(--text-primary)' }}>Select category</option>
-                                {categories.filter(c => c.active !== false).map(c => <option key={c.id} value={c.id} style={{ background: 'var(--panel-bg)', color: 'var(--text-primary)' }}>{c.name}</option>)}
-                                <option value="__uncategorized__" style={{ background: 'var(--panel-bg)', color: 'var(--text-primary)' }}>Uncategorized / Existing</option>
-                              </select>
+                              />
                             );
                           })()}
                         </td>
-                        <td onClick={(e) => e.stopPropagation()}>
+                        <td onClick={(e) => e.stopPropagation()} style={{ position: 'relative' }}>
                           {(() => {
-                            const progObj = resolveCallProgram(call);
-                            const progName = progObj ? progObj.name : (call.program && call.program !== 'No program' ? call.program : '');
+                            const selectedCat = resolveCallCategorySelection(call);
                             return (
-                              <select
-                                value={progObj?.id || ''}
-                                onChange={(e) => {
-                                  const program = programs.find(p => p.id === e.target.value);
-                                  updateAdminCall(call.id, { programId: program?.id || '', program: program?.name || '' });
-                                }}
-                                disabled={!resolveCallCategorySelection(call)}
-                                style={getAutoCategoryProgramStyle(progName)}
-                              >
-                                <option value="" style={{ background: 'var(--panel-bg)', color: 'var(--text-primary)' }}>{call.program && !progObj ? call.program : 'No program'}</option>
-                                {programs.filter(p => (p.categoryId || '__uncategorized__') === resolveCallCategorySelection(call)).map(p => <option key={p.id} value={p.id} style={{ background: 'var(--panel-bg)', color: 'var(--text-primary)' }}>{p.name}</option>)}
-                              </select>
+                              <ProgramMultiSelectPill
+                                programIds={call.programId || ''}
+                                programNames={call.program || ''}
+                                programs={programs}
+                                categoryId={selectedCat}
+                                disabled={!selectedCat}
+                                onChange={(newIds, newNames) => updateAdminCall(call.id, {
+                                  programId: newIds,
+                                  program: newNames
+                                })}
+                              />
                             );
                           })()}
                         </td>
@@ -12371,8 +12929,21 @@ export const TarunSirMeetingsTable: React.FC = () => {
 
   const statusOptions = statuses.map(s => s.label).length > 0 ? statuses.map(s => s.label) : ['Scheduled', 'Pending Actions', 'Completed', 'On Hold', 'In Progress', 'Ongoing'];
 
-  const resolveMeetingProgram = (meeting: TarunSirMeeting) => programs.find(p => p.id === meeting.programId) || programs.find(p => p.name === meeting.program);
-  const resolveMeetingCategoryId = (meeting: TarunSirMeeting) => resolveMeetingProgram(meeting)?.categoryId || meeting.categoryId || '';
+  const resolveMeetingPrograms = (meeting: TarunSirMeeting) => {
+    const ids = (meeting.programId || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (ids.length > 0) {
+      const matched = programs.filter(p => ids.includes(p.id));
+      if (matched.length > 0) return matched;
+    }
+    const names = (meeting.program || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (names.length > 0) {
+      const matched = programs.filter(p => names.includes(p.name));
+      if (matched.length > 0) return matched;
+    }
+    return [];
+  };
+  const resolveMeetingProgram = (meeting: TarunSirMeeting) => resolveMeetingPrograms(meeting)[0] || null;
+  const resolveMeetingCategoryId = (meeting: TarunSirMeeting) => meeting.categoryId || resolveMeetingProgram(meeting)?.categoryId || '';
   const resolveMeetingCategorySelection = (meeting: TarunSirMeeting) => resolveMeetingCategoryId(meeting) || '__uncategorized__';
 
   // Inline editing states for Tarun Sir Meetings
@@ -12879,46 +13450,37 @@ export const TarunSirMeetingsTable: React.FC = () => {
                             <span style={{ fontWeight: 600 }}>{meeting.adminPoc}</span>
                           )}
                         </td>
-                        <td onClick={(e) => e.stopPropagation()}>
+                        <td onClick={(e) => e.stopPropagation()} style={{ position: 'relative' }}>
                           {(() => {
                             const selectedCat = resolveMeetingCategorySelection(meeting);
-                            const catObj = categories.find(c => c.id === selectedCat);
-                            const catName = catObj ? catObj.name : (selectedCat === '__uncategorized__' ? 'Uncategorized' : '');
                             return (
-                              <select
+                              <CategoryPillSelect
                                 value={selectedCat}
-                                onChange={(e) => updateTarunSirMeeting(meeting.id, {
-                                  categoryId: e.target.value === '__uncategorized__' ? '' : e.target.value,
+                                categories={categories}
+                                onChange={(newCatId) => updateTarunSirMeeting(meeting.id, {
+                                  categoryId: newCatId === '__uncategorized__' ? '' : newCatId,
                                   programId: '',
                                   program: ''
                                 })}
-                                style={getAutoCategoryProgramStyle(catName)}
-                                title="Category is required for classified records"
-                              >
-                                <option value="" style={{ background: 'var(--panel-bg)', color: 'var(--text-primary)' }}>Select category</option>
-                                {categories.filter(c => c.active !== false).map(c => <option key={c.id} value={c.id} style={{ background: 'var(--panel-bg)', color: 'var(--text-primary)' }}>{c.name}</option>)}
-                                <option value="__uncategorized__" style={{ background: 'var(--panel-bg)', color: 'var(--text-primary)' }}>Uncategorized / Existing</option>
-                              </select>
+                              />
                             );
                           })()}
                         </td>
-                        <td onClick={(e) => e.stopPropagation()}>
+                        <td onClick={(e) => e.stopPropagation()} style={{ position: 'relative' }}>
                           {(() => {
-                            const progObj = resolveMeetingProgram(meeting);
-                            const progName = progObj ? progObj.name : (meeting.program && meeting.program !== 'No program' ? meeting.program : '');
+                            const selectedCat = resolveMeetingCategorySelection(meeting);
                             return (
-                              <select
-                                value={progObj?.id || ''}
-                                onChange={(e) => {
-                                  const program = programs.find(p => p.id === e.target.value);
-                                  updateTarunSirMeeting(meeting.id, { programId: program?.id || '', program: program?.name || '' });
-                                }}
-                                disabled={!resolveMeetingCategorySelection(meeting)}
-                                style={getAutoCategoryProgramStyle(progName)}
-                              >
-                                <option value="" style={{ background: 'var(--panel-bg)', color: 'var(--text-primary)' }}>{meeting.program && !progObj ? meeting.program : 'No program'}</option>
-                                {programs.filter(p => (p.categoryId || '__uncategorized__') === resolveMeetingCategorySelection(meeting)).map(p => <option key={p.id} value={p.id} style={{ background: 'var(--panel-bg)', color: 'var(--text-primary)' }}>{p.name}</option>)}
-                              </select>
+                              <ProgramMultiSelectPill
+                                programIds={meeting.programId || ''}
+                                programNames={meeting.program || ''}
+                                programs={programs}
+                                categoryId={selectedCat}
+                                disabled={!selectedCat}
+                                onChange={(newIds, newNames) => updateTarunSirMeeting(meeting.id, {
+                                  programId: newIds,
+                                  program: newNames
+                                })}
+                              />
                             );
                           })()}
                         </td>
@@ -15447,40 +16009,41 @@ export const IssuesTable: React.FC = () => {
           className="sticky-col"
           style={{ fontWeight: 600, width: '280px', minWidth: '280px', maxWidth: '280px', whiteSpace: 'normal' }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', width: '100%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <span style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
-                {item.module || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
+          <div style={{ lineHeight: '1.4', wordBreak: 'break-word' }}>
+            <span>
+              {item.module || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
+            </span>
+            <span style={{
+              backgroundColor: isImprovement ? 'rgba(59, 130, 246, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+              color: isImprovement ? '#2563eb' : '#dc2626',
+              border: `1px solid ${isImprovement ? 'rgba(59, 130, 246, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+              padding: '1px 6px',
+              fontSize: '0.65rem',
+              borderRadius: '4px',
+              fontWeight: 650,
+              display: 'inline-flex',
+              alignItems: 'center',
+              verticalAlign: 'middle',
+              marginLeft: '6px',
+              whiteSpace: 'nowrap'
+            }}>
+              {typeLabel}
+            </span>
+            {item.priority && (
+              <span className={`badge badge-${item.priority.toLowerCase()}`} style={{ marginLeft: '6px', padding: '1px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', fontWeight: 650, whiteSpace: 'nowrap' }}>
+                {item.priority}
               </span>
-              <span style={{
-                backgroundColor: isImprovement ? 'rgba(59, 130, 246, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                color: isImprovement ? '#2563eb' : '#dc2626',
-                border: `1px solid ${isImprovement ? 'rgba(59, 130, 246, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-                padding: '2px 6px',
-                fontSize: '0.65rem',
-                borderRadius: '4px',
-                fontWeight: 650,
-                display: 'inline-flex',
-                alignItems: 'center',
-              }}>
-                {typeLabel}
+            )}
+            {item.raisedByTarunSir && (
+              <span className="badge-super-priority" style={{ marginLeft: '6px', padding: '1px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', gap: '2px', whiteSpace: 'nowrap' }}>
+                <Star size={10} fill="currentColor" /> Super Priority
               </span>
-              {item.priority && (
-                <span className={`badge badge-${item.priority.toLowerCase()}`} style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', fontWeight: 650 }}>
-                  {item.priority}
-                </span>
-              )}
-              {item.raisedByTarunSir && (
-                <span className="badge-super-priority" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                  <Star size={10} fill="currentColor" /> Super Priority
-                </span>
-              )}
-              {item.tarunSirApproval && (
-                <span className="badge-verified" style={{ padding: '2px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '2px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', fontWeight: 650 }}>
-                  <CheckCircle size={10} /> Verified
-                </span>
-              )}
-            </div>
+            )}
+            {item.tarunSirApproval && (
+              <span className="badge-verified" style={{ marginLeft: '6px', padding: '1px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', gap: '2px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', fontWeight: 650, whiteSpace: 'nowrap' }}>
+                <CheckCircle size={10} /> Verified
+              </span>
+            )}
           </div>
         </td>
         <td>
@@ -16150,13 +16713,18 @@ export const FeatureRequestsTable: React.FC = () => {
   );
 };
 
-
 export const AdoptionTable: React.FC = () => {
   const { 
-    featureAdoptions, updateFeatureAdoption, addFeatureAdoption, deleteFeatureAdoption, 
-    programs, cohorts, productGroups, confirm, alert
+    featureAdoptions, updateFeatureAdoption,
+    productItems, updateProductItem,
+    dailyIssues, updateDailyIssue,
+    categories, programs, cohorts, productGroups,
+    setPreviewProductId
   } = useDashboard();
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Category filter state
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
 
   // Sorting state
   const [sortField, setSortField] = useState<string | null>(null);
@@ -16170,38 +16738,88 @@ export const AdoptionTable: React.FC = () => {
       setSortAsc(true);
     }
   };
-  
-  // Inline editing states
-  const [editingRowId, setEditingRowId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<FeatureAdoption | null>(null);
 
-  // Add feature state
-  const [isAddingFeature, setIsAddingFeature] = useState(false);
+  // Active categories, cohorts, and programs
+  const activeCategories = (categories || []).filter(c => c.active !== false);
+  const activeCohorts = cohorts.filter(c => c.active !== false);
+  const activePrograms = programs || [];
+  const hasUncategorized = activePrograms.some(p => !p.categoryId);
+
+  // Filter programs based on selected category
+  const displayedPrograms = useMemo(() => {
+    if (!selectedCategoryId) return activePrograms;
+    if (selectedCategoryId === '__uncategorized__') {
+      return activePrograms.filter(p => !p.categoryId);
+    }
+    return activePrograms.filter(p => p.categoryId === selectedCategoryId);
+  }, [activePrograms, selectedCategoryId]);
 
   // Selected Program Tab State
   const [selectedProgramId, setSelectedProgramId] = useState<string>('');
 
-  // Only show active cohorts and programs that have at least one active cohort
-  const activeCohorts = cohorts.filter(c => c.active !== false);
-  const activePrograms = programs.filter(p => activeCohorts.some(c => c.programId === p.id));
-
-  // Initialize selectedProgramId
+  // Keep selectedProgramId in sync with displayedPrograms
   useEffect(() => {
-    if (activePrograms.length > 0 && !selectedProgramId) {
-      setSelectedProgramId(activePrograms[0].id);
+    if (displayedPrograms.length > 0) {
+      if (!displayedPrograms.some(p => p.id === selectedProgramId)) {
+        setSelectedProgramId(displayedPrograms[0].id);
+      }
+    } else {
+      setSelectedProgramId('');
     }
-  }, [activePrograms, selectedProgramId]);
+  }, [displayedPrograms, selectedProgramId]);
 
   // Determine cohorts to display based on selected program tab
-  const currentProgramId = selectedProgramId || (activePrograms[0]?.id || '');
+  const currentProgramId = selectedProgramId || (displayedPrograms[0]?.id || '');
   const displayCohorts = activeCohorts.filter(c => c.programId === currentProgramId);
 
-  const filtered = featureAdoptions.filter(adopt => {
+  // Derive tasks that have "Conduct Demo" enabled
+  interface DemoTaskItem {
+    id: string;
+    feature: string;
+    product: string;
+    cohort: string;
+    rawType: 'product' | 'issue' | 'adoption';
+  }
+
+  const demoTasks = useMemo<DemoTaskItem[]>(() => {
+    const pList: DemoTaskItem[] = (productItems || [])
+      .filter(p => !!p.conductDemo)
+      .map(p => ({
+        id: p.id,
+        feature: p.feature || p.description || `Task #${p.id}`,
+        product: p.product || '',
+        cohort: p.demoCohorts || '',
+        rawType: 'product'
+      }));
+
+    const dList: DemoTaskItem[] = (dailyIssues || [])
+      .filter(d => !!d.conductDemo)
+      .map(d => ({
+        id: d.id,
+        feature: d.module || d.issues || `Issue #${d.id}`,
+        product: d.product || '',
+        cohort: d.demoCohorts || '',
+        rawType: 'issue'
+      }));
+
+    const aList: DemoTaskItem[] = (featureAdoptions || [])
+      .filter(a => !pList.some(p => p.id === a.id) && !dList.some(d => d.id === a.id))
+      .map(a => ({
+        id: a.id,
+        feature: a.feature,
+        product: a.product,
+        cohort: a.cohort || '',
+        rawType: 'adoption'
+      }));
+
+    return [...pList, ...dList, ...aList];
+  }, [productItems, dailyIssues, featureAdoptions]);
+
+  const filtered = demoTasks.filter(item => {
     const matchesSearch = 
-      adopt.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      adopt.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (adopt.program || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (adopt.cohort || '').toLowerCase().includes(searchQuery.toLowerCase());
+      item.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.cohort || '').toLowerCase().includes(searchQuery.toLowerCase());
       
     return matchesSearch;
   });
@@ -16219,10 +16837,10 @@ export const AdoptionTable: React.FC = () => {
         valA = a.product;
         valB = b.product;
       } else if (sortField === 'adoptionRate') {
-        const getRate = (item: FeatureAdoption) => {
+        const getRate = (item: DemoTaskItem) => {
           const current = (item.cohort || '').split(',').map(s => s.trim()).filter(Boolean);
-          const checkedCount = activeCohorts.filter(c => current.includes(c.name)).length;
-          return activeCohorts.length > 0 ? (checkedCount / activeCohorts.length) : 0;
+          const checkedCount = displayCohorts.filter(c => current.includes(c.name)).length;
+          return displayCohorts.length > 0 ? (checkedCount / displayCohorts.length) : 0;
         };
         valA = getRate(a);
         valB = getRate(b);
@@ -16241,86 +16859,57 @@ export const AdoptionTable: React.FC = () => {
     });
   }
 
-  const handleCohortToggle = (cohortName: string, isChecked: boolean, target: FeatureAdoption) => {
+  const handleCohortToggle = (cohortName: string, isChecked: boolean, target: DemoTaskItem) => {
     const cohortsList = (target.cohort || '').split(',').map(s => s.trim()).filter(Boolean);
     const updatedCohorts = isChecked 
       ? [...cohortsList, cohortName] 
       : cohortsList.filter(x => x !== cohortName);
-    
-    // Find unique program names for these cohorts
-    const updatedPrograms: string[] = [];
-    updatedCohorts.forEach(cName => {
-      const coh = cohorts.find(c => c.name === cName);
-      if (coh) {
-        const prog = programs.find(p => p.id === coh.programId);
-        if (prog && !updatedPrograms.includes(prog.name)) {
-          updatedPrograms.push(prog.name);
-        }
-      }
-    });
+    const newCohortStr = updatedCohorts.join(', ');
 
-    // Dynamic adoption rate across ALL active cohorts (global state rate)
-    const rate = activeCohorts.length > 0 
-      ? Math.round((updatedCohorts.length / activeCohorts.length) * 100)
-      : 0;
-
-    return {
-      cohort: updatedCohorts.join(', '),
-      program: updatedPrograms.join(', '),
-      adoptionRate: rate
-    };
-  };
-
-  const handleAddNewClick = () => {
-    const draft: FeatureAdoption = {
-      id: `adopt-${Date.now()}`,
-      feature: '',
-      product: productGroups[0]?.name || '',
-      launchDate: new Date().toISOString().slice(0, 10),
-      targetAudience: 'All Cohorts',
-      adoptionRate: 0,
-      activeUsers: 0,
-      sentiment: 3.0,
-      program: '',
-      cohort: ''
-    };
-    setSearchQuery('');
-    setEditDraft(draft);
-    setEditingRowId(draft.id);
-    setIsAddingFeature(true);
-  };
-
-  const handleSaveInline = async () => {
-    if (!editDraft) return;
-    if (!editDraft.feature.trim()) {
-      await alert("Feature name is required.", "Validation Error", "OK", "warning");
-      return;
+    if (target.rawType === 'product') {
+      updateProductItem(target.id, { demoCohorts: newCohortStr });
+    } else if (target.rawType === 'issue') {
+      updateDailyIssue(target.id, { demoCohorts: newCohortStr });
+    } else if (target.rawType === 'adoption') {
+      updateFeatureAdoption(target.id, { cohort: newCohortStr });
     }
-    if (isAddingFeature) {
-      addFeatureAdoption(editDraft);
-      setIsAddingFeature(false);
-    } else {
-      updateFeatureAdoption(editDraft.id, editDraft);
-    }
-    setEditingRowId(null);
-    setEditDraft(null);
-  };
-
-  const handleCancelInline = () => {
-    setIsAddingFeature(false);
-    setEditingRowId(null);
-    setEditDraft(null);
   };
 
   return (
     <>
       <TabContainer
-        title="Adoption Tracker"
+        title="Demo Tracker"
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-        onAddClick={handleAddNewClick}
-        addLabel="Track Feature"
-        filterComponent={null}
+        filterComponent={
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <select
+              className="filter-select"
+              value={selectedCategoryId}
+              onChange={(e) => setSelectedCategoryId(e.target.value)}
+              style={{
+                height: '32px',
+                padding: '0.25rem 0.75rem',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                backgroundColor: 'var(--background)',
+                borderColor: 'var(--border)',
+                borderRadius: '6px',
+                color: 'var(--text-primary)',
+                cursor: 'pointer',
+                minWidth: '160px'
+              }}
+            >
+              <option value="">All Categories</option>
+              {activeCategories.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+              {hasUncategorized && (
+                <option value="__uncategorized__">Uncategorized / Existing</option>
+              )}
+            </select>
+          </div>
+        }
       >
         {/* Horizontal Program Tabs */}
         <div 
@@ -16336,58 +16925,122 @@ export const AdoptionTable: React.FC = () => {
             marginBottom: '0.75rem'
           }}
         >
-          {activePrograms.map(program => {
-            const isActive = (selectedProgramId || (activePrograms[0]?.id || '')) === program.id;
-            const programCohorts = activeCohorts.filter(c => c.programId === program.id);
-            return (
-              <button
-                key={program.id}
-                onClick={() => {
-                  setSelectedProgramId(program.id);
-                }}
-                style={{
-                  padding: '0.75rem 0.25rem',
-                  border: 'none',
-                  background: 'none',
-                  borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
-                  color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  fontWeight: 600,
-                  fontSize: '0.825rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem'
-                }}
-              >
-                {program.name}
-                <span 
-                  className="badge" 
-                  style={{ 
-                    fontSize: '0.625rem', 
-                    padding: '1px 5px', 
-                    borderRadius: '999px',
-                    background: isActive ? 'var(--primary-glow)' : 'var(--background-alt)',
-                    color: isActive ? 'var(--primary)' : 'var(--text-muted)'
+          {displayedPrograms.length === 0 ? (
+            <div style={{ padding: '0.75rem 0.25rem', fontSize: '0.825rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              No programs found for this category
+            </div>
+          ) : (
+            displayedPrograms.map(program => {
+              const isActive = (selectedProgramId || (displayedPrograms[0]?.id || '')) === program.id;
+              const programCohorts = activeCohorts.filter(c => c.programId === program.id);
+              return (
+                <button
+                  key={program.id}
+                  onClick={() => {
+                    setSelectedProgramId(program.id);
+                  }}
+                  style={{
+                    padding: '0.75rem 0.25rem',
+                    border: 'none',
+                    background: 'none',
+                    borderBottom: isActive ? '2px solid var(--primary)' : '2px solid transparent',
+                    color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    fontWeight: 600,
+                    fontSize: '0.825rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem'
                   }}
                 >
-                  {programCohorts.length}
-                </span>
-              </button>
-            );
-          })}
+                  {program.name}
+                  <span 
+                    className="badge" 
+                    style={{ 
+                      fontSize: '0.625rem', 
+                      padding: '1px 5px', 
+                      borderRadius: '999px',
+                      background: isActive ? 'var(--primary-glow)' : 'var(--background-alt)',
+                      color: isActive ? 'var(--primary)' : 'var(--text-muted)'
+                    }}
+                  >
+                    {programCohorts.length}
+                  </span>
+                </button>
+              );
+            })
+          )}
         </div>
 
-        <div className="table-responsive">
-          <table className="grid-table">
+        {displayedPrograms.length === 0 ? (
+          <div style={{ 
+            padding: '5rem 2rem', 
+            textAlign: 'center', 
+            color: 'var(--text-muted)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.75rem'
+          }}>
+            <Layers size={40} style={{ opacity: 0.3, color: 'var(--primary)' }} />
+            <div style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--text-primary)' }}>
+              No programs found for this category
+            </div>
+            <div style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', maxWidth: '420px' }}>
+              There are no programs assigned to this category. You can configure programs and categories in <strong>Config &gt; Categories, Programs &amp; Cohorts</strong>.
+            </div>
+          </div>
+        ) : displayCohorts.length === 0 ? (
+          <div style={{ 
+            padding: '5rem 2rem', 
+            textAlign: 'center', 
+            color: 'var(--text-muted)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.75rem'
+          }}>
+            <Layers size={40} style={{ opacity: 0.3, color: 'var(--primary)' }} />
+            <div style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--text-primary)' }}>
+              No cohorts found for this program
+            </div>
+            <div style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', maxWidth: '420px' }}>
+              Add student cohorts to this program in <strong>Config &gt; Categories, Programs &amp; Cohorts</strong> to track feature demo across cohorts.
+            </div>
+          </div>
+        ) : demoTasks.length === 0 ? (
+          <div style={{ 
+            padding: '5rem 2rem', 
+            textAlign: 'center', 
+            color: 'var(--text-muted)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.75rem'
+          }}>
+            <Presentation size={42} style={{ opacity: 0.35, color: 'var(--primary)' }} />
+            <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text-primary)' }}>
+              No Tasks Selected for Demo
+            </div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '440px', lineHeight: 1.5 }}>
+              To track demos across cohorts, open any feature or daily need preview page and turn ON the <strong>Conduct Demo</strong> toggle.
+            </div>
+          </div>
+        ) : (
+          <div className="table-responsive">
+            <table className="grid-table">
             <thead>
               <tr style={{ backgroundColor: 'var(--surface-elevated)' }}>
                 <th 
                   className="sticky-header-col"
                   style={{ 
                     verticalAlign: 'middle', 
-                    width: '250px',
-                    minWidth: '250px', 
-                    maxWidth: '250px',
+                    width: '260px',
+                    minWidth: '260px', 
+                    maxWidth: '260px',
                     whiteSpace: 'nowrap', 
                     borderRight: '2px solid var(--border)',
                     padding: '8px 12px'
@@ -16397,7 +17050,7 @@ export const AdoptionTable: React.FC = () => {
                     <span 
                       onClick={() => handleSort('feature')} 
                       style={{ cursor: 'pointer', flex: 1 }}
-                      title="Sort by Feature Name"
+                      title="Sort by Task / Feature Name"
                     >
                       Feature & Product Group {sortField === 'feature' ? (sortAsc ? '▲' : '▼') : ''}
                     </span>
@@ -16417,9 +17070,9 @@ export const AdoptionTable: React.FC = () => {
                         gap: '2px',
                         userSelect: 'none'
                       }}
-                      title="Sort by Adoption Rate"
+                      title="Sort by Demo Completion Rate"
                     >
-                      Rate {sortField === 'adoptionRate' ? (sortAsc ? '▲' : '▼') : ''}
+                      Demo % {sortField === 'adoptionRate' ? (sortAsc ? '▲' : '▼') : ''}
                     </button>
                   </div>
                 </th>
@@ -16446,103 +17099,48 @@ export const AdoptionTable: React.FC = () => {
                     </th>
                   );
                 })}
-                <th style={{ width: '80px', minWidth: '80px', maxWidth: '80px', verticalAlign: 'middle' }}></th>
               </tr>
             </thead>
             <tbody>
-              {(isAddingFeature && editDraft ? [editDraft, ...sorted] : sorted).map(adopt => {
-                const isEditing = editingRowId === adopt.id;
-                const displayRate = (() => {
-                  const current = ((isEditing ? editDraft?.cohort : adopt.cohort) || '')
-                    .split(',')
-                    .map(s => s.trim())
-                    .filter(Boolean);
-                  const allActiveCheckedCount = activeCohorts.filter(c => current.includes(c.name)).length;
-                  return activeCohorts.length > 0 
-                    ? Math.round((allActiveCheckedCount / activeCohorts.length) * 100)
-                    : 0;
-                })();
-                
-                return (
-                  <React.Fragment key={adopt.id}>
-                    <tr 
-                      style={{ 
-                        backgroundColor: isEditing ? 'rgba(99, 102, 241, 0.05)' : undefined,
-                        borderLeft: isEditing ? '3px solid var(--primary)' : undefined
-                      }}
-                    >
-                      {/* Feature & Product Group sticky column */}
-                      <td 
-                        className="sticky-col" 
-                        style={{ 
-                          width: '250px',
-                          minWidth: '250px',
-                          maxWidth: '250px',
-                          whiteSpace: 'normal',
-                          borderRight: '2px solid var(--border)',
-                          background: isEditing 
-                            ? 'rgba(99, 102, 241, 0.05)' 
-                            : `linear-gradient(to right, rgba(99, 102, 241, 0.08) ${displayRate}%, transparent ${displayRate}%)`
-                        }}
-                      >
-                        {isEditing && editDraft ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <input
-                              autoFocus
-                              type="text"
-                              value={editDraft.feature}
-                              onChange={(e) => setEditDraft({ ...editDraft, feature: e.target.value })}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  handleSaveInline();
-                                } else if (e.key === 'Escape') {
-                                  e.preventDefault();
-                                  handleCancelInline();
-                                }
-                              }}
-                              style={{
-                                width: '100%',
-                                padding: '6px 10px',
-                                borderRadius: '6px',
-                                border: '1px solid var(--border)',
-                                background: 'var(--surface)',
-                                color: 'var(--text-primary)',
-                                fontSize: '0.875rem',
-                                fontWeight: 600,
-                              }}
-                              placeholder="Enter feature name..."
-                            />
-                            <select
-                              value={editDraft.product}
-                              onChange={(e) => setEditDraft({ ...editDraft, product: e.target.value })}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  handleSaveInline();
-                                } else if (e.key === 'Escape') {
-                                  e.preventDefault();
-                                  handleCancelInline();
-                                }
-                              }}
-                              style={{
-                                width: '100%',
-                                padding: '6px 10px',
-                                borderRadius: '6px',
-                                border: '1px solid var(--border)',
-                                background: 'var(--surface)',
-                                color: 'var(--text-primary)',
-                                fontSize: '0.85rem',
-                                fontWeight: 600,
-                              }}
-                            >
-                              {productGroups.map(pg => (
-                                <option key={pg.id} value={pg.name}>{pg.name}</option>
-                              ))}
-                            </select>
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px', width: '100%' }}>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={1 + displayCohorts.length} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                    No demo tasks match your search "{searchQuery}".
+                  </td>
+                </tr>
+              ) : (
+                sorted.map(adopt => {
+                  const displayRate = (() => {
+                    const current = (adopt.cohort || '')
+                      .split(',')
+                      .map(s => s.trim())
+                      .filter(Boolean);
+                    const checkedInProgram = displayCohorts.filter(c => current.includes(c.name)).length;
+                    return displayCohorts.length > 0 
+                      ? Math.round((checkedInProgram / displayCohorts.length) * 100)
+                      : 0;
+                  })();
+                  
+                  return (
+                    <React.Fragment key={adopt.id}>
+                      <tr>
+                        {/* Feature & Product Group sticky column */}
+                        <td 
+                          className="sticky-col" 
+                          style={{ 
+                            width: '260px',
+                            minWidth: '260px', 
+                            maxWidth: '260px',
+                            whiteSpace: 'normal',
+                            borderRight: '2px solid var(--border)',
+                            background: `linear-gradient(to right, rgba(99, 102, 241, 0.08) ${displayRate}%, transparent ${displayRate}%)`
+                          }}
+                        >
+                          <div 
+                            onClick={() => setPreviewProductId(adopt.id)}
+                            style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px', width: '100%', cursor: 'pointer' }}
+                            title="Click to view task details"
+                          >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                               <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
                                 {adopt.feature}
@@ -16563,106 +17161,49 @@ export const AdoptionTable: React.FC = () => {
                               whiteSpace: 'nowrap',
                             }}>{adopt.product || '—'}</span>
                           </div>
-                        )}
-                      </td>
-                      
-                      {/* Cohorts Columns Checkboxes */}
-                      {displayCohorts.map((c, idx) => {
-                        const current = ((isEditing ? editDraft?.cohort : adopt.cohort) || '')
-                          .split(',')
-                          .map(s => s.trim())
-                          .filter(Boolean);
-                        const isChecked = current.includes(c.name);
-                        const isBoundary = idx > 0 && c.programId !== displayCohorts[idx - 1].programId;
+                        </td>
                         
-                        return (
-                          <td 
-                            key={c.id} 
-                            style={{ 
-                              textAlign: 'center',
-                              borderLeft: isBoundary ? '2px solid var(--border)' : undefined
-                            }} 
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <input 
-                              type="checkbox" 
-                              checked={isChecked}
-                              onChange={() => {
-                                if (isEditing && editDraft) {
-                                  const changes = handleCohortToggle(c.name, !isChecked, editDraft);
-                                  setEditDraft({ ...editDraft, ...changes });
-                                } else {
-                                  const changes = handleCohortToggle(c.name, !isChecked, adopt);
-                                  updateFeatureAdoption(adopt.id, changes);
-                                }
-                              }}
+                        {/* Cohorts Columns Checkboxes */}
+                        {displayCohorts.map((c, idx) => {
+                          const current = (adopt.cohort || '')
+                            .split(',')
+                            .map(s => s.trim())
+                            .filter(Boolean);
+                          const isChecked = current.includes(c.name);
+                          const isBoundary = idx > 0 && c.programId !== displayCohorts[idx - 1].programId;
+                          
+                          return (
+                            <td 
+                              key={c.id} 
                               style={{ 
-                                cursor: 'pointer', 
-                                width: '15px', 
-                                height: '15px', 
-                                accentColor: 'var(--primary)'
-                              }}
-                            />
-                          </td>
-                        );
-                      })}
-
-
-
-                      {/* Actions Column */}
-                      <td style={{ width: '80px', minWidth: '80px', maxWidth: '80px' }}>
-                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
-                          {isEditing ? (
-                            <>
-                              <button 
-                                onClick={handleSaveInline}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--success, #10b981)', display: 'flex', alignItems: 'center' }}
-                                title="Save Changes"
-                              >
-                                <CheckCircle size={14} />
-                              </button>
-                              <button 
-                                onClick={handleCancelInline}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center' }}
-                                title="Cancel"
-                              >
-                                <X size={14} />
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button 
-                                onClick={() => {
-                                  setEditingRowId(adopt.id);
-                                  setEditDraft({ ...adopt });
-                                }}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', display: 'flex', alignItems: 'center' }}
-                                title="Edit Details Inline"
-                              >
-                                <Edit2 size={12} />
-                              </button>
-                              <button 
-                                onClick={async () => {
-                                  if (await confirm("Are you sure you want to delete this launch metrics tracker?", "Delete Launch Tracker")) {
-                                    deleteFeatureAdoption(adopt.id);
-                                  }
+                                textAlign: 'center', 
+                                borderLeft: isBoundary ? '2px solid var(--border)' : undefined
+                              }} 
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <input 
+                                type="checkbox" 
+                                checked={isChecked} 
+                                onChange={() => handleCohortToggle(c.name, !isChecked, adopt)}
+                                style={{ 
+                                  cursor: 'pointer', 
+                                  width: '15px', 
+                                  height: '15px', 
+                                  accentColor: 'var(--primary)'
                                 }} 
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
-                                title="Delete Tracker"
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  </React.Fragment>
-                );
-              })}
+                              />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    </React.Fragment>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
+        )}
       </TabContainer>
 
     </>

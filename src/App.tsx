@@ -36,7 +36,6 @@ import {
   BookOpen,
   PieChart,
   AlertTriangle,
-  LineChart,
   ChevronLeft,
   ChevronRight,
   Settings,
@@ -58,7 +57,8 @@ import {
   GraduationCap,
   Briefcase,
   Rocket,
-  BookMarked
+  BookMarked,
+  Presentation
 } from 'lucide-react';
 
 import { isAudioMuted, toggleAudioMute, playPopSound } from './utils/audio';
@@ -2046,7 +2046,7 @@ const DashboardContent: React.FC = () => {
       items: [
         { id: 'product-wise', label: 'Product Breakdown', icon: <PieChart size={18} /> },
         { id: 'repository', label: 'Repository', icon: <FolderOpen size={18} /> },
-        { id: 'adoption', label: 'Adoption Tracker', icon: <LineChart size={18} /> },
+        { id: 'adoption', label: 'Demo Tracker', icon: <Presentation size={18} /> },
         { id: 'team', label: 'Team', icon: <UserCheck size={18} /> },
       ]
     },
@@ -2643,6 +2643,8 @@ const DashboardContent: React.FC = () => {
                 createdAt: foundContent.createdAt || '',
                 clickupSubtasksCount: foundContent.clickupSubtasksCount,
                 clickupAssignee: foundContent.clickupAssignee || '',
+                conductDemo: !!foundContent.conductDemo,
+                demoCohorts: foundContent.demoCohorts || '',
               };
 
               const handleUpdateContent = (id: string, updated: Partial<ProductItem>) => {
@@ -2670,6 +2672,8 @@ const DashboardContent: React.FC = () => {
                 if (updated.createdAt !== undefined) updatedContent.createdAt = updated.createdAt;
                 if (updated.clickupSubtasksCount !== undefined) updatedContent.clickupSubtasksCount = updated.clickupSubtasksCount;
                 if (updated.clickupAssignee !== undefined) updatedContent.clickupAssignee = updated.clickupAssignee;
+                if (updated.conductDemo !== undefined) updatedContent.conductDemo = updated.conductDemo;
+                if (updated.demoCohorts !== undefined) updatedContent.demoCohorts = updated.demoCohorts;
 
                 updateContentItem(id, updatedContent);
               };
@@ -2721,6 +2725,8 @@ const DashboardContent: React.FC = () => {
                 createdAt: foundIssue.createdAt || '',
                 clickupSubtasksCount: foundIssue.clickupSubtasksCount,
                 clickupAssignee: foundIssue.clickupAssignee || '',
+                conductDemo: !!foundIssue.conductDemo,
+                demoCohorts: foundIssue.demoCohorts || '',
               };
 
               const handleUpdateIssue = (id: string, updated: Partial<ProductItem>) => {
@@ -2751,6 +2757,8 @@ const DashboardContent: React.FC = () => {
                 if (updated.createdAt !== undefined) updatedIssue.createdAt = updated.createdAt;
                 if (updated.clickupSubtasksCount !== undefined) updatedIssue.clickupSubtasksCount = updated.clickupSubtasksCount;
                 if (updated.clickupAssignee !== undefined) updatedIssue.clickupAssignee = updated.clickupAssignee;
+                if (updated.conductDemo !== undefined) updatedIssue.conductDemo = updated.conductDemo;
+                if (updated.demoCohorts !== undefined) updatedIssue.demoCohorts = updated.demoCohorts;
 
                 updateDailyIssue(id, updatedIssue);
               };

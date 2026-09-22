@@ -112,3 +112,74 @@ export function parseMarkdownToHtml(markdown: string | undefined | null): string
     .filter(Boolean)
     .join('');
 }
+
+/**
+ * Converts HTML content (from RichTextEditor) to clean Markdown format suitable for ClickUp API.
+ */
+export function convertHtmlToMarkdown(html: string | undefined | null): string {
+  if (!html) return '';
+  const strInput = String(html).trim();
+  if (!strInput) return '';
+
+  // If there are no HTML tags, return as-is
+  if (!/<[a-z][\s\S]*>/i.test(strInput)) {
+    return strInput;
+  }
+
+  let text = strInput;
+
+  // 1. Headers: <h1>, <h2>, etc.
+  text = text.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '# $1\n\n');
+  text = text.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '## $1\n\n');
+  text = text.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, '### $1\n\n');
+  text = text.replace(/<h[4-6][^>]*>([\s\S]*?)<\/h[4-6]>/gi, '#### $1\n\n');
+
+  // 2. Bold & Italic
+  text = text.replace(/<(?:strong|b)[^>]*>([\s\S]*?)<\/(?:strong|b)>/gi, '**$1**');
+  text = text.replace(/<(?:em|i)[^>]*>([\s\S]*?)<\/(?:em|i)>/gi, '*$1*');
+
+  // 3. Code blocks and inline code
+  text = text.replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, '```\n$1\n```\n\n');
+  text = text.replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, '`$1`');
+
+  // 4. Links: <a href="url">label</a>
+  text = text.replace(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (_match, href, label) => {
+    const cleanLabel = label.replace(/<[^>]*>/g, '').trim();
+    if (!cleanLabel || cleanLabel === href) {
+      return href;
+    }
+    return `[${cleanLabel}](${href})`;
+  });
+
+  // 5. List items: <li>
+  text = text.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '- $1\n');
+
+  // 6. Remove container tags <ul>, <ol>
+  text = text.replace(/<\/?(?:ul|ol)[^>]*>/gi, '\n');
+
+  // 7. Paragraphs and line breaks
+  text = text.replace(/<br\s*\/?>/gi, '\n');
+  text = text.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, '$1\n\n');
+  text = text.replace(/<div[^>]*>([\s\S]*?)<\/div>/gi, '$1\n');
+
+  // 8. Blockquotes & HR
+  text = text.replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, '> $1\n\n');
+  text = text.replace(/<hr\s*\/?>/gi, '---\n\n');
+
+  // 9. Remove any remaining HTML tags
+  text = text.replace(/<[^>]*>/g, '');
+
+  // 10. Decode HTML entities
+  text = text
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#039;/gi, "'");
+
+  // 11. Normalize excessive blank lines
+  text = text.replace(/\n{3,}/g, '\n\n');
+
+  return text.trim();
+}

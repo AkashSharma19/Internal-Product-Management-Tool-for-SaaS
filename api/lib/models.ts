@@ -29,7 +29,9 @@ const ProductItemSchema = new Schema({
   finalReleaseCompleted: { type: Boolean, default: false },
   committedDate: { type: String, default: "" },
   supportDocsRequired: { type: Boolean, default: false },
-  supportDocLink: { type: String, default: "" }
+  supportDocLink: { type: String, default: "" },
+  conductDemo: { type: Boolean, default: false },
+  demoCohorts: { type: String, default: "" }
 }, { timestamps: true });
 
 // 2. PlanItem (Sprint Planning)
@@ -123,7 +125,11 @@ const StudentMeetingSchema = new Schema({
   deadlineCompleted: { type: Boolean, default: false },
   finalReleaseCompleted: { type: Boolean, default: false },
   committedDate: { type: String, default: "" },
-  feedbackFormId: { type: String, default: "" }
+  feedbackFormId: { type: String, default: "" },
+  supportDocsRequired: { type: Boolean, default: false },
+  supportDocLink: { type: String, default: "" },
+  conductDemo: { type: Boolean, default: false },
+  demoCohorts: { type: String, default: "" }
 }, { timestamps: true });
 
 // 6. AdminCall
@@ -182,7 +188,11 @@ const ContentItemSchema = new Schema({
   deadlineCompleted: { type: Boolean, default: false },
   finalReleaseCompleted: { type: Boolean, default: false },
   raisedByTarunSir: { type: Boolean, default: false },
-  committedDate: { type: String, default: "" }
+  committedDate: { type: String, default: "" },
+  supportDocsRequired: { type: Boolean, default: false },
+  supportDocLink: { type: String, default: "" },
+  conductDemo: { type: Boolean, default: false },
+  demoCohorts: { type: String, default: "" }
 }, { timestamps: true });
 
 // 8. DailyIssue
@@ -213,7 +223,11 @@ const DailyIssueSchema = new Schema({
   finalReleaseCompleted: { type: Boolean, default: false },
   raisedByTarunSir: { type: Boolean, default: false },
   tarunSirApproval: { type: Boolean, default: false },
-  committedDate: { type: String, default: "" }
+  committedDate: { type: String, default: "" },
+  supportDocsRequired: { type: Boolean, default: false },
+  supportDocLink: { type: String, default: "" },
+  conductDemo: { type: Boolean, default: false },
+  demoCohorts: { type: String, default: "" }
 }, { timestamps: true });
 
 // 9. FeatureAdoption

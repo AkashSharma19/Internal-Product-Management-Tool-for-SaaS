@@ -2770,20 +2770,30 @@ export default async function handler(req: any, res: any) {
             modelsMap['categories'].find({}).lean(),
             modelsMap['programs'].find({}).lean()
           ]);
-          const resolveProgram = (item: any) => configPrograms.find((program: any) =>
-            (item?.programId && program.id === item.programId) ||
-            (!item?.programId && item?.program && program.name === item.program)
-          );
+          const resolveProgram = (item: any) => {
+            const ids = String(item?.programId || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+            if (ids.length > 0) {
+              const matched = configPrograms.find((program: any) => ids.includes(program.id));
+              if (matched) return matched;
+            }
+            const names = String(item?.program || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+            if (names.length > 0) {
+              return configPrograms.find((program: any) => names.includes(program.name));
+            }
+            return undefined;
+          };
           const resolveProgramNames = (item: any): string[] => {
-            const resolved = resolveProgram(item);
-            if (resolved?.name) return [resolved.name];
-            return String(item?.program || '')
-              .split(',')
-              .map((name: string) => name.trim())
-              .filter(Boolean);
+            const ids = String(item?.programId || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+            if (ids.length > 0) {
+              const matched = configPrograms.filter((p: any) => ids.includes(p.id)).map((p: any) => p.name);
+              if (matched.length > 0) return matched;
+            }
+            const names = String(item?.program || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+            if (names.length > 0) return names;
+            return [];
           };
           const resolveProgramName = (item: any) => resolveProgramNames(item).join(', ');
-          const resolveCategoryId = (item: any) => resolveProgram(item)?.categoryId || item?.categoryId || '';
+          const resolveCategoryId = (item: any) => item?.categoryId || resolveProgram(item)?.categoryId || '';
           const resolveCategoryName = (item: any) => {
             const categoryId = resolveCategoryId(item);
             return configCategories.find((category: any) => category.id === categoryId)?.name ||
@@ -2797,8 +2807,10 @@ export default async function handler(req: any, res: any) {
           };
           const matchesProgramFilter = (item: any, filterPrograms: string[]) => {
             if (filterPrograms.length === 0) return true;
+            const ids = String(item?.programId || '').split(',').map((s: string) => s.trim()).filter(Boolean);
             const resolved = resolveProgram(item);
-            return filterPrograms.includes(item?.programId || '') ||
+            return ids.some((id: string) => filterPrograms.includes(id)) ||
+              filterPrograms.includes(item?.programId || '') ||
               filterPrograms.includes(resolved?.id || '') ||
               resolveProgramNames(item).some((name: string) => filterPrograms.includes(name));
           };
@@ -4788,6 +4800,77 @@ Respond ONLY with clean, raw HTML string. Do not wrap it in any markdown code bl
           return res.status(400).json({ success: false, error: 'ClickUp API Key is not configured.' });
         }
 
+function convertHtmlToMarkdown(html: string | undefined | null): string {
+  if (!html) return '';
+  const strInput = String(html).trim();
+  if (!strInput) return '';
+
+  // If there are no HTML tags, return as-is
+  if (!/<[a-z][\s\S]*>/i.test(strInput)) {
+    return strInput;
+  }
+
+  let text = strInput;
+
+  // 1. Headers
+  text = text.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '# $1\n\n');
+  text = text.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '## $1\n\n');
+  text = text.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, '### $1\n\n');
+  text = text.replace(/<h[4-6][^>]*>([\s\S]*?)<\/h[4-6]>/gi, '#### $1\n\n');
+
+  // 2. Bold & Italic
+  text = text.replace(/<(?:strong|b)[^>]*>([\s\S]*?)<\/(?:strong|b)>/gi, '**$1**');
+  text = text.replace(/<(?:em|i)[^>]*>([\s\S]*?)<\/(?:em|i)>/gi, '*$1*');
+
+  // 3. Code blocks & inline code
+  text = text.replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, '```\n$1\n```\n\n');
+  text = text.replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, '`$1`');
+
+  // 4. Links: <a href="url">label</a>
+  text = text.replace(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (_match, href, label) => {
+    const cleanLabel = label.replace(/<[^>]*>/g, '').trim();
+    if (!cleanLabel || cleanLabel === href) {
+      return href;
+    }
+    return `[${cleanLabel}](${href})`;
+  });
+
+  // 5. List items
+  text = text.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '- $1\n');
+
+  // 6. Remove container tags <ul>, <ol>
+  text = text.replace(/<\/?(?:ul|ol)[^>]*>/gi, '\n');
+
+  // 7. Paragraphs & Breaks
+  text = text.replace(/<br\s*\/?>/gi, '\n');
+  text = text.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, '$1\n\n');
+  text = text.replace(/<div[^>]*>([\s\S]*?)<\/div>/gi, '$1\n');
+
+  // 8. Blockquotes & HR
+  text = text.replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, '> $1\n\n');
+  text = text.replace(/<hr\s*\/?>/gi, '---\n\n');
+
+  // 9. Remove any remaining HTML tags
+  text = text.replace(/<[^>]*>/g, '');
+
+  // 10. Decode HTML entities
+  text = text
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#039;/gi, "'");
+
+  // 11. Clean up excessive newlines
+  text = text.replace(/\n{3,}/g, '\n\n');
+
+  return text.trim();
+}
+
+        // Convert HTML description to clean Markdown for ClickUp
+        const cleanDescription = convertHtmlToMarkdown(description);
+
         // Create task on ClickUp
         const response = await fetch(`https://api.clickup.com/api/v2/list/${listId}/task`, {
           method: 'POST',
@@ -4797,8 +4880,8 @@ Respond ONLY with clean, raw HTML string. Do not wrap it in any markdown code bl
           },
           body: JSON.stringify({
             name,
-            description: description || '',
-            markdown_content: description || '',
+            description: cleanDescription,
+            markdown_content: cleanDescription,
             assignees: assignees || []
           })
         });

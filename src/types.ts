@@ -29,6 +29,8 @@ export interface ProductItem {
   createdAt?: string;
   supportDocsRequired?: boolean;
   supportDocLink?: string;
+  conductDemo?: boolean;
+  demoCohorts?: string;
 }
 
 export interface PlanItem {
@@ -179,6 +181,10 @@ export interface ContentItem {
   finalReleaseCompleted?: boolean;
   raisedByTarunSir?: boolean;
   committedDate?: string;
+  supportDocsRequired?: boolean;
+  supportDocLink?: string;
+  conductDemo?: boolean;
+  demoCohorts?: string;
 }
 
 export interface DailyIssue {
@@ -210,6 +216,10 @@ export interface DailyIssue {
   raisedByTarunSir?: boolean;
   tarunSirApproval?: boolean;
   committedDate?: string;
+  supportDocsRequired?: boolean;
+  supportDocLink?: string;
+  conductDemo?: boolean;
+  demoCohorts?: string;
 }
 
 export interface FeatureAdoption {
