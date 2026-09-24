@@ -207,12 +207,13 @@ export const getEventTaskId = (evt: CalendarEvent): string => {
 // blockers are considered. When all blockers are resolved, this returns an empty string.
 const getEventBlocker = (evt: CalendarEvent): string => {
   const rawItem = evt.rawItem;
-  const blockers = Array.isArray(rawItem?.blockers)
+  const blockers = (Array.isArray(rawItem?.blockers) && rawItem.blockers.length > 0)
     ? rawItem.blockers
-    : (Array.isArray(evt.blockers) ? evt.blockers : null);
+    : (Array.isArray(evt.blockers) && evt.blockers.length > 0)
+      ? evt.blockers
+      : null;
 
   if (blockers) {
-    if (blockers.length === 0) return '';
     const active = blockers.filter((b: any) => !b.resolved);
     return active.map((b: any) => (typeof b.text === 'string' ? b.text.trim() : '')).filter(Boolean).join('; ');
   }
