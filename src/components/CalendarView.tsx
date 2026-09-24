@@ -10,7 +10,9 @@ import {
   RefreshCw,
   Copy,
   Check,
-  AlertTriangle
+  AlertTriangle,
+  Filter,
+  CheckCheck
 } from 'lucide-react';
 import { getClickupBadgeStyle } from './Tables';
 import type { ProductItem } from '../types';
@@ -91,15 +93,130 @@ interface CalendarEvent {
   status?: string;
   taskLink?: string;
   blocker?: string;
+  blockers?: any[];
   rawItem: any;
   tab: string;
   isCompleted: boolean;
 }
 
-// Keep compatibility with an older API process during local hot reloads. Calendar
-// payloads already include rawItem, while newer API builds expose blocker directly.
+export type MilestoneCategoryKey = 'dev' | 'uiux' | 'specs' | 'release' | 'committed' | 'meetings';
+
+export const ALL_MILESTONE_KEYS: MilestoneCategoryKey[] = ['dev', 'uiux', 'specs', 'release', 'committed', 'meetings'];
+
+const CALENDAR_MILESTONES_STORAGE_KEY = 'calendar_milestone_filters';
+
+export interface MilestoneCategoryConfig {
+  key: MilestoneCategoryKey;
+  label: string;
+  shortLabel: string;
+  stages: string[];
+  color: string;
+  bgLight: string;
+  description: string;
+}
+
+export const MILESTONE_CATEGORIES: MilestoneCategoryConfig[] = [
+  {
+    key: 'dev',
+    label: 'Dev Deadline',
+    shortLabel: 'Dev',
+    stages: ['Dev'],
+    color: '#3b82f6',
+    bgLight: 'rgba(59, 130, 246, 0.14)',
+    description: 'Development milestone & deadline tasks'
+  },
+  {
+    key: 'uiux',
+    label: 'UI/UX Date',
+    shortLabel: 'UI/UX',
+    stages: ['UI/UX'],
+    color: '#ec4899',
+    bgLight: 'rgba(236, 72, 153, 0.14)',
+    description: 'Design, wireframing & UX review tasks'
+  },
+  {
+    key: 'specs',
+    label: 'Specs Date',
+    shortLabel: 'Specs',
+    stages: ['Specs'],
+    color: '#6366f1',
+    bgLight: 'rgba(99, 102, 241, 0.14)',
+    description: 'Product scope & specification dates'
+  },
+  {
+    key: 'release',
+    label: 'Release Date',
+    shortLabel: 'Release',
+    stages: ['Final Release', 'Publish Date', 'Deadline'],
+    color: '#8b5cf6',
+    bgLight: 'rgba(139, 92, 246, 0.14)',
+    description: 'Final release and publish milestones'
+  },
+  {
+    key: 'committed',
+    label: 'Committed Date',
+    shortLabel: 'Committed',
+    stages: ['Commited'],
+    color: '#10b981',
+    bgLight: 'rgba(16, 185, 129, 0.14)',
+    description: 'Target committed release dates'
+  },
+  {
+    key: 'meetings',
+    label: 'Meetings / Calls',
+    shortLabel: 'Meetings',
+    stages: ['AMA Date', 'Call Date', 'Meeting Date'],
+    color: '#f97316',
+    bgLight: 'rgba(249, 115, 22, 0.14)',
+    description: 'AMA sessions, admin calls & student meetings'
+  }
+];
+
+export const getEventMilestoneCategory = (stage: string): MilestoneCategoryKey | null => {
+  if (stage === 'Dev') return 'dev';
+  if (stage === 'UI/UX') return 'uiux';
+  if (stage === 'Specs') return 'specs';
+  if (stage === 'Final Release' || stage === 'Publish Date' || stage === 'Deadline') return 'release';
+  if (stage === 'Commited') return 'committed';
+  if (stage === 'AMA Date' || stage === 'Call Date' || stage === 'Meeting Date') return 'meetings';
+  return null;
+};
+
+export const matchesMilestoneFilter = (stage: string, activeKeys: MilestoneCategoryKey[]): boolean => {
+  const cat = getEventMilestoneCategory(stage);
+  if (!cat) return true;
+  return activeKeys.includes(cat);
+};
+
+// Helper to extract the unique task identifier (stripping milestone stage suffixes)
+export const getEventTaskId = (evt: CalendarEvent): string => {
+  if (evt.rawItem && evt.rawItem.id) {
+    return String(evt.rawItem.id);
+  }
+  if (evt.id) {
+    const match = evt.id.match(/^(.*?)(?:-(?:Specs|UI\/UX|Dev|Final Release|Publish Date|Deadline|Commited|AMA Date|Call Date|Meeting Date))?$/);
+    if (match && match[1]) {
+      return match[1];
+    }
+    return evt.id;
+  }
+  return evt.title || 'unknown';
+};
+
+// Determine active blocker text. If structured blockers are present, only active (unresolved)
+// blockers are considered. When all blockers are resolved, this returns an empty string.
 const getEventBlocker = (evt: CalendarEvent): string => {
-  const blocker = evt.blocker ?? evt.rawItem?.blocker;
+  const rawItem = evt.rawItem;
+  const blockers = Array.isArray(rawItem?.blockers)
+    ? rawItem.blockers
+    : (Array.isArray(evt.blockers) ? evt.blockers : null);
+
+  if (blockers) {
+    if (blockers.length === 0) return '';
+    const active = blockers.filter((b: any) => !b.resolved);
+    return active.map((b: any) => (typeof b.text === 'string' ? b.text.trim() : '')).filter(Boolean).join('; ');
+  }
+  const blocker = evt.blocker ?? rawItem?.blocker;
   return typeof blocker === 'string' ? blocker.trim() : '';
 };
 
@@ -250,6 +367,53 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
   const [selectedDateStr, setSelectedDateStr] = useState<string>(() => {
     return toLocalDateStr(new Date());
   });
+
+  // Persistent milestone date filters: all ON by default, persisted across browser refreshes
+  const [selectedMilestones, setSelectedMilestones] = useState<MilestoneCategoryKey[]>(() => {
+    try {
+      const saved = localStorage.getItem(CALENDAR_MILESTONES_STORAGE_KEY);
+      if (saved !== null) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((k: any): k is MilestoneCategoryKey => ALL_MILESTONE_KEYS.includes(k));
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to parse saved calendar milestone filters:', e);
+    }
+    return ALL_MILESTONE_KEYS;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CALENDAR_MILESTONES_STORAGE_KEY, JSON.stringify(selectedMilestones));
+    } catch (e) {
+      console.warn('Failed to save calendar milestone filters:', e);
+    }
+  }, [selectedMilestones]);
+
+  const toggleMilestone = (key: MilestoneCategoryKey, e?: React.MouseEvent) => {
+    if (e && e.altKey) {
+      // Alt-click isolates to just this category
+      setSelectedMilestones([key]);
+      return;
+    }
+    setSelectedMilestones(prev => {
+      if (prev.includes(key)) {
+        return prev.filter(k => k !== key);
+      } else {
+        return [...prev, key];
+      }
+    });
+  };
+
+  const selectAllMilestones = () => {
+    setSelectedMilestones(ALL_MILESTONE_KEYS);
+  };
+
+  const clearAllMilestones = () => {
+    setSelectedMilestones([]);
+  };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPublicEvent, setSelectedPublicEvent] = useState<CalendarEvent | null>(null);
@@ -592,18 +756,75 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
     });
   }, [productItems, studentProjects, amaSessions, studentMeetings, adminCalls, tarunSirMeetings, contentItems, dailyIssues, sharableCalendarSources, isPublic]);
 
-  // 2. Filter events by search query
+  // Events that belong to the currently viewed month (excluding out-of-month overdue items loaded for the header badge)
+  const monthEvents = useMemo<CalendarEvent[]>(() => {
+    const targetYear = currentMonth.getFullYear();
+    const targetMonth = currentMonth.getMonth();
+    return (allEvents || []).filter(evt => {
+      if (!evt.dateStr) return false;
+      const [y, m] = evt.dateStr.split('-').map(Number);
+      return y === targetYear && (m - 1) === targetMonth;
+    });
+  }, [allEvents, currentMonth]);
+
+  // Counts of unique tasks per milestone category for the current month
+  const milestoneCounts = useMemo<Record<MilestoneCategoryKey, number>>(() => {
+    const taskSets: Record<MilestoneCategoryKey, Set<string>> = {
+      dev: new Set(),
+      uiux: new Set(),
+      specs: new Set(),
+      release: new Set(),
+      committed: new Set(),
+      meetings: new Set(),
+    };
+    monthEvents.forEach(evt => {
+      const cat = getEventMilestoneCategory(evt.stage);
+      if (cat && taskSets[cat]) {
+        taskSets[cat].add(getEventTaskId(evt));
+      }
+    });
+    return {
+      dev: taskSets.dev.size,
+      uiux: taskSets.uiux.size,
+      specs: taskSets.specs.size,
+      release: taskSets.release.size,
+      committed: taskSets.committed.size,
+      meetings: taskSets.meetings.size,
+    };
+  }, [monthEvents]);
+
+  // 2. Filter events by milestone selection and search query (scoped to the viewed month)
   const filteredEvents = useMemo(() => {
-    if (!searchQuery.trim()) return allEvents;
-    const query = searchQuery.toLowerCase().trim();
-    return allEvents.filter(evt => 
-      evt.title.toLowerCase().includes(query) ||
-      evt.poc.toLowerCase().includes(query) ||
-      evt.source.toLowerCase().includes(query) ||
-      (evt.priority && evt.priority.toLowerCase().includes(query)) ||
-      (evt.status && evt.status.toLowerCase().includes(query))
-    );
-  }, [allEvents, searchQuery]);
+    return monthEvents.filter(evt => {
+      // Milestone filter check
+      if (!matchesMilestoneFilter(evt.stage, selectedMilestones)) {
+        return false;
+      }
+
+      // Search query check
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        const matchesQuery = 
+          evt.title.toLowerCase().includes(query) ||
+          evt.poc.toLowerCase().includes(query) ||
+          evt.source.toLowerCase().includes(query) ||
+          (evt.priority && evt.priority.toLowerCase().includes(query)) ||
+          (evt.status && evt.status.toLowerCase().includes(query));
+        if (!matchesQuery) return false;
+      }
+
+      return true;
+    });
+  }, [monthEvents, selectedMilestones, searchQuery]);
+
+  // Number of unique tasks matching the current milestone filters and search query in this month
+  const uniqueFilteredTasksCount = useMemo(() => {
+    const taskIds = new Set<string>();
+    filteredEvents.forEach(evt => {
+      taskIds.add(getEventTaskId(evt));
+    });
+    return taskIds.size;
+  }, [filteredEvents]);
 
   // 3. Group filtered events by date
   const eventsByDate = useMemo<Record<string, CalendarEvent[]>>(() => {
@@ -836,17 +1057,22 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
     }
   };
 
-  // Count overdue events: not completed, date is before today
+  // Count overdue unique tasks: not completed, date is before today (reflects active filters)
   const overdueCount = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return allEvents.filter(evt => {
-      if (evt.isCompleted) return false;
-      const evtDate = new Date(evt.dateStr);
-      evtDate.setHours(0, 0, 0, 0);
-      return evtDate < today;
-    }).length;
-  }, [allEvents]);
+    const overdueTaskIds = new Set<string>();
+    filteredEvents.forEach(evt => {
+      if (!evt.isCompleted) {
+        const evtDate = new Date(evt.dateStr);
+        evtDate.setHours(0, 0, 0, 0);
+        if (evtDate < today) {
+          overdueTaskIds.add(getEventTaskId(evt));
+        }
+      }
+    });
+    return overdueTaskIds.size;
+  }, [filteredEvents]);
 
   return (
     <div className="full-canvas-workspace">
@@ -1091,6 +1317,209 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
               </button>
             </div>
           </div>
+
+          {/* Milestone Task Date Filter Toolbar */}
+          <div 
+            className="calendar-milestones-toolbar"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '10px',
+              padding: '7px 1.25rem',
+              backgroundColor: 'var(--background-alt)',
+              borderBottom: '1px solid var(--border-light)',
+              flexShrink: 0,
+              flexWrap: 'wrap',
+              minHeight: '44px',
+              boxSizing: 'border-box'
+            }}
+          >
+            {/* Left side: Section Label & Milestone Category Badges */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
+              <div 
+                style={{ 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '5px', 
+                  color: 'var(--text-muted)', 
+                  fontSize: '0.68rem', 
+                  fontWeight: 800, 
+                  textTransform: 'uppercase', 
+                  letterSpacing: '0.04em',
+                  marginRight: '2px',
+                  userSelect: 'none'
+                }}
+                title="Select which milestone date tasks are shown on the calendar"
+              >
+                <Filter size={13} style={{ color: 'var(--primary)' }} />
+                <span>Task Dates:</span>
+              </div>
+
+              {MILESTONE_CATEGORIES.map(cat => {
+                const isSelected = selectedMilestones.includes(cat.key);
+                const count = milestoneCounts[cat.key] || 0;
+                return (
+                  <button
+                    key={cat.key}
+                    type="button"
+                    onClick={(e) => toggleMilestone(cat.key, e)}
+                    title={`${cat.label} (${count} tasks this month) • Click to toggle, Alt+click to isolate`}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '3px 10px',
+                      borderRadius: '999px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
+                      border: isSelected 
+                        ? `1.5px solid ${cat.color}` 
+                        : '1.5px solid var(--border-light)',
+                      backgroundColor: isSelected 
+                        ? cat.bgLight 
+                        : 'var(--background)',
+                      color: isSelected 
+                        ? cat.color 
+                        : 'var(--text-muted)',
+                      boxShadow: isSelected 
+                        ? `0 1px 3px ${cat.color}25` 
+                        : 'none',
+                      opacity: isSelected ? 1 : 0.65,
+                      transform: isSelected ? 'none' : 'scale(0.98)',
+                      userSelect: 'none'
+                    }}
+                  >
+                    <span 
+                      style={{
+                        width: '7px',
+                        height: '7px',
+                        borderRadius: '50%',
+                        backgroundColor: isSelected ? cat.color : 'var(--text-muted)',
+                        boxShadow: isSelected ? `0 0 5px ${cat.color}` : 'none',
+                        flexShrink: 0,
+                        transition: 'all 0.18s ease'
+                      }} 
+                    />
+                    <span>{cat.shortLabel}</span>
+                    <span 
+                      style={{
+                        fontSize: '0.63rem',
+                        fontWeight: 800,
+                        padding: '1px 5px',
+                        borderRadius: '8px',
+                        backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.25)' : 'var(--border-light)',
+                        color: isSelected ? 'currentColor' : 'var(--text-muted)',
+                        lineHeight: 1.2
+                      }}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Right side: Quick Actions & Unique Tasks Count Display */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+              <span 
+                style={{ 
+                  fontSize: '0.68rem', 
+                  color: 'var(--text-muted)', 
+                  fontWeight: 700,
+                  marginRight: '2px',
+                  whiteSpace: 'nowrap'
+                }}
+                title={`${uniqueFilteredTasksCount} unique tasks scheduled across ${filteredEvents.length} milestone dates`}
+              >
+                {uniqueFilteredTasksCount} {uniqueFilteredTasksCount === 1 ? 'task' : 'tasks'}
+              </span>
+
+              {selectedMilestones.length < ALL_MILESTONE_KEYS.length ? (
+                <button
+                  type="button"
+                  onClick={selectAllMilestones}
+                  title="Turn on all milestone filters"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '3px 9px',
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    color: 'var(--primary)',
+                    backgroundColor: 'rgba(99, 102, 241, 0.08)',
+                    border: '1px solid var(--primary)',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <CheckCheck size={12} />
+                  <span>Show All</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={clearAllMilestones}
+                  title="Clear all milestone filters"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '3px 8px',
+                    fontSize: '0.68rem',
+                    fontWeight: 600,
+                    color: 'var(--text-muted)',
+                    backgroundColor: 'transparent',
+                    border: '1px solid var(--border-light)',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <span>Clear</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Notice when all milestone filters are unchecked */}
+          {selectedMilestones.length === 0 && (
+            <div 
+              style={{
+                padding: '6px 1.25rem',
+                backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                borderBottom: '1px solid rgba(239, 68, 68, 0.2)',
+                fontSize: '0.72rem',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexShrink: 0
+              }}
+            >
+              <span>All milestone date filters are currently OFF. No tasks are shown on the calendar.</span>
+              <button
+                type="button"
+                onClick={selectAllMilestones}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--primary)',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  fontSize: '0.72rem',
+                  textDecoration: 'underline',
+                  padding: 0
+                }}
+              >
+                Turn all ON
+              </button>
+            </div>
+          )}
 
           {isLoadingCalendar ? (
             <div className="calendar-grid-wrapper" style={{ flex: 1, minHeight: 0 }}>

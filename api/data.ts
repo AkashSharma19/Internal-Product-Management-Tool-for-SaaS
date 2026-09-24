@@ -1599,6 +1599,14 @@ export default async function handler(req: any, res: any) {
             const isOverdue = !isCompleted && evDateMidnight < today;
 
             if (isCurrentMonth || isOverdue) {
+              const activeBlockerStr = (() => {
+                if (Array.isArray(rawItem.blockers) && rawItem.blockers.length > 0) {
+                  const active = rawItem.blockers.filter((b: any) => !b.resolved);
+                  return active.map((b: any) => (typeof b.text === 'string' ? b.text.trim() : '')).filter(Boolean).join('; ');
+                }
+                return typeof rawItem.blocker === 'string' ? rawItem.blocker.trim() : '';
+              })();
+
               list.push({
                 id: `${id}-${stage}`,
                 source,
@@ -1609,7 +1617,8 @@ export default async function handler(req: any, res: any) {
                 priority,
                 status: rawItem.status || '',
                 taskLink,
-                blocker: typeof rawItem.blocker === 'string' ? rawItem.blocker.trim() : '',
+                blocker: activeBlockerStr,
+                blockers: Array.isArray(rawItem.blockers) ? rawItem.blockers : [],
                 rawItem,
                 tab,
                 isCompleted

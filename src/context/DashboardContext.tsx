@@ -632,6 +632,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               clickupStatus: fallbackData.clickupStatus !== undefined ? fallbackData.clickupStatus : item.clickupStatus,
               taskLink: fallbackData.taskLink !== undefined ? fallbackData.taskLink : item.taskLink,
               blocker: fallbackData.blocker !== undefined ? fallbackData.blocker : item.blocker,
+              blockers: fallbackData.blockers !== undefined ? fallbackData.blockers : item.blockers,
               deadline: fallbackData.deadline !== undefined ? fallbackData.deadline : item.deadline,
               notes: fallbackData.notes !== undefined ? fallbackData.notes : item.notes,
               product: fallbackData.product !== undefined ? fallbackData.product : item.product,
@@ -2173,6 +2174,20 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const updatedItem = next.find(item => item.id === id);
       if (updatedItem) {
         persistChange('update', 'products', id, updatedItem);
+        setCalendarEvents(evts => evts.map(evt => {
+          if (evt.rawItem?.id === id || evt.id?.startsWith(`${id}-`)) {
+            return {
+              ...evt,
+              blocker: updatedItem.blocker !== undefined ? updatedItem.blocker : evt.blocker,
+              blockers: updatedItem.blockers !== undefined ? updatedItem.blockers : evt.blockers,
+              rawItem: {
+                ...evt.rawItem,
+                ...updatedItem
+              }
+            };
+          }
+          return evt;
+        }));
         setStudentProjects(sp => sp.map(p => {
           const oldFeatureName = (oldItem?.feature || '').trim();
           const featureName = (updatedItem.feature || '').trim();
@@ -2193,6 +2208,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 updatedItem.status !== undefined ? updatedItem.status : p.status
               ) as any,
               blocker: updatedItem.blocker !== undefined ? updatedItem.blocker : p.blocker,
+              blockers: updatedItem.blockers !== undefined ? updatedItem.blockers : p.blockers,
               completeInfoDate: updatedItem.deadline !== undefined ? updatedItem.deadline : p.completeInfoDate,
               priority: updatedItem.priority !== undefined ? (updatedItem.priority || undefined) : p.priority,
               poc: updatedItem.poc !== undefined ? updatedItem.poc : p.poc,
@@ -2272,6 +2288,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
               finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted,
               status: updatedItem.status !== undefined ? updatedItem.status : p.status,
+              blocker: updatedItem.blocker !== undefined ? updatedItem.blocker : p.blocker,
+              blockers: updatedItem.blockers !== undefined ? updatedItem.blockers : p.blockers,
               committedDate: updatedItem.committedDate !== undefined ? updatedItem.committedDate : p.committedDate,
               raisedByTarunSir: updatedItem.raisedByTarunSir !== undefined ? updatedItem.raisedByTarunSir : p.raisedByTarunSir
             };
@@ -2300,6 +2318,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : issue.deadlineCompleted,
               finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : issue.finalReleaseCompleted,
               status: updatedItem.status !== undefined ? updatedItem.status : issue.status,
+              blocker: updatedItem.blocker !== undefined ? updatedItem.blocker : issue.blocker,
+              blockers: updatedItem.blockers !== undefined ? updatedItem.blockers : issue.blockers,
               committedDate: updatedItem.committedDate !== undefined ? updatedItem.committedDate : issue.committedDate,
               raisedByTarunSir: updatedItem.raisedByTarunSir !== undefined ? updatedItem.raisedByTarunSir : issue.raisedByTarunSir
             };
@@ -2355,6 +2375,20 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const updatedItem = next.find(item => item.id === id);
       if (updatedItem) {
         persistChange('update', 'projects', id, updatedItem);
+        setCalendarEvents(evts => evts.map(evt => {
+          if (evt.rawItem?.id === id || evt.id?.startsWith(`${id}-`)) {
+            return {
+              ...evt,
+              blocker: updatedItem.blocker !== undefined ? updatedItem.blocker : evt.blocker,
+              blockers: updatedItem.blockers !== undefined ? updatedItem.blockers : evt.blockers,
+              rawItem: {
+                ...evt.rawItem,
+                ...updatedItem
+              }
+            };
+          }
+          return evt;
+        }));
         setProductItems(prod => prod.map(p => {
           if ((p.feature && updatedItem.title && p.feature.toLowerCase() === updatedItem.title.toLowerCase()) || p.id === `prod-temp-${updatedItem.id}`) {
             const updatedP = {
@@ -2384,7 +2418,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               createdAt: updatedItem.createdAt !== undefined ? updatedItem.createdAt : p.createdAt,
               clickupSubtasksCount: updatedItem.clickupSubtasksCount !== undefined ? updatedItem.clickupSubtasksCount : p.clickupSubtasksCount,
               clickupAssignee: updatedItem.clickupAssignee !== undefined ? updatedItem.clickupAssignee : p.clickupAssignee,
-              taskLink: updatedItem.taskLink !== undefined ? updatedItem.taskLink : p.taskLink
+              taskLink: updatedItem.taskLink !== undefined ? updatedItem.taskLink : p.taskLink,
+              blocker: updatedItem.blocker !== undefined ? updatedItem.blocker : p.blocker,
+              blockers: updatedItem.blockers !== undefined ? updatedItem.blockers : p.blockers
             };
             persistChange('update', 'products', p.id, updatedP);
             return updatedP;
@@ -2625,7 +2661,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               raisedByTarunSir: !!updatedItem.raisedByTarunSir,
               createdAt: updatedItem.createdAt || p.createdAt,
               clickupSubtasksCount: updatedItem.clickupSubtasksCount !== undefined ? updatedItem.clickupSubtasksCount : p.clickupSubtasksCount,
-              clickupAssignee: updatedItem.clickupAssignee || p.clickupAssignee
+              clickupAssignee: updatedItem.clickupAssignee || p.clickupAssignee,
+              blocker: updatedItem.blocker !== undefined ? updatedItem.blocker : p.blocker,
+              blockers: updatedItem.blockers !== undefined ? updatedItem.blockers : p.blockers
             };
             persistChange('update', 'products', p.id, updatedP);
             return updatedP;
@@ -2651,6 +2689,20 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const updatedItem = next.find(item => item.id === id);
       if (updatedItem) {
         persistChange('update', 'dailyIssues', id, updatedItem);
+        setCalendarEvents(evts => evts.map(evt => {
+          if (evt.rawItem?.id === id || evt.id?.startsWith(`${id}-`)) {
+            return {
+              ...evt,
+              blocker: updatedItem.blocker !== undefined ? updatedItem.blocker : evt.blocker,
+              blockers: updatedItem.blockers !== undefined ? updatedItem.blockers : evt.blockers,
+              rawItem: {
+                ...evt.rawItem,
+                ...updatedItem
+              }
+            };
+          }
+          return evt;
+        }));
         setProductItems(prod => prod.map(p => {
           if (p.feature.toLowerCase() === updatedItem.module.toLowerCase() || p.id === `prod-temp-${updatedItem.id}`) {
             const updatedP = {
@@ -2673,7 +2725,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               tarunSirApproval: updatedItem.tarunSirApproval !== undefined ? updatedItem.tarunSirApproval : p.tarunSirApproval,
               createdAt: updatedItem.createdAt || p.createdAt,
               clickupSubtasksCount: updatedItem.clickupSubtasksCount !== undefined ? updatedItem.clickupSubtasksCount : p.clickupSubtasksCount,
-              clickupAssignee: updatedItem.clickupAssignee || p.clickupAssignee
+              clickupAssignee: updatedItem.clickupAssignee || p.clickupAssignee,
+              blocker: updatedItem.blocker !== undefined ? updatedItem.blocker : p.blocker,
+              blockers: updatedItem.blockers !== undefined ? updatedItem.blockers : p.blockers
             };
             persistChange('update', 'products', p.id, updatedP);
             return updatedP;

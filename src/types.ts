@@ -1,4 +1,14 @@
 
+export interface BlockerItem {
+  id: string;
+  text: string;
+  resolved: boolean;
+  createdAt: string;
+  createdBy?: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
+}
+
 export interface ProductItem {
   id: string;
   feature: string;
@@ -11,6 +21,7 @@ export interface ProductItem {
   clickupStatus: string; // testing, development, etc.
   taskLink: string;
   blocker: string;
+  blockers?: BlockerItem[];
   deadline: string;
   notes: string;
   product: string; // Coach LMS Web, Coach LMS App, etc.
@@ -55,6 +66,7 @@ export interface StudentProject {
   status: string;
   assigned: string; // date or name
   blocker: string;
+  blockers?: BlockerItem[];
   completeInfoDate: string;
   priority?: 'P0' | 'P1' | 'P2' | 'P3' | 'P4';
   poc?: string;
@@ -108,6 +120,7 @@ export interface StudentMeeting {
   createdAt?: string;
   taskLink?: string;
   blocker?: string;
+  blockers?: BlockerItem[];
   deadline?: string;
   notes?: string;
   product?: string;
@@ -164,6 +177,8 @@ export interface ContentItem {
   poc: string;
   draftLink: string;
   status: string;
+  blocker?: string;
+  blockers?: BlockerItem[];
   publishDate: string;
   product?: string;
   priority?: 'P0' | 'P1' | 'P2' | 'P3' | 'P4' | '';
@@ -204,6 +219,7 @@ export interface DailyIssue {
   createdAt?: string;
   taskLink?: string;
   blocker?: string;
+  blockers?: BlockerItem[];
   deadline?: string;
   notes?: string;
   uiux?: string;

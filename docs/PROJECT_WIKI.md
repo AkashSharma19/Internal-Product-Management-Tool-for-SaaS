@@ -14,7 +14,10 @@ Welcome to the **Internal Product Management Tool Wiki**. This document provides
 7. [API Routes & Serverless Actions](#7-api-routes--serverless-actions)
 8. [ClickUp Integration & Webhooks](#8-clickup-integration--webhooks)
 9. [Design System & Theme Tokens](#9-design-system--theme-tokens)
-10. [Developer Setup & Production Build](#10-developer-setup--production-build)
+10. [Boat Bot Scratchpad & Sharable Calendar Configuration](#10-boat-bot-scratchpad--sharable-calendar-configuration)
+11. [Developer Setup & High-Performance Local Architecture](#11-developer-setup--high-performance-local-architecture)
+12. [Dockerization, Amazon ECR & Automated Schedulers](#12-dockerization-amazon-ecr--automated-schedulers)
+13. [Type Checking, Linting & Troubleshooting Guide](#13-type-checking-linting--troubleshooting-guide)
 
 ---
 
@@ -37,44 +40,56 @@ The **Internal Product Management Tool** is a web application designed for track
 ```
 Internal Product Tool/
 ├── .agents/                        # AI Customization & Knowledge Root
-│   ├── AGENTS.md                   # Workspace-scoped rules & summary
+│   ├── AGENTS.md                   # Workspace-scoped rules & architectural overview
 │   └── skills/
 │       └── repository_knowledge/
 │           └── SKILL.md            # Auto-discovered repository knowledge skill
-├── api/                            # Backend API Endpoints (Vercel & Express)
-│   ├── data.ts                     # Monolithic API handler for GET/POST/PUT/DELETE
-│   ├── webhook.ts                  # ClickUp incoming Webhook receiver
+├── api/                            # Backend API Endpoints (Vercel Serverless & Node server)
+│   ├── data.ts                     # Unified API handler for GET/POST/PUT/DELETE & AI features
+│   ├── webhook.ts                  # ClickUp incoming Webhook receiver & synchronizer
 │   └── lib/
-│       ├── db.ts                   # Cached Mongoose connection helper
-│       └── models.ts               # Mongoose schemas & TypeScript models
+│       ├── db.ts                   # High-performance Mongoose connection pooling helper
+│       └── models.ts               # Mongoose schemas & TypeScript collection models
 ├── docs/
-│   └── PROJECT_WIKI.md             # This primary documentation wiki
+│   ├── CI_CD_ECR.md                # Amazon ECR container build & push pipeline instructions
+│   └── PROJECT_WIKI.md             # Primary comprehensive system wiki
+├── Dockerfile                      # Multi-stage production container build (Node 22 Alpine)
 ├── public/                         # Static public assets & favicons
+├── scripts/
+│   └── build-and-push-ecr.sh       # Local ECR build, tag and push automation script
 ├── server/
-│   └── server.ts                   # Node.js HTTP static server & API proxy
+│   └── server.ts                   # Node.js HTTP server, SPA static file server & email digest daemon
 ├── src/
-│   ├── App.tsx                     # Main App component, Router & Auth Guard
-│   ├── index.css                   # Master CSS Design System & Theme Variables
+│   ├── App.tsx                     # Main App component, navigation, command search & auth guard
+│   ├── index.css                   # Master CSS Design System, theme variables & animations
 │   ├── mockData.ts                 # Initial fallback mock dataset
 │   ├── types.ts                    # TypeScript interfaces for all data structures
 │   ├── components/
 │   │   ├── CalendarView.tsx        # Interactive Master Calendar (Month view, source filters)
-│   │   ├── ConfigSection.tsx       # Admin configuration & system settings
-│   │   ├── DashboardOverview.tsx   # Executive analytics dashboard & PDF/CSV export
-│   │   ├── PublicFeedbackForm.tsx  # External feedback form rendering component
+│   │   ├── ConfigSection.tsx       # Admin configuration, user roles, integrations & form builder
+│   │   ├── DashboardOverview.tsx   # Executive analytics dashboard & PDF/CSV report exports
+│   │   ├── PublicFeedbackForm.tsx  # Dynamic public feedback form renderer & Google OAuth guard
+│   │   ├── ReleaseNotes.tsx        # SaaS product release notes and version changelog viewer
+│   │   ├── RichTextEditor.tsx      # Rich text and specifications editor with HTML rendering
+│   │   ├── StickyNotesBot.tsx      # Boat Bot Scratchpad & sticky notes sidebar
 │   │   ├── TabContainer.tsx        # Dynamic tab navigation container
-│   │   ├── Tables.tsx              # All data tables, drawers & CustomDatePicker
+│   │   ├── Tables.tsx              # Core data tables, modals, ProductDetailView drawer & CustomDatePicker
+│   │   ├── TeamView.tsx            # Team workload breakdown & POC capacity viewer
 │   │   └── common/
-│   │       ├── PixelBlast.tsx      # Canvas background visual effect
+│   │       ├── PixelBlast.tsx      # Interactive Three.js/OGL particle canvas background
 │   │       └── PixelBlast.css
 │   ├── context/
-│   │   └── DashboardContext.tsx    # React Context Provider (State, Auth, Sync, Optimistic Updates)
+│   │   └── DashboardContext.tsx    # Global React Context Provider (State, Auth, Sync, Optimistic CRUD)
 │   └── utils/
-│       ├── audio.ts                # Web Audio API sound generator
-│       └── confetti.ts             # Confetti particle trigger
-├── package.json
-├── tsconfig.json
-└── vite.config.ts
+│       ├── audio.ts                # Web Audio API sound synthesizer
+│       ├── confetti.ts             # Confetti particle trigger for celebratory actions
+│       └── text.ts                 # HTML sanitization and string formatting utilities
+├── eslint.config.js                # Flat ESLint configuration with tsconfigRootDir support
+├── package.json                    # Scripts and project dependencies
+├── tsconfig.app.json               # Frontend TypeScript configuration
+├── tsconfig.json                   # Solution root TypeScript configuration
+├── tsconfig.server.json            # Node backend TypeScript configuration
+└── vite.config.ts                  # Vite config with IPv4 loopback proxy (127.0.0.1:3000)
 ```
 
 ---
@@ -332,23 +347,93 @@ The application relies on a tailored custom design system to create a modern, hi
 
 ---
 
-## 11. Developer Setup & Production Build
+## 11. Developer Setup & High-Performance Local Architecture
 
-### Running Locally:
+### Running Locally
+
+To run the application locally with full database connectivity and sub-second response times, start the backend server and frontend development server in two separate terminals:
+
 ```bash
-# Install dependencies
-npm install
-
-# Start Vite frontend dev server (runs on http://localhost:5173)
-npm run dev
-
-# Start Node.js HTTP production/backend server (runs on http://localhost:3000)
-npm run build:server
+# Terminal 1: Backend Server (Node.js HTTP Server on http://localhost:3000)
 npm start
+# (Alternatively: npm run dev:server to automatically rebuild server files)
+
+# Terminal 2: Frontend Dev Server (Vite on http://localhost:5173)
+npm run dev
 ```
 
-### Type Checking & Linting:
+> [!IMPORTANT]
+> **Do not run `npx vercel dev` simultaneously!**
+> The local Node server (`node server.js`) and `vercel dev` both bind to port 3000. Running both simultaneously causes an `EADDRINUSE: address already in use 0.0.0.0:3000` collision between IPv4 and IPv6 sockets, causing requests to stall or fail. Always use `npm start` for local development.
+
+### High-Performance Local Architecture
+
+The local server environment is tuned to match and exceed live cloud speeds (~630ms for full data initialization):
+1. **IPv4 Loopback Proxy**: [vite.config.ts](file:///c:/Users/AKASH/Documents/Internal%20Product%20Tool/vite.config.ts) routes `/api` directly to `http://127.0.0.1:3000` rather than `localhost`, bypassing dual-stack IPv6 DNS resolution latency.
+2. **Mongoose Connection Pooling**: [api/lib/db.ts](file:///c:/Users/AKASH/Documents/Internal%20Product%20Tool/api/lib/db.ts) configures `maxPoolSize: 50` and `minPoolSize: 10`, allowing the 25 independent collection queries in `action=init` to execute concurrently without queuing.
+3. **Immediate GET Stream Bypassing**: [server/server.ts](file:///c:/Users/AKASH/Documents/Internal%20Product%20Tool/server/server.ts) exits early for `GET` and `HEAD` requests before stream chunk consumption, eliminating socket keep-alive pauses.
+4. **Environment Auto-Loading**: `npm start` automatically includes `--env-file-if-exists=.env --env-file-if-exists=.env.local` to inject `MONGODB_URI` without requiring manual shell export commands.
+
+---
+
+## 12. Dockerization, Amazon ECR & Automated Schedulers
+
+### Container Build & Deployment
+The repository includes a multi-stage [Dockerfile](file:///c:/Users/AKASH/Documents/Internal%20Product%20Tool/Dockerfile) optimized for production deployments:
+- **Base image**: `node:22-alpine` for minimal image footprint.
+- **Stage 1 (`deps`)**: Installs clean production and development dependencies (`npm ci`).
+- **Stage 2 (`build`)**: Compiles both Vite frontend (`npm run build`) and Node server TypeScript (`npm run build:server`).
+- **Stage 3 (`runtime`)**: Minimal runtime container packaging only `/dist` and `/server-dist` with non-root user (`USER node`).
+
+To build and push to Amazon ECR:
 ```bash
+# Using the local helper script:
+./scripts/build-and-push-ecr.sh
+
+# Or via AWS CLI:
+aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 770014814665.dkr.ecr.ap-south-1.amazonaws.com
+docker build -t 770014814665.dkr.ecr.ap-south-1.amazonaws.com/akash_ipmt:latest .
+docker push 770014814665.dkr.ecr.ap-south-1.amazonaws.com/akash_ipmt:latest
+```
+
+The container listens on port `3000` and provides a healthcheck endpoint at `GET /healthz`.
+
+### Background Automated Email Digest Scheduler
+[server/server.ts](file:///c:/Users/AKASH/Documents/Internal%20Product%20Tool/server/server.ts) runs a persistent background daemon (`runEmailDigestScheduler`) that executes every 60 seconds:
+- Evaluates the current time and day in the `Asia/Kolkata` (IST) timezone.
+- Inspects database settings for `digestFrequency` (everyday / weekly), `digestTime` (e.g. `09:00`), and `digestDayOfWeek` (e.g. `Monday`).
+- When a schedule match occurs, it automatically dispatches the HTML Product Ship summary digest via SMTP to configured stakeholders.
+
+---
+
+## 13. Type Checking, Linting & Troubleshooting Guide
+
+### Verification Commands:
+```bash
+# TypeScript type check (App & Frontend)
 npx tsc --noEmit
+
+# Build server TypeScript files
+npm run build:server
+
+# ESLint code verification
 npm run lint
 ```
+
+### Common Issues & Troubleshooting:
+
+| Issue | Cause | Solution |
+| :--- | :--- | :--- |
+| `Error: listen EADDRINUSE: address already in use 0.0.0.0:3000` | A background server instance (or `vercel dev`) is already holding port 3000. | In PowerShell, run `Stop-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess -Force` or close the other running terminal. |
+| `Database connection failed` on API calls | `MONGODB_URI` environment variable is missing or empty. | Ensure `.env` exists in the project root with a valid `MONGODB_URI`, and start the server using `npm start` or `npm run dev:server`. |
+| ESLint multi-root parsing error | ESLint could not locate the root `tsconfig.json` across candidate worktrees. | Configured via `tsconfigRootDir: import.meta.dirname` in [eslint.config.js](file:///c:/Users/AKASH/Documents/Internal%20Product%20Tool/eslint.config.js). |
+| Slow initial page load locally | Vite proxy attempting IPv6 lookup or Mongoose connection pool queuing. | Ensure `vite.config.ts` proxies to `127.0.0.1:3000` and `api/lib/db.ts` uses `maxPoolSize: 50`. |
+
+---
+
+## 14. Discussion Area & Multi-Blocker Resolution System
+Tasks across Priority Requests, Daily Needs, Student Projects, and Content Pipeline support multiple structured blockers merged directly inside the **Discussion Area**:
+- **Unified Discussion Panel**: No separate tabs for blockers. The top of the Discussion sidebar features an interactive Blockers container displaying active counts, resolve status checkboxes (`[ ] Resolved`), resolution timestamps, author tags, and quick-add inputs.
+- **Status Badges & Row Highlighting**: Items with unresolved blockers display a warning badge in the property grid and apply `.row-blocked` (red indicator) to table rows.
+- **Sync & Compatibility**: Active blockers automatically sync to the legacy `blocker` string (`b1; b2`) ensuring backward compatibility with tables, filters, exports, and calendar indicators.
+

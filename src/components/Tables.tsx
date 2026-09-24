@@ -11,6 +11,7 @@ import {
   Check,
   ArrowLeft,
   AlertCircle,
+  AlertTriangle,
   Palette,
   Code,
   Sparkles,
@@ -50,6 +51,7 @@ import {
 } from 'lucide-react';
 import type { 
   ProductItem, 
+  BlockerItem,
   PlanItem, 
   StudentProject, 
   AMASession,
@@ -4211,6 +4213,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const [historyField, setHistoryField] = useState<{ name: string; label: string } | null>(null);
   const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false);
   const [activeDiscussionTab, setActiveDiscussionTab] = useState<'local' | 'clickup'>('local');
+  const blockerInputRef = useRef<HTMLInputElement>(null);
   const [clickupComments, setClickupComments] = useState<any[]>([]);
   const [loadingCuComments, setLoadingCuComments] = useState(false);
   const [cuCommentError, setCuCommentError] = useState<string | null>(null);  const fetchClickupComments = async () => {
@@ -4266,14 +4269,96 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const [newCommentText, setNewCommentText] = useState('');
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [commentError, setCommentError] = useState('');
+  const [postAsBlocker, setPostAsBlocker] = useState(false);
+  const [newBlockerText, setNewBlockerText] = useState('');
+
+  // Initialize blockers from item.blockers or legacy item.blocker string
+  const getInitialBlockers = useCallback((): BlockerItem[] => {
+    if (Array.isArray(item.blockers)) {
+      return item.blockers;
+    }
+    if (item.blocker && typeof item.blocker === 'string' && item.blocker.trim()) {
+      const parts = item.blocker.split(';').map(p => p.trim()).filter(Boolean);
+      return parts.map((text, idx) => ({
+        id: `blk-legacy-${idx}`,
+        text,
+        resolved: false,
+        createdAt: item.createdAt || new Date().toISOString(),
+        createdBy: item.poc || 'Initial'
+      }));
+    }
+    return [];
+  }, [item.blockers, item.blocker, item.createdAt, item.poc]);
+
+  const [blockersList, setBlockersList] = useState<BlockerItem[]>(getInitialBlockers);
+
+  useEffect(() => {
+    setBlockersList(getInitialBlockers());
+  }, [item.id, item.blockers, item.blocker, getInitialBlockers]);
+
+  const activeBlockers = useMemo(() => {
+    return blockersList.filter(b => !b.resolved);
+  }, [blockersList]);
+
+  const saveBlockers = (updatedBlockers: BlockerItem[]) => {
+    setBlockersList(updatedBlockers);
+    const active = updatedBlockers.filter(b => !b.resolved);
+    const blockerString = active.map(b => b.text.trim()).join('; ');
+    if (canUserEdit) {
+      onUpdate(item.id, { blockers: updatedBlockers, blocker: blockerString } as any);
+    }
+  };
+
+  const handleAddBlocker = (text?: string) => {
+    const textToAdd = (text !== undefined ? text : newBlockerText).trim();
+    if (!textToAdd) return;
+    const newB: BlockerItem = {
+      id: `blk-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      text: textToAdd,
+      resolved: false,
+      createdAt: new Date().toISOString(),
+      createdBy: currentUser?.name || 'User'
+    };
+    const next = [...blockersList, newB];
+    saveBlockers(next);
+    if (text === undefined) {
+      setNewBlockerText('');
+    }
+  };
+
+  const handleToggleResolveBlocker = (blockerId: string) => {
+    const next = blockersList.map(b => {
+      if (b.id === blockerId) {
+        const nextResolved = !b.resolved;
+        return {
+          ...b,
+          resolved: nextResolved,
+          resolvedAt: nextResolved ? new Date().toISOString() : undefined,
+          resolvedBy: nextResolved ? (currentUser?.name || 'User') : undefined
+        };
+      }
+      return b;
+    });
+    saveBlockers(next);
+  };
+
+  const handleDeleteBlocker = (blockerId: string) => {
+    const next = blockersList.filter(b => b.id !== blockerId);
+    saveBlockers(next);
+  };
 
   const handlePostComment = async () => {
     if (!newCommentText.trim()) return;
     setIsPostingComment(true);
     setCommentError('');
     try {
-      const res = await addComment(item.id, newCommentText);
+      const commentContent = newCommentText;
+      const res = await addComment(item.id, commentContent);
       if (res.success) {
+        if (postAsBlocker) {
+          handleAddBlocker(commentContent);
+          setPostAsBlocker(false);
+        }
         setNewCommentText('');
       } else {
         setCommentError(res.error || 'Failed to post comment');
@@ -5472,21 +5557,48 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
                 {/* Blockers */}
                 <div className="property-row-flat">
-                  <span className="premium-property-label" style={{ color: item.blocker ? 'var(--danger)' : 'var(--text-muted)' }}>
+                  <span className="premium-property-label" style={{ color: activeBlockers.length > 0 ? 'var(--danger)' : 'var(--text-muted)' }}>
                     <AlertCircle size={13} /> blockers
                   </span>
                   <div className="premium-property-value">
-                    <input
-                      type="text"
-                      style={{ color: item.blocker ? 'var(--danger)' : 'var(--text-primary)', width: '120px', textAlign: 'right', fontWeight: 600 }}
-                      placeholder="None"
-                      onBlur={(e) => {
-                        if (e.target.value !== item.blocker) {
-                          handleFieldUpdate('blocker', e.target.value);
-                        }
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveDiscussionTab('local');
+                        setTimeout(() => {
+                          blockerInputRef.current?.focus();
+                        }, 50);
                       }}
-                      defaultValue={item.blocker}
-                    />
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: activeBlockers.length > 0 ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
+                        border: activeBlockers.length > 0 ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid var(--border-light)',
+                        borderRadius: '6px',
+                        padding: '3px 8px',
+                        fontSize: '0.725rem',
+                        fontWeight: 700,
+                        color: activeBlockers.length > 0 ? 'var(--danger, #ef4444)' : blockersList.length > 0 ? '#10b981' : 'var(--text-muted)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                      title="Manage blockers in Discussion Area"
+                    >
+                      {activeBlockers.length > 0 ? (
+                        <>
+                          <AlertTriangle size={12} />
+                          <span>{activeBlockers.length} active {activeBlockers.length === 1 ? 'blocker' : 'blockers'}</span>
+                        </>
+                      ) : blockersList.length > 0 ? (
+                        <>
+                          <Check size={12} />
+                          <span>All {blockersList.length} resolved</span>
+                        </>
+                      ) : (
+                        <span>+ Add blocker</span>
+                      )}
+                    </button>
                   </div>
                 </div>
 
@@ -5648,15 +5760,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
             </div>
 
-            {/* Blocker Alert Banner */}
-            {item.blocker && (
-              <div style={{ backgroundColor: 'var(--danger-bg)', border: '1px solid rgba(239, 68, 68, 0.15)', borderLeft: '4px solid var(--danger)', borderRadius: '6px', padding: '0.4rem 0.65rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <span style={{ fontSize: '1rem' }}>🛑</span>
-                <p style={{ margin: 0, fontSize: '0.725rem', color: 'var(--text-secondary)', fontWeight: 500, lineHeight: 1.3 }}>
-                  <strong style={{ color: 'var(--danger)' }}>Blocker active:</strong> {item.blocker}
-                </p>
-              </div>
-            )}
+
 
             {/* Description card */}
             <div>
@@ -5691,7 +5795,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
         <div style={{ width: '380px', flexShrink: 0, height: '100%', minHeight: 0 }}>
           <div className="premium-discussion-sidebar">
             <div className="discussion-sidebar-header" style={{ flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
-              <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid var(--border-light)', width: '100%', paddingBottom: '4px' }}>
+              <div style={{ display: 'flex', gap: '10px', borderBottom: '1px solid var(--border-light)', width: '100%', paddingBottom: '4px' }}>
                 <button
                   type="button"
                   onClick={() => setActiveDiscussionTab('local')}
@@ -5706,12 +5810,30 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                     borderBottom: activeDiscussionTab === 'local' ? '2px solid var(--primary)' : '2px solid transparent',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '4px',
+                    gap: '6px',
                     outline: 'none'
                   }}
                 >
-                  Discussion ({comments.filter((c: any) => c.itemId === item.id).length})
+                  <span>Discussion ({comments.filter((c: any) => c.itemId === item.id).length})</span>
+                  {activeBlockers.length > 0 && (
+                    <span style={{
+                      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                      border: '1px solid rgba(239, 68, 68, 0.35)',
+                      color: 'var(--danger, #ef4444)',
+                      borderRadius: '10px',
+                      padding: '1px 6px',
+                      fontSize: '0.625rem',
+                      fontWeight: 800,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px'
+                    }}>
+                      <AlertCircle size={10} />
+                      {activeBlockers.length} {activeBlockers.length === 1 ? 'blocker' : 'blockers'}
+                    </span>
+                  )}
                 </button>
+
                 <button
                   type="button"
                   onClick={() => {
@@ -5747,9 +5869,257 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
             </div>
 
             {activeDiscussionTab === 'local' ? (
-              <>
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+                {/* PREMIUM INLINE BLOCKERS */}
+                <div style={{
+                  padding: '10px 14px',
+                  background: 'var(--panel-bg-alt, rgba(0, 0, 0, 0.02))',
+                  borderBottom: '1px solid var(--border-light)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  flexShrink: 0
+                }}>
+                  {/* Header */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <AlertCircle size={13} style={{ color: activeBlockers.length > 0 ? '#ef4444' : 'var(--text-muted)' }} />
+                      <span style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        letterSpacing: '0.06em',
+                        textTransform: 'uppercase',
+                        color: activeBlockers.length > 0 ? 'var(--text-primary)' : 'var(--text-secondary)'
+                      }}>
+                        Blockers
+                      </span>
+                      {activeBlockers.length > 0 ? (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontSize: '0.65rem',
+                          fontWeight: 700,
+                          padding: '1px 6px',
+                          borderRadius: '999px',
+                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                          color: '#ef4444',
+                          border: '1px solid rgba(239, 68, 68, 0.2)'
+                        }}>
+                          <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#ef4444' }} />
+                          {activeBlockers.length} active
+                        </span>
+                      ) : blockersList.length > 0 ? (
+                        <span style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontSize: '0.65rem',
+                          fontWeight: 700,
+                          padding: '1px 6px',
+                          borderRadius: '999px',
+                          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                          color: '#10b981',
+                          border: '1px solid rgba(16, 185, 129, 0.2)'
+                        }}>
+                          <Check size={10} strokeWidth={3} />
+                          All resolved
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {/* Blockers list */}
+                  {blockersList.length > 0 && (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '5px',
+                      maxHeight: '160px',
+                      overflowY: 'auto',
+                      paddingRight: '2px'
+                    }}>
+                      {blockersList.map(b => (
+                        <div
+                          key={b.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            justifyContent: 'space-between',
+                            gap: '8px',
+                            padding: '6px 8px',
+                            borderRadius: '6px',
+                            backgroundColor: b.resolved ? 'transparent' : 'rgba(239, 68, 68, 0.04)',
+                            border: b.resolved ? '1px dashed var(--border-light)' : '1px solid rgba(239, 68, 68, 0.22)',
+                            borderLeft: b.resolved ? '3px solid #10b981' : '3px solid #ef4444',
+                            opacity: b.resolved ? 0.72 : 1,
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1, minWidth: 0 }}>
+                            {/* Custom rounded checkbox */}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleResolveBlocker(b.id)}
+                              title={b.resolved ? 'Mark as active blocker' : 'Mark as resolved'}
+                              style={{
+                                width: '15px',
+                                height: '15px',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                flexShrink: 0,
+                                marginTop: '1.5px',
+                                transition: 'all 0.15s ease',
+                                backgroundColor: b.resolved ? '#10b981' : 'var(--background)',
+                                border: b.resolved ? '1.5px solid #10b981' : '1.5px solid rgba(239, 68, 68, 0.6)',
+                                padding: 0
+                              }}
+                            >
+                              {b.resolved && <Check size={10} strokeWidth={3.5} color="#ffffff" />}
+                            </button>
+
+                            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <span 
+                                title={b.text}
+                                style={{
+                                  fontSize: '0.74rem',
+                                  lineHeight: '1.4',
+                                  color: b.resolved ? 'var(--text-muted)' : 'var(--text-primary)',
+                                  textDecoration: b.resolved ? 'line-through' : 'none',
+                                  wordBreak: 'break-word',
+                                  overflowWrap: 'anywhere',
+                                  whiteSpace: 'pre-wrap',
+                                  fontWeight: b.resolved ? 400 : 500
+                                }}
+                              >
+                                {b.text}
+                              </span>
+                              {b.resolved && b.resolvedBy ? (
+                                <span style={{ fontSize: '0.62rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                  Resolved by {b.resolvedBy}
+                                </span>
+                              ) : b.createdBy ? (
+                                <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+                                  by {b.createdBy}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteBlocker(b.id)}
+                            title="Delete blocker"
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: 'var(--text-muted)',
+                              cursor: 'pointer',
+                              padding: '2px 4px',
+                              borderRadius: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              opacity: 0.35,
+                              transition: 'all 0.15s ease',
+                              flexShrink: 0,
+                              marginTop: '1px'
+                            }}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.opacity = '1';
+                              e.currentTarget.style.color = '#ef4444';
+                              e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.opacity = '0.35';
+                              e.currentTarget.style.color = 'var(--text-muted)';
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Seamless Linear-style input */}
+                  <div 
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      backgroundColor: 'var(--input-bg, var(--background))',
+                      border: '1px solid var(--border-light)',
+                      borderRadius: '6px',
+                      padding: '4px 8px',
+                      transition: 'border-color 0.2s, box-shadow 0.2s'
+                    }}
+                    onFocusCapture={e => {
+                      e.currentTarget.style.borderColor = '#ef4444';
+                      e.currentTarget.style.boxShadow = '0 0 0 2px rgba(239, 68, 68, 0.12)';
+                    }}
+                    onBlurCapture={e => {
+                      e.currentTarget.style.borderColor = 'var(--border-light)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <Plus size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                    <input
+                      ref={blockerInputRef}
+                      type="text"
+                      placeholder="Add a blocker... (press Enter)"
+                      value={newBlockerText}
+                      onChange={(e) => setNewBlockerText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddBlocker();
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        background: 'transparent',
+                        border: 'none',
+                        outline: 'none',
+                        fontSize: '0.74rem',
+                        color: 'var(--text-primary)',
+                        padding: '2px 0'
+                      }}
+                    />
+                    {newBlockerText.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => handleAddBlocker()}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                          backgroundColor: '#ef4444',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '2px 8px',
+                          fontSize: '0.675rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          transition: 'background-color 0.15s'
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#dc2626')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#ef4444')}
+                      >
+                        <span>Add</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 {/* Comments list */}
-                <div className="discussion-messages-container">
+                <div className="discussion-messages-container" style={{ flex: 1, overflowY: 'auto' }}>
                   {(() => {
                     const taskComments = comments.filter((c: any) => c.itemId === item.id);
                     return taskComments.length === 0 ? (
@@ -5799,15 +6169,27 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                       {commentError}
                     </span>
                   )}
-                  <button
-                    onClick={handlePostComment}
-                    disabled={isPostingComment || !newCommentText.trim()}
-                    className="btn btn-primary discussion-submit-btn"
-                  >
-                    {isPostingComment ? 'Posting...' : 'Post Reply'}
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.7rem', cursor: 'pointer', color: postAsBlocker ? 'var(--danger, #ef4444)' : 'var(--text-muted)', fontWeight: postAsBlocker ? 700 : 500, userSelect: 'none' }}>
+                      <input
+                        type="checkbox"
+                        checked={postAsBlocker}
+                        onChange={(e) => setPostAsBlocker(e.target.checked)}
+                        style={{ cursor: 'pointer', accentColor: '#ef4444' }}
+                      />
+                      <AlertCircle size={11} style={{ color: postAsBlocker ? '#ef4444' : 'currentColor' }} />
+                      <span>Flag as Blocker</span>
+                    </label>
+                    <button
+                      onClick={handlePostComment}
+                      disabled={isPostingComment || !newCommentText.trim()}
+                      className="btn btn-primary discussion-submit-btn"
+                    >
+                      {isPostingComment ? 'Posting...' : 'Post Reply'}
+                    </button>
+                  </div>
                 </div>
-              </>
+              </div>
             ) : (
               <>
                 {/* ClickUp Comments list */}
@@ -16779,6 +17161,11 @@ export const AdoptionTable: React.FC = () => {
     product: string;
     cohort: string;
     rawType: 'product' | 'issue' | 'adoption';
+    clickupStatus?: string;
+    clickupSubtasksCount?: number;
+    taskLink?: string;
+    finalRelease?: string;
+    committedDate?: string;
   }
 
   const demoTasks = useMemo<DemoTaskItem[]>(() => {
@@ -16789,7 +17176,12 @@ export const AdoptionTable: React.FC = () => {
         feature: p.feature || p.description || `Task #${p.id}`,
         product: p.product || '',
         cohort: p.demoCohorts || '',
-        rawType: 'product'
+        rawType: 'product',
+        clickupStatus: p.clickupStatus || '',
+        clickupSubtasksCount: p.clickupSubtasksCount || 0,
+        taskLink: p.taskLink || '',
+        finalRelease: p.finalRelease || '',
+        committedDate: p.committedDate || ''
       }));
 
     const dList: DemoTaskItem[] = (dailyIssues || [])
@@ -16799,7 +17191,12 @@ export const AdoptionTable: React.FC = () => {
         feature: d.module || d.issues || `Issue #${d.id}`,
         product: d.product || '',
         cohort: d.demoCohorts || '',
-        rawType: 'issue'
+        rawType: 'issue',
+        clickupStatus: d.clickupStatus || '',
+        clickupSubtasksCount: d.clickupSubtasksCount || 0,
+        taskLink: d.taskLink || '',
+        finalRelease: d.finalRelease || '',
+        committedDate: d.committedDate || ''
       }));
 
     const aList: DemoTaskItem[] = (featureAdoptions || [])
@@ -16809,7 +17206,12 @@ export const AdoptionTable: React.FC = () => {
         feature: a.feature,
         product: a.product,
         cohort: a.cohort || '',
-        rawType: 'adoption'
+        rawType: 'adoption',
+        clickupStatus: '',
+        clickupSubtasksCount: 0,
+        taskLink: '',
+        finalRelease: a.launchDate || '',
+        committedDate: ''
       }));
 
     return [...pList, ...dList, ...aList];
@@ -16819,10 +17221,38 @@ export const AdoptionTable: React.FC = () => {
     const matchesSearch = 
       item.feature.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.product.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.cohort || '').toLowerCase().includes(searchQuery.toLowerCase());
+      (item.cohort || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.clickupStatus || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.finalRelease || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.committedDate || '').toLowerCase().includes(searchQuery.toLowerCase());
       
     return matchesSearch;
   });
+
+  // Helper to check if a specific cohort is marked as demoed for a task
+  const isCohortChecked = (cohortStr: string | undefined, c: (typeof cohorts)[0]): boolean => {
+    if (!cohortStr) return false;
+    const tokens = cohortStr.split(',').map(s => s.trim()).filter(Boolean);
+    
+    // 1. Direct match on unique cohort ID (primary & robust across programs/categories)
+    if (tokens.includes(c.id)) return true;
+    
+    // 2. Direct match on program-scoped keys
+    if (tokens.includes(`${c.programId}:${c.id}`) || tokens.includes(`${c.programId}:${c.name}`)) return true;
+
+    // 3. Fallback for legacy data where only cohort name was stored:
+    // Only match legacy name if no other active cohort in a DIFFERENT program has the exact same name
+    if (tokens.includes(c.name)) {
+      const hasDuplicateNameInOtherProgram = activeCohorts.some(
+        other => other.id !== c.id && other.name.trim().toLowerCase() === c.name.trim().toLowerCase()
+      );
+      if (!hasDuplicateNameInOtherProgram) {
+        return true;
+      }
+    }
+
+    return false;
+  };
 
   const sorted = [...filtered];
   if (sortField) {
@@ -16838,16 +17268,16 @@ export const AdoptionTable: React.FC = () => {
         valB = b.product;
       } else if (sortField === 'adoptionRate') {
         const getRate = (item: DemoTaskItem) => {
-          const current = (item.cohort || '').split(',').map(s => s.trim()).filter(Boolean);
-          const checkedCount = displayCohorts.filter(c => current.includes(c.name)).length;
+          const checkedCount = displayCohorts.filter(c => isCohortChecked(item.cohort, c)).length;
           return displayCohorts.length > 0 ? (checkedCount / displayCohorts.length) : 0;
         };
         valA = getRate(a);
         valB = getRate(b);
       } else if (sortField.startsWith('cohort-')) {
-        const cohortName = sortField.replace('cohort-', '');
-        valA = (a.cohort || '').split(',').map(s => s.trim()).includes(cohortName) ? 1 : 0;
-        valB = (b.cohort || '').split(',').map(s => s.trim()).includes(cohortName) ? 1 : 0;
+        const cohortId = sortField.replace('cohort-', '');
+        const targetCohort = displayCohorts.find(c => c.id === cohortId || c.name === cohortId);
+        valA = targetCohort && isCohortChecked(a.cohort, targetCohort) ? 1 : 0;
+        valB = targetCohort && isCohortChecked(b.cohort, targetCohort) ? 1 : 0;
       }
       
       if (typeof valA === 'number' && typeof valB === 'number') {
@@ -16859,11 +17289,22 @@ export const AdoptionTable: React.FC = () => {
     });
   }
 
-  const handleCohortToggle = (cohortName: string, isChecked: boolean, target: DemoTaskItem) => {
+  const handleCohortToggle = (c: (typeof cohorts)[0], isChecked: boolean, target: DemoTaskItem) => {
     const cohortsList = (target.cohort || '').split(',').map(s => s.trim()).filter(Boolean);
-    const updatedCohorts = isChecked 
-      ? [...cohortsList, cohortName] 
-      : cohortsList.filter(x => x !== cohortName);
+    let updatedCohorts: string[];
+    
+    if (isChecked) {
+      // Add unique cohort ID, and clean any legacy ambiguous name
+      updatedCohorts = Array.from(new Set([...cohortsList.filter(x => x !== c.name), c.id]));
+    } else {
+      // Remove unique cohort ID, scoped keys, and legacy name
+      updatedCohorts = cohortsList.filter(x => 
+        x !== c.id && 
+        x !== `${c.programId}:${c.id}` && 
+        x !== `${c.programId}:${c.name}` && 
+        x !== c.name
+      );
+    }
     const newCohortStr = updatedCohorts.join(', ');
 
     if (target.rawType === 'product') {
@@ -17038,9 +17479,9 @@ export const AdoptionTable: React.FC = () => {
                   className="sticky-header-col"
                   style={{ 
                     verticalAlign: 'middle', 
-                    width: '260px',
-                    minWidth: '260px', 
-                    maxWidth: '260px',
+                    width: '320px',
+                    minWidth: '320px', 
+                    maxWidth: '340px',
                     whiteSpace: 'nowrap', 
                     borderRight: '2px solid var(--border)',
                     padding: '8px 12px'
@@ -17052,7 +17493,7 @@ export const AdoptionTable: React.FC = () => {
                       style={{ cursor: 'pointer', flex: 1 }}
                       title="Sort by Task / Feature Name"
                     >
-                      Feature & Product Group {sortField === 'feature' ? (sortAsc ? '▲' : '▼') : ''}
+                      Feature & Status {sortField === 'feature' ? (sortAsc ? '▲' : '▼') : ''}
                     </span>
                     <button 
                       onClick={() => handleSort('adoptionRate')}
@@ -17081,7 +17522,7 @@ export const AdoptionTable: React.FC = () => {
                   return (
                     <th 
                       key={c.id} 
-                      onClick={() => handleSort(`cohort-${c.name}`)} 
+                      onClick={() => handleSort(`cohort-${c.id}`)} 
                       style={{ 
                         textAlign: 'center', 
                         padding: '6px 8px', 
@@ -17094,7 +17535,7 @@ export const AdoptionTable: React.FC = () => {
                       }}
                     >
                       <div style={{ fontSize: '0.725rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                        {c.name} {sortField === `cohort-${c.name}` ? (sortAsc ? '▲' : '▼') : ''}
+                        {c.name} {sortField === `cohort-${c.id}` ? (sortAsc ? '▲' : '▼') : ''}
                       </div>
                     </th>
                   );
@@ -17111,11 +17552,7 @@ export const AdoptionTable: React.FC = () => {
               ) : (
                 sorted.map(adopt => {
                   const displayRate = (() => {
-                    const current = (adopt.cohort || '')
-                      .split(',')
-                      .map(s => s.trim())
-                      .filter(Boolean);
-                    const checkedInProgram = displayCohorts.filter(c => current.includes(c.name)).length;
+                    const checkedInProgram = displayCohorts.filter(c => isCohortChecked(adopt.cohort, c)).length;
                     return displayCohorts.length > 0 
                       ? Math.round((checkedInProgram / displayCohorts.length) * 100)
                       : 0;
@@ -17128,9 +17565,9 @@ export const AdoptionTable: React.FC = () => {
                         <td 
                           className="sticky-col" 
                           style={{ 
-                            width: '260px',
-                            minWidth: '260px', 
-                            maxWidth: '260px',
+                            width: '320px',
+                            minWidth: '320px', 
+                            maxWidth: '340px',
                             whiteSpace: 'normal',
                             borderRight: '2px solid var(--border)',
                             background: `linear-gradient(to right, rgba(99, 102, 241, 0.08) ${displayRate}%, transparent ${displayRate}%)`
@@ -17138,38 +17575,112 @@ export const AdoptionTable: React.FC = () => {
                         >
                           <div 
                             onClick={() => setPreviewProductId(adopt.id)}
-                            style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px', width: '100%', cursor: 'pointer' }}
+                            style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px', width: '100%', cursor: 'pointer' }}
                             title="Click to view task details"
                           >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                              <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                            {/* Feature Name & Demo Completion Rate */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '8px' }}>
+                              <span style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.35 }}>
                                 {adopt.feature}
                               </span>
-                              <span style={{ fontSize: '0.725rem', fontWeight: 700, color: 'var(--primary)', paddingLeft: '8px' }}>
+                              <span style={{ fontSize: '0.725rem', fontWeight: 700, color: 'var(--primary)', padding: '2px 6px', background: 'var(--primary-glow)', borderRadius: '4px', flexShrink: 0 }}>
                                 {displayRate}%
                               </span>
                             </div>
-                            <span style={{
-                              display: 'inline-block',
-                              background: (() => { const g = productGroups.find(g => g.name === adopt.product); return g ? g.color + '22' : 'var(--surface-elevated)'; })(),
-                              color: (() => { const g = productGroups.find(g => g.name === adopt.product); return g ? g.color : 'var(--text-secondary)'; })(),
-                              border: `1px solid ${(() => { const g = productGroups.find(g => g.name === adopt.product); return g ? g.color + '55' : 'var(--border)'; })()}`,
-                              borderRadius: '6px',
-                              padding: '2px 8px',
-                              fontWeight: 600,
-                              fontSize: '0.72rem',
-                              whiteSpace: 'nowrap',
-                            }}>{adopt.product || '—'}</span>
+
+                            {/* Product Group & ClickUp Status */}
+                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                              <span style={{
+                                display: 'inline-block',
+                                background: (() => { const g = productGroups.find(g => g.name === adopt.product); return g ? g.color + '22' : 'var(--surface-elevated)'; })(),
+                                color: (() => { const g = productGroups.find(g => g.name === adopt.product); return g ? g.color : 'var(--text-secondary)'; })(),
+                                border: `1px solid ${(() => { const g = productGroups.find(g => g.name === adopt.product); return g ? g.color + '55' : 'var(--border)'; })()}`,
+                                borderRadius: '6px',
+                                padding: '1px 7px',
+                                fontWeight: 600,
+                                fontSize: '0.7rem',
+                                whiteSpace: 'nowrap',
+                              }}>{adopt.product || '—'}</span>
+
+                              {adopt.clickupStatus ? (
+                                <ClickUpStatusBadge 
+                                  status={adopt.clickupStatus} 
+                                  subtasksCount={adopt.clickupSubtasksCount} 
+                                  taskLink={adopt.taskLink} 
+                                />
+                              ) : (
+                                adopt.taskLink ? (
+                                  <a 
+                                    href={adopt.taskLink} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    onClick={(e) => e.stopPropagation()} 
+                                    style={{ 
+                                      fontSize: '0.68rem', 
+                                      color: 'var(--primary)', 
+                                      display: 'inline-flex', 
+                                      alignItems: 'center', 
+                                      gap: '3px',
+                                      textDecoration: 'none',
+                                      padding: '1px 5px',
+                                      borderRadius: '4px',
+                                      border: '1px solid var(--border-light)',
+                                      background: 'var(--surface-elevated)'
+                                    }}
+                                  >
+                                    <ExternalLink size={10} /> ClickUp
+                                  </a>
+                                ) : null
+                              )}
+                            </div>
+
+                            {/* Release Date & Committed Date Row */}
+                            {(adopt.finalRelease || adopt.committedDate) ? (
+                              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '5px', fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '1px' }}>
+                                {adopt.committedDate && (
+                                  <span 
+                                    style={{ 
+                                      display: 'inline-flex', 
+                                      alignItems: 'center', 
+                                      gap: '3px', 
+                                      background: 'var(--surface-elevated)', 
+                                      padding: '1px 5px', 
+                                      borderRadius: '4px', 
+                                      border: '1px solid var(--border-light)' 
+                                    }} 
+                                    title="Committed Date"
+                                  >
+                                    <Calendar size={11} style={{ opacity: 0.7 }} />
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.66rem' }}>Committed:</span>
+                                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{formatDateToShortPattern(adopt.committedDate)}</span>
+                                  </span>
+                                )}
+                                {adopt.finalRelease && (
+                                  <span 
+                                    style={{ 
+                                      display: 'inline-flex', 
+                                      alignItems: 'center', 
+                                      gap: '3px', 
+                                      background: 'var(--surface-elevated)', 
+                                      padding: '1px 5px', 
+                                      borderRadius: '4px', 
+                                      border: '1px solid var(--border-light)' 
+                                    }} 
+                                    title="Release Date"
+                                  >
+                                    <Rocket size={11} style={{ opacity: 0.8, color: 'var(--primary)' }} />
+                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.66rem' }}>Release:</span>
+                                    <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{formatDateToShortPattern(adopt.finalRelease)}</span>
+                                  </span>
+                                )}
+                              </div>
+                            ) : null}
                           </div>
                         </td>
                         
                         {/* Cohorts Columns Checkboxes */}
                         {displayCohorts.map((c, idx) => {
-                          const current = (adopt.cohort || '')
-                            .split(',')
-                            .map(s => s.trim())
-                            .filter(Boolean);
-                          const isChecked = current.includes(c.name);
+                          const isChecked = isCohortChecked(adopt.cohort, c);
                           const isBoundary = idx > 0 && c.programId !== displayCohorts[idx - 1].programId;
                           
                           return (
@@ -17184,7 +17695,7 @@ export const AdoptionTable: React.FC = () => {
                               <input 
                                 type="checkbox" 
                                 checked={isChecked} 
-                                onChange={() => handleCohortToggle(c.name, !isChecked, adopt)}
+                                onChange={() => handleCohortToggle(c, !isChecked, adopt)}
                                 style={{ 
                                   cursor: 'pointer', 
                                   width: '15px', 

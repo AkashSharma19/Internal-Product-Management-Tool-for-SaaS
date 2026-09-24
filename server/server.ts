@@ -64,6 +64,9 @@ function withApiResponse(res: ServerResponse): ApiResponse {
 }
 
 async function readBody(req: IncomingMessage): Promise<unknown> {
+  if (req.method === 'GET' || req.method === 'HEAD') {
+    return undefined;
+  }
   const chunks: Buffer[] = [];
 
   for await (const chunk of req) {

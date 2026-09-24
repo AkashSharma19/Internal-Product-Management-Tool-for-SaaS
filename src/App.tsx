@@ -2626,7 +2626,8 @@ const DashboardContent: React.FC = () => {
                 status: (foundContent.status as any) || '',
                 clickupStatus: foundContent.clickupStatus || '',
                 taskLink: foundContent.draftLink || '',
-                blocker: '',
+                blocker: foundContent.blocker || '',
+                blockers: foundContent.blockers || [],
                 deadline: foundContent.deadline || '',
                 notes: `Type: ${foundContent.type || ''}`,
                 product: foundContent.product || '',
@@ -2657,6 +2658,8 @@ const DashboardContent: React.FC = () => {
                 if (updated.status !== undefined) updatedContent.status = updated.status;
                 if (updated.clickupStatus !== undefined) updatedContent.clickupStatus = updated.clickupStatus;
                 if (updated.taskLink !== undefined) updatedContent.draftLink = updated.taskLink;
+                if (updated.blocker !== undefined) updatedContent.blocker = updated.blocker;
+                if (updated.blockers !== undefined) updatedContent.blockers = updated.blockers;
                 if (updated.deadline !== undefined) updatedContent.deadline = updated.deadline;
                 if (updated.product !== undefined) updatedContent.product = updated.product;
                 if (updated.module !== undefined) updatedContent.module = updated.module;
@@ -2709,6 +2712,7 @@ const DashboardContent: React.FC = () => {
                 clickupStatus: foundIssue.clickupStatus || foundIssue.type || '',
                 taskLink: foundIssue.taskLink || '',
                 blocker: foundIssue.blocker || '',
+                blockers: foundIssue.blockers || [],
                 deadline: foundIssue.deadline || '',
                 notes: foundIssue.notes || foundIssue.issues || '',
                 product: foundIssue.product || '',
@@ -2741,6 +2745,7 @@ const DashboardContent: React.FC = () => {
                 if (updated.clickupStatus !== undefined) updatedIssue.clickupStatus = updated.clickupStatus;
                 if (updated.taskLink !== undefined) updatedIssue.taskLink = updated.taskLink;
                 if (updated.blocker !== undefined) updatedIssue.blocker = updated.blocker;
+                if (updated.blockers !== undefined) updatedIssue.blockers = updated.blockers;
                 if (updated.deadline !== undefined) updatedIssue.deadline = updated.deadline;
                 if (updated.notes !== undefined) updatedIssue.notes = updated.notes;
                 if (updated.product !== undefined) updatedIssue.product = updated.product;
