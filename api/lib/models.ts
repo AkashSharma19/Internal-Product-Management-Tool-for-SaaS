@@ -90,9 +90,13 @@ const AMASessionSchema = new Schema({
   topic: { type: String, default: "" },
   speaker: { type: String, default: "" },
   cohort: { type: String, default: "" },
+  cohortId: { type: String, default: "" },
   link: { type: String, default: "" },
   status: { type: String, default: "Scheduled" },
   program: { type: String, default: "" },
+  programId: { type: String, default: "" },
+  category: { type: String, default: "" },
+  categoryId: { type: String, default: "" },
   pinned: { type: Boolean, default: false },
   feedbackFormId: { type: String, default: "" },
   discussion: { type: String, default: "" }

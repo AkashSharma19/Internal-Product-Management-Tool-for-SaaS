@@ -98,9 +98,13 @@ export interface AMASession {
   topic: string;
   speaker: string;
   cohort: string;
+  cohortId?: string;
   link: string;
   status: 'Scheduled' | 'Completed' | 'Postponed';
   program?: string;
+  programId?: string;
+  category?: string;
+  categoryId?: string;
   pinned?: boolean;
   feedbackFormId?: string;
   discussion?: string;

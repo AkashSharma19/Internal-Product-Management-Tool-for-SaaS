@@ -64,7 +64,9 @@ import type {
   FeedbackFormField,
   FeedbackFormConfig,
   DirectoryContact,
-  Challenge
+  Challenge,
+  ConfigProgram,
+  ConfigCohort
 } from '../types';
 
 import { triggerReleaseConfetti } from '../utils/confetti';
@@ -6302,13 +6304,15 @@ interface MultiSelectDropdownProps {
   selectedValues: string[];
   onChange: (values: string[]) => void;
   placeholder: string;
+  counts?: Record<string, number>;
 }
 
 const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
   options,
   selectedValues,
   onChange,
-  placeholder
+  placeholder,
+  counts
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -6331,10 +6335,22 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
     }
   };
 
+  const getPluralPlaceholder = (text: string) => {
+    const lower = text.toLowerCase();
+    if (lower === 'category') return 'Categories';
+    if (lower === 'status') return 'Statuses';
+    if (lower === 'feature poc' || lower === 'poc') return 'Feature POCs';
+    if (text.endsWith('y')) return text.slice(0, -1) + 'ies';
+    if (text.endsWith('s') || text.endsWith('ch') || text.endsWith('sh')) return text + 'es';
+    return text + 's';
+  };
+
+  const pluralText = getPluralPlaceholder(placeholder);
+
   const displayText = selectedValues.length === 0 
-    ? `All ${placeholder === 'POC' ? 'POCs' : `${placeholder}es`}`
+    ? `All ${pluralText}`
     : selectedValues.length === options.length 
-      ? `All ${placeholder === 'POC' ? 'POCs' : `${placeholder}es`}`
+      ? `All ${pluralText}`
       : selectedValues.join(', ');
 
   return (
@@ -6343,23 +6359,89 @@ const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
         type="button" 
         className="multi-select-trigger" 
         onClick={() => setIsOpen(!isOpen)}
+        title={selectedValues.length > 0 ? selectedValues.join(', ') : `All ${pluralText}`}
       >
         <span className="multi-select-trigger-text">{displayText}</span>
         <ChevronDown size={14} style={{ opacity: 0.7, transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
       </button>
       {isOpen && (
-        <div className="multi-select-dropdown">
+        <div className="multi-select-dropdown" style={{ minWidth: '220px', maxWidth: '320px' }}>
+          {options.length > 2 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '2px 4px 6px 4px', borderBottom: '1px solid var(--border-light, var(--border))', marginBottom: '3px' }}>
+              <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                {pluralText} ({options.length})
+              </span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {selectedValues.length < options.length && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onChange([...options]);
+                    }}
+                    style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                  >
+                    All
+                  </button>
+                )}
+                {selectedValues.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onChange([]);
+                    }}
+                    style={{ background: 'none', border: 'none', color: 'var(--danger, #ef4444)', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
           {options.map(option => {
             const isChecked = selectedValues.includes(option);
+            const count = counts ? (counts[option] ?? 0) : undefined;
             return (
-              <label key={option} className="multi-select-option">
-                <input 
-                  type="checkbox" 
-                  className="multi-select-checkbox"
-                  checked={isChecked}
-                  onChange={() => handleToggleOption(option)}
-                />
-                <span>{option}</span>
+              <label 
+                key={option} 
+                className="multi-select-option"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '8px',
+                  padding: '5px 8px',
+                  userSelect: 'none'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                  <input 
+                    type="checkbox" 
+                    className="multi-select-checkbox"
+                    checked={isChecked}
+                    onChange={() => handleToggleOption(option)}
+                  />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{option}</span>
+                </div>
+                {count !== undefined && (
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 650,
+                      padding: '1px 6px',
+                      borderRadius: '10px',
+                      backgroundColor: count > 0 ? 'var(--background-alt, rgba(99, 102, 241, 0.08))' : 'transparent',
+                      color: count > 0 ? 'var(--text-secondary)' : 'var(--text-muted)',
+                      border: count > 0 ? '1px solid var(--border-light, var(--border))' : 'none',
+                      flexShrink: 0,
+                      minWidth: '20px',
+                      textAlign: 'center'
+                    }}
+                  >
+                    {count}
+                  </span>
+                )}
               </label>
             );
           })}
@@ -8710,6 +8792,952 @@ export const StudentMeetingDetailModal: React.FC<StudentMeetingDetailModalProps>
   );
 };
 
+interface CategoryPillSelectProps {
+  value: string;
+  categories: { id: string; name: string; active?: boolean }[];
+  onChange: (categoryId: string) => void;
+  title?: string;
+}
+
+const CategoryPillSelect: React.FC<CategoryPillSelectProps> = ({ value, categories, onChange, title }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const catObj = categories.find(c => c.id === value);
+  const catName = catObj ? catObj.name : (value === '__uncategorized__' ? 'Uncategorized' : '');
+  const displayText = catName || 'Select category';
+  const pillStyle = getAutoCategoryProgramCompactStyle(catName);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{ position: 'relative', display: 'inline-block', zIndex: isOpen ? 60 : 'auto' }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        style={pillStyle}
+        title={title || (catName ? `Category: ${catName}` : 'Select Category')}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '105px' }}>
+          {displayText}
+        </span>
+        <ChevronDown
+          size={11}
+          style={{
+            flexShrink: 0,
+            opacity: 0.7,
+            transform: isOpen ? 'rotate(180deg)' : 'none',
+            transition: 'transform 0.15s'
+          }}
+        />
+      </button>
+
+      {isOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            left: 0,
+            zIndex: 100,
+            minWidth: '175px',
+            maxWidth: '220px',
+            maxHeight: '230px',
+            overflowY: 'auto',
+            backgroundColor: 'var(--panel-bg)',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.22)',
+            padding: '4px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px',
+            animation: 'fadeIn 0.15s ease-out'
+          }}
+        >
+          <div
+            onClick={() => {
+              onChange('');
+              setIsOpen(false);
+            }}
+            style={{
+              padding: '5px 8px',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '0.75rem',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              transition: 'background-color 0.15s'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--background-alt)'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <span>Select category</span>
+            {!value && <Check size={12} color="var(--primary)" />}
+          </div>
+
+          {categories.filter(c => c.active !== false).map(c => {
+            const isSelected = value === c.id;
+            const pal = getAutoCategoryProgramPalette(c.name);
+            return (
+              <div
+                key={c.id}
+                onClick={() => {
+                  onChange(c.id);
+                  setIsOpen(false);
+                }}
+                style={{
+                  padding: '5px 8px',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: isSelected ? 650 : 500,
+                  color: isSelected ? pal.color : 'var(--text-primary)',
+                  backgroundColor: isSelected ? pal.bg : 'transparent',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '6px',
+                  transition: 'background-color 0.15s'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--background-alt)';
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
+                  <span
+                    style={{
+                      width: '7px',
+                      height: '7px',
+                      borderRadius: '50%',
+                      backgroundColor: pal.color,
+                      flexShrink: 0
+                    }}
+                  />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {c.name}
+                  </span>
+                </div>
+                {isSelected && <Check size={12} color={pal.color} style={{ flexShrink: 0 }} />}
+              </div>
+            );
+          })}
+
+          <div
+            onClick={() => {
+              onChange('__uncategorized__');
+              setIsOpen(false);
+            }}
+            style={{
+              padding: '5px 8px',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '0.75rem',
+              color: value === '__uncategorized__' ? 'var(--primary)' : 'var(--text-secondary)',
+              backgroundColor: value === '__uncategorized__' ? 'var(--primary-glow)' : 'transparent',
+              borderTop: '1px solid var(--border-light, var(--border))',
+              marginTop: '2px',
+              paddingTop: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              transition: 'background-color 0.15s'
+            }}
+            onMouseEnter={(e) => {
+              if (value !== '__uncategorized__') e.currentTarget.style.backgroundColor = 'var(--background-alt)';
+            }}
+            onMouseLeave={(e) => {
+              if (value !== '__uncategorized__') e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+          >
+            <span>Uncategorized / Existing</span>
+            {value === '__uncategorized__' && <Check size={12} color="var(--primary)" />}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+interface ProgramMultiSelectPillProps {
+  programIds: string;
+  programNames: string;
+  programs: { id: string; name: string; categoryId?: string }[];
+  categoryId?: string;
+  onChange: (newIds: string, newNames: string, inferredCategoryId?: string) => void;
+  disabled?: boolean;
+  title?: string;
+}
+
+const ProgramMultiSelectPill: React.FC<ProgramMultiSelectPillProps> = ({
+  programIds,
+  programNames,
+  programs,
+  categoryId,
+  onChange,
+  disabled,
+  title
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const availablePrograms = useMemo(() => {
+    if (!categoryId || categoryId === '__uncategorized__') {
+      return programs;
+    }
+    return programs.filter(p => (p.categoryId || '__uncategorized__') === categoryId);
+  }, [programs, categoryId]);
+
+  const selectedIds = useMemo(() => {
+    return (programIds || '').split(',').map(s => s.trim()).filter(Boolean);
+  }, [programIds]);
+
+  const rawSelectedNames = useMemo(() => {
+    return (programNames || '').split(',').map(s => s.trim()).filter(Boolean);
+  }, [programNames]);
+
+  // Priority 1: Match by program ID
+  // Priority 2: Match by name
+  const selectedPrograms = useMemo(() => {
+    if (selectedIds.length > 0) {
+      const byId = programs.filter(p => selectedIds.includes(p.id));
+      if (byId.length > 0) return byId;
+    }
+    if (rawSelectedNames.length > 0 && rawSelectedNames[0] !== 'Select program' && rawSelectedNames[0] !== 'No program') {
+      return programs.filter(p => rawSelectedNames.some(n => n.toLowerCase() === p.name.toLowerCase()));
+    }
+    return [];
+  }, [selectedIds, rawSelectedNames, programs]);
+
+  const isSelected = (p: { id: string; name: string }) => {
+    if (selectedIds.length > 0) {
+      return selectedIds.includes(p.id);
+    }
+    return selectedPrograms.some(sp => sp.id === p.id);
+  };
+
+  const matchedProgNames = useMemo(() => {
+    return new Set(selectedPrograms.map(p => p.name.toLowerCase()));
+  }, [selectedPrograms]);
+
+  const customProgNames = useMemo(() => {
+    return rawSelectedNames.filter(n =>
+      n.toLowerCase() !== 'select program' &&
+      n.toLowerCase() !== 'no program' &&
+      !matchedProgNames.has(n.toLowerCase())
+    );
+  }, [rawSelectedNames, matchedProgNames]);
+
+  const effectiveCount = selectedPrograms.length + customProgNames.length;
+
+  let displayText = 'Select program';
+  let primaryName = '';
+  if (selectedPrograms.length > 0) {
+    primaryName = selectedPrograms[0].name;
+  } else if (customProgNames.length > 0) {
+    primaryName = customProgNames[0];
+  }
+
+  if (effectiveCount === 1) {
+    displayText = primaryName;
+  } else if (effectiveCount > 1) {
+    displayText = `${primaryName} (+${effectiveCount - 1})`;
+  }
+
+  const allProgNames = [
+    ...selectedPrograms.map(p => p.name),
+    ...customProgNames
+  ];
+  const tooltip = allProgNames.join(', ');
+
+  const pillStyle = getAutoCategoryProgramCompactStyle(primaryName);
+
+  if (disabled) {
+    return (
+      <div
+        style={{
+          ...getAutoCategoryProgramCompactStyle(''),
+          opacity: 0.45,
+          cursor: 'not-allowed',
+          display: 'inline-flex'
+        }}
+        title="Select category first"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '105px' }}>
+          Select program
+        </span>
+        <ChevronDown size={11} style={{ opacity: 0.5, flexShrink: 0 }} />
+      </div>
+    );
+  }
+
+  const handleToggle = (prog: { id: string; name: string; categoryId?: string }) => {
+    const currentIdList = selectedPrograms.map(p => p.id);
+    const currentNameList = [...selectedPrograms.map(p => p.name), ...customProgNames];
+
+    let nextIds: string[];
+    let nextNames: string[];
+    if (isSelected(prog)) {
+      nextIds = currentIdList.filter(id => id !== prog.id);
+      nextNames = currentNameList.filter(name => name.toLowerCase() !== prog.name.toLowerCase());
+    } else {
+      nextIds = currentIdList.includes(prog.id) ? currentIdList : [...currentIdList, prog.id];
+      nextNames = currentNameList.some(n => n.toLowerCase() === prog.name.toLowerCase())
+        ? currentNameList
+        : [...currentNameList, prog.name];
+    }
+    const inferredCat = prog.categoryId || undefined;
+    onChange(nextIds.join(', '), nextNames.join(', '), inferredCat);
+  };
+
+  const handleSelectAll = () => {
+    const nextIds = availablePrograms.map(p => p.id);
+    const nextNames = availablePrograms.map(p => p.name);
+    onChange(nextIds.join(', '), nextNames.join(', '));
+  };
+
+  const handleClear = () => {
+    onChange('', '');
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      style={{ position: 'relative', display: 'inline-block', zIndex: isOpen ? 60 : 'auto' }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        style={pillStyle}
+        title={title || (tooltip ? `Programs: ${tooltip}` : 'Select Program(s)')}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '105px' }}>
+          {displayText}
+        </span>
+        <ChevronDown
+          size={11}
+          style={{
+            flexShrink: 0,
+            opacity: 0.7,
+            transform: isOpen ? 'rotate(180deg)' : 'none',
+            transition: 'transform 0.15s'
+          }}
+        />
+      </button>
+
+      {isOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            left: 0,
+            zIndex: 100,
+            minWidth: '200px',
+            maxWidth: '260px',
+            maxHeight: '260px',
+            overflowY: 'auto',
+            backgroundColor: 'var(--panel-bg)',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.22)',
+            padding: '6px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '3px',
+            animation: 'fadeIn 0.15s ease-out'
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '2px 4px 6px 4px',
+              borderBottom: '1px solid var(--border-light, var(--border))',
+              marginBottom: '2px'
+            }}
+          >
+            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Programs ({effectiveCount})
+            </span>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {availablePrograms.length > 0 && selectedPrograms.length < availablePrograms.length && (
+                <button
+                  type="button"
+                  onClick={handleSelectAll}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary)',
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    padding: '0 2px'
+                  }}
+                >
+                  All
+                </button>
+              )}
+              {effectiveCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--danger, #ef4444)',
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    padding: '0 2px'
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          {availablePrograms.length === 0 ? (
+            <div style={{ padding: '8px', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+              No programs found
+            </div>
+          ) : (
+            availablePrograms.map(p => {
+              const checked = isSelected(p);
+              const pal = getAutoCategoryProgramPalette(p.name);
+              return (
+                <label
+                  key={p.id}
+                  onClick={() => handleToggle(p)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '7px',
+                    padding: '5px 8px',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                    fontSize: '0.75rem',
+                    fontWeight: checked ? 650 : 500,
+                    color: checked ? pal.color : 'var(--text-primary)',
+                    backgroundColor: checked ? pal.bg : 'transparent',
+                    userSelect: 'none',
+                    transition: 'background-color 0.15s'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!checked) e.currentTarget.style.backgroundColor = 'var(--background-alt)';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!checked) e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => {}}
+                    style={{
+                      cursor: 'pointer',
+                      accentColor: pal.color,
+                      margin: 0,
+                      width: '13px',
+                      height: '13px'
+                    }}
+                  />
+                  <span
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      backgroundColor: pal.color,
+                      flexShrink: 0
+                    }}
+                  />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                    {p.name}
+                  </span>
+                </label>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+interface CohortMultiSelectPillProps {
+  cohortIds?: string;
+  cohortNames: string;
+  cohorts: ConfigCohort[];
+  programIds?: string;
+  programNames?: string;
+  programs: ConfigProgram[];
+  onChange: (newIds: string, newNames: string, inferredPrograms?: ConfigProgram[]) => void;
+  title?: string;
+}
+
+const CohortMultiSelectPill: React.FC<CohortMultiSelectPillProps> = ({
+  cohortIds,
+  cohortNames,
+  cohorts,
+  programIds,
+  programNames,
+  programs,
+  onChange,
+  title
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isCustomMode, setIsCustomMode] = useState(false);
+  const [customText, setCustomText] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+  const customInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+        setIsCustomMode(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (isCustomMode && customInputRef.current) {
+      customInputRef.current.focus();
+    }
+  }, [isCustomMode]);
+
+  const activeProgIds = useMemo(() => {
+    const ids = (programIds || '').split(',').map(s => s.trim()).filter(Boolean);
+    const names = (programNames || '').split(',').map(s => s.trim()).filter(Boolean);
+    const resolvedIds = new Set<string>(ids);
+    names.forEach(name => {
+      const match = programs.find(p => p.name.toLowerCase() === name.toLowerCase() || p.id === name);
+      if (match) resolvedIds.add(match.id);
+    });
+    return Array.from(resolvedIds);
+  }, [programIds, programNames, programs]);
+
+  const availableCohorts = useMemo(() => {
+    if (activeProgIds.length > 0) {
+      const filtered = cohorts.filter(c => c.active !== false && activeProgIds.includes(c.programId));
+      if (filtered.length > 0) return filtered;
+    }
+    return cohorts.filter(c => c.active !== false);
+  }, [cohorts, activeProgIds]);
+
+  const selectedIds = useMemo(() => {
+    return (cohortIds || '').split(',').map(s => s.trim()).filter(Boolean);
+  }, [cohortIds]);
+
+  const rawSelectedNames = useMemo(() => {
+    return (cohortNames || '').split(',').map(s => s.trim()).filter(Boolean);
+  }, [cohortNames]);
+
+  // Priority 1: If cohortIds are provided, resolve against cohorts by ID
+  // Priority 2: If only cohortNames are provided (legacy data), match names strictly within availableCohorts (scoped to program)
+  const selectedCohortObjs = useMemo(() => {
+    if (selectedIds.length > 0) {
+      const byId = cohorts.filter(c => selectedIds.includes(c.id));
+      if (byId.length > 0) return byId;
+    }
+    if (rawSelectedNames.length > 0 && rawSelectedNames[0] !== 'Select cohort') {
+      // Match by name strictly within availableCohorts so we do not match other programs' cohorts (e.g. 15 other "Cohort 1"s)
+      const inAvailable = availableCohorts.filter(c =>
+        rawSelectedNames.some(name => name.toLowerCase() === c.name.toLowerCase())
+      );
+      if (inAvailable.length > 0) return inAvailable;
+      // Fallback only if no match in available: search all cohorts
+      return cohorts.filter(c =>
+        rawSelectedNames.some(name => name.toLowerCase() === c.name.toLowerCase())
+      );
+    }
+    return [];
+  }, [selectedIds, rawSelectedNames, availableCohorts, cohorts]);
+
+  // Is a cohort checkbox in the dropdown selected?
+  // Use cohort ID as primary source of truth!
+  const isSelected = (c: ConfigCohort) => {
+    if (selectedIds.length > 0) {
+      return selectedIds.includes(c.id);
+    }
+    return selectedCohortObjs.some(sc => sc.id === c.id);
+  };
+
+  // Custom cohort names (typed via "+ Custom Cohort...") that don't match any known config cohort
+  const matchedCohortNames = useMemo(() => {
+    return new Set(selectedCohortObjs.map(c => c.name.toLowerCase()));
+  }, [selectedCohortObjs]);
+
+  const customSelectedNames = useMemo(() => {
+    return rawSelectedNames.filter(name =>
+      name.toLowerCase() !== 'select cohort' &&
+      !matchedCohortNames.has(name.toLowerCase())
+    );
+  }, [rawSelectedNames, matchedCohortNames]);
+
+  const effectiveCount = selectedCohortObjs.length + customSelectedNames.length;
+
+  let displayText = 'Select cohort';
+  let primaryName = '';
+  if (selectedCohortObjs.length > 0) {
+    primaryName = selectedCohortObjs[0].name;
+  } else if (customSelectedNames.length > 0) {
+    primaryName = customSelectedNames[0];
+  }
+
+  if (effectiveCount === 1) {
+    displayText = primaryName;
+  } else if (effectiveCount > 1) {
+    displayText = `${primaryName} (+${effectiveCount - 1})`;
+  }
+
+  const allSelectedNames = [
+    ...selectedCohortObjs.map(c => c.name),
+    ...customSelectedNames
+  ];
+  const tooltip = allSelectedNames.join(', ');
+
+  const pillStyle = getAutoCategoryProgramCompactStyle(primaryName);
+
+  const handleToggle = (coh: ConfigCohort) => {
+    const currentIdList = selectedCohortObjs.map(c => c.id);
+    const currentNameList = [
+      ...selectedCohortObjs.map(c => c.name),
+      ...customSelectedNames
+    ];
+
+    let nextIds: string[];
+    let nextNames: string[];
+
+    if (isSelected(coh)) {
+      nextIds = currentIdList.filter(id => id !== coh.id);
+      nextNames = currentNameList.filter(name => name.toLowerCase() !== coh.name.toLowerCase());
+    } else {
+      nextIds = currentIdList.includes(coh.id) ? currentIdList : [...currentIdList, coh.id];
+      nextNames = currentNameList.some(n => n.toLowerCase() === coh.name.toLowerCase())
+        ? currentNameList
+        : [...currentNameList, coh.name];
+    }
+
+    const inferredProgs: ConfigProgram[] = [];
+    nextIds.forEach(cid => {
+      const c = cohorts.find(ch => ch.id === cid);
+      if (c?.programId) {
+        const p = programs.find(pr => pr.id === c.programId);
+        if (p && !inferredProgs.some(ip => ip.id === p.id)) inferredProgs.push(p);
+      }
+    });
+
+    onChange(nextIds.join(', '), nextNames.join(', '), inferredProgs);
+  };
+
+  const handleSelectAll = () => {
+    const nextIds = Array.from(new Set([...selectedCohortObjs.map(c => c.id), ...availableCohorts.map(c => c.id)]));
+    const nextNames = Array.from(new Set([
+      ...selectedCohortObjs.map(c => c.name),
+      ...availableCohorts.map(c => c.name),
+      ...customSelectedNames
+    ]));
+    const inferredProgs: ConfigProgram[] = [];
+    nextIds.forEach(cid => {
+      const c = cohorts.find(ch => ch.id === cid);
+      if (c?.programId) {
+        const p = programs.find(pr => pr.id === c.programId);
+        if (p && !inferredProgs.some(ip => ip.id === p.id)) inferredProgs.push(p);
+      }
+    });
+    onChange(nextIds.join(', '), nextNames.join(', '), inferredProgs);
+  };
+
+  const handleClear = () => {
+    onChange('', '');
+  };
+
+  const handleSaveCustom = () => {
+    const trimmed = customText.trim();
+    if (trimmed) {
+      const currentIds = selectedCohortObjs.map(c => c.id);
+      const currentNames = [
+        ...selectedCohortObjs.map(c => c.name),
+        ...customSelectedNames
+      ];
+      if (!currentNames.some(n => n.toLowerCase() === trimmed.toLowerCase())) {
+        currentNames.push(trimmed);
+      }
+      onChange(currentIds.join(', '), currentNames.join(', '));
+    }
+    setCustomText('');
+    setIsCustomMode(false);
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      style={{ position: 'relative', display: 'inline-block', zIndex: isOpen ? 60 : 'auto' }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        onClick={() => {
+          setIsOpen(!isOpen);
+          setIsCustomMode(false);
+        }}
+        style={pillStyle}
+        title={title || (tooltip ? `Cohorts: ${tooltip}` : 'Select Cohort(s)')}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '110px' }}>
+          {displayText}
+        </span>
+        <ChevronDown
+          size={11}
+          style={{
+            flexShrink: 0,
+            opacity: 0.7,
+            transform: isOpen ? 'rotate(180deg)' : 'none',
+            transition: 'transform 0.15s'
+          }}
+        />
+      </button>
+
+      {isOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            left: 0,
+            zIndex: 100,
+            minWidth: '200px',
+            maxWidth: '260px',
+            maxHeight: '270px',
+            overflowY: 'auto',
+            backgroundColor: 'var(--panel-bg)',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.22)',
+            padding: '6px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '3px',
+            animation: 'fadeIn 0.15s ease-out'
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '2px 4px 6px 4px',
+              borderBottom: '1px solid var(--border-light, var(--border))',
+              marginBottom: '2px'
+            }}
+          >
+            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Cohorts ({effectiveCount})
+            </span>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {availableCohorts.length > 0 && selectedCohortObjs.length < availableCohorts.length && (
+                <button
+                  type="button"
+                  onClick={handleSelectAll}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary)',
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    padding: '0 2px'
+                  }}
+                >
+                  All
+                </button>
+              )}
+              {effectiveCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--danger, #ef4444)',
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    padding: '0 2px'
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          {availableCohorts.length === 0 ? (
+            <div style={{ padding: '8px', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+              No cohorts found
+            </div>
+          ) : (
+            availableCohorts.map(c => {
+              const checked = isSelected(c);
+              const pal = getAutoCategoryProgramPalette(c.name);
+              return (
+                <label
+                  key={c.id}
+                  onClick={() => handleToggle(c)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '7px',
+                    padding: '5px 8px',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                    fontSize: '0.75rem',
+                    fontWeight: checked ? 650 : 500,
+                    color: checked ? pal.color : 'var(--text-primary)',
+                    backgroundColor: checked ? pal.bg : 'transparent',
+                    userSelect: 'none',
+                    transition: 'background-color 0.15s'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!checked) e.currentTarget.style.backgroundColor = 'var(--background-alt)';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!checked) e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => {}}
+                    style={{
+                      cursor: 'pointer',
+                      accentColor: pal.color,
+                      margin: 0,
+                      width: '13px',
+                      height: '13px'
+                    }}
+                  />
+                  <span
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      backgroundColor: pal.color,
+                      flexShrink: 0
+                    }}
+                  />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                    {c.name}
+                  </span>
+                </label>
+              );
+            })
+          )}
+
+          {/* Custom cohort button / input */}
+          <div style={{ borderTop: '1px solid var(--border-light, var(--border))', marginTop: '2px', paddingTop: '4px' }}>
+            {!isCustomMode ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCustomMode(true);
+                  setCustomText('');
+                }}
+                style={{
+                  width: '100%',
+                  padding: '4px 6px',
+                  borderRadius: '5px',
+                  background: 'none',
+                  border: 'none',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  fontSize: '0.72rem',
+                  color: 'var(--primary)',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--background-alt)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                + Custom Cohort...
+              </button>
+            ) : (
+              <div style={{ display: 'flex', gap: '4px', padding: '2px' }} onClick={(e) => e.stopPropagation()}>
+                <input
+                  ref={customInputRef}
+                  type="text"
+                  placeholder="Enter cohort..."
+                  value={customText}
+                  onChange={(e) => setCustomText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSaveCustom();
+                    } else if (e.key === 'Escape') {
+                      setIsCustomMode(false);
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '3px 6px',
+                    fontSize: '0.75rem',
+                    borderRadius: '4px',
+                    border: '1px solid var(--primary)',
+                    backgroundColor: 'var(--background)',
+                    color: 'var(--text-primary)',
+                    outline: 'none'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveCustom}
+                  className="btn btn-primary btn-sm"
+                  style={{ padding: '2px 6px', fontSize: '0.7rem' }}
+                >
+                  Add
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 
 
 export const StudentMeetingsTable: React.FC = () => {
@@ -8717,7 +9745,7 @@ export const StudentMeetingsTable: React.FC = () => {
     amaSessions, addAMASession, updateAMASession, deleteAMASession,
     productItems, addProductItem, updateProductItem, deleteProductItem, setPreviewProductId,
     speakers: configSpeakers, statuses, currentUser, confirm,
-    programs: configPrograms, cohorts: configCohorts, fetchPaginatedMeetingsData,
+    categories, programs: configPrograms, cohorts: configCohorts, fetchPaginatedMeetingsData,
     meetingSearchQuery, setMeetingSearchQuery,
     highlightedCallId, setHighlightedCallId,
     feedbackSubmissions, formConfigs
@@ -8791,6 +9819,106 @@ export const StudentMeetingsTable: React.FC = () => {
     return programsList[0] || 'UG';
   }, [programCohortsMap, configCohorts, configPrograms, programsList]);
 
+  // Resolvers for Category, Program, Cohort from Configuration
+  const resolveAMAProgramId = useCallback((ama: AMASession) => {
+    if (ama.programId) return ama.programId;
+    if (ama.program) {
+      const names = ama.program.split(',').map(s => s.trim()).filter(Boolean);
+      const matchedIds = names.map(n => {
+        const found = (configPrograms || []).find(p => p.name.toLowerCase() === n.toLowerCase() || p.id === n);
+        return found ? found.id : '';
+      }).filter(Boolean);
+      if (matchedIds.length > 0) return matchedIds.join(', ');
+    }
+    const cohIds = (ama.cohortId || '').split(',').map(s => s.trim()).filter(Boolean);
+    const cohNames = (ama.cohort || '').split(',').map(s => s.trim()).filter(Boolean);
+    const cohProgs = new Set<string>();
+    cohIds.forEach(cid => {
+      const c = (configCohorts || []).find(ch => ch.id === cid);
+      if (c?.programId) cohProgs.add(c.programId);
+    });
+    cohNames.forEach(cn => {
+      const c = (configCohorts || []).find(ch => ch.name.toLowerCase() === cn.toLowerCase());
+      if (c?.programId) cohProgs.add(c.programId);
+    });
+    if (cohProgs.size > 0) return Array.from(cohProgs).join(', ');
+    return '';
+  }, [configPrograms, configCohorts]);
+
+  const resolveAMAProgramName = useCallback((ama: AMASession) => {
+    if (ama.program) return ama.program;
+    const pIds = (resolveAMAProgramId(ama) || '').split(',').map(s => s.trim()).filter(Boolean);
+    const names = pIds.map(id => (configPrograms || []).find(p => p.id === id)?.name).filter(Boolean);
+    return names.join(', ');
+  }, [resolveAMAProgramId, configPrograms]);
+
+  const resolveAMACohortId = useCallback((ama: AMASession) => {
+    if (ama.cohortId) return ama.cohortId;
+    if (!ama.cohort) return '';
+    // Resolve cohort names against configCohorts scoped to this meeting's program
+    const progIds = (resolveAMAProgramId(ama) || '').split(',').map(s => s.trim()).filter(Boolean);
+    const candidateCohorts = progIds.length > 0
+      ? (configCohorts || []).filter(c => progIds.includes(c.programId))
+      : (configCohorts || []);
+    const names = ama.cohort.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    const matchedIds = candidateCohorts
+      .filter(c => names.includes(c.name.toLowerCase()))
+      .map(c => c.id);
+    if (matchedIds.length > 0) return matchedIds.join(', ');
+    const fallbackIds = (configCohorts || [])
+      .filter(c => names.includes(c.name.toLowerCase()))
+      .map(c => c.id);
+    return fallbackIds.join(', ');
+  }, [configCohorts, resolveAMAProgramId]);
+
+  const resolveAMACohortName = useCallback((ama: AMASession) => {
+    if (ama.cohort) return ama.cohort;
+    const cohIds = (resolveAMACohortId(ama) || '').split(',').map(s => s.trim()).filter(Boolean);
+    if (cohIds.length === 0) return '';
+    const names = cohIds
+      .map(id => (configCohorts || []).find(c => c.id === id)?.name)
+      .filter(Boolean);
+    return names.join(', ');
+  }, [resolveAMACohortId, configCohorts]);
+
+  const resolveAMACategoryId = useCallback((ama: AMASession) => {
+    if (ama.categoryId) return ama.categoryId;
+    if (ama.category) {
+      const matched = (categories || []).find(c => c.name === ama.category || c.id === ama.category);
+      if (matched) return matched.id;
+    }
+    const progIds = (resolveAMAProgramId(ama) || '').split(',').map(s => s.trim()).filter(Boolean);
+    for (const pid of progIds) {
+      const prog = (configPrograms || []).find(p => p.id === pid || p.name === pid);
+      if (prog?.categoryId) return prog.categoryId;
+    }
+    const cohIds = (resolveAMACohortId(ama) || '').split(',').map(s => s.trim()).filter(Boolean);
+    for (const cid of cohIds) {
+      const coh = (configCohorts || []).find(c => c.id === cid || c.name === cid);
+      if (coh?.programId) {
+        const cohProg = (configPrograms || []).find(p => p.id === coh.programId);
+        if (cohProg?.categoryId) return cohProg.categoryId;
+      }
+    }
+    return '';
+  }, [categories, configPrograms, configCohorts, resolveAMAProgramId, resolveAMACohortId]);
+
+  const resolveAMACategorySelection = useCallback((ama: AMASession) => {
+    return resolveAMACategoryId(ama) || '__uncategorized__';
+  }, [resolveAMACategoryId]);
+
+  const resolveAMACategoryName = useCallback((ama: AMASession) => {
+    if (ama.category) return ama.category;
+    const catId = resolveAMACategoryId(ama);
+    if (catId) {
+      const cat = (categories || []).find(c => c.id === catId);
+      if (cat) return cat.name;
+    }
+    const progName = resolveAMAProgramName(ama);
+    if (progName) return 'Uncategorized / Existing';
+    return '';
+  }, [categories, resolveAMACategoryId, resolveAMAProgramName]);
+
   const [subTab, setSubTab] = useState<'schedule' | 'feedback'>('schedule');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -8798,7 +9926,9 @@ export const StudentMeetingsTable: React.FC = () => {
   const [drawerCategory, setDrawerCategory] = useState<'admin-calls' | 'ama-meetings' | 'student-projects' | null>(null);
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const [filterCategories, setFilterCategories] = useState<string[]>([]);
   const [filterPrograms, setFilterPrograms] = useState<string[]>([]);
+  const [filterCohorts, setFilterCohorts] = useState<string[]>([]);
   const [filterPocs, setFilterPocs] = useState<string[]>([]);
   const [assignModalItem, setAssignModalItem] = useState<{ id: string; title: string; formId?: string; } | null>(null);
   const [selectedAiMeeting, setSelectedAiMeeting] = useState<{
@@ -8813,14 +9943,16 @@ export const StudentMeetingsTable: React.FC = () => {
 
   useEffect(() => {
     setFilterStatuses([]);
+    setFilterCategories([]);
     setFilterPrograms([]);
+    setFilterCohorts([]);
     setFilterPocs([]);
     setCurrentPage(1);
   }, [subTab]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterSuperPriorityOnly, filterStatuses, filterPrograms, filterPocs]);
+  }, [searchQuery, filterSuperPriorityOnly, filterStatuses, filterCategories, filterPrograms, filterCohorts, filterPocs]);
 
   // Sorting states
   const [amaSortField, setAmaSortField] = useState<keyof AMASession | null>('date');
@@ -8865,12 +9997,6 @@ export const StudentMeetingsTable: React.FC = () => {
   const [editingAMASpeakerId, setEditingAMASpeakerId] = useState<string | null>(null);
   const [inlineAMASpeakerValue, setInlineAMASpeakerValue] = useState('');
 
-  const [editingAMACohortId, setEditingAMACohortId] = useState<string | null>(null);
-  const [inlineAMACohortValue, setInlineAMACohortValue] = useState('');
-  const [inlineAMAProgramValue, setInlineAMAProgramValue] = useState('');
-  const editAMACohortInputRef = useRef<HTMLInputElement>(null);
-  const editAMAProgramInputRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => {
     if (editingAMATopicId && editAMATopicInputRef.current) {
       editAMATopicInputRef.current.focus();
@@ -8884,12 +10010,6 @@ export const StudentMeetingsTable: React.FC = () => {
     }
   }, [editingAMADateId]);
 
-  useEffect(() => {
-    if (editingAMACohortId && editAMAProgramInputRef.current) {
-      editAMAProgramInputRef.current.focus();
-      editAMAProgramInputRef.current.select();
-    }
-  }, [editingAMACohortId]);
 
   // Accordion state for AMA sessions
   const [expandedAMAId, setExpandedAMAId] = useState<string | null>(null);
@@ -9030,7 +10150,9 @@ export const StudentMeetingsTable: React.FC = () => {
         search: searchQuery,
         superPriority: filterSuperPriorityOnly,
         statuses: filterStatuses,
+        categories: filterCategories,
         programs: filterPrograms,
+        cohorts: filterCohorts,
         pocs: filterPocs,
         sortField: amaSortField || undefined,
         sortAsc: amaSortAsc
@@ -9054,7 +10176,9 @@ export const StudentMeetingsTable: React.FC = () => {
     searchQuery,
     filterSuperPriorityOnly,
     filterStatuses,
+    filterCategories,
     filterPrograms,
+    filterCohorts,
     filterPocs,
     amaSortField,
     amaSortAsc,
@@ -9081,6 +10205,7 @@ export const StudentMeetingsTable: React.FC = () => {
         search: searchQuery,
         superPriority: filterSuperPriorityOnly,
         statuses: filterStatuses,
+        categories: filterCategories,
         programs: filterPrograms,
         pocs: filterPocs,
         sortField: feedbackSortField || undefined,
@@ -9111,6 +10236,7 @@ export const StudentMeetingsTable: React.FC = () => {
     searchQuery,
     filterSuperPriorityOnly,
     filterStatuses,
+    filterCategories,
     filterPrograms,
     filterPocs,
     feedbackSortField,
@@ -9133,7 +10259,11 @@ export const StudentMeetingsTable: React.FC = () => {
         topic: 'New AMA Session',
         speaker: '',
         cohort: '',
+        cohortId: '',
         program: '',
+        programId: '',
+        category: '',
+        categoryId: '',
         link: '',
         status: 'Scheduled',
         discussion: ''
@@ -9144,6 +10274,92 @@ export const StudentMeetingsTable: React.FC = () => {
       setExpandedAMAId(newAMA.id);
     }
   };
+
+  const filterCounts = useMemo(() => {
+    const categoryCounts: Record<string, number> = {};
+    const programCounts: Record<string, number> = {};
+    const cohortCounts: Record<string, number> = {};
+    const statusCounts: Record<string, number> = {};
+    const pocCounts: Record<string, number> = {};
+
+    if (subTab === 'schedule') {
+      const list = (amaSessions && amaSessions.length > 0) ? amaSessions : paginatedAMASessions;
+      list.forEach(ama => {
+        const st = ama.status || 'Scheduled';
+        statusCounts[st] = (statusCounts[st] || 0) + 1;
+
+        if (ama.speaker) {
+          pocCounts[ama.speaker] = (pocCounts[ama.speaker] || 0) + 1;
+        }
+
+        const catName = resolveAMACategoryName(ama);
+        if (catName) {
+          categoryCounts[catName] = (categoryCounts[catName] || 0) + 1;
+        }
+
+        const progNames = (resolveAMAProgramName(ama) || '').split(',').map(s => s.trim()).filter(Boolean);
+        const seenProgs = new Set<string>();
+        progNames.forEach(name => {
+          const matched = (configPrograms || []).find(p => p.name.toLowerCase() === name.toLowerCase() || p.id === name);
+          const stdName = matched ? matched.name : name;
+          if (stdName && !seenProgs.has(stdName)) {
+            seenProgs.add(stdName);
+            programCounts[stdName] = (programCounts[stdName] || 0) + 1;
+          }
+        });
+
+        const cohNames = (resolveAMACohortName(ama) || '').split(',').map(s => s.trim()).filter(Boolean);
+        const seenCohs = new Set<string>();
+        cohNames.forEach(name => {
+          const matched = (configCohorts || []).find(c => c.name.toLowerCase() === name.toLowerCase() || c.id === name);
+          const stdName = matched ? matched.name : name;
+          if (stdName && !seenCohs.has(stdName)) {
+            seenCohs.add(stdName);
+            cohortCounts[stdName] = (cohortCounts[stdName] || 0) + 1;
+          }
+        });
+      });
+    } else {
+      const list = paginatedFeedbackFeatures;
+      list.forEach(feat => {
+        const parent = getParentAma(feat);
+        if (parent) {
+          const catName = resolveAMACategoryName(parent);
+          if (catName) {
+            categoryCounts[catName] = (categoryCounts[catName] || 0) + 1;
+          }
+          const progNames = (resolveAMAProgramName(parent) || '').split(',').map(s => s.trim()).filter(Boolean);
+          const seenProgs = new Set<string>();
+          progNames.forEach(name => {
+            const matched = (configPrograms || []).find(p => p.name.toLowerCase() === name.toLowerCase() || p.id === name);
+            const stdName = matched ? matched.name : name;
+            if (stdName && !seenProgs.has(stdName)) {
+              seenProgs.add(stdName);
+              programCounts[stdName] = (programCounts[stdName] || 0) + 1;
+            }
+          });
+          const cohNames = (resolveAMACohortName(parent) || '').split(',').map(s => s.trim()).filter(Boolean);
+          const seenCohs = new Set<string>();
+          cohNames.forEach(name => {
+            const matched = (configCohorts || []).find(c => c.name.toLowerCase() === name.toLowerCase() || c.id === name);
+            const stdName = matched ? matched.name : name;
+            if (stdName && !seenCohs.has(stdName)) {
+              seenCohs.add(stdName);
+              cohortCounts[stdName] = (cohortCounts[stdName] || 0) + 1;
+            }
+          });
+        }
+        if (feat.poc) {
+          pocCounts[feat.poc] = (pocCounts[feat.poc] || 0) + 1;
+        }
+        if (feat.status) {
+          statusCounts[feat.status] = (statusCounts[feat.status] || 0) + 1;
+        }
+      });
+    }
+
+    return { categoryCounts, programCounts, cohortCounts, statusCounts, pocCounts };
+  }, [subTab, amaSessions, paginatedAMASessions, paginatedFeedbackFeatures, resolveAMACategoryName, resolveAMAProgramName, resolveAMACohortName, configPrograms, configCohorts]);
 
   return (
     <>
@@ -9164,18 +10380,47 @@ export const StudentMeetingsTable: React.FC = () => {
               selectedValues={filterStatuses}
               onChange={setFilterStatuses}
               placeholder="Status"
+              counts={filterCounts.statusCounts}
             />
             <MultiSelectDropdown
-              options={programsList}
+              options={[
+                ...categories.filter(c => c.active !== false).map(c => c.name),
+                'Uncategorized / Existing'
+              ]}
+              selectedValues={filterCategories}
+              onChange={setFilterCategories}
+              placeholder="Category"
+              counts={filterCounts.categoryCounts}
+            />
+            <MultiSelectDropdown
+              options={configPrograms.filter(p => filterCategories.length === 0 || filterCategories.includes(
+                p.categoryId ? categories.find(c => c.id === p.categoryId)?.name || '' : 'Uncategorized / Existing'
+              )).map(p => p.name)}
               selectedValues={filterPrograms}
               onChange={setFilterPrograms}
               placeholder="Program"
+              counts={filterCounts.programCounts}
+            />
+            <MultiSelectDropdown
+              options={(() => {
+                let available = configCohorts.filter(c => c.active !== false && c.name);
+                if (filterPrograms.length > 0) {
+                  const progIds = configPrograms.filter(p => filterPrograms.includes(p.name)).map(p => p.id);
+                  available = available.filter(c => progIds.includes(c.programId));
+                }
+                return Array.from(new Set(available.map(c => c.name)));
+              })()}
+              selectedValues={filterCohorts}
+              onChange={setFilterCohorts}
+              placeholder="Cohort"
+              counts={filterCounts.cohortCounts}
             />
             <MultiSelectDropdown
               options={speakersList}
               selectedValues={filterPocs}
               onChange={setFilterPocs}
               placeholder="Feature POC"
+              counts={filterCounts.pocCounts}
             />
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none', marginLeft: '0.5rem', whiteSpace: 'nowrap' }}>
               <input 
@@ -9258,10 +10503,12 @@ export const StudentMeetingsTable: React.FC = () => {
                 <tr>
                   <th onClick={() => handleAmaSort('date')} style={{ width: '130px', cursor: 'pointer' }}>Date {amaSortField === 'date' ? (amaSortAsc ? '▲' : '▼') : ''}</th>
                   <th onClick={() => handleAmaSort('topic')} style={{ cursor: 'pointer' }}>Topic / Theme {amaSortField === 'topic' ? (amaSortAsc ? '▲' : '▼') : ''}</th>
-                  <th onClick={() => handleAmaSort('speaker')} style={{ width: '220px', cursor: 'pointer' }}>Speaker(s) {amaSortField === 'speaker' ? (amaSortAsc ? '▲' : '▼') : ''}</th>
-                  <th onClick={() => handleAmaSort('cohort')} style={{ width: '150px', cursor: 'pointer' }}>Cohort {amaSortField === 'cohort' ? (amaSortAsc ? '▲' : '▼') : ''}</th>
-                  <th onClick={() => handleAmaSort('status')} style={{ width: '130px', cursor: 'pointer' }}>Status {amaSortField === 'status' ? (amaSortAsc ? '▲' : '▼') : ''}</th>
-                  <th style={{ width: '120px' }}>Rating</th>
+                  <th onClick={() => handleAmaSort('speaker')} style={{ width: '190px', cursor: 'pointer' }}>Speaker(s) {amaSortField === 'speaker' ? (amaSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleAmaSort('categoryId' as any)} style={{ width: '140px', cursor: 'pointer' }}>Category {amaSortField === 'categoryId' || (amaSortField as any) === 'category' ? (amaSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleAmaSort('programId' as any)} style={{ width: '150px', cursor: 'pointer' }}>Program {amaSortField === 'programId' || (amaSortField as any) === 'program' ? (amaSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleAmaSort('cohort')} style={{ width: '140px', cursor: 'pointer' }}>Cohort {amaSortField === 'cohort' ? (amaSortAsc ? '▲' : '▼') : ''}</th>
+                  <th onClick={() => handleAmaSort('status')} style={{ width: '120px', cursor: 'pointer' }}>Status {amaSortField === 'status' ? (amaSortAsc ? '▲' : '▼') : ''}</th>
+                  <th style={{ width: '110px' }}>Rating</th>
                   <th style={{ width: '40px' }}></th>
                 </tr>
               </thead>
@@ -9277,10 +10524,16 @@ export const StudentMeetingsTable: React.FC = () => {
                         <div className="skeleton-line" style={{ height: '10px', width: '40%', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
                       </td>
                       <td style={{ padding: '12px 16px' }}>
-                        <div className="skeleton-line" style={{ height: '14px', width: '120px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                        <div className="skeleton-line" style={{ height: '14px', width: '110px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
                       </td>
                       <td style={{ padding: '12px 16px' }}>
-                        <div className="skeleton-line" style={{ height: '14px', width: '90px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                        <div className="skeleton-line" style={{ height: '14px', width: '85px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '14px', width: '95px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div className="skeleton-line" style={{ height: '14px', width: '85px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
                       </td>
                       <td style={{ padding: '12px 16px' }}>
                         <div className="skeleton-line" style={{ height: '20px', width: '80px', borderRadius: '12px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
@@ -9293,7 +10546,7 @@ export const StudentMeetingsTable: React.FC = () => {
                   ))
                 ) : paginatedAMASessions.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                    <td colSpan={9} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
                       No AMA sessions found matching current filters.
                     </td>
                   </tr>
@@ -9506,170 +10759,97 @@ export const StudentMeetingsTable: React.FC = () => {
                             ) : '—'
                           )}
                         </td>
-                        <td
-                          onDoubleClick={(e) => {
-                            e.stopPropagation();
-                            setEditingAMACohortId(ama.id);
-                            setInlineAMACohortValue(ama.cohort || '');
-                            setInlineAMAProgramValue(ama.program || '');
-                            setShowCustomProgramInput(ama.program ? !programsList.includes(ama.program) : false);
-                            setShowCustomCohortInput(ama.cohort ? !allStandardCohorts.includes(ama.cohort) : false);
-                          }}
-                          title="Double click to edit Program/Cohort"
-                        >
-                          {editingAMACohortId === ama.id ? (
-                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
-                              {!showCustomProgramInput ? (
-                                <select
-                                  value={inlineAMAProgramValue || 'UG'}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (val === 'Other') {
-                                      setShowCustomProgramInput(true);
-                                      setInlineAMAProgramValue('');
-                                    } else {
-                                      setInlineAMAProgramValue(val);
-                                      const cohorts = programCohortsMap[val] || [];
-                                      if (cohorts.length > 0) {
-                                        setInlineAMACohortValue(cohorts[0]);
-                                        setShowCustomCohortInput(false);
-                                      }
-                                    }
-                                  }}
-                                  style={{
-                                    padding: '4px 6px',
-                                    backgroundColor: 'var(--background)',
-                                    border: '1.5px solid var(--primary)',
-                                    borderRadius: '6px',
-                                    color: 'var(--text-primary)',
-                                    fontSize: '0.8rem',
-                                    outline: 'none',
-                                  }}
-                                >
-                                  {programsList.map(prog => (
-                                    <option key={prog} value={prog}>{prog}</option>
-                                  ))}
-                                  <option value="Other">Other...</option>
-                                </select>
-                              ) : (
-                                <input
-                                  ref={editAMAProgramInputRef}
-                                  type="text"
-                                  placeholder="Prog"
-                                  value={inlineAMAProgramValue}
-                                  onChange={(e) => setInlineAMAProgramValue(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      const finalCohort = inlineAMACohortValue.trim() || 'Cohort Name';
-                                      const finalProgram = inlineAMAProgramValue.trim();
-                                      updateAMASession(ama.id, { cohort: finalCohort, program: finalProgram });
-                                      setEditingAMACohortId(null);
-                                    } else if (e.key === 'Escape') {
-                                      e.preventDefault();
-                                      setEditingAMACohortId(null);
-                                    }
-                                  }}
-                                  style={{
-                                    width: '60px',
-                                    padding: '4px 6px',
-                                    backgroundColor: 'var(--background)',
-                                    border: '1.5px solid var(--primary)',
-                                    borderRadius: '6px',
-                                    color: 'var(--text-primary)',
-                                    fontSize: '0.8rem',
-                                    outline: 'none',
-                                  }}
-                                />
-                              )}
-                              <span>-</span>
-                              {!showCustomCohortInput ? (
-                                <select
-                                  value={inlineAMACohortValue || ''}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (val === 'Other') {
-                                      setShowCustomCohortInput(true);
-                                      setInlineAMACohortValue('');
-                                    } else {
-                                      setInlineAMACohortValue(val);
-                                      const mappedProg = getProgramForCohort(val);
-                                      if (mappedProg && !showCustomProgramInput) {
-                                        setInlineAMAProgramValue(mappedProg);
-                                      }
-                                    }
-                                  }}
-                                  style={{
-                                    padding: '4px 6px',
-                                    backgroundColor: 'var(--background)',
-                                    border: '1.5px solid var(--primary)',
-                                    borderRadius: '6px',
-                                    color: 'var(--text-primary)',
-                                    fontSize: '0.8rem',
-                                    outline: 'none',
-                                  }}
-                                >
-                                  {(programCohortsMap[inlineAMAProgramValue] || allStandardCohorts).map(coh => (
-                                    <option key={coh} value={coh}>{coh}</option>
-                                  ))}
-                                  <option value="Other">Other...</option>
-                                </select>
-                              ) : (
-                                <input
-                                  ref={editAMACohortInputRef}
-                                  type="text"
-                                  placeholder="Cohort"
-                                  value={inlineAMACohortValue}
-                                  onChange={(e) => setInlineAMACohortValue(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      const finalCohort = inlineAMACohortValue.trim() || 'Cohort Name';
-                                      const finalProgram = inlineAMAProgramValue.trim();
-                                      updateAMASession(ama.id, { cohort: finalCohort, program: finalProgram });
-                                      setEditingAMACohortId(null);
-                                    } else if (e.key === 'Escape') {
-                                      e.preventDefault();
-                                      setEditingAMACohortId(null);
-                                    }
-                                  }}
-                                  style={{
-                                    width: '100px',
-                                    padding: '4px 6px',
-                                    backgroundColor: 'var(--background)',
-                                    border: '1.5px solid var(--primary)',
-                                    borderRadius: '6px',
-                                    color: 'var(--text-primary)',
-                                    fontSize: '0.8rem',
-                                    outline: 'none',
-                                  }}
-                                />
-                              )}
-                              <button 
-                                onClick={() => {
-                                  const finalCohort = inlineAMACohortValue.trim() || 'Cohort Name';
-                                  const finalProgram = inlineAMAProgramValue.trim();
-                                  updateAMASession(ama.id, { cohort: finalCohort, program: finalProgram });
-                                  setEditingAMACohortId(null);
+                        <td onClick={(e) => e.stopPropagation()} style={{ position: 'relative' }}>
+                          {(() => {
+                            const selectedCat = resolveAMACategorySelection(ama);
+                            return (
+                              <CategoryPillSelect
+                                value={selectedCat}
+                                categories={categories}
+                                onChange={(newCatId) => {
+                                  const catName = categories.find(c => c.id === newCatId)?.name || '';
+                                  const isUncat = newCatId === '__uncategorized__';
+                                  const currProgIds = (ama.programId || '').split(',').map(s => s.trim()).filter(Boolean);
+                                  const matchingProgs = configPrograms.filter(p => currProgIds.includes(p.id) && (!newCatId || isUncat || p.categoryId === newCatId));
+                                  const retainsPrograms = matchingProgs.length > 0;
+                                  updateAMASession(ama.id, {
+                                    categoryId: isUncat ? '' : newCatId,
+                                    category: isUncat ? '' : catName,
+                                    ...(!retainsPrograms && currProgIds.length > 0 ? { programId: '', program: '', cohortId: '', cohort: '' } : {})
+                                  });
                                 }}
-                                className="btn btn-primary btn-sm"
-                                style={{ padding: '2px 6px', fontSize: '0.75rem' }}
-                              >
-                                Save
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  setEditingAMACohortId(null);
+                              />
+                            );
+                          })()}
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()} style={{ position: 'relative' }}>
+                          {(() => {
+                            const selectedCatId = resolveAMACategoryId(ama);
+                            const progId = resolveAMAProgramId(ama);
+                            const progName = resolveAMAProgramName(ama);
+                            return (
+                              <ProgramMultiSelectPill
+                                programIds={progId}
+                                programNames={progName}
+                                programs={configPrograms}
+                                categoryId={selectedCatId}
+                                onChange={(newIds, newNames, inferredCatId) => {
+                                  const updates: Partial<AMASession> = {
+                                    programId: newIds,
+                                    program: newNames
+                                  };
+                                  if (inferredCatId && !selectedCatId) {
+                                    updates.categoryId = inferredCatId;
+                                    const catObj = categories.find(c => c.id === inferredCatId);
+                                    if (catObj) updates.category = catObj.name;
+                                  }
+                                  const newIdList = newIds.split(',').map(s => s.trim()).filter(Boolean);
+                                  if (newIdList.length > 0 && ama.cohortId) {
+                                    const currCohIds = ama.cohortId.split(',').map(s => s.trim()).filter(Boolean);
+                                    const stillValidCohorts = configCohorts.filter(c => currCohIds.includes(c.id) && newIdList.includes(c.programId));
+                                    updates.cohortId = stillValidCohorts.map(c => c.id).join(', ');
+                                    updates.cohort = stillValidCohorts.map(c => c.name).join(', ');
+                                  }
+                                  updateAMASession(ama.id, updates);
                                 }}
-                                className="btn btn-secondary btn-sm"
-                                style={{ padding: '2px 6px', fontSize: '0.75rem' }}
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          ) : (
-                            ama.program ? `${ama.program} - ${ama.cohort}` : ama.cohort || '—'
-                          )}
+                              />
+                            );
+                          })()}
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()} style={{ position: 'relative' }}>
+                          {(() => {
+                            const progId = resolveAMAProgramId(ama);
+                            const progName = resolveAMAProgramName(ama);
+                            const resolvedCohId = resolveAMACohortId(ama);
+                            const resolvedCohName = resolveAMACohortName(ama);
+                            return (
+                              <CohortMultiSelectPill
+                                cohortIds={resolvedCohId}
+                                cohortNames={resolvedCohName}
+                                cohorts={configCohorts}
+                                programIds={progId}
+                                programNames={progName}
+                                programs={configPrograms}
+                                onChange={(newIds, newNames, inferredProgs) => {
+                                  const updates: Partial<AMASession> = {
+                                    cohortId: newIds,
+                                    cohort: newNames
+                                  };
+                                  if ((!ama.programId && !ama.program) && inferredProgs && inferredProgs.length > 0) {
+                                    updates.programId = inferredProgs.map(p => p.id).join(', ');
+                                    updates.program = inferredProgs.map(p => p.name).join(', ');
+                                    const firstCatId = inferredProgs.find(p => p.categoryId)?.categoryId;
+                                    if (firstCatId && !ama.categoryId) {
+                                      updates.categoryId = firstCatId;
+                                      const catObj = categories.find(c => c.id === firstCatId);
+                                      if (catObj) updates.category = catObj.name;
+                                    }
+                                  }
+                                  updateAMASession(ama.id, updates);
+                                }}
+                              />
+                            );
+                          })()}
                         </td>
                         <td>
                           <select
@@ -9808,7 +10988,7 @@ export const StudentMeetingsTable: React.FC = () => {
                       
                       {isExpanded && (
                         <tr style={{ background: 'var(--background)' }}>
-                          <td colSpan={7} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
+                          <td colSpan={9} style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
                             <div style={{
                               background: 'var(--panel-bg)',
                               border: '1px solid var(--border)',
@@ -10924,456 +12104,6 @@ export const StudentMeetingsTable: React.FC = () => {
         />
       )}
     </>
-  );
-};
-
-interface CategoryPillSelectProps {
-  value: string;
-  categories: { id: string; name: string; active?: boolean }[];
-  onChange: (categoryId: string) => void;
-  title?: string;
-}
-
-const CategoryPillSelect: React.FC<CategoryPillSelectProps> = ({ value, categories, onChange, title }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const catObj = categories.find(c => c.id === value);
-  const catName = catObj ? catObj.name : (value === '__uncategorized__' ? 'Uncategorized' : '');
-  const displayText = catName || 'Select category';
-  const pillStyle = getAutoCategoryProgramCompactStyle(catName);
-
-  return (
-    <div
-      ref={containerRef}
-      style={{ position: 'relative', display: 'inline-block', zIndex: isOpen ? 60 : 'auto' }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        style={pillStyle}
-        title={title || (catName ? `Category: ${catName}` : 'Select Category')}
-      >
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '105px' }}>
-          {displayText}
-        </span>
-        <ChevronDown
-          size={11}
-          style={{
-            flexShrink: 0,
-            opacity: 0.7,
-            transform: isOpen ? 'rotate(180deg)' : 'none',
-            transition: 'transform 0.15s'
-          }}
-        />
-      </button>
-
-      {isOpen && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 4px)',
-            left: 0,
-            zIndex: 100,
-            minWidth: '175px',
-            maxWidth: '220px',
-            maxHeight: '230px',
-            overflowY: 'auto',
-            backgroundColor: 'var(--panel-bg)',
-            border: '1px solid var(--border)',
-            borderRadius: '8px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.22)',
-            padding: '4px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '2px',
-            animation: 'fadeIn 0.15s ease-out'
-          }}
-        >
-          <div
-            onClick={() => {
-              onChange('');
-              setIsOpen(false);
-            }}
-            style={{
-              padding: '5px 8px',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              fontSize: '0.75rem',
-              color: 'var(--text-muted)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              transition: 'background-color 0.15s'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--background-alt)'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-          >
-            <span>Select category</span>
-            {!value && <Check size={12} color="var(--primary)" />}
-          </div>
-
-          {categories.filter(c => c.active !== false).map(c => {
-            const isSelected = value === c.id;
-            const pal = getAutoCategoryProgramPalette(c.name);
-            return (
-              <div
-                key={c.id}
-                onClick={() => {
-                  onChange(c.id);
-                  setIsOpen(false);
-                }}
-                style={{
-                  padding: '5px 8px',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                  fontSize: '0.75rem',
-                  fontWeight: isSelected ? 650 : 500,
-                  color: isSelected ? pal.color : 'var(--text-primary)',
-                  backgroundColor: isSelected ? pal.bg : 'transparent',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '6px',
-                  transition: 'background-color 0.15s'
-                }}
-                onMouseEnter={(e) => {
-                  if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--background-alt)';
-                }}
-                onMouseLeave={(e) => {
-                  if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
-                  <span
-                    style={{
-                      width: '7px',
-                      height: '7px',
-                      borderRadius: '50%',
-                      backgroundColor: pal.color,
-                      flexShrink: 0
-                    }}
-                  />
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {c.name}
-                  </span>
-                </div>
-                {isSelected && <Check size={12} color={pal.color} style={{ flexShrink: 0 }} />}
-              </div>
-            );
-          })}
-
-          <div
-            onClick={() => {
-              onChange('__uncategorized__');
-              setIsOpen(false);
-            }}
-            style={{
-              padding: '5px 8px',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              fontSize: '0.75rem',
-              color: value === '__uncategorized__' ? 'var(--primary)' : 'var(--text-secondary)',
-              backgroundColor: value === '__uncategorized__' ? 'var(--primary-glow)' : 'transparent',
-              borderTop: '1px solid var(--border-light, var(--border))',
-              marginTop: '2px',
-              paddingTop: '6px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              transition: 'background-color 0.15s'
-            }}
-            onMouseEnter={(e) => {
-              if (value !== '__uncategorized__') e.currentTarget.style.backgroundColor = 'var(--background-alt)';
-            }}
-            onMouseLeave={(e) => {
-              if (value !== '__uncategorized__') e.currentTarget.style.backgroundColor = 'transparent';
-            }}
-          >
-            <span>Uncategorized / Existing</span>
-            {value === '__uncategorized__' && <Check size={12} color="var(--primary)" />}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-interface ProgramMultiSelectPillProps {
-  programIds: string;
-  programNames: string;
-  programs: { id: string; name: string; categoryId?: string }[];
-  categoryId: string;
-  onChange: (newIds: string, newNames: string) => void;
-  disabled?: boolean;
-}
-
-const ProgramMultiSelectPill: React.FC<ProgramMultiSelectPillProps> = ({
-  programIds,
-  programNames,
-  programs,
-  categoryId,
-  onChange,
-  disabled
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const availablePrograms = programs.filter(p => (p.categoryId || '__uncategorized__') === categoryId);
-
-  const selectedIds = (programIds || '').split(',').map(s => s.trim()).filter(Boolean);
-  const selectedNames = (programNames || '').split(',').map(s => s.trim()).filter(Boolean);
-
-  const isSelected = (p: { id: string; name: string }) => {
-    return selectedIds.includes(p.id) || selectedNames.includes(p.name);
-  };
-
-  const selectedPrograms = availablePrograms.filter(isSelected);
-  const effectiveCount = Math.max(selectedPrograms.length, selectedNames.length);
-
-  let displayText = 'No program';
-  let primaryName = '';
-  if (selectedPrograms.length > 0) {
-    primaryName = selectedPrograms[0].name;
-    displayText = selectedPrograms.length > 1 ? `${primaryName} (+${selectedPrograms.length - 1})` : primaryName;
-  } else if (selectedNames.length > 0 && selectedNames[0] !== 'No program') {
-    primaryName = selectedNames[0];
-    displayText = selectedNames.length > 1 ? `${primaryName} (+${selectedNames.length - 1})` : primaryName;
-  }
-
-  const tooltip = selectedPrograms.length > 0
-    ? selectedPrograms.map(p => p.name).join(', ')
-    : selectedNames.join(', ');
-
-  const pillStyle = getAutoCategoryProgramCompactStyle(primaryName);
-
-  if (disabled) {
-    return (
-      <div
-        style={{
-          ...getAutoCategoryProgramCompactStyle(''),
-          opacity: 0.45,
-          cursor: 'not-allowed',
-          display: 'inline-flex'
-        }}
-        title="Select category first"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '105px' }}>
-          No program
-        </span>
-        <ChevronDown size={11} style={{ opacity: 0.5, flexShrink: 0 }} />
-      </div>
-    );
-  }
-
-  const handleToggle = (prog: { id: string; name: string }) => {
-    let nextIds: string[];
-    let nextNames: string[];
-    if (isSelected(prog)) {
-      nextIds = selectedIds.filter(id => id !== prog.id);
-      nextNames = selectedNames.filter(name => name !== prog.name);
-    } else {
-      nextIds = selectedIds.includes(prog.id) ? selectedIds : [...selectedIds, prog.id];
-      nextNames = selectedNames.includes(prog.name) ? selectedNames : [...selectedNames, prog.name];
-    }
-    onChange(nextIds.join(', '), nextNames.join(', '));
-  };
-
-  const handleSelectAll = () => {
-    const nextIds = availablePrograms.map(p => p.id);
-    const nextNames = availablePrograms.map(p => p.name);
-    onChange(nextIds.join(', '), nextNames.join(', '));
-  };
-
-  const handleClear = () => {
-    onChange('', '');
-  };
-
-  return (
-    <div
-      ref={containerRef}
-      style={{ position: 'relative', display: 'inline-block', zIndex: isOpen ? 60 : 'auto' }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        style={pillStyle}
-        title={tooltip ? `Programs: ${tooltip}` : 'Select Program(s)'}
-      >
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '105px' }}>
-          {displayText}
-        </span>
-        <ChevronDown
-          size={11}
-          style={{
-            flexShrink: 0,
-            opacity: 0.7,
-            transform: isOpen ? 'rotate(180deg)' : 'none',
-            transition: 'transform 0.15s'
-          }}
-        />
-      </button>
-
-      {isOpen && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 4px)',
-            left: 0,
-            zIndex: 100,
-            minWidth: '200px',
-            maxWidth: '260px',
-            maxHeight: '260px',
-            overflowY: 'auto',
-            backgroundColor: 'var(--panel-bg)',
-            border: '1px solid var(--border)',
-            borderRadius: '8px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.22)',
-            padding: '6px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '3px',
-            animation: 'fadeIn 0.15s ease-out'
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '2px 4px 6px 4px',
-              borderBottom: '1px solid var(--border-light, var(--border))',
-              marginBottom: '2px'
-            }}
-          >
-            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Programs ({effectiveCount})
-            </span>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              {availablePrograms.length > 0 && selectedPrograms.length < availablePrograms.length && (
-                <button
-                  type="button"
-                  onClick={handleSelectAll}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--primary)',
-                    fontSize: '0.7rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    padding: '0 2px'
-                  }}
-                >
-                  All
-                </button>
-              )}
-              {effectiveCount > 0 && (
-                <button
-                  type="button"
-                  onClick={handleClear}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--danger, #ef4444)',
-                    fontSize: '0.7rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    padding: '0 2px'
-                  }}
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-          </div>
-
-          {availablePrograms.length === 0 ? (
-            <div style={{ padding: '8px', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-              No programs found for this category
-            </div>
-          ) : (
-            availablePrograms.map(p => {
-              const checked = isSelected(p);
-              const pal = getAutoCategoryProgramPalette(p.name);
-              return (
-                <label
-                  key={p.id}
-                  onClick={() => handleToggle(p)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '7px',
-                    padding: '5px 8px',
-                    borderRadius: '5px',
-                    cursor: 'pointer',
-                    fontSize: '0.75rem',
-                    fontWeight: checked ? 650 : 500,
-                    color: checked ? pal.color : 'var(--text-primary)',
-                    backgroundColor: checked ? pal.bg : 'transparent',
-                    userSelect: 'none',
-                    transition: 'background-color 0.15s'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!checked) e.currentTarget.style.backgroundColor = 'var(--background-alt)';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!checked) e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => {}}
-                    style={{
-                      cursor: 'pointer',
-                      accentColor: pal.color,
-                      margin: 0,
-                      width: '13px',
-                      height: '13px'
-                    }}
-                  />
-                  <span
-                    style={{
-                      width: '6px',
-                      height: '6px',
-                      borderRadius: '50%',
-                      backgroundColor: pal.color,
-                      flexShrink: 0
-                    }}
-                  />
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                    {p.name}
-                  </span>
-                </label>
-              );
-            })
-          )}
-        </div>
-      )}
-    </div>
   );
 };
 

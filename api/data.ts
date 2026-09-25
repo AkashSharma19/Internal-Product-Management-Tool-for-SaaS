@@ -2764,64 +2764,150 @@ export default async function handler(req: any, res: any) {
           const statusesParam = url.searchParams.get('statuses') || '';
           const categoriesParam = url.searchParams.get('categories') || '';
           const programsParam = url.searchParams.get('programs') || '';
+          const cohortsParam = url.searchParams.get('cohorts') || '';
           const pocsParam = url.searchParams.get('pocs') || '';
           const sortField = url.searchParams.get('sortField') || '';
           const sortAsc = url.searchParams.get('sortAsc') !== 'false';
 
-          console.log(`[API LOG] paginated-meetings-data: type=${type}, page=${page}, limit=${limit}, search="${search}", statuses="${statusesParam}", categories="${categoriesParam}", programs="${programsParam}", pocs="${pocsParam}"`);
+          console.log(`[API LOG] paginated-meetings-data: type=${type}, page=${page}, limit=${limit}, search="${search}", statuses="${statusesParam}", categories="${categoriesParam}", programs="${programsParam}", cohorts="${cohortsParam}", pocs="${pocsParam}"`);
 
           if (!type || !['amaSessions', 'adminCalls', 'tarunSirMeetings', 'amaFeedback', 'adminFeedback', 'tarunFeedback', 'dailyIssues', 'featureRequests', 'challenges'].includes(type)) {
             console.log(`[API LOG] Invalid type requested: ${type}`);
             return res.status(400).json({ success: false, error: 'Invalid meeting type' });
           }
 
-          const [configCategories, configPrograms] = await Promise.all([
+          const [configCategories, configPrograms, configCohorts] = await Promise.all([
             modelsMap['categories'].find({}).lean(),
-            modelsMap['programs'].find({}).lean()
+            modelsMap['programs'].find({}).lean(),
+            modelsMap['cohorts'].find({}).lean()
           ]);
+
           const resolveProgram = (item: any) => {
-            const ids = String(item?.programId || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+            const ids = String(item?.programId || '').split(',').map((s: string) => s.trim().toLowerCase()).filter(Boolean);
             if (ids.length > 0) {
-              const matched = configPrograms.find((program: any) => ids.includes(program.id));
+              const matched = configPrograms.find((program: any) => ids.includes(program.id?.toLowerCase()));
               if (matched) return matched;
             }
-            const names = String(item?.program || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+            const names = String(item?.program || '').split(',').map((s: string) => s.trim().toLowerCase()).filter(Boolean);
             if (names.length > 0) {
-              return configPrograms.find((program: any) => names.includes(program.name));
+              return configPrograms.find((program: any) => names.includes(program.name?.toLowerCase()));
             }
             return undefined;
           };
+
           const resolveProgramNames = (item: any): string[] => {
-            const ids = String(item?.programId || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+            const ids = String(item?.programId || '').split(',').map((s: string) => s.trim().toLowerCase()).filter(Boolean);
             if (ids.length > 0) {
-              const matched = configPrograms.filter((p: any) => ids.includes(p.id)).map((p: any) => p.name);
+              const matched = configPrograms.filter((p: any) => ids.includes(p.id?.toLowerCase())).map((p: any) => p.name);
               if (matched.length > 0) return matched;
             }
             const names = String(item?.program || '').split(',').map((s: string) => s.trim()).filter(Boolean);
             if (names.length > 0) return names;
             return [];
           };
+
           const resolveProgramName = (item: any) => resolveProgramNames(item).join(', ');
-          const resolveCategoryId = (item: any) => item?.categoryId || resolveProgram(item)?.categoryId || '';
-          const resolveCategoryName = (item: any) => {
-            const categoryId = resolveCategoryId(item);
-            return configCategories.find((category: any) => category.id === categoryId)?.name ||
-              (resolveProgramName(item) ? 'Uncategorized / Existing' : '');
+
+          const resolveCategoryId = (item: any) => {
+            if (item?.categoryId) return item.categoryId;
+            if (item?.category) {
+              const matched = configCategories.find((c: any) =>
+                c.name?.toLowerCase() === String(item.category).toLowerCase().trim() ||
+                c.id?.toLowerCase() === String(item.category).toLowerCase().trim()
+              );
+              if (matched) return matched.id;
+            }
+            return resolveProgram(item)?.categoryId || '';
           };
+
+          const resolveCategoryName = (item: any) => {
+            if (item?.category) {
+              const directMatch = configCategories.find((c: any) =>
+                c.name?.toLowerCase() === String(item.category).toLowerCase().trim() ||
+                c.id?.toLowerCase() === String(item.category).toLowerCase().trim()
+              );
+              if (directMatch) return directMatch.name;
+              return item.category;
+            }
+            const categoryId = resolveCategoryId(item);
+            if (categoryId) {
+              const matched = configCategories.find((category: any) => category.id === categoryId);
+              if (matched) return matched.name;
+            }
+            return resolveProgramName(item) ? 'Uncategorized / Existing' : '';
+          };
+
           const matchesCategoryFilter = (item: any, filterCategories: string[]) => {
             if (filterCategories.length === 0) return true;
             const categoryId = resolveCategoryId(item);
-            return filterCategories.includes(categoryId) ||
-              (!categoryId && filterCategories.includes('__uncategorized__'));
+            const categoryName = resolveCategoryName(item) || item?.category || '';
+            const isUncat = !categoryId || categoryName === 'Uncategorized / Existing' || !categoryName;
+
+            return filterCategories.some((fc: string) => {
+              const fcClean = fc.trim();
+              const fcLower = fcClean.toLowerCase();
+
+              if (fcClean === '__uncategorized__' || fcLower === 'uncategorized / existing' || fcLower === 'uncategorized') {
+                return isUncat;
+              }
+
+              // Direct match with resolved categoryName or item.category
+              if (categoryName && categoryName.toLowerCase() === fcLower) return true;
+              if (item?.category && String(item.category).trim().toLowerCase() === fcLower) return true;
+
+              // Direct match with resolved categoryId or item.categoryId
+              if (categoryId && categoryId.toLowerCase() === fcLower) return true;
+              if (item?.categoryId && String(item.categoryId).trim().toLowerCase() === fcLower) return true;
+
+              // Match against configCategories (cross-referencing ID <-> Name)
+              const matchedFilterCat = configCategories.find((c: any) =>
+                c.name?.toLowerCase() === fcLower || c.id?.toLowerCase() === fcLower
+              );
+              if (matchedFilterCat) {
+                const targetId = matchedFilterCat.id?.toLowerCase();
+                const targetName = matchedFilterCat.name?.toLowerCase();
+                if (categoryId && categoryId.toLowerCase() === targetId) return true;
+                if (item?.categoryId && String(item.categoryId).toLowerCase() === targetId) return true;
+                if (categoryName && categoryName.toLowerCase() === targetName) return true;
+                if (item?.category && String(item.category).toLowerCase() === targetName) return true;
+              }
+
+              return false;
+            });
           };
+
           const matchesProgramFilter = (item: any, filterPrograms: string[]) => {
             if (filterPrograms.length === 0) return true;
-            const ids = String(item?.programId || '').split(',').map((s: string) => s.trim()).filter(Boolean);
-            const resolved = resolveProgram(item);
-            return ids.some((id: string) => filterPrograms.includes(id)) ||
-              filterPrograms.includes(item?.programId || '') ||
-              filterPrograms.includes(resolved?.id || '') ||
-              resolveProgramNames(item).some((name: string) => filterPrograms.includes(name));
+            const itemProgIds = String(item?.programId || '').split(',').map((s: string) => s.trim().toLowerCase()).filter(Boolean);
+            const itemProgNames = String(item?.program || '').split(',').map((s: string) => s.trim().toLowerCase()).filter(Boolean);
+            const resolvedProgNames = resolveProgramNames(item).map((s: string) => s.toLowerCase());
+            const resolvedProg = resolveProgram(item);
+            const resolvedProgId = resolvedProg?.id?.toLowerCase();
+
+            return filterPrograms.some((fp: string) => {
+              const fpClean = fp.trim();
+              const fpLower = fpClean.toLowerCase();
+
+              if (itemProgIds.includes(fpLower)) return true;
+              if (itemProgNames.includes(fpLower)) return true;
+              if (resolvedProgNames.includes(fpLower)) return true;
+              if (resolvedProgId && resolvedProgId === fpLower) return true;
+
+              // Lookup in configPrograms
+              const matchedConfigProg = configPrograms.find((p: any) =>
+                p.name?.toLowerCase() === fpLower || p.id?.toLowerCase() === fpLower
+              );
+              if (matchedConfigProg) {
+                const targetId = matchedConfigProg.id?.toLowerCase();
+                const targetName = matchedConfigProg.name?.toLowerCase();
+                if (itemProgIds.includes(targetId)) return true;
+                if (itemProgNames.includes(targetName)) return true;
+                if (resolvedProgNames.includes(targetName)) return true;
+                if (resolvedProgId === targetId) return true;
+              }
+
+              return false;
+            });
           };
 
           if (type === 'challenges') {
@@ -3035,10 +3121,11 @@ export default async function handler(req: any, res: any) {
               return undefined;
             };
 
-            const filterStatuses = statusesParam ? statusesParam.split(',') : [];
-            const filterCategories = categoriesParam ? categoriesParam.split(',') : [];
-            const filterPrograms = programsParam ? programsParam.split(',') : [];
-            const filterPocs = pocsParam ? pocsParam.split(',') : [];
+            const filterStatuses = statusesParam ? statusesParam.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+            const filterCategories = categoriesParam ? categoriesParam.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+            const filterPrograms = programsParam ? programsParam.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+            const filterCohorts = cohortsParam ? cohortsParam.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+            const filterPocs = pocsParam ? pocsParam.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
 
             const filtered = products.filter((item: any) => {
               if (item.id.startsWith('prod-temp-')) return false;
@@ -3050,7 +3137,20 @@ export default async function handler(req: any, res: any) {
                   if (!parent) return false;
                 }
                 const matchesAma = parentMeetings.some((ama: any) => {
-                  if (!matchesProgramFilter(ama, filterPrograms)) return false;
+                  if (filterCategories.length > 0 && !matchesCategoryFilter(ama, filterCategories)) return false;
+                  if (filterPrograms.length > 0 && !matchesProgramFilter(ama, filterPrograms)) return false;
+                  if (filterCohorts.length > 0) {
+                    const itemCohorts = String(ama.cohort || '').split(',').map((s: string) => s.trim().toLowerCase()).filter(Boolean);
+                    const itemCohortIds = String(ama.cohortId || '').split(',').map((s: string) => s.trim().toLowerCase()).filter(Boolean);
+                    const mCoh = filterCohorts.some((fc: string) => {
+                      const fcClean = fc.trim().toLowerCase();
+                      if (itemCohorts.includes(fcClean) || itemCohortIds.includes(fcClean)) return true;
+                      const matched = configCohorts.find((c: any) => c.name?.toLowerCase() === fcClean || c.id?.toLowerCase() === fcClean);
+                      if (matched && (itemCohortIds.includes(matched.id?.toLowerCase()) || itemCohorts.includes(matched.name?.toLowerCase()))) return true;
+                      return false;
+                    });
+                    if (!mCoh) return false;
+                  }
                   if (item.id.startsWith('prod-ama-')) return item.notes && item.notes.includes(`AMA Session ID: ${ama.id}`);
                   if (!ama.topic.trim() && !ama.cohort.trim()) return false;
                   const clean = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ');
@@ -3208,10 +3308,11 @@ export default async function handler(req: any, res: any) {
           };
 
           // 3. Filter items
-          const filterStatuses = statusesParam ? statusesParam.split(',') : [];
-          const filterCategories = categoriesParam ? categoriesParam.split(',') : [];
-          const filterPrograms = programsParam ? programsParam.split(',') : [];
-          const filterPocs = pocsParam ? pocsParam.split(',') : [];
+          const filterStatuses = statusesParam ? statusesParam.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+          const filterCategories = categoriesParam ? categoriesParam.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+          const filterPrograms = programsParam ? programsParam.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+          const filterCohorts = cohortsParam ? cohortsParam.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+          const filterPocs = pocsParam ? pocsParam.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
 
           const filtered = items.filter((item: any) => {
             const resolvedCategoryName = resolveCategoryName(item);
@@ -3245,6 +3346,20 @@ export default async function handler(req: any, res: any) {
             // Program filter accepts configured IDs and legacy names
             if (!matchesProgramFilter(item, filterPrograms)) return false;
 
+            // Cohort filter
+            if (filterCohorts.length > 0) {
+              const itemCohorts = String(item.cohort || '').split(',').map((s: string) => s.trim().toLowerCase()).filter(Boolean);
+              const itemCohortIds = String(item.cohortId || '').split(',').map((s: string) => s.trim().toLowerCase()).filter(Boolean);
+              const matchesCohort = filterCohorts.some((fc: string) => {
+                const fcClean = fc.trim().toLowerCase();
+                if (itemCohorts.includes(fcClean) || itemCohortIds.includes(fcClean) || String(item.cohort || '').toLowerCase().includes(fcClean)) return true;
+                const matched = configCohorts.find((c: any) => c.name?.toLowerCase() === fcClean || c.id?.toLowerCase() === fcClean);
+                if (matched && (itemCohortIds.includes(matched.id?.toLowerCase()) || itemCohorts.includes(matched.name?.toLowerCase()))) return true;
+                return false;
+              });
+              if (!matchesCohort) return false;
+            }
+
             // POC filter
             const related = getRelatedFeatures(item.id);
             if (filterPocs.length > 0) {
@@ -3274,14 +3389,14 @@ export default async function handler(req: any, res: any) {
              if (aComp !== bComp) return aComp ? 1 : -1;
 
              if (sortField) {
-               const valA = sortField === 'categoryId'
+               const valA = (sortField === 'categoryId' || sortField === 'category')
                  ? resolveCategoryName(a)
-                 : sortField === 'programId'
+                 : (sortField === 'programId' || sortField === 'program')
                    ? resolveProgramName(a)
                    : a[sortField] || '';
-               const valB = sortField === 'categoryId'
+               const valB = (sortField === 'categoryId' || sortField === 'category')
                  ? resolveCategoryName(b)
-                 : sortField === 'programId'
+                 : (sortField === 'programId' || sortField === 'program')
                    ? resolveProgramName(b)
                    : b[sortField] || '';
                const strA = String(valA).toLowerCase();
