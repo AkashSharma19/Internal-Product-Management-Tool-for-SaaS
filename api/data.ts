@@ -2327,6 +2327,7 @@ export default async function handler(req: any, res: any) {
             const matchesSearch = !search ||
               (item.feature && item.feature.toLowerCase().includes(search)) ||
               (item.poc && item.poc.toLowerCase().includes(search)) ||
+              (item.createdBy && item.createdBy.toLowerCase().includes(search)) ||
               (item.product && item.product.toLowerCase().includes(search)) ||
               (item.supportDocLink && item.supportDocLink.toLowerCase().includes(search)) ||
               (item.notes && item.notes.toLowerCase().includes(search)) ||

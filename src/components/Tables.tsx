@@ -790,6 +790,26 @@ const getPOCBadgeStyle = (name: string) => {
   };
 };
 
+export const getInitials = (name: string) => {
+  if (!name) return 'U';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+};
+
+export const getAssigneeColor = (name: string) => {
+  const colors: Record<string, string> = {
+    'Akash': '#7c3aed',
+    'Akash Sharma': '#7c3aed',
+    'Anushka': '#db2777',
+    'Nikhil': '#0284c7',
+    'Nikhil Jain': '#059669',
+  };
+  return colors[name] || '#6b7280';
+};
+
 export const downloadCSV = (filename: string, headers: string[], rows: (string | number | boolean | null | undefined)[][]) => {
   const BOM = '\uFEFF';
   const csvContent = [
@@ -4654,28 +4674,6 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     }
   };
 
-  const getInitials = (name: string) => {
-    if (!name) return 'U';
-    const parts = name.trim().split(/\s+/);
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-    return name.slice(0, 2).toUpperCase();
-  };
-
-  const getAssigneeColor = (name: string) => {
-    const colors: Record<string, string> = {
-      'Akash': '#7c3aed',
-      'Akash Sharma': '#7c3aed',
-      'Anushka': '#db2777',
-      'Nikhil': '#0284c7',
-      'Nikhil Jain': '#059669',
-    };
-    return colors[name] || '#6b7280';
-  };
-
-  
-
   const handleFieldUpdate = (field: keyof ProductItem, newValue: any) => {
     if (!canUserEdit) return;
     const oldValue = item[field];
@@ -5608,6 +5606,52 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                         {pocActiveTaskCounts[item.poc] || 0} active
                       </span>
                     )}
+                  </div>
+                </div>
+
+                {/* Created By */}
+                <div className="property-row-flat">
+                  <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <User size={13} /> Created by
+                  </span>
+                  <div className="premium-property-value">
+                    <div className="premium-select-pill" style={{ paddingLeft: '4px' }}>
+                      {item.createdBy && (
+                        <div 
+                          className="clickup-avatar-circle" 
+                          style={{ 
+                            backgroundColor: getAssigneeColor(item.createdBy),
+                            width: '18px',
+                            height: '18px',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '0.65rem',
+                            fontWeight: 700,
+                            color: 'white',
+                            flexShrink: 0
+                          }}
+                        >
+                          {getInitials(item.createdBy)}
+                        </div>
+                      )}
+                      <select
+                        value={item.createdBy || ''}
+                        disabled={!canUserEdit}
+                        onChange={(e) => handleFieldUpdate('createdBy', e.target.value)}
+                      >
+                        <option value="">— Select SPOC —</option>
+                        {pocList.map(p => (
+                          <option key={p} value={p}>
+                            {p}
+                          </option>
+                        ))}
+                        {item.createdBy && !pocList.includes(item.createdBy) && (
+                          <option value={item.createdBy}>{item.createdBy}</option>
+                        )}
+                      </select>
+                    </div>
                   </div>
                 </div>
 
@@ -23109,7 +23153,8 @@ export const SupportDocsTable: React.FC = () => {
     previewProductId,
     productItems,
     canUserEdit,
-    fetchSupportDocsData 
+    fetchSupportDocsData,
+    speakers
   } = useDashboard();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -23389,10 +23434,13 @@ export const SupportDocsTable: React.FC = () => {
               <table className="grid-table">
                 <thead>
                   <tr>
-                    <th className="sticky-header-col" onClick={() => handleSort('feature')} style={{ width: '360px', minWidth: '360px', maxWidth: '400px', cursor: 'pointer' }}>
+                    <th className="sticky-header-col" onClick={() => handleSort('feature')} style={{ width: '340px', minWidth: '340px', maxWidth: '380px', cursor: 'pointer' }}>
                       Feature / Task {sortField === 'feature' ? (sortAsc ? '▲' : '▼') : ''}
                     </th>
-                    <th onClick={() => handleSort('poc')} style={{ width: '160px', cursor: 'pointer' }}>
+                    <th onClick={() => handleSort('createdBy')} style={{ width: '150px', cursor: 'pointer' }}>
+                      Created By {sortField === 'createdBy' ? (sortAsc ? '▲' : '▼') : ''}
+                    </th>
+                    <th onClick={() => handleSort('poc')} style={{ width: '150px', cursor: 'pointer' }}>
                       Assignee {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}
                     </th>
                     <th style={{ width: '220px' }}>Support Documentation</th>
@@ -23415,6 +23463,10 @@ export const SupportDocsTable: React.FC = () => {
                         <td className="sticky-col" style={{ padding: '12px 16px' }}>
                           <div className="skeleton-line" style={{ height: '14px', width: '85%', marginBottom: '6px', borderRadius: '4px', background: 'var(--border)', opacity: 0.4, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
                           <div className="skeleton-line" style={{ height: '10px', width: '45%', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                        </td>
+                        {/* Created By */}
+                        <td style={{ padding: '12px 16px' }}>
+                          <div className="skeleton-line" style={{ height: '22px', width: '110px', borderRadius: '6px', background: 'var(--border)', opacity: 0.35, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
                         </td>
                         {/* Assignee */}
                         <td style={{ padding: '12px 16px' }}>
@@ -23440,7 +23492,7 @@ export const SupportDocsTable: React.FC = () => {
                     ))
                   ) : sortedItems.length === 0 ? (
                     <tr>
-                      <td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                      <td colSpan={7} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
                         No support documentation tasks found matching current filters.
                       </td>
                     </tr>
@@ -23484,6 +23536,84 @@ export const SupportDocsTable: React.FC = () => {
                               )}
                             </div>
                           </div>
+                        </td>
+
+                        {/* Created By Dropdown */}
+                        <td onClick={(e) => e.stopPropagation()} style={{ width: '150px', minWidth: '135px' }}>
+                          {canUserEdit ? (
+                            <div 
+                              style={{ 
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                gap: '6px',
+                                padding: '3px 8px', 
+                                borderRadius: '6px', 
+                                background: item.createdBy ? 'var(--background)' : 'rgba(255, 255, 255, 0.03)',
+                                border: item.createdBy ? '1px solid var(--border)' : '1px dashed var(--border-light)',
+                                width: '100%',
+                                maxWidth: '145px',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              {item.createdBy && (
+                                <div 
+                                  className="clickup-avatar-circle" 
+                                  style={{ 
+                                    backgroundColor: getAssigneeColor(item.createdBy),
+                                    width: '18px',
+                                    height: '18px',
+                                    borderRadius: '50%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '0.625rem',
+                                    fontWeight: 700,
+                                    color: 'white',
+                                    flexShrink: 0
+                                  }}
+                                >
+                                  {getInitials(item.createdBy)}
+                                </div>
+                              )}
+                              <select
+                                value={item.createdBy || ''}
+                                onChange={(e) => {
+                                  const newVal = e.target.value;
+                                  setItems(prev => prev.map(it => it.id === item.id ? { ...it, createdBy: newVal } : it));
+                                  updateProductItem(item.id, { createdBy: newVal });
+                                }}
+                                style={{
+                                  width: '100%',
+                                  background: 'transparent',
+                                  border: 'none',
+                                  fontSize: '0.75rem',
+                                  fontWeight: item.createdBy ? 650 : 400,
+                                  color: item.createdBy ? 'var(--text-primary)' : 'var(--text-muted)',
+                                  cursor: 'pointer',
+                                  outline: 'none',
+                                  padding: '2px 0'
+                                }}
+                              >
+                                <option value="">— Select SPOC —</option>
+                                {speakers.map(s => (
+                                  <option key={s.id} value={s.name}>
+                                    {s.name}
+                                  </option>
+                                ))}
+                                {item.createdBy && !speakers.some(s => s.name === item.createdBy) && (
+                                  <option value={item.createdBy}>{item.createdBy}</option>
+                                )}
+                              </select>
+                            </div>
+                          ) : (
+                            item.createdBy ? (
+                              <span style={getPOCBadgeStyle(item.createdBy)}>
+                                {item.createdBy}
+                              </span>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>—</span>
+                            )
+                          )}
                         </td>
 
                         {/* Assignee (Portal POC & ClickUp Assignee) */}

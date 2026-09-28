@@ -34,7 +34,8 @@ const ProductItemSchema = new Schema({
   supportDocs: { type: Array, default: [] },
   conductDemo: { type: Boolean, default: false },
   demoCohorts: { type: String, default: "" },
-  notificationSent: { type: Boolean, default: false }
+  notificationSent: { type: Boolean, default: false },
+  createdBy: { type: String, default: "" }
 }, { timestamps: true });
 
 // 2. PlanItem (Sprint Planning)

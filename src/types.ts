@@ -50,6 +50,7 @@ export interface ProductItem {
   conductDemo?: boolean;
   demoCohorts?: string;
   notificationSent?: boolean;
+  createdBy?: string;
 }
 
 export interface PlanItem {
