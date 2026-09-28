@@ -2295,7 +2295,7 @@ export default async function handler(req: any, res: any) {
           const limit = parseInt(url.searchParams.get('limit') || '20', 10);
           const search = (url.searchParams.get('search') || '').trim().toLowerCase();
           const docStatus = url.searchParams.get('docStatus') || 'all'; // 'all' | 'has-link' | 'missing-link'
-          const sortField = url.searchParams.get('sortField') || 'feature';
+          const sortField = url.searchParams.get('sortField') || 'finalRelease';
           const sortAsc = url.searchParams.get('sortAsc') !== 'false';
 
           const dbFilter: any = {
@@ -2304,21 +2304,35 @@ export default async function handler(req: any, res: any) {
 
           const rawItems = await modelsMap['products'].find(dbFilter).lean();
 
+          const getDocsHelper = (item: any): Array<{ id?: string; name?: string; link?: string }> => {
+            if (Array.isArray(item?.supportDocs) && item.supportDocs.length > 0) {
+              return item.supportDocs.filter((d: any) => d && ((d.link && d.link.trim() !== '') || (d.name && d.name.trim() !== '')));
+            }
+            if (item?.supportDocLink && item.supportDocLink.trim() !== '') {
+              return [{ id: 'legacy', name: 'Support Document', link: item.supportDocLink.trim() }];
+            }
+            return [];
+          };
+
+          const hasDocHelper = (item: any): boolean => getDocsHelper(item).length > 0;
+
           // Calculate total counts
           const totalRequired = rawItems.length;
-          const totalWithDocs = rawItems.filter((i: any) => !!i.supportDocLink && i.supportDocLink.trim() !== '').length;
+          const totalWithDocs = rawItems.filter((i: any) => hasDocHelper(i)).length;
           const totalMissing = totalRequired - totalWithDocs;
 
           // Filter by search & docStatus
           let filtered = rawItems.filter((item: any) => {
+            const docs = getDocsHelper(item);
             const matchesSearch = !search ||
               (item.feature && item.feature.toLowerCase().includes(search)) ||
               (item.poc && item.poc.toLowerCase().includes(search)) ||
               (item.product && item.product.toLowerCase().includes(search)) ||
               (item.supportDocLink && item.supportDocLink.toLowerCase().includes(search)) ||
-              (item.notes && item.notes.toLowerCase().includes(search));
+              (item.notes && item.notes.toLowerCase().includes(search)) ||
+              docs.some(d => (d.name && d.name.toLowerCase().includes(search)) || (d.link && d.link.toLowerCase().includes(search)));
 
-            const hasDoc = !!item.supportDocLink && item.supportDocLink.trim() !== '';
+            const hasDoc = docs.length > 0;
             let matchesDocStatus = true;
             if (docStatus === 'has-link') matchesDocStatus = hasDoc;
             else if (docStatus === 'missing-link') matchesDocStatus = !hasDoc;
@@ -2326,20 +2340,121 @@ export default async function handler(req: any, res: any) {
             return matchesSearch && matchesDocStatus;
           });
 
-          // Sort - missing link items first, items with docs at bottom
-          filtered.sort((a: any, b: any) => {
-            const hasLinkA = !!a.supportDocLink && a.supportDocLink.trim() !== '';
-            const hasLinkB = !!b.supportDocLink && b.supportDocLink.trim() !== '';
-            if (hasLinkA !== hasLinkB) {
-              return hasLinkA ? 1 : -1;
+          const isCompletedStatusHelper = (status?: string) => {
+            if (!status) return false;
+            const s = status.toLowerCase().trim().replace(/\s*\(\d+\)$/, '').trim();
+            return ['delivered', 'completed', 'done', 'closed', 'tested', 'released', 'complete', 'resolved'].includes(s);
+          };
+
+          const parseDateToYYYYMMDDHelper = (dateStr?: string): string => {
+            if (!dateStr) return '';
+            const cleaned = dateStr.trim();
+            if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) return cleaned;
+            if (/^\d{4}-\d{2}-\d{2}/.test(cleaned)) return cleaned.slice(0, 10);
+            if (/^\d{2}-\d{2}-\d{4}$/.test(cleaned)) {
+              const [d, m, y] = cleaned.split('-');
+              return `${y}-${m}-${d}`;
             }
-            if (sortField) {
-              const valA = String(a[sortField] || '').toLowerCase();
-              const valB = String(b[sortField] || '').toLowerCase();
-              return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            const parts = cleaned.split(/\s+/);
+            if (parts.length >= 3) {
+              const day = parts[0].padStart(2, '0');
+              const monthStr = parts[1].toLowerCase().slice(0, 3);
+              const year = parts[2].slice(0, 4);
+              const months: Record<string, string> = {
+                jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+                jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+              };
+              const month = months[monthStr];
+              if (month && /^\d{2}$/.test(day) && /^\d{4}$/.test(year)) {
+                return `${year}-${month}-${day}`;
+              }
             }
-            return 0;
-          });
+            try {
+              const d = new Date(cleaned);
+              if (!isNaN(d.getTime())) {
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${y}-${m}-${day}`;
+              }
+            } catch (e) {}
+            return '';
+          };
+
+          const now = new Date();
+          const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+          const getItemTier = (item: any) => {
+            const hasDoc = hasDocHelper(item);
+            const isDone = !!item.finalReleaseCompleted || isCompletedStatusHelper(item.status) || isCompletedStatusHelper(item.clickupStatus);
+            const dateStr = parseDateToYYYYMMDDHelper(item.finalRelease);
+
+            // If no release date, goes to bottom tier
+            if (!dateStr) {
+              return { tier: 5, dateStr: '', hasDoc, isDone };
+            }
+
+            const isPast = dateStr < todayStr;
+
+            // Tier 1: Overdue unreleased tasks (deadline passed, not completed)
+            if (isPast && !isDone) {
+              return { tier: 1, dateStr, hasDoc, isDone };
+            }
+
+            // Tier 2: Overdue documentation (release date passed, support doc missing)
+            if (isPast && !hasDoc) {
+              return { tier: 2, dateStr, hasDoc, isDone };
+            }
+
+            // Tier 3: Upcoming with missing docs (releasing soon, needs docs)
+            if (!isPast && !hasDoc) {
+              return { tier: 3, dateStr, hasDoc, isDone };
+            }
+
+            // Tier 4: Has doc added already
+            if (hasDoc) {
+              return { tier: 4, dateStr, hasDoc, isDone };
+            }
+
+            return { tier: 5, dateStr, hasDoc, isDone };
+          };
+
+          if (sortField === 'finalRelease') {
+            filtered.sort((a: any, b: any) => {
+              const metaA = getItemTier(a);
+              const metaB = getItemTier(b);
+
+              if (metaA.tier !== metaB.tier) {
+                return metaA.tier - metaB.tier;
+              }
+
+              if (metaA.tier === 5) {
+                return String(a.feature || '').localeCompare(String(b.feature || ''));
+              }
+
+              const cmp = metaA.dateStr.localeCompare(metaB.dateStr);
+              if (cmp !== 0) {
+                return sortAsc ? cmp : -cmp;
+              }
+
+              return String(a.feature || '').localeCompare(String(b.feature || ''));
+            });
+          } else {
+            // Sort by other specified field (missing links first, then sort by field)
+            filtered.sort((a: any, b: any) => {
+              const hasLinkA = hasDocHelper(a);
+              const hasLinkB = hasDocHelper(b);
+              if (hasLinkA !== hasLinkB) {
+                return hasLinkA ? 1 : -1;
+              }
+              if (sortField) {
+                const valA = String(a[sortField] || '').toLowerCase();
+                const valB = String(b[sortField] || '').toLowerCase();
+                return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+              }
+              return 0;
+            });
+          }
 
           const totalItems = filtered.length;
           const totalPages = Math.max(1, Math.ceil(totalItems / limit));
@@ -6381,7 +6496,7 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
           }
         }
 
-        const updatedItem = await Model.findOneAndUpdate(query, data, { new: true, upsert: true });
+        const updatedItem = await Model.findOneAndUpdate(query, data, { new: true, upsert: true, strict: false });
         return res.status(200).json({ success: true, item: updatedItem });
       }
 

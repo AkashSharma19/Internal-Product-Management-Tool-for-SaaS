@@ -2328,6 +2328,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           }
           return issue;
         }));
+      } else {
+        persistChange('update', 'products', id, { id, ...updated });
       }
       return next;
     });

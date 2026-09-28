@@ -51,6 +51,7 @@ import {
 } from 'lucide-react';
 import type { 
   ProductItem, 
+  SupportDocItem,
   BlockerItem,
   PlanItem, 
   StudentProject, 
@@ -132,6 +133,27 @@ export const getAutoCategoryProgramStyle = (valName: string | undefined | null):
     outline: 'none',
     transition: 'all 0.15s ease'
   };
+};
+
+export const getSupportDocs = (item?: Partial<ProductItem> | null): SupportDocItem[] => {
+  if (!item) return [];
+  if (Array.isArray(item.supportDocs) && item.supportDocs.length > 0) {
+    return item.supportDocs
+      .filter((d: any) => d && ((d.link && String(d.link).trim() !== '') || (d.name && String(d.name).trim() !== '')))
+      .map((d: any, idx: number) => ({
+        id: d.id || `doc-${idx}-${Date.now()}`,
+        name: d.name && String(d.name).trim() !== '' ? String(d.name).trim() : 'Document',
+        link: d.link && String(d.link).trim() !== '' ? String(d.link).trim() : ''
+      }));
+  }
+  if (item.supportDocLink && item.supportDocLink.trim() !== '') {
+    return [{
+      id: `doc-legacy-${item.id || '1'}`,
+      name: 'Support Document',
+      link: item.supportDocLink.trim()
+    }];
+  }
+  return [];
 };
 
 export const getAutoCategoryProgramPalette = (valName: string | undefined | null) => {
@@ -4274,6 +4296,38 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const [postAsBlocker, setPostAsBlocker] = useState(false);
   const [newBlockerText, setNewBlockerText] = useState('');
 
+  const [newDocName, setNewDocName] = useState('');
+  const [newDocLink, setNewDocLink] = useState('');
+  const [copiedDocId, setCopiedDocId] = useState<string | null>(null);
+
+  const handleAddDocToProduct = () => {
+    const trimmedLink = newDocLink.trim();
+    if (!trimmedLink) return;
+    const trimmedName = newDocName.trim() || 'Document';
+    const currentDocs = getSupportDocs(item);
+    const newDocItem: SupportDocItem = {
+      id: `doc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      name: trimmedName,
+      link: trimmedLink
+    };
+    const updatedDocs = [...currentDocs, newDocItem];
+    onUpdate(item.id, {
+      supportDocs: updatedDocs,
+      supportDocLink: updatedDocs[0]?.link || ''
+    });
+    setNewDocName('');
+    setNewDocLink('');
+  };
+
+  const handleDeleteDocFromProduct = (docId: string) => {
+    const currentDocs = getSupportDocs(item);
+    const updatedDocs = currentDocs.filter(d => d.id !== docId);
+    onUpdate(item.id, {
+      supportDocs: updatedDocs,
+      supportDocLink: updatedDocs[0]?.link || ''
+    });
+  };
+
   // Initialize blockers from item.blockers or legacy item.blocker string
   const getInitialBlockers = useCallback((): BlockerItem[] => {
     if (Array.isArray(item.blockers)) {
@@ -5704,60 +5758,204 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                   </div>
                 </div>
 
-                {/* Support Doc Link (visible when supportDocsRequired is ON) */}
+                {/* Support Documentation (visible when supportDocsRequired is ON) */}
                 {item.supportDocsRequired && (
-                  <div className="property-row-flat" style={{ alignItems: 'flex-start' }}>
-                    <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingTop: '4px' }}>
-                      <Link size={13} /> Support Doc Link
-                    </span>
-                    <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%', justifyContent: 'flex-end' }}>
-                      <input
-                        type="text"
-                        style={{
-                          width: '180px',
-                          textAlign: 'left',
-                          fontSize: '0.8rem',
-                          padding: '4px 8px',
-                          borderRadius: '6px',
-                          border: '1px solid var(--border)',
-                          background: 'var(--background)',
-                          color: 'var(--text-primary)',
-                          outline: 'none'
-                        }}
-                        placeholder="https://docs.google.com/..."
-                        defaultValue={item.supportDocLink || ''}
-                        onBlur={(e) => {
-                          if (e.target.value !== (item.supportDocLink || '')) {
-                            handleFieldUpdate('supportDocLink', e.target.value.trim());
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.currentTarget.blur();
-                          }
-                        }}
-                      />
-                      {item.supportDocLink && (
-                        <a
-                          href={item.supportDocLink.startsWith('http') ? item.supportDocLink : `https://${item.supportDocLink}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            color: 'var(--primary)',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            padding: '4px',
-                            borderRadius: '4px',
-                            background: 'var(--primary-glow)'
-                          }}
-                          title="Open Support Doc in new tab"
-                        >
-                          <ExternalLink size={13} />
-                        </a>
+                  <div style={{
+                    marginTop: '0.5rem',
+                    marginBottom: '0.75rem',
+                    padding: '0.75rem',
+                    background: 'var(--background-alt, rgba(255, 255, 255, 0.02))',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.5rem'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: 0, fontWeight: 700 }}>
+                        <FileText size={13} style={{ color: 'var(--primary)' }} /> Support Documents ({getSupportDocs(item).length})
+                      </span>
+                    </div>
+
+                    {/* List of existing docs */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {getSupportDocs(item).length === 0 ? (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '4px 0' }}>
+                          No documents added yet. Add one below.
+                        </div>
+                      ) : (
+                        getSupportDocs(item).map((doc) => (
+                          <div 
+                            key={doc.id}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '6px',
+                              padding: '5px 8px',
+                              background: 'var(--card-bg, var(--panel-bg))',
+                              border: '1px solid var(--border-light)',
+                              borderRadius: '6px'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', flex: 1 }}>
+                              <a
+                                href={doc.link.startsWith('http') ? doc.link : `https://${doc.link}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  color: 'var(--primary)',
+                                  textDecoration: 'none',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 650,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }}
+                                title={`${doc.name}: ${doc.link}`}
+                              >
+                                <span>{doc.name || 'Document'}</span>
+                                <ExternalLink size={10} style={{ opacity: 0.8 }} />
+                              </a>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const fullLink = doc.link.startsWith('http') ? doc.link : `https://${doc.link}`;
+                                  navigator.clipboard.writeText(fullLink);
+                                  setCopiedDocId(doc.id);
+                                  setTimeout(() => setCopiedDocId(null), 2000);
+                                }}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  color: copiedDocId === doc.id ? '#10b981' : 'var(--text-muted)',
+                                  padding: '2px',
+                                  display: 'flex',
+                                  alignItems: 'center'
+                                }}
+                                title={copiedDocId === doc.id ? "Copied!" : "Copy link"}
+                              >
+                                {copiedDocId === doc.id ? <Check size={12} /> : <Copy size={12} />}
+                              </button>
+
+                              {canUserEdit && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteDocFromProduct(doc.id)}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: '#ef4444',
+                                    padding: '2px',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                  }}
+                                  title="Delete document"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))
                       )}
                     </div>
+
+                    {/* Add new doc inline */}
+                    {canUserEdit && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <input
+                            type="text"
+                            placeholder="Name (e.g. User Guide)"
+                            value={newDocName}
+                            onChange={(e) => setNewDocName(e.target.value)}
+                            style={{
+                              flex: '1',
+                              fontSize: '0.75rem',
+                              padding: '4px 6px',
+                              borderRadius: '4px',
+                              border: '1px solid var(--border)',
+                              background: 'var(--background)',
+                              color: 'var(--text-primary)',
+                              outline: 'none'
+                            }}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Link (https://...)"
+                            value={newDocLink}
+                            onChange={(e) => setNewDocLink(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddDocToProduct();
+                              }
+                            }}
+                            style={{
+                              flex: '2',
+                              fontSize: '0.75rem',
+                              padding: '4px 6px',
+                              borderRadius: '4px',
+                              border: '1px solid var(--border)',
+                              background: 'var(--background)',
+                              color: 'var(--text-primary)',
+                              outline: 'none'
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddDocToProduct}
+                            disabled={!newDocLink.trim()}
+                            style={{
+                              padding: '3px 8px',
+                              fontSize: '0.7rem',
+                              fontWeight: 600,
+                              borderRadius: '4px',
+                              border: '1px solid var(--primary)',
+                              background: 'var(--primary)',
+                              color: '#fff',
+                              cursor: newDocLink.trim() ? 'pointer' : 'not-allowed',
+                              opacity: newDocLink.trim() ? 1 : 0.6,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '2px'
+                            }}
+                          >
+                            <Plus size={12} /> Add
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
+
+                {/* Notification Sent */}
+                <div className="property-row-flat">
+                  <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Mail size={13} /> Notification Sent
+                  </span>
+                  <div className="premium-property-value">
+                    <label className="premium-toggle-wrapper">
+                      <input 
+                        type="checkbox" 
+                        className="premium-toggle-checkbox" 
+                        checked={!!item.notificationSent} 
+                        onChange={(e) => handleFieldUpdate('notificationSent', e.target.checked)} 
+                      />
+                      <span className="premium-toggle-slider" />
+                    </label>
+                  </div>
+                </div>
               </div>
 
             </div>
@@ -22507,6 +22705,401 @@ export const ChallengesTable: React.FC = () => {
 };
 
 // ==========================================
+// 14.5 MANAGE SUPPORT DOCS MODAL
+// ==========================================
+interface ManageSupportDocsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  task: ProductItem | null;
+  onSave: (docs: SupportDocItem[]) => Promise<void> | void;
+  canEdit: boolean;
+}
+
+export const ManageSupportDocsModal: React.FC<ManageSupportDocsModalProps> = ({
+  isOpen,
+  onClose,
+  task,
+  onSave,
+  canEdit
+}) => {
+  const [docs, setDocs] = useState<SupportDocItem[]>([]);
+  const [newName, setNewName] = useState('');
+  const [newLink, setNewLink] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editLink, setEditLink] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && task) {
+      setDocs(getSupportDocs(task));
+      setNewName('');
+      setNewLink('');
+      setEditingId(null);
+    }
+  }, [isOpen, task]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isOpen, onClose]);
+
+  if (!isOpen || !task) return null;
+
+  const handleAddDoc = () => {
+    const trimmedLink = newLink.trim();
+    if (!trimmedLink) return;
+    const trimmedName = newName.trim() || 'Document';
+    const newDoc: SupportDocItem = {
+      id: `doc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      name: trimmedName,
+      link: trimmedLink
+    };
+    setDocs(prev => [...prev, newDoc]);
+    setNewName('');
+    setNewLink('');
+  };
+
+  const handleDeleteDoc = (id: string) => {
+    setDocs(prev => prev.filter(d => d.id !== id));
+  };
+
+  const handleStartEdit = (doc: SupportDocItem) => {
+    setEditingId(doc.id);
+    setEditName(doc.name);
+    setEditLink(doc.link);
+  };
+
+  const handleSaveEdit = (id: string) => {
+    if (!editLink.trim()) return;
+    setDocs(prev => prev.map(d => d.id === id ? {
+      ...d,
+      name: editName.trim() || 'Document',
+      link: editLink.trim()
+    } : d));
+    setEditingId(null);
+  };
+
+  const handleCopy = (id: string, link: string) => {
+    const fullLink = link.startsWith('http') ? link : `https://${link}`;
+    navigator.clipboard.writeText(fullLink);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(prev => prev === id ? null : prev), 2000);
+  };
+
+  const handleSaveAll = async () => {
+    setIsSaving(true);
+    try {
+      await onSave(docs);
+      onClose();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div 
+      onClick={onClose} 
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.65)',
+        backdropFilter: 'blur(5px)',
+        WebkitBackdropFilter: 'blur(5px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: '1.25rem'
+      }}
+    >
+      <div 
+        onClick={e => e.stopPropagation()} 
+        style={{
+          backgroundColor: 'var(--panel-bg)',
+          border: '1px solid var(--border)',
+          borderRadius: '16px',
+          boxShadow: '0 20px 50px rgba(0, 0, 0, 0.4)',
+          width: '100%',
+          maxWidth: '620px',
+          maxHeight: '85vh',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '1.75rem',
+          gap: '1.25rem',
+          animation: 'fadeIn 0.2s ease',
+          position: 'relative'
+        }}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.75rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--primary-glow)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <FileText size={18} />
+              </div>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                Support Documentation
+              </h3>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '12px', background: 'var(--panel-bg)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
+                {docs.length} {docs.length === 1 ? 'doc' : 'docs'}
+              </span>
+            </div>
+            <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)', maxWidth: '480px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              Feature: <strong style={{ color: 'var(--text-primary)' }}>{task.feature}</strong>
+            </p>
+          </div>
+          <button 
+            onClick={onClose} 
+            style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px', borderRadius: '6px' }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Existing Docs List */}
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
+            Attached Documents ({docs.length})
+          </span>
+
+          {docs.length === 0 ? (
+            <div style={{ padding: '2rem 1rem', textAlign: 'center', background: 'var(--background)', borderRadius: '10px', border: '1px dashed var(--border-light)' }}>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                No support documents added yet. Add one below with a name and URL link.
+              </p>
+            </div>
+          ) : (
+            docs.map((doc, idx) => {
+              const isEditing = editingId === doc.id;
+              return (
+                <div 
+                  key={doc.id}
+                  style={{
+                    display: 'flex',
+                    flexDirection: isEditing ? 'column' : 'row',
+                    alignItems: isEditing ? 'stretch' : 'center',
+                    justifyContent: 'space-between',
+                    gap: '8px',
+                    padding: '8px 12px',
+                    background: 'var(--background)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {isEditing ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={e => setEditName(e.target.value)}
+                          placeholder="Document Name"
+                          style={{ flex: 1, padding: '4px 8px', fontSize: '0.8rem', borderRadius: '6px', border: '1px solid var(--primary)', background: 'var(--card-bg)', color: 'var(--text-primary)', outline: 'none' }}
+                        />
+                        <input
+                          type="text"
+                          value={editLink}
+                          onChange={e => setEditLink(e.target.value)}
+                          placeholder="https://..."
+                          style={{ flex: 2, padding: '4px 8px', fontSize: '0.8rem', borderRadius: '6px', border: '1px solid var(--primary)', background: 'var(--card-bg)', color: 'var(--text-primary)', outline: 'none' }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setEditingId(null)}
+                          style={{ padding: '3px 8px', fontSize: '0.75rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveEdit(doc.id)}
+                          style={{ padding: '3px 10px', fontSize: '0.75rem', fontWeight: 600, borderRadius: '4px', border: 'none', background: 'var(--primary)', color: '#fff', cursor: 'pointer' }}
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1 }}>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, width: '18px' }}>
+                          #{idx + 1}
+                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1 }}>
+                          <span style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {doc.name || 'Document'}
+                          </span>
+                          <a
+                            href={doc.link.startsWith('http') ? doc.link : `https://${doc.link}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ fontSize: '0.75rem', color: 'var(--primary)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                            title={doc.link}
+                          >
+                            <span>{doc.link}</span>
+                            <ExternalLink size={10} style={{ flexShrink: 0, opacity: 0.8 }} />
+                          </a>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(doc.id, doc.link)}
+                          style={{
+                            background: copiedId === doc.id ? 'rgba(16, 185, 129, 0.15)' : 'none',
+                            border: copiedId === doc.id ? '1px solid #10b981' : 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            color: copiedId === doc.id ? '#10b981' : 'var(--text-muted)',
+                            padding: '4px 6px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            fontSize: '0.7rem',
+                            transition: 'all 0.15s ease'
+                          }}
+                          title="Copy Link"
+                        >
+                          {copiedId === doc.id ? <Check size={13} /> : <Copy size={13} />}
+                          {copiedId === doc.id && <span>Copied</span>}
+                        </button>
+
+                        {canEdit && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleStartEdit(doc)}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px', borderRadius: '4px' }}
+                              title="Edit document"
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteDoc(doc.id)}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '4px', borderRadius: '4px' }}
+                              title="Delete document"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Add New Document Form */}
+        {canEdit && (
+          <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
+              + Add Document
+            </span>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                placeholder="Doc Name (e.g. User Guide, API Reference)"
+                style={{ flex: 1, padding: '6px 10px', fontSize: '0.8rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text-primary)', outline: 'none' }}
+              />
+              <input
+                type="text"
+                value={newLink}
+                onChange={e => setNewLink(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddDoc();
+                  }
+                }}
+                placeholder="Document URL (https://...)"
+                style={{ flex: 2, padding: '6px 10px', fontSize: '0.8rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--background)', color: 'var(--text-primary)', outline: 'none' }}
+              />
+              <button
+                type="button"
+                onClick={handleAddDoc}
+                disabled={!newLink.trim()}
+                style={{
+                  padding: '6px 14px',
+                  fontSize: '0.75rem',
+                  fontWeight: 650,
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: 'var(--primary)',
+                  color: '#fff',
+                  cursor: newLink.trim() ? 'pointer' : 'not-allowed',
+                  opacity: newLink.trim() ? 1 : 0.6,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Plus size={14} /> Add
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid var(--border-light)', paddingTop: '0.75rem' }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{ padding: '6px 16px', fontSize: '0.8rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontWeight: 600 }}
+          >
+            Cancel
+          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={handleSaveAll}
+              disabled={isSaving}
+              style={{
+                padding: '6px 20px',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                borderRadius: '8px',
+                border: 'none',
+                background: 'var(--primary)',
+                color: '#fff',
+                cursor: isSaving ? 'wait' : 'pointer',
+                opacity: isSaving ? 0.7 : 1,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              {isSaving ? 'Saving...' : 'Save & Close'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
 // 15. SUPPORT DOCS TABLE
 // ==========================================
 export const SupportDocsTable: React.FC = () => {
@@ -22523,14 +23116,34 @@ export const SupportDocsTable: React.FC = () => {
   const [filterDocStatus, setFilterDocStatus] = useState<'all' | 'has-link' | 'missing-link'>('all');
 
   // Sorting
-  const [sortField, setSortField] = useState<keyof ProductItem | null>('feature');
+  const [sortField, setSortField] = useState<keyof ProductItem | null>('finalRelease');
   const [sortAsc, setSortAsc] = useState(true);
 
-  // Inline editing link
-  const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
-  const [inlineLinkValue, setInlineLinkValue] = useState('');
-  const linkInputRef = useRef<HTMLInputElement>(null);
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
+
+  // Manage Docs Modal
+  const [modalTask, setModalTask] = useState<ProductItem | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleOpenManageDocsModal = (e: React.MouseEvent, item: ProductItem) => {
+    e.stopPropagation();
+    setModalTask(item);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveDocs = async (updatedDocs: SupportDocItem[]) => {
+    if (!modalTask) return;
+    const firstLink = updatedDocs[0]?.link || '';
+    setItems(prev => prev.map(item => item.id === modalTask.id ? { 
+      ...item, 
+      supportDocs: updatedDocs,
+      supportDocLink: firstLink 
+    } : item));
+    await updateProductItem(modalTask.id, { 
+      supportDocs: updatedDocs,
+      supportDocLink: firstLink 
+    });
+  };
 
   // Server-side paginated state
   const [currentPage, setCurrentPage] = useState(1);
@@ -22554,13 +23167,6 @@ export const SupportDocsTable: React.FC = () => {
   };
 
   useEffect(() => {
-    if (editingLinkId && linkInputRef.current) {
-      linkInputRef.current.focus();
-      linkInputRef.current.select();
-    }
-  }, [editingLinkId]);
-
-  useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, filterDocStatus, pageSize]);
 
@@ -22571,7 +23177,7 @@ export const SupportDocsTable: React.FC = () => {
       limit: pageSize,
       search: searchQuery,
       docStatus: filterDocStatus,
-      sortField: sortField || 'feature',
+      sortField: sortField || 'finalRelease',
       sortAsc: sortAsc
     });
     if (res && res.success) {
@@ -22587,7 +23193,7 @@ export const SupportDocsTable: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [loadData, productItems, previewProductId]);
+  }, [loadData, productItems.length, previewProductId]);
 
   const handleSort = (field: keyof ProductItem) => {
     if (sortField === field) {
@@ -22598,11 +23204,87 @@ export const SupportDocsTable: React.FC = () => {
     }
   };
 
-  const handleSaveInlineLink = async (id: string, link: string) => {
-    setItems(prev => prev.map(item => item.id === id ? { ...item, supportDocLink: link } : item));
-    await updateProductItem(id, { supportDocLink: link });
-    loadData();
-  };
+  const sortedItems = useMemo(() => {
+    const list = [...items];
+    const isCompletedStatusHelper = (status?: string) => {
+      if (!status) return false;
+      const s = status.toLowerCase().trim().replace(/\s*\(\d+\)$/, '').trim();
+      return ['delivered', 'completed', 'done', 'closed', 'tested', 'released', 'complete', 'resolved'].includes(s);
+    };
+
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    const getItemTier = (item: ProductItem) => {
+      const hasDoc = getSupportDocs(item).length > 0;
+      const isDone = !!item.finalReleaseCompleted || isCompletedStatusHelper(item.status) || isCompletedStatusHelper(item.clickupStatus);
+      const dateStr = parseDateToYYYYMMDD(item.finalRelease || '');
+
+      // If no release date, goes to bottom tier
+      if (!dateStr) {
+        return { tier: 5, dateStr: '', hasDoc, isDone };
+      }
+
+      const isPast = dateStr < todayStr;
+
+      // Tier 1: Overdue unreleased tasks (deadline passed, not completed)
+      if (isPast && !isDone) {
+        return { tier: 1, dateStr, hasDoc, isDone };
+      }
+
+      // Tier 2: Overdue documentation (release date passed, support doc missing)
+      if (isPast && !hasDoc) {
+        return { tier: 2, dateStr, hasDoc, isDone };
+      }
+
+      // Tier 3: Upcoming with missing docs (releasing soon, needs docs)
+      if (!isPast && !hasDoc) {
+        return { tier: 3, dateStr, hasDoc, isDone };
+      }
+
+      // Tier 4: Has doc added already
+      if (hasDoc) {
+        return { tier: 4, dateStr, hasDoc, isDone };
+      }
+
+      return { tier: 5, dateStr, hasDoc, isDone };
+    };
+
+    if (sortField === 'finalRelease') {
+      list.sort((a, b) => {
+        const metaA = getItemTier(a);
+        const metaB = getItemTier(b);
+
+        if (metaA.tier !== metaB.tier) {
+          return metaA.tier - metaB.tier;
+        }
+
+        if (metaA.tier === 5) {
+          return String(a.feature || '').localeCompare(String(b.feature || ''));
+        }
+
+        const cmp = metaA.dateStr.localeCompare(metaB.dateStr);
+        if (cmp !== 0) {
+          return sortAsc ? cmp : -cmp;
+        }
+
+        return String(a.feature || '').localeCompare(String(b.feature || ''));
+      });
+    } else if (sortField) {
+      list.sort((a, b) => {
+        const hasLinkA = getSupportDocs(a).length > 0;
+        const hasLinkB = getSupportDocs(b).length > 0;
+        if (hasLinkA !== hasLinkB) {
+          return hasLinkA ? 1 : -1;
+        }
+        const valA = String(a[sortField] || '').toLowerCase();
+        const valB = String(b[sortField] || '').toLowerCase();
+        return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      });
+    }
+
+    return list;
+  }, [items, sortField, sortAsc]);
 
   const activePage = Math.min(currentPage, totalPages);
   const startIndex = totalItems === 0 ? 0 : (activePage - 1) * pageSize;
@@ -22720,6 +23402,9 @@ export const SupportDocsTable: React.FC = () => {
                     <th onClick={() => handleSort('finalRelease')} style={{ width: '130px', cursor: 'pointer' }}>
                       Release Date {sortField === 'finalRelease' ? (sortAsc ? '▲' : '▼') : ''}
                     </th>
+                    <th onClick={() => handleSort('notificationSent')} style={{ width: '150px', cursor: 'pointer', textAlign: 'center' }}>
+                      Notification Sent {sortField === 'notificationSent' ? (sortAsc ? '▲' : '▼') : ''}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -22747,19 +23432,20 @@ export const SupportDocsTable: React.FC = () => {
                         <td style={{ padding: '12px 16px' }}>
                           <div className="skeleton-line" style={{ height: '14px', width: '90px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
                         </td>
+                        {/* Notification Sent */}
+                        <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                          <div className="skeleton-line" style={{ height: '18px', width: '60px', margin: '0 auto', borderRadius: '12px', background: 'var(--border)', opacity: 0.35, animation: 'pulse 1.5s infinite ease-in-out' }}></div>
+                        </td>
                       </tr>
                     ))
-                  ) : items.length === 0 ? (
+                  ) : sortedItems.length === 0 ? (
                     <tr>
-                      <td colSpan={5} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                      <td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
                         No support documentation tasks found matching current filters.
                       </td>
                     </tr>
                   ) : (
-                    items.map((item) => {
-                      const isEditingLink = editingLinkId === item.id;
-                      const hasLink = !!item.supportDocLink && item.supportDocLink.trim() !== '';
-
+                    sortedItems.map((item) => {
                       return (
                         <tr 
                           key={item.id}
@@ -22824,148 +23510,148 @@ export const SupportDocsTable: React.FC = () => {
                         </td>
 
                         {/* Support Doc Link */}
-                        <td onClick={(e) => e.stopPropagation()}>
-                          {isEditingLink ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <input
-                                ref={linkInputRef}
-                                type="text"
-                                placeholder="https://docs.google.com/..."
-                                value={inlineLinkValue}
-                                onChange={(e) => setInlineLinkValue(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    const val = inlineLinkValue.trim();
-                                    handleSaveInlineLink(item.id, val);
-                                    setEditingLinkId(null);
-                                  } else if (e.key === 'Escape') {
-                                    e.preventDefault();
-                                    setEditingLinkId(null);
-                                  }
-                                }}
-                                onBlur={() => {
-                                  const val = inlineLinkValue.trim();
-                                  handleSaveInlineLink(item.id, val);
-                                  setEditingLinkId(null);
-                                }}
-                                style={{
-                                  width: '180px',
-                                  padding: '4px 6px',
-                                  fontSize: '0.75rem',
-                                  borderRadius: '6px',
-                                  border: '1.5px solid var(--primary)',
-                                  background: 'var(--background)',
-                                  color: 'var(--text-primary)',
-                                  outline: 'none'
-                                }}
-                              />
-                            </div>
-                          ) : hasLink ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <a
-                                href={item.supportDocLink!.startsWith('http') ? item.supportDocLink : `https://${item.supportDocLink}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: '3px 8px',
-                                  borderRadius: '6px',
-                                  background: 'var(--primary-glow)',
-                                  color: 'var(--primary)',
-                                  border: '1px solid var(--primary-border)',
-                                  fontSize: '0.75rem',
-                                  fontWeight: 650,
-                                  textDecoration: 'none'
-                                }}
-                                title={item.supportDocLink}
-                              >
-                                <FileText size={12} />
-                                <span>Open Document</span>
-                                <ExternalLink size={10} />
-                              </a>
-                              <button
-                                onClick={(e) => handleCopyLink(e, item.id, item.supportDocLink!)}
-                                style={{
-                                  background: copiedLinkId === item.id ? 'rgba(16, 185, 129, 0.15)' : 'none',
-                                  border: copiedLinkId === item.id ? '1px solid #10b981' : 'none',
-                                  borderRadius: '4px',
-                                  cursor: 'pointer',
-                                  color: copiedLinkId === item.id ? '#10b981' : 'var(--text-muted)',
-                                  padding: '3px 5px',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '2px',
-                                  fontSize: '0.7rem',
-                                  transition: 'all 0.15s ease'
-                                }}
-                                title={copiedLinkId === item.id ? "Copied to clipboard!" : "Copy document link"}
-                              >
-                                {copiedLinkId === item.id ? <Check size={12} /> : <Copy size={12} />}
-                                {copiedLinkId === item.id && <span style={{ fontSize: '0.65rem', fontWeight: 600 }}>Copied</span>}
-                              </button>
-                              {canUserEdit && (
-                                <button
-                                  onClick={() => {
-                                    setEditingLinkId(item.id);
-                                    setInlineLinkValue(item.supportDocLink || '');
-                                  }}
-                                  style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    color: 'var(--text-muted)',
-                                    padding: '2px',
-                                    display: 'flex',
-                                    alignItems: 'center'
-                                  }}
-                                  title="Edit document link"
-                                >
-                                  <Edit2 size={11} />
-                                </button>
-                              )}
-                            </div>
-                          ) : (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                padding: '2px 7px',
-                                borderRadius: '6px',
-                                background: 'rgba(239, 68, 68, 0.1)',
-                                color: '#ef4444',
-                                border: '1px solid rgba(239, 68, 68, 0.25)',
-                                fontSize: '0.725rem',
-                                fontWeight: 650
-                              }}>
-                                <AlertCircle size={11} /> Missing Link
-                              </span>
-                              {canUserEdit && (
-                                <button
-                                  onClick={() => {
-                                    setEditingLinkId(item.id);
-                                    setInlineLinkValue('');
-                                  }}
-                                  style={{
-                                    background: 'none',
-                                    border: '1px dashed var(--border)',
+                        <td onClick={(e) => e.stopPropagation()} style={{ minWidth: '220px', maxWidth: '320px' }}>
+                          {(() => {
+                            const docs = getSupportDocs(item);
+                            if (docs.length === 0) {
+                              return (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    padding: '2px 7px',
                                     borderRadius: '6px',
-                                    padding: '2px 6px',
-                                    fontSize: '0.7rem',
-                                    fontWeight: 600,
-                                    color: 'var(--primary)',
-                                    cursor: 'pointer'
-                                  }}
-                                  title="Paste document URL"
-                                >
-                                  + Add Link
-                                </button>
-                              )}
-                            </div>
-                          )}
+                                    background: 'rgba(239, 68, 68, 0.1)',
+                                    color: '#ef4444',
+                                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                                    fontSize: '0.725rem',
+                                    fontWeight: 650
+                                  }}>
+                                    <AlertCircle size={11} /> Missing Link
+                                  </span>
+                                  {canUserEdit && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => handleOpenManageDocsModal(e, item)}
+                                      style={{
+                                        background: 'none',
+                                        border: '1px dashed var(--border)',
+                                        borderRadius: '6px',
+                                        padding: '2px 7px',
+                                        fontSize: '0.7rem',
+                                        fontWeight: 600,
+                                        color: 'var(--primary)',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '3px'
+                                      }}
+                                      title="Add support document"
+                                    >
+                                      <Plus size={11} /> Add Doc
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                                {docs.slice(0, 2).map((doc) => (
+                                  <div key={doc.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                    <a
+                                      href={doc.link.startsWith('http') ? doc.link : `https://${doc.link}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        padding: '3px 7px',
+                                        borderRadius: '6px',
+                                        background: 'var(--primary-glow)',
+                                        color: 'var(--primary)',
+                                        border: '1px solid var(--primary-border)',
+                                        fontSize: '0.725rem',
+                                        fontWeight: 650,
+                                        textDecoration: 'none',
+                                        maxWidth: '135px',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap'
+                                      }}
+                                      title={`${doc.name}: ${doc.link}`}
+                                    >
+                                      <FileText size={11} style={{ flexShrink: 0 }} />
+                                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {doc.name || 'Document'}
+                                      </span>
+                                      <ExternalLink size={9} style={{ flexShrink: 0, opacity: 0.7 }} />
+                                    </a>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => handleCopyLink(e, doc.id, doc.link)}
+                                      style={{
+                                        background: copiedLinkId === doc.id ? 'rgba(16, 185, 129, 0.15)' : 'none',
+                                        border: copiedLinkId === doc.id ? '1px solid #10b981' : 'none',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        color: copiedLinkId === doc.id ? '#10b981' : 'var(--text-muted)',
+                                        padding: '2px 4px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        transition: 'all 0.15s ease'
+                                      }}
+                                      title={copiedLinkId === doc.id ? "Copied!" : `Copy link for ${doc.name}`}
+                                    >
+                                      {copiedLinkId === doc.id ? <Check size={11} /> : <Copy size={11} />}
+                                    </button>
+                                  </div>
+                                ))}
+
+                                {docs.length > 2 && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleOpenManageDocsModal(e, item)}
+                                    style={{
+                                      background: 'var(--background-alt, var(--panel-bg))',
+                                      border: '1px solid var(--border)',
+                                      borderRadius: '4px',
+                                      padding: '2px 6px',
+                                      fontSize: '0.675rem',
+                                      fontWeight: 700,
+                                      color: 'var(--text-secondary)',
+                                      cursor: 'pointer'
+                                    }}
+                                    title="View all documents"
+                                  >
+                                    +{docs.length - 2} more
+                                  </button>
+                                )}
+
+                                {canUserEdit && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleOpenManageDocsModal(e, item)}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      color: 'var(--text-muted)',
+                                      padding: '2px',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      marginLeft: '1px'
+                                    }}
+                                    title="Manage all documents"
+                                  >
+                                    <Edit2 size={11} />
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
 
                         {/* ClickUp Status */}
@@ -22999,6 +23685,39 @@ export const SupportDocsTable: React.FC = () => {
                           ) : (
                             <span style={{ color: 'var(--text-muted)' }}>—</span>
                           )}
+                        </td>
+
+                        {/* Notification Sent Toggle */}
+                        <td onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center', verticalAlign: 'middle', width: '150px' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                            <label 
+                              className="premium-toggle-wrapper" 
+                              style={{ margin: 0, cursor: canUserEdit ? 'pointer' : 'not-allowed' }} 
+                              title={item.notificationSent ? "Release notification email sent to team" : "Release notification email not yet sent"}
+                            >
+                              <input 
+                                type="checkbox" 
+                                className="premium-toggle-checkbox" 
+                                checked={!!item.notificationSent} 
+                                disabled={!canUserEdit}
+                                onChange={async (e) => {
+                                  const newVal = e.target.checked;
+                                  setItems(prev => prev.map(p => p.id === item.id ? { ...p, notificationSent: newVal } : p));
+                                  await updateProductItem(item.id, { notificationSent: newVal });
+                                }} 
+                              />
+                              <span className="premium-toggle-slider" />
+                            </label>
+                            <span style={{
+                              fontSize: '0.7rem',
+                              fontWeight: 650,
+                              color: item.notificationSent ? '#10b981' : 'var(--text-muted)',
+                              minWidth: '46px',
+                              textAlign: 'left'
+                            }}>
+                              {item.notificationSent ? 'Sent' : 'Pending'}
+                            </span>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -23164,6 +23883,17 @@ export const SupportDocsTable: React.FC = () => {
           </>
         )}
       </TabContainer>
+
+      <ManageSupportDocsModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setModalTask(null);
+        }}
+        task={modalTask}
+        onSave={handleSaveDocs}
+        canEdit={canUserEdit}
+      />
     </>
   );
 };

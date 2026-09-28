@@ -31,8 +31,10 @@ const ProductItemSchema = new Schema({
   committedDate: { type: String, default: "" },
   supportDocsRequired: { type: Boolean, default: false },
   supportDocLink: { type: String, default: "" },
+  supportDocs: { type: Array, default: [] },
   conductDemo: { type: Boolean, default: false },
-  demoCohorts: { type: String, default: "" }
+  demoCohorts: { type: String, default: "" },
+  notificationSent: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // 2. PlanItem (Sprint Planning)
@@ -135,8 +137,10 @@ const StudentMeetingSchema = new Schema({
   feedbackFormId: { type: String, default: "" },
   supportDocsRequired: { type: Boolean, default: false },
   supportDocLink: { type: String, default: "" },
+  supportDocs: { type: Array, default: [] },
   conductDemo: { type: Boolean, default: false },
-  demoCohorts: { type: String, default: "" }
+  demoCohorts: { type: String, default: "" },
+  notificationSent: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // 6. AdminCall
@@ -200,8 +204,10 @@ const ContentItemSchema = new Schema({
   committedDate: { type: String, default: "" },
   supportDocsRequired: { type: Boolean, default: false },
   supportDocLink: { type: String, default: "" },
+  supportDocs: { type: Array, default: [] },
   conductDemo: { type: Boolean, default: false },
-  demoCohorts: { type: String, default: "" }
+  demoCohorts: { type: String, default: "" },
+  notificationSent: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // 8. DailyIssue
@@ -236,8 +242,10 @@ const DailyIssueSchema = new Schema({
   committedDate: { type: String, default: "" },
   supportDocsRequired: { type: Boolean, default: false },
   supportDocLink: { type: String, default: "" },
+  supportDocs: { type: Array, default: [] },
   conductDemo: { type: Boolean, default: false },
-  demoCohorts: { type: String, default: "" }
+  demoCohorts: { type: String, default: "" },
+  notificationSent: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // 9. FeatureAdoption

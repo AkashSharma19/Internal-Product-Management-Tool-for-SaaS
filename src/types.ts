@@ -9,6 +9,12 @@ export interface BlockerItem {
   resolvedBy?: string;
 }
 
+export interface SupportDocItem {
+  id: string;
+  name: string;
+  link: string;
+}
+
 export interface ProductItem {
   id: string;
   feature: string;
@@ -40,8 +46,10 @@ export interface ProductItem {
   createdAt?: string;
   supportDocsRequired?: boolean;
   supportDocLink?: string;
+  supportDocs?: SupportDocItem[];
   conductDemo?: boolean;
   demoCohorts?: string;
+  notificationSent?: boolean;
 }
 
 export interface PlanItem {
@@ -202,8 +210,10 @@ export interface ContentItem {
   committedDate?: string;
   supportDocsRequired?: boolean;
   supportDocLink?: string;
+  supportDocs?: SupportDocItem[];
   conductDemo?: boolean;
   demoCohorts?: string;
+  notificationSent?: boolean;
 }
 
 export interface DailyIssue {
@@ -238,8 +248,10 @@ export interface DailyIssue {
   committedDate?: string;
   supportDocsRequired?: boolean;
   supportDocLink?: string;
+  supportDocs?: SupportDocItem[];
   conductDemo?: boolean;
   demoCohorts?: string;
+  notificationSent?: boolean;
 }
 
 export interface FeatureAdoption {

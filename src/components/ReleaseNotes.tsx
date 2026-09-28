@@ -767,51 +767,65 @@ export const ReleaseNotes: React.FC = () => {
                           flexWrap: 'wrap'
                         }}>
                           <span>{f.feature}</span>
-                          {f.supportDocLink && f.supportDocLink.trim() !== '' && (
-                            <a
-                              href={f.supportDocLink.startsWith('http') ? f.supportDocLink : `https://${f.supportDocLink}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              title={`Support Doc: ${f.supportDocLink}`}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '3px',
-                                fontSize: '0.65rem',
-                                fontWeight: 650,
-                                padding: '1px 6px',
-                                borderRadius: '4px',
-                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                color: '#3b82f6',
-                                border: '1px solid rgba(59, 130, 246, 0.25)',
-                                textDecoration: 'none',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease'
-                              }}
-                            >
-                              <BookMarked size={10} /> Doc Added <ExternalLink size={8} style={{ opacity: 0.7 }} />
-                            </a>
-                          )}
-                          {f.supportDocsRequired && (!f.supportDocLink || f.supportDocLink.trim() === '') && (
-                            <span
-                              title="Support docs required but link not provided yet"
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '3px',
-                                fontSize: '0.65rem',
-                                fontWeight: 650,
-                                padding: '1px 6px',
-                                borderRadius: '4px',
-                                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                                color: '#f59e0b',
-                                border: '1px solid rgba(245, 158, 11, 0.25)'
-                              }}
-                            >
-                              Doc Needed
-                            </span>
-                          )}
+                          {(() => {
+                            const docs = Array.isArray(f.supportDocs) && f.supportDocs.length > 0
+                              ? f.supportDocs.filter((d: any) => d && (d.link || d.name)).map((d: any) => ({ id: d.id, name: d.name || 'Doc Added', link: d.link || '' }))
+                              : (f.supportDocLink && f.supportDocLink.trim() !== '' ? [{ id: 'legacy', name: 'Doc Added', link: f.supportDocLink.trim() }] : []);
+
+                            if (docs.length > 0) {
+                              return docs.map((d: any) => (
+                                <a
+                                  key={d.id}
+                                  href={d.link.startsWith('http') ? d.link : `https://${d.link}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  title={`Support Doc: ${d.name} (${d.link})`}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    fontSize: '0.65rem',
+                                    fontWeight: 650,
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                    color: '#3b82f6',
+                                    border: '1px solid rgba(59, 130, 246, 0.25)',
+                                    textDecoration: 'none',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease'
+                                  }}
+                                >
+                                  <BookMarked size={10} /> {d.name} <ExternalLink size={8} style={{ opacity: 0.7 }} />
+                                </a>
+                              ));
+                            }
+
+                            if (f.supportDocsRequired) {
+                              return (
+                                <span
+                                  title="Support docs required but link not provided yet"
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '3px',
+                                    fontSize: '0.65rem',
+                                    fontWeight: 650,
+                                    padding: '1px 6px',
+                                    borderRadius: '4px',
+                                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                                    color: '#f59e0b',
+                                    border: '1px solid rgba(245, 158, 11, 0.25)'
+                                  }}
+                                >
+                                  Doc Needed
+                                </span>
+                              );
+                            }
+
+                            return null;
+                          })()}
                         </span>
                         <span style={{ color: 'var(--text-secondary)', fontSize: '0.7rem' }}>
                           {f.product ? `${f.product} • ` : ''}{f.finalRelease}
