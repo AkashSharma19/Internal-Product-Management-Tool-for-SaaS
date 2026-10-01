@@ -3123,15 +3123,17 @@ h1, h2, h3, h4, h5, h6 {
 /* PROPERTIES DASHBOARD (3 COLUMNS) */
 .premium-properties-dashboard {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.25rem;
   margin-top: 1rem;
   margin-bottom: 1.5rem;
+  min-width: 0;
+  width: 100%;
 }
 
 @media (max-width: 1400px) {
   .premium-properties-dashboard {
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   }
 }
 
@@ -3145,6 +3147,8 @@ h1, h2, h3, h4, h5, h6 {
   gap: 0.85rem;
   box-shadow: var(--shadow-sm);
   transition: all 0.25s ease;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .properties-panel:hover {

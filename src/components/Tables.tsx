@@ -5892,18 +5892,36 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                     borderRadius: '8px',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '0.5rem'
+                    gap: '0.5rem',
+                    minWidth: 0,
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    overflow: 'hidden'
                   }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: 0, fontWeight: 700 }}>
-                        <FileText size={13} style={{ color: 'var(--primary)' }} /> Support Documents ({getSupportDocs(item).length})
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minWidth: 0 }}>
+                      <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: 0, fontWeight: 700, minWidth: 0 }}>
+                        <FileText size={13} style={{ color: 'var(--primary)', flexShrink: 0 }} /> Support Documents
                       </span>
+                      {getSupportDocs(item).length > 0 && (
+                        <span style={{
+                          fontSize: '0.65rem',
+                          fontWeight: 700,
+                          padding: '1px 6px',
+                          borderRadius: '10px',
+                          backgroundColor: 'var(--primary-glow)',
+                          color: 'var(--primary)',
+                          border: '1px solid var(--primary-border)',
+                          flexShrink: 0
+                        }}>
+                          {getSupportDocs(item).length}
+                        </span>
+                      )}
                     </div>
 
                     {/* List of existing docs */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto', minWidth: 0, paddingRight: '2px' }}>
                       {getSupportDocs(item).length === 0 ? (
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '4px 0' }}>
+                        <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '4px 0' }}>
                           No documents added yet. Add one below.
                         </div>
                       ) : (
@@ -5918,10 +5936,14 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                               padding: '5px 8px',
                               background: 'var(--card-bg, var(--panel-bg))',
                               border: '1px solid var(--border-light)',
-                              borderRadius: '6px'
+                              borderRadius: '6px',
+                              minWidth: 0,
+                              width: '100%',
+                              boxSizing: 'border-box'
                             }}
                           >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                              <FileText size={11} style={{ color: 'var(--primary)', flexShrink: 0, opacity: 0.8 }} />
                               <a
                                 href={doc.link.startsWith('http') ? doc.link : `https://${doc.link}`}
                                 target="_blank"
@@ -5929,23 +5951,24 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                                 style={{
                                   display: 'inline-flex',
                                   alignItems: 'center',
-                                  gap: '4px',
+                                  gap: '3px',
                                   color: 'var(--primary)',
                                   textDecoration: 'none',
                                   fontSize: '0.75rem',
                                   fontWeight: 650,
+                                  minWidth: 0,
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap'
                                 }}
                                 title={`${doc.name}: ${doc.link}`}
                               >
-                                <span>{doc.name || 'Document'}</span>
-                                <ExternalLink size={10} style={{ opacity: 0.8 }} />
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name || 'Document'}</span>
+                                <ExternalLink size={10} style={{ opacity: 0.7, flexShrink: 0 }} />
                               </a>
                             </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -5960,9 +5983,12 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                                   border: 'none',
                                   cursor: 'pointer',
                                   color: copiedDocId === doc.id ? '#10b981' : 'var(--text-muted)',
-                                  padding: '2px',
+                                  padding: '3px',
+                                  borderRadius: '4px',
                                   display: 'flex',
-                                  alignItems: 'center'
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'color 0.15s ease'
                                 }}
                                 title={copiedDocId === doc.id ? "Copied!" : "Copy link"}
                               >
@@ -5978,10 +6004,16 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                                     border: 'none',
                                     cursor: 'pointer',
                                     color: '#ef4444',
-                                    padding: '2px',
+                                    padding: '3px',
+                                    borderRadius: '4px',
                                     display: 'flex',
-                                    alignItems: 'center'
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    opacity: 0.8,
+                                    transition: 'opacity 0.15s ease'
                                   }}
+                                  onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                                  onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
                                   title="Delete document"
                                 >
                                   <Trash2 size={12} />
@@ -5995,24 +6027,26 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
                     {/* Add new doc inline */}
                     {canUserEdit && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                          <input
-                            type="text"
-                            placeholder="Name (e.g. User Guide)"
-                            value={newDocName}
-                            onChange={(e) => setNewDocName(e.target.value)}
-                            style={{
-                              flex: '1',
-                              fontSize: '0.75rem',
-                              padding: '4px 6px',
-                              borderRadius: '4px',
-                              border: '1px solid var(--border)',
-                              background: 'var(--background)',
-                              color: 'var(--text-primary)',
-                              outline: 'none'
-                            }}
-                          />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px', paddingTop: '6px', borderTop: '1px solid var(--border-light)', minWidth: 0, width: '100%', boxSizing: 'border-box' }}>
+                        <input
+                          type="text"
+                          placeholder="Document Name (e.g. User Guide)"
+                          value={newDocName}
+                          onChange={(e) => setNewDocName(e.target.value)}
+                          style={{
+                            width: '100%',
+                            minWidth: 0,
+                            boxSizing: 'border-box',
+                            fontSize: '0.725rem',
+                            padding: '5px 8px',
+                            borderRadius: '5px',
+                            border: '1px solid var(--border)',
+                            background: 'var(--background)',
+                            color: 'var(--text-primary)',
+                            outline: 'none'
+                          }}
+                        />
+                        <div style={{ display: 'flex', gap: '4px', width: '100%', minWidth: 0 }}>
                           <input
                             type="text"
                             placeholder="Link (https://...)"
@@ -6025,10 +6059,12 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                               }
                             }}
                             style={{
-                              flex: '2',
-                              fontSize: '0.75rem',
-                              padding: '4px 6px',
-                              borderRadius: '4px',
+                              flex: 1,
+                              minWidth: 0,
+                              boxSizing: 'border-box',
+                              fontSize: '0.725rem',
+                              padding: '5px 8px',
+                              borderRadius: '5px',
                               border: '1px solid var(--border)',
                               background: 'var(--background)',
                               color: 'var(--text-primary)',
@@ -6040,10 +6076,10 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                             onClick={handleAddDocToProduct}
                             disabled={!newDocLink.trim()}
                             style={{
-                              padding: '3px 8px',
+                              padding: '4px 10px',
                               fontSize: '0.7rem',
-                              fontWeight: 600,
-                              borderRadius: '4px',
+                              fontWeight: 650,
+                              borderRadius: '5px',
                               border: '1px solid var(--primary)',
                               background: 'var(--primary)',
                               color: '#fff',
@@ -6051,10 +6087,13 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                               opacity: newDocLink.trim() ? 1 : 0.6,
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: '2px'
+                              justifyContent: 'center',
+                              gap: '2px',
+                              flexShrink: 0,
+                              whiteSpace: 'nowrap'
                             }}
                           >
-                            <Plus size={12} /> Add
+                            <Plus size={11} /> Add
                           </button>
                         </div>
                       </div>
