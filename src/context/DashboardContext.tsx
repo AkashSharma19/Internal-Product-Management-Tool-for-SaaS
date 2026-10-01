@@ -276,7 +276,8 @@ interface DashboardContextType {
 
   // Comments
   comments: any[];
-  addComment: (itemId: string, content: string) => Promise<{ success: boolean; comment?: any; error?: string }>;
+  addComment: (itemId: string, content: string, isBlocker?: boolean) => Promise<{ success: boolean; comment?: any; error?: string }>;
+  deleteComment: (id: string) => Promise<void>;
   lastOpenedMap: Record<string, number>;
   markTaskAsRead: (itemId: string) => void;
 
@@ -3129,7 +3130,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  const addComment = async (itemId: string, content: string) => {
+  const addComment = async (itemId: string, content: string, isBlocker: boolean = false) => {
     if (!currentUser) return { success: false, error: 'User must be signed in to comment' };
     
     const newComment = {
@@ -3137,7 +3138,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       itemId,
       authorName: currentUser.name || currentUser.email || 'Guest',
       authorEmail: currentUser.email || '',
-      content: content.trim()
+      content: content.trim(),
+      isBlocker: !!isBlocker
     };
     
     // Save to server
@@ -3147,6 +3149,11 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setComments(prev => [...prev, newComment]);
     
     return { success: true, comment: newComment };
+  };
+
+  const deleteComment = async (id: string) => {
+    setComments(prev => prev.filter(c => c.id !== id));
+    await persistChange('delete', 'comments', id, null);
   };
 
   const addStickyNote = async (item: StickyNote) => {
@@ -3216,7 +3223,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   return (
     <DashboardContext.Provider value={{
-      comments, addComment, lastOpenedMap, markTaskAsRead,
+      comments, addComment, deleteComment, lastOpenedMap, markTaskAsRead,
       activeTab, setActiveTab,
       releaseNotes, addReleaseNote, updateReleaseNote, deleteReleaseNote,
       productItems, setProductItems, updateProductItem, addProductItem, deleteProductItem,

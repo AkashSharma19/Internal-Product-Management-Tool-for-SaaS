@@ -3695,22 +3695,72 @@ const parseDateToYYYYMMDD = (dateStr: string) => {
 };
 
 
+export interface HighlightedDate {
+  date: string;
+  label?: string;
+  color?: string;
+}
+
 interface CustomDatePickerProps {
   value: string; // "YYYY-MM-DD" or ""
   onChange: (value: string) => void;
   onClose: () => void;
   align?: 'left' | 'right';
+  highlightedDates?: (string | HighlightedDate)[];
 }
 
-export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onChange, onClose, align = 'left' }) => {
-  const initialDate = value ? new Date(value) : new Date();
-  const [currentYear, setCurrentYear] = useState(initialDate.getFullYear());
-  const [currentMonth, setCurrentMonth] = useState(initialDate.getMonth()); // 0-indexed
+export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ 
+  value, 
+  onChange, 
+  onClose, 
+  align = 'left',
+  highlightedDates = []
+}) => {
+  const parsedInitial = parseDateToYYYYMMDD(value);
+  let defaultYear = new Date().getFullYear();
+  let defaultMonth = new Date().getMonth();
+  if (parsedInitial) {
+    const [y, m] = parsedInitial.split('-').map(Number);
+    if (y && m) {
+      defaultYear = y;
+      defaultMonth = m - 1;
+    }
+  }
+
+  const [currentYear, setCurrentYear] = useState(defaultYear);
+  const [currentMonth, setCurrentMonth] = useState(defaultMonth); // 0-indexed
+
+  useEffect(() => {
+    const parsed = parseDateToYYYYMMDD(value);
+    if (parsed) {
+      const [y, m] = parsed.split('-').map(Number);
+      if (y && m) {
+        setCurrentYear(y);
+        setCurrentMonth(m - 1);
+      }
+    }
+  }, [value]);
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
+
+  const normalizedHighlights = useMemo(() => {
+    if (!highlightedDates || highlightedDates.length === 0) return [];
+    return highlightedDates.map(item => {
+      if (typeof item === 'string') {
+        const d = parseDateToYYYYMMDD(item);
+        return { date: d, label: 'Milestone', color: '#6366f1' };
+      }
+      const d = parseDateToYYYYMMDD(item.date);
+      return {
+        date: d,
+        label: item.label || 'Milestone',
+        color: item.color || '#6366f1'
+      };
+    }).filter(h => !!h.date);
+  }, [highlightedDates]);
 
   const getDaysInMonth = (year: number, month: number) => {
     return new Date(year, month + 1, 0).getDate();
@@ -3760,13 +3810,22 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onCha
 
   const isSelected = (day: number) => {
     if (!value) return false;
-    const d = new Date(value);
-    return d.getFullYear() === currentYear && d.getMonth() === currentMonth && d.getDate() === day;
+    const parsed = parseDateToYYYYMMDD(value);
+    if (!parsed) return false;
+    const [y, m, d] = parsed.split('-').map(Number);
+    return y === currentYear && m === (currentMonth + 1) && d === day;
   };
 
   const isToday = (day: number) => {
     const today = new Date();
     return today.getFullYear() === currentYear && today.getMonth() === currentMonth && today.getDate() === day;
+  };
+
+  const getHighlightsForDay = (day: number) => {
+    const paddedMonth = (currentMonth + 1).toString().padStart(2, '0');
+    const paddedDay = day.toString().padStart(2, '0');
+    const dateStr = `${currentYear}-${paddedMonth}-${paddedDay}`;
+    return normalizedHighlights.filter(h => h.date === dateStr);
   };
 
   const calendarRef = useRef<HTMLDivElement>(null);
@@ -3790,28 +3849,30 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onCha
         right: align === 'right' ? 0 : undefined,
         backgroundColor: 'var(--panel-bg)',
         border: '1px solid var(--border-light)',
-        borderRadius: '8px',
+        borderRadius: '10px',
         boxShadow: 'var(--shadow)',
         padding: '12px',
-        width: '240px',
+        width: '260px',
         zIndex: 10005,
-        fontFamily: 'inherit',
+        fontFamily: 'var(--font-family-base)',
         userSelect: 'none'
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
         <button 
+          type="button"
           onClick={prevMonth}
-          style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
+          style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', borderRadius: '4px' }}
         >
           <ChevronLeft size={16} />
         </button>
-        <span style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+        <span style={{ fontWeight: 700, fontSize: '0.825rem', color: 'var(--text-primary)' }}>
           {months[currentMonth]} {currentYear}
         </span>
         <button 
+          type="button"
           onClick={nextMonth}
-          style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
+          style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', borderRadius: '4px' }}
         >
           <ChevronRight size={16} />
         </button>
@@ -3819,7 +3880,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onCha
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', textAlign: 'center', marginBottom: '4px' }}>
         {weekdays.map(day => (
-          <span key={day} style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+          <span key={day} style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)' }}>
             {day}
           </span>
         ))}
@@ -3833,40 +3894,86 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onCha
 
           const selected = isSelected(cell);
           const current = isToday(cell);
+          const dayHighlights = getHighlightsForDay(cell);
+          const hasHighlight = dayHighlights.length > 0;
+          const highlightTooltip = hasHighlight 
+            ? dayHighlights.map(h => `${h.label}: ${h.date}`).join(', ') 
+            : undefined;
+
+          const primaryColor = dayHighlights[0]?.color || 'var(--primary)';
 
           return (
             <div 
               key={`day-${cell}`}
               onClick={() => handleDayClick(cell)}
+              title={highlightTooltip}
               style={{
                 fontSize: '0.75rem',
-                fontWeight: selected ? '700' : '500',
-                padding: '4px 0',
-                borderRadius: '4px',
+                fontWeight: selected || hasHighlight ? '700' : '500',
+                padding: '4px 0 2px 0',
+                borderRadius: '6px',
                 cursor: 'pointer',
-                backgroundColor: selected ? 'var(--primary)' : 'transparent',
-                color: selected ? '#ffffff' : current ? 'var(--accent)' : 'var(--text-primary)',
-                transition: 'background-color 0.15s, color 0.15s',
-                border: current && !selected ? '1px solid var(--accent)' : 'none'
+                backgroundColor: selected 
+                  ? 'var(--primary)' 
+                  : hasHighlight 
+                    ? `${primaryColor}1a` 
+                    : 'transparent',
+                color: selected 
+                  ? '#ffffff' 
+                  : hasHighlight 
+                    ? primaryColor 
+                    : current 
+                      ? 'var(--accent)' 
+                      : 'var(--text-primary)',
+                transition: 'all 0.15s ease',
+                border: selected 
+                  ? 'none' 
+                  : hasHighlight 
+                    ? `1.5px solid ${primaryColor}` 
+                    : current 
+                      ? '1px solid var(--accent)' 
+                      : '1px solid transparent',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+                minHeight: '30px'
               }}
               onMouseEnter={(e) => {
                 if (!selected) {
-                  e.currentTarget.style.backgroundColor = 'var(--background-alt)';
+                  e.currentTarget.style.backgroundColor = hasHighlight ? `${primaryColor}2e` : 'var(--background-alt)';
                 }
               }}
               onMouseLeave={(e) => {
                 if (!selected) {
-                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.backgroundColor = hasHighlight ? `${primaryColor}1a` : 'transparent';
                 }
               }}
             >
-              {cell}
+              <span style={{ lineHeight: 1 }}>{cell}</span>
+              {/* Highlight dot indicator */}
+              <div style={{ display: 'flex', gap: '2px', alignItems: 'center', justifyContent: 'center', height: '4px', marginTop: '2px' }}>
+                {hasHighlight && dayHighlights.slice(0, 3).map((h, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      width: '4px',
+                      height: '4px',
+                      borderRadius: '50%',
+                      backgroundColor: selected ? '#ffffff' : (h.color || 'var(--primary)')
+                    }}
+                  />
+                ))}
+              </div>
             </div>
           );
         })}
       </div>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', borderTop: '1px solid var(--border)', paddingTop: '8px' }}>
         <button 
+          type="button"
           onClick={() => {
             const today = new Date();
             const paddedMonth = (today.getMonth() + 1).toString().padStart(2, '0');
@@ -3889,6 +3996,7 @@ export const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ value, onCha
           Today
         </button>
         <button 
+          type="button"
           onClick={() => {
             onChange('');
             onClose();
@@ -4249,7 +4357,7 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({ value, onChange, produc
 };
 
 export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBack, onUpdate }) => {
-  const { studentProjects, speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser, productItems, contentItems, dailyIssues, studentMeetings, setActiveSubtasksTaskLink, setPreviewProductId, deleteProductItem, comments, addComment, confirm } = useDashboard();
+  const { studentProjects, speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser, productItems, contentItems, dailyIssues, studentMeetings, setActiveSubtasksTaskLink, setPreviewProductId, deleteProductItem, comments, addComment, deleteComment, confirm } = useDashboard();
   const isDailyNeed = activeTab === 'issues' || dailyIssues.some(d => d.id === item.id);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -4429,7 +4537,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     setCommentError('');
     try {
       const commentContent = newCommentText;
-      const res = await addComment(item.id, commentContent);
+      const res = await addComment(item.id, commentContent, postAsBlocker);
       if (res.success) {
         if (postAsBlocker) {
           handleAddBlocker(commentContent);
@@ -4732,6 +4840,17 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   
 
   
+
+  const taskMilestoneHighlights = useMemo((): HighlightedDate[] => {
+    const list: HighlightedDate[] = [];
+    if (item.createdAt) list.push({ date: item.createdAt, label: 'Created', color: '#10b981' });
+    if (item.productDeadline) list.push({ date: item.productDeadline, label: 'Specs', color: '#3b82f6' });
+    if (item.uiux) list.push({ date: item.uiux, label: 'UI/UX', color: '#8b5cf6' });
+    if (item.deadline) list.push({ date: item.deadline, label: 'Dev', color: '#f59e0b' });
+    if (item.finalRelease) list.push({ date: item.finalRelease, label: 'Release', color: '#ec4899' });
+    if (item.committedDate) list.push({ date: item.committedDate, label: 'Committed', color: '#6366f1' });
+    return list;
+  }, [item.createdAt, item.productDeadline, item.uiux, item.deadline, item.finalRelease, item.committedDate]);
 
   const steps = [
     {
@@ -5255,6 +5374,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                             onChange={(date) => handleFieldUpdate(step.label === 'Created' ? 'createdAt' : step.historyField as any, date)}
                             onClose={() => step.setIsEditing(false)}
                             align={idx <= 1 ? 'left' : 'right'}
+                            highlightedDates={taskMilestoneHighlights}
                           />
                         )}
 
@@ -5765,6 +5885,11 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                     </div>
                   </div>
                 </div>
+              </div>
+
+              {/* PANEL 3: Release & Enablement */}
+              <div className="properties-panel">
+                <h4 className="properties-panel-title">Release & Enablement</h4>
 
                 {/* Conduct Demo */}
                 <div className="property-row-flat">
@@ -5805,8 +5930,8 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                 {/* Support Documentation (visible when supportDocsRequired is ON) */}
                 {item.supportDocsRequired && (
                   <div style={{
-                    marginTop: '0.5rem',
-                    marginBottom: '0.75rem',
+                    marginTop: '0.25rem',
+                    marginBottom: '0.25rem',
                     padding: '0.75rem',
                     background: 'var(--background-alt, rgba(255, 255, 255, 0.02))',
                     border: '1px solid var(--border)',
@@ -6380,21 +6505,104 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                         No comments yet on this task.
                       </div>
                     ) : (
-                      taskComments.map((comment: any) => (
-                        <div key={comment.id} className="discussion-message-card">
-                          <div className="discussion-message-header">
-                            <span className="discussion-message-author">
-                              {comment.authorName}
-                            </span>
-                            <span className="discussion-message-time">
-                              {new Date(comment.createdAt).toLocaleDateString('default', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                            </span>
+                      taskComments.map((comment: any) => {
+                        const isBlockerComment = comment.isBlocker || (comment.content && comment.content.toLowerCase().includes('blocker'));
+                        const isAuthor = currentUser && (currentUser.name === comment.authorName || currentUser.email === comment.authorEmail);
+                        return (
+                          <div 
+                            key={comment.id} 
+                            className="discussion-message-card"
+                            style={{
+                              borderLeft: isBlockerComment ? '3px solid #ef4444' : '3px solid var(--primary)',
+                              backgroundColor: isBlockerComment ? 'rgba(239, 68, 68, 0.03)' : 'var(--card-bg, var(--panel-bg))',
+                              fontFamily: 'var(--font-family-base)'
+                            }}
+                          >
+                            <div className="discussion-message-header">
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <div 
+                                  className="clickup-avatar-circle" 
+                                  style={{ 
+                                    backgroundColor: getAssigneeColor(comment.authorName),
+                                    width: '18px',
+                                    height: '18px',
+                                    borderRadius: '50%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '0.6rem',
+                                    fontWeight: 700,
+                                    color: 'white',
+                                    flexShrink: 0
+                                  }}
+                                >
+                                  {getInitials(comment.authorName)}
+                                </div>
+                                <span className="discussion-message-author" style={{ fontFamily: 'var(--font-family-base)', color: 'var(--text-primary)', fontWeight: 650 }}>
+                                  {comment.authorName}
+                                </span>
+                                {isBlockerComment && (
+                                  <span style={{
+                                    fontSize: '0.6rem',
+                                    fontWeight: 700,
+                                    color: '#ef4444',
+                                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                                    borderRadius: '4px',
+                                    padding: '1px 5px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '2px'
+                                  }}>
+                                    <AlertCircle size={9} /> Blocker
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span className="discussion-message-time" style={{ fontFamily: 'var(--font-family-base)', fontSize: '0.675rem' }}>
+                                  {new Date(comment.createdAt).toLocaleDateString('default', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                                {(canUserEdit || isAuthor) && (
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      const ok = await confirm('Delete Comment', 'Are you sure you want to delete this comment?');
+                                      if (ok) {
+                                        deleteComment(comment.id);
+                                      }
+                                    }}
+                                    title="Delete comment"
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      color: 'var(--text-muted)',
+                                      padding: '2px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      opacity: 0.45,
+                                      transition: 'opacity 0.15s, color 0.15s'
+                                    }}
+                                    onMouseEnter={e => {
+                                      e.currentTarget.style.opacity = '1';
+                                      e.currentTarget.style.color = '#ef4444';
+                                    }}
+                                    onMouseLeave={e => {
+                                      e.currentTarget.style.opacity = '0.45';
+                                      e.currentTarget.style.color = 'var(--text-muted)';
+                                    }}
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            <div className="discussion-message-content" style={{ fontFamily: 'var(--font-family-base)', fontSize: '0.8rem', lineHeight: '1.5' }}>
+                              {comment.content}
+                            </div>
                           </div>
-                          <div className="discussion-message-content">
-                            {comment.content}
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     );
                   })()}
                 </div>
