@@ -5729,52 +5729,6 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                   </div>
                 </div>
 
-                {/* Created By */}
-                <div className="property-row-flat">
-                  <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <User size={13} /> Created by
-                  </span>
-                  <div className="premium-property-value">
-                    <div className="premium-select-pill" style={{ paddingLeft: '4px' }}>
-                      {item.createdBy && (
-                        <div 
-                          className="clickup-avatar-circle" 
-                          style={{ 
-                            backgroundColor: getAssigneeColor(item.createdBy),
-                            width: '18px',
-                            height: '18px',
-                            borderRadius: '50%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '0.65rem',
-                            fontWeight: 700,
-                            color: 'white',
-                            flexShrink: 0
-                          }}
-                        >
-                          {getInitials(item.createdBy)}
-                        </div>
-                      )}
-                      <select
-                        value={item.createdBy || ''}
-                        disabled={!canUserEdit}
-                        onChange={(e) => handleFieldUpdate('createdBy', e.target.value)}
-                      >
-                        <option value="">— Select SPOC —</option>
-                        {pocList.map(p => (
-                          <option key={p} value={p}>
-                            {p}
-                          </option>
-                        ))}
-                        {item.createdBy && !pocList.includes(item.createdBy) && (
-                          <option value={item.createdBy}>{item.createdBy}</option>
-                        )}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Blockers */}
                 <div className="property-row-flat">
                   <span className="premium-property-label" style={{ color: activeBlockers.length > 0 ? 'var(--danger)' : 'var(--text-muted)' }}>
@@ -23361,8 +23315,7 @@ export const SupportDocsTable: React.FC = () => {
     previewProductId,
     productItems,
     canUserEdit,
-    fetchSupportDocsData,
-    speakers
+    fetchSupportDocsData
   } = useDashboard();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -23645,9 +23598,6 @@ export const SupportDocsTable: React.FC = () => {
                     <th className="sticky-header-col" onClick={() => handleSort('feature')} style={{ width: '340px', minWidth: '340px', maxWidth: '380px', cursor: 'pointer' }}>
                       Feature / Task {sortField === 'feature' ? (sortAsc ? '▲' : '▼') : ''}
                     </th>
-                    <th onClick={() => handleSort('createdBy')} style={{ width: '150px', cursor: 'pointer' }}>
-                      Created By {sortField === 'createdBy' ? (sortAsc ? '▲' : '▼') : ''}
-                    </th>
                     <th onClick={() => handleSort('poc')} style={{ width: '150px', cursor: 'pointer' }}>
                       Assignee {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}
                     </th>
@@ -23744,84 +23694,6 @@ export const SupportDocsTable: React.FC = () => {
                               )}
                             </div>
                           </div>
-                        </td>
-
-                        {/* Created By Dropdown */}
-                        <td onClick={(e) => e.stopPropagation()} style={{ width: '150px', minWidth: '135px' }}>
-                          {canUserEdit ? (
-                            <div 
-                              style={{ 
-                                display: 'inline-flex', 
-                                alignItems: 'center', 
-                                gap: '6px',
-                                padding: '3px 8px', 
-                                borderRadius: '6px', 
-                                background: item.createdBy ? 'var(--background)' : 'rgba(255, 255, 255, 0.03)',
-                                border: item.createdBy ? '1px solid var(--border)' : '1px dashed var(--border-light)',
-                                width: '100%',
-                                maxWidth: '145px',
-                                transition: 'all 0.15s ease'
-                              }}
-                            >
-                              {item.createdBy && (
-                                <div 
-                                  className="clickup-avatar-circle" 
-                                  style={{ 
-                                    backgroundColor: getAssigneeColor(item.createdBy),
-                                    width: '18px',
-                                    height: '18px',
-                                    borderRadius: '50%',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '0.625rem',
-                                    fontWeight: 700,
-                                    color: 'white',
-                                    flexShrink: 0
-                                  }}
-                                >
-                                  {getInitials(item.createdBy)}
-                                </div>
-                              )}
-                              <select
-                                value={item.createdBy || ''}
-                                onChange={(e) => {
-                                  const newVal = e.target.value;
-                                  setItems(prev => prev.map(it => it.id === item.id ? { ...it, createdBy: newVal } : it));
-                                  updateProductItem(item.id, { createdBy: newVal });
-                                }}
-                                style={{
-                                  width: '100%',
-                                  background: 'transparent',
-                                  border: 'none',
-                                  fontSize: '0.75rem',
-                                  fontWeight: item.createdBy ? 650 : 400,
-                                  color: item.createdBy ? 'var(--text-primary)' : 'var(--text-muted)',
-                                  cursor: 'pointer',
-                                  outline: 'none',
-                                  padding: '2px 0'
-                                }}
-                              >
-                                <option value="">— Select SPOC —</option>
-                                {speakers.map(s => (
-                                  <option key={s.id} value={s.name}>
-                                    {s.name}
-                                  </option>
-                                ))}
-                                {item.createdBy && !speakers.some(s => s.name === item.createdBy) && (
-                                  <option value={item.createdBy}>{item.createdBy}</option>
-                                )}
-                              </select>
-                            </div>
-                          ) : (
-                            item.createdBy ? (
-                              <span style={getPOCBadgeStyle(item.createdBy)}>
-                                {item.createdBy}
-                              </span>
-                            ) : (
-                              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>—</span>
-                            )
-                          )}
                         </td>
 
                         {/* Assignee (Portal POC & ClickUp Assignee) */}
