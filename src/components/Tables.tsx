@@ -4428,6 +4428,24 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const [newDocLink, setNewDocLink] = useState('');
   const [copiedDocId, setCopiedDocId] = useState<string | null>(null);
 
+  const [isChatCollapsed, setIsChatCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('task_drawer_chat_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleChatCollapse = () => {
+    setIsChatCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('task_drawer_chat_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  };
+
   const handleAddDocToProduct = () => {
     const trimmedLink = newDocLink.trim();
     if (!trimmedLink) return;
@@ -4943,7 +4961,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   ];
 
   return (
-    <div className="premium-workspace animate-fade-in" key={item.id} style={{ display: 'flex', flexDirection: 'column', padding: '1.5rem', height: '100%', overflow: 'hidden' }}>
+    <div className="premium-workspace animate-fade-in" key={item.id} style={{ display: 'flex', flexDirection: 'column', padding: '1.5rem', height: '100%', overflow: 'hidden', position: 'relative' }}>
       
       {/* Top Navigation & Breadcrumbs */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem', flexShrink: 0 }}>
@@ -5017,10 +5035,10 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
       </div>
 
       {/* TWO COLUMN CONTENT LAYOUT */}
-      <div style={{ display: 'flex', gap: '1.5rem', flex: 1, minHeight: 0, marginTop: '1rem' }}>
+      <div style={{ display: 'flex', gap: isChatCollapsed ? '0' : '1.5rem', flex: 1, minHeight: 0, marginTop: '1rem', position: 'relative' }}>
         
         {/* LEFT COLUMN: Main details (scrollable) */}
-        <div style={{ flex: '1 1 0%', overflowY: 'auto', paddingRight: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', minWidth: 0 }}>
+        <div style={{ flex: '1 1 0%', overflowY: 'auto', paddingRight: isChatCollapsed ? '0.25rem' : '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', minWidth: 0, transition: 'padding 0.2s ease' }}>
           <div style={{ pointerEvents: canUserEdit ? 'auto' : 'none', opacity: canUserEdit ? 1 : 0.95, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             
             {/* Task Title (Editable) + inline link button */}
@@ -5416,14 +5434,15 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
                 {/* Product Group */}
                 <div className="property-row-flat">
-                  <span className="premium-property-label" style={{ color: !item.product ? '#f97316' : undefined, fontWeight: !item.product ? '700' : undefined }}>
-                    <Layers size={13} style={{ color: !item.product ? '#f97316' : undefined }} /> Product Group
+                  <span className="premium-property-label" style={{ color: !item.product ? '#f97316' : undefined, fontWeight: !item.product ? '700' : undefined, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                    <Layers size={13} style={{ color: !item.product ? '#f97316' : undefined, flexShrink: 0 }} /> Product Group
                   </span>
-                  <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <div className={`premium-select-pill ${!item.product ? 'warning-highlight' : ''}`}>
+                  <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, justifyContent: 'flex-end' }}>
+                    <div className={`premium-select-pill ${!item.product ? 'warning-highlight' : ''}`} style={{ minWidth: 0, maxWidth: '100%' }}>
                       <select
                         value={item.product || ''}
                         onChange={(e) => handleFieldUpdate('product', e.target.value)}
+                        style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: '130px' }}
                       >
                         <option value="">— Select Product Group —</option>
                         {productList.map(p => (
@@ -5435,7 +5454,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                       </select>
                     </div>
                     {!item.product && (
-                      <span className="animate-pulse" style={{ color: '#f97316', fontSize: '0.65rem', fontWeight: 'bold' }}>Required</span>
+                      <span className="animate-pulse" style={{ color: '#f97316', fontSize: '0.65rem', fontWeight: 'bold', whiteSpace: 'nowrap', flexShrink: 0 }}>Required</span>
                     )}
                   </div>
                 </div>
@@ -5476,15 +5495,17 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
                 {/* ClickUp Task Link */}
                 <div className="property-row-flat">
-                  <span className="premium-property-label">
-                    <Link size={13} /> ClickUp Task
+                  <span className="premium-property-label" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+                    <Link size={13} style={{ flexShrink: 0 }} /> ClickUp Task
                   </span>
-                  <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0, flex: 1, justifyContent: 'flex-end' }}>
                     <input
                       type="text"
                       style={{ 
                         color: 'var(--accent)', 
-                        width: '160px', 
+                        minWidth: 0,
+                        maxWidth: '120px',
+                        flex: 1,
                         textAlign: 'right', 
                         fontWeight: 500,
                         textOverflow: 'ellipsis',
@@ -5504,7 +5525,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                       defaultValue={item.taskLink}
                     />
                     {item.taskLink ? (
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', pointerEvents: 'auto', marginLeft: '6px' }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', pointerEvents: 'auto', flexShrink: 0, marginLeft: '2px' }}>
                         <a href={item.taskLink} target="_blank" rel="noreferrer" title="Open ClickUp Task" style={{ display: 'inline-flex', alignItems: 'center' }}>
                           <ExternalLink size={11} style={{ color: 'var(--text-muted)' }} />
                         </a>
@@ -5543,6 +5564,8 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '2px',
+                            flexShrink: 0,
+                            whiteSpace: 'nowrap',
                             transition: 'all 0.15s ease'
                           }}
                           title="Create this task directly on ClickUp"
@@ -5661,12 +5684,12 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
               {/* PANEL 2: Governance & Ownership */}
               <div className="properties-panel">
                 <h4 className="properties-panel-title">Governance & Ownership</h4>
-                
+
                 {/* Assignees */}
                 <div className="property-row-flat">
-                  <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <User size={13} /> assignees
-                    <span title="View Change History" style={{ display: 'inline-flex' }}>
+                  <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                    <User size={13} style={{ flexShrink: 0 }} /> assignees
+                    <span title="View Change History" style={{ display: 'inline-flex', flexShrink: 0 }}>
                       <History 
                         size={12} 
                         style={{ cursor: 'pointer', opacity: 0.6 }} 
@@ -5674,8 +5697,8 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                       />
                     </span>
                   </span>
-                  <div className="premium-property-value">
-                    <div className="premium-select-pill" style={{ paddingLeft: '4px' }}>
+                  <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0, justifyContent: 'flex-end' }}>
+                    <div className="premium-select-pill" style={{ paddingLeft: '4px', minWidth: 0, flexShrink: 1 }}>
                       <div 
                         className="clickup-avatar-circle" 
                         style={{ 
@@ -5697,6 +5720,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                       <select
                         value={item.poc || ''}
                         onChange={(e) => handleFieldUpdate('poc', e.target.value)}
+                        style={{ flex: 1, minWidth: 0, textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}
                       >
                         <option value="">— Select POC —</option>
                         {pocList.map(p => (
@@ -5712,14 +5736,15 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                     {item.poc && (
                       <span 
                         style={{ 
-                          fontSize: '0.65rem', 
-                          marginLeft: '6px', 
+                          fontSize: '0.625rem', 
                           backgroundColor: 'var(--primary-glow)', 
                           border: '1px solid var(--primary-border)', 
                           borderRadius: '10px', 
-                          padding: '2px 8px',
-                          color: 'var(--primary)',
-                          fontWeight: 700
+                          padding: '2px 6px', 
+                          color: 'var(--primary)', 
+                          fontWeight: 700,
+                          whiteSpace: 'nowrap',
+                          flexShrink: 0
                         }}
                         title="Total active tasks managed by this POC"
                       >
@@ -6154,10 +6179,36 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
         </div>
 
         {/* RIGHT COLUMN: Pinned Chat / Discussion sidebar */}
-        <div style={{ width: '380px', flexShrink: 0, height: '100%', minHeight: 0 }}>
-          <div className="premium-discussion-sidebar">
+        <div 
+          style={{ 
+            width: isChatCollapsed ? '0px' : '380px', 
+            minWidth: isChatCollapsed ? '0px' : '340px',
+            flexShrink: 0, 
+            height: '100%', 
+            minHeight: 0,
+            overflow: isChatCollapsed ? 'hidden' : 'visible',
+            opacity: isChatCollapsed ? 0 : 1,
+            pointerEvents: isChatCollapsed ? 'none' : 'auto',
+            transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease',
+            position: 'relative'
+          }}
+        >
+          {/* EXPANDED COLLAPSE TAB HANDLE */}
+          {!isChatCollapsed && (
+            <button
+              type="button"
+              onClick={toggleChatCollapse}
+              className="drawer-chat-toggle-tab expanded"
+              title="Hide Discussion & Comments"
+              aria-label="Hide Discussion & Comments"
+            >
+              <ChevronRight size={13} />
+            </button>
+          )}
+
+          <div className="premium-discussion-sidebar" style={{ width: '100%', height: '100%' }}>
             <div className="discussion-sidebar-header" style={{ flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
-              <div style={{ display: 'flex', gap: '10px', borderBottom: '1px solid var(--border-light)', width: '100%', paddingBottom: '4px' }}>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', borderBottom: '1px solid var(--border-light)', width: '100%', paddingBottom: '4px' }}>
                 <button
                   type="button"
                   onClick={() => setActiveDiscussionTab('local')}
@@ -6226,6 +6277,34 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                   title={!item.taskLink ? "Link a ClickUp task to enable ClickUp Comments" : ""}
                 >
                   ClickUp Comments {item.taskLink && `(${clickupComments.length})`}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={toggleChatCollapse}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--text-muted)',
+                    padding: '3px 5px',
+                    borderRadius: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    marginLeft: 'auto',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'var(--text-primary)';
+                    e.currentTarget.style.backgroundColor = 'var(--panel-bg-alt)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'var(--text-muted)';
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                  title="Hide chat window"
+                >
+                  <ChevronRight size={16} />
                 </button>
               </div>
             </div>
@@ -6738,6 +6817,24 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
           });
         }}
       />
+
+      {/* COLLAPSED EXPAND TAB HANDLE (Pinned flush to the very end of the drawer) */}
+      {isChatCollapsed && (
+        <button
+          type="button"
+          onClick={toggleChatCollapse}
+          className="drawer-chat-toggle-tab collapsed"
+          title="Show Discussion & Comments"
+          aria-label="Show Discussion & Comments"
+        >
+          <ChevronLeft size={16} />
+          {(comments.filter((c: any) => c.itemId === item.id).length > 0 || (item.taskLink && clickupComments.length > 0)) && (
+            <span className="drawer-chat-toggle-badge">
+              {comments.filter((c: any) => c.itemId === item.id).length + (item.taskLink ? clickupComments.length : 0)}
+            </span>
+          )}
+        </button>
+      )}
     </div>
   );
 };
