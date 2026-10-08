@@ -22,6 +22,7 @@ interface RichTextEditorProps {
   canEdit?: boolean;
   featureName?: string;
   itemId?: string;
+  fullPage?: boolean;
 }
 
 const TEXT_COLORS = [
@@ -77,8 +78,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   canEdit = true,
   featureName = '',
   itemId,
+  fullPage = false,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const isDocumentView = isExpanded || fullPage;
   const editorRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const isUpdatingRef = useRef(false);
@@ -150,14 +153,17 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       
       if (isEditingThis) return;
 
-      if (editorRef.current && editorRef.current.innerHTML !== normalizedHtml) {
+      if (!fullPage && editorRef.current && editorRef.current.innerHTML !== normalizedHtml) {
         editorRef.current.innerHTML = normalizedHtml;
       }
       if (canvasRef.current && canvasRef.current.innerHTML !== normalizedHtml) {
         canvasRef.current.innerHTML = normalizedHtml;
       }
+      if (isDocumentView) {
+        extractHeadings();
+      }
     }
-  }, [normalizedHtml]);
+  }, [normalizedHtml, isDocumentView, fullPage]);
 
   // Click outside to close custom popovers
   useEffect(() => {
@@ -292,11 +298,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       }
       window.removeEventListener('resize', updatePositions);
     };
-  }, [activeCell, hoveredCell, isExpanded]);
+  }, [activeCell, hoveredCell, isExpanded, fullPage]);
 
   // Extract headings from DOM to build outline sidebar
   const extractHeadings = () => {
-    const editor = canvasRef.current;
+    const editor = canvasRef.current || (!fullPage ? editorRef.current : null);
     if (!editor) return;
 
     const headingElements = editor.querySelectorAll('h1, h2, h3');
@@ -319,7 +325,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   // Sync content between small and expanded editor when toggling
   const handleToggleExpand = () => {
-    if (!canEdit) return;
+    if (!canEdit || fullPage) return;
     const currentHtml = isExpanded 
       ? (canvasRef.current?.innerHTML || '') 
       : (editorRef.current?.innerHTML || '');
@@ -342,15 +348,15 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     }, 50);
   };
 
-  // Trigger heading updates when opening expanded modal
+  // Trigger heading updates when opening expanded modal or in document view
   useEffect(() => {
-    if (isExpanded) {
+    if (isDocumentView) {
       const timer = setTimeout(() => {
         extractHeadings();
-      }, 100);
+      }, 80);
       return () => clearTimeout(timer);
     }
-  }, [isExpanded]);
+  }, [isDocumentView]);
 
   // Safe handler to bubble changes up to parent
   const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
@@ -359,7 +365,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     const target = e.currentTarget;
     onChange(target.innerHTML);
 
-    if (isExpanded) {
+    if (isDocumentView) {
       extractHeadings();
     }
 
@@ -433,7 +439,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     // Check if selection is inside a table cell (td/th)
     try {
       const selection = window.getSelection();
-      const activeEditor = isExpanded ? canvasRef.current : editorRef.current;
+      const activeEditor = isDocumentView ? canvasRef.current : editorRef.current;
       if (selection && selection.rangeCount > 0 && activeEditor) {
         const range = selection.getRangeAt(0);
         let node: Node | null = range.startContainer;
@@ -592,10 +598,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       selection.collapseToEnd();
       
       // Trigger onChange
-      const activeEditor = isExpanded ? canvasRef.current : editorRef.current;
+      const activeEditor = isDocumentView ? canvasRef.current : editorRef.current;
       if (activeEditor) {
         onChange(activeEditor.innerHTML);
-        if (isExpanded) {
+        if (isDocumentView) {
           extractHeadings();
         }
       }
@@ -607,7 +613,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
     // Capture the current caret position before the modal opens and steals focus,
     // so we can restore it later and insert the table exactly where the user was typing
-    const activeEditor = isExpanded ? canvasRef.current : editorRef.current;
+    const activeEditor = isDocumentView ? canvasRef.current : editorRef.current;
     const selection = window.getSelection();
     if (selection && selection.rangeCount > 0 && activeEditor) {
       const range = selection.getRangeAt(0);
@@ -658,7 +664,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     // Restore the caret to where it was when "Insert Table" was clicked, so the
     // table lands at that spot rather than wherever focus happens to be after the
     // modal closes (which defaulted to the end of the document).
-    const activeEditor = isExpanded ? canvasRef.current : editorRef.current;
+    const activeEditor = isDocumentView ? canvasRef.current : editorRef.current;
     if (savedRangeRef.current && activeEditor) {
       activeEditor.focus();
       const selection = window.getSelection();
@@ -713,10 +719,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   };
 
   const triggerContentChange = () => {
-    const activeEditor = isExpanded ? canvasRef.current : editorRef.current;
+    const activeEditor = isDocumentView ? canvasRef.current : editorRef.current;
     if (activeEditor) {
       onChange(activeEditor.innerHTML);
-      if (isExpanded) {
+      if (isDocumentView) {
         extractHeadings();
       }
     }
@@ -978,7 +984,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     isUpdatingRef.current = true;
     
     // Focus the active editor first
-    const activeEditor = isExpanded ? canvasRef.current : editorRef.current;
+    const activeEditor = isDocumentView ? canvasRef.current : editorRef.current;
     if (activeEditor) {
       activeEditor.focus();
     }
@@ -1074,7 +1080,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     // Trigger change sync
     if (activeEditor) {
       onChange(activeEditor.innerHTML);
-      if (isExpanded) {
+      if (isDocumentView) {
         extractHeadings();
       }
     }
@@ -1468,7 +1474,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           <Table size={14} />
         </button>
 
-        {isInTable && (isInlineToolbar ? !isExpanded : isExpanded) && (
+        {isInTable && (isInlineToolbar ? !isDocumentView : isDocumentView) && (
           <div className="rich-editor-color-wrapper" ref={tableDropdownRef} title="Table Layout" style={{ width: 'auto' }}>
             <button
               type="button"
@@ -1533,7 +1539,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         <div style={{ marginLeft: 'auto' }} />
 
         {/* Keep sharing available from the compact editor without opening the full canvas */}
-        {!isExpanded && itemId && (
+        {!isDocumentView && itemId && (
           <button
             type="button"
             className={`rich-editor-btn rich-editor-copy-link-btn ${copiedLink ? 'success-copied' : ''}`}
@@ -1546,8 +1552,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           </button>
         )}
 
-        {/* Expand / Minimize (Only show when not expanded) */}
-        {!isExpanded && (
+        {/* Expand / Minimize (Only show in compact inline mode) */}
+        {!isDocumentView && (
           <button 
             type="button" 
             className="rich-editor-btn"
@@ -1560,8 +1566,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           </button>
         )}
 
-        {/* Share Button (Only show when expanded and itemId is provided) */}
-        {isExpanded && itemId && (
+        {/* Share Button (Only show in document view and when itemId is provided) */}
+        {isDocumentView && itemId && (
           <button 
             type="button" 
             className={`rich-editor-btn ${copiedLink ? 'success-copied' : ''}`}
@@ -1596,8 +1602,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           </button>
         )}
 
-        {/* Close Button (Only show when expanded on the toolbar to merge header space) */}
-        {isExpanded && (
+        {/* Close Button (Only show when expanded as modal, NOT in fullPage mode) */}
+        {isExpanded && !fullPage && (
           <button 
             type="button" 
             className="rich-editor-btn"
@@ -1614,109 +1620,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   const targetCell = hoveredCell || activeCell;
 
-  return (
+  const renderTableFloatingToolbars = () => (
     <>
-      {/* Standard In-line View */}
-      <div className="rich-editor-container">
-        {renderToolbar(true)}
-        <div
-          ref={editorRef}
-          className="rich-editor-content"
-          contentEditable={canEdit}
-          onInput={handleInput}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          onPaste={handlePaste}
-          onKeyDown={handleKeyDown}
-          onKeyUp={updateActiveStates}
-          onMouseUp={updateActiveStates}
-          onClick={updateActiveStates}
-          data-placeholder={placeholder}
-        />
-      </div>
-
-      {/* Full Canvas Modal (Google Docs style) - Rendered via Portal at body level to bypass drawer stacking contexts */}
-      {isExpanded && createPortal(
-        <div className="google-doc-modal">
-          <div className="google-doc-modal-content">
-            {/* Toolbar fixed at top of modal */}
-            {renderToolbar(false)}
-
-            {/* Google Doc sheet background */}
-            <div className="google-doc-canvas-container">
-              <div className="google-doc-layout">
-                
-                {/* Left Google Docs style outline sidebar */}
-                <div className="google-doc-outline-sidebar">
-                  <div className="google-doc-outline-title">Document Outline</div>
-                  {headings.length > 0 ? (
-                    <ul className="google-doc-outline-list">
-                      {headings.map((h) => (
-                        <li key={h.id}>
-                          <button
-                            type="button"
-                            className={`google-doc-outline-item level-${h.level}`}
-                            onClick={() => scrollToHeading(h.id)}
-                            title={h.text}
-                          >
-                            {h.text}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="google-doc-outline-empty">
-                      Headings you add to the document will appear here.
-                    </div>
-                  )}
-                </div>
-
-                {/* Centered Document Sheet */}
-                <div className="google-doc-canvas-scroll-wrapper">
-                  <div className="google-doc-canvas">
-                    {/* Feature Title Document Header */}
-                    {featureName && (
-                      <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '1.25rem', marginBottom: '1.75rem', userSelect: 'none' }}>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          Feature Document
-                        </span>
-                        <h1 style={{ fontSize: '1.85rem', fontWeight: 800, margin: '0.25rem 0 0 0', color: 'var(--text-primary)', border: 'none', background: 'none', outline: 'none' }}>
-                          {featureName}
-                        </h1>
-                      </div>
-                    )}
-                    {/* Editable Area */}
-                    <div
-                      ref={canvasRef}
-                      className="google-doc-canvas-editor-area"
-                      contentEditable={canEdit}
-                      onInput={handleInput}
-                      onFocus={handleFocus}
-                      onBlur={handleBlur}
-                      onPaste={handlePaste}
-                      onKeyDown={handleKeyDown}
-                      onKeyUp={() => {
-                        updateActiveStates();
-                        extractHeadings();
-                      }}
-                      onMouseUp={updateActiveStates}
-                      onClick={updateActiveStates}
-                      data-placeholder={placeholder}
-                      style={{ outline: 'none', minHeight: '600px' }}
-                    />
-                  </div>
-                </div>
-
-                {/* Right spacer to keep the document canvas perfectly centered in the layout */}
-                <div className="google-doc-layout-spacer" />
-                
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
       {/* Floating Row Toolbar */}
       {canEdit && targetCell && createPortal(
         <div 
@@ -1866,6 +1771,194 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         </div>,
         document.body
       )}
+    </>
+  );
+
+  if (fullPage) {
+    return (
+      <div className="google-doc-fullpage-workspace" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%', overflow: 'hidden' }}>
+        {/* Fixed/Sticky Toolbar at top */}
+        {renderToolbar(false)}
+
+        {/* Google Doc canvas container */}
+        <div className="google-doc-canvas-container" style={{ flex: 1, minHeight: 0, height: '100%', overflow: 'hidden' }}>
+          <div className="google-doc-layout">
+            
+            {/* Left Google Docs style outline sidebar */}
+            <div className="google-doc-outline-sidebar">
+              <div className="google-doc-outline-title">Document Outline</div>
+              {headings.length > 0 ? (
+                <ul className="google-doc-outline-list">
+                  {headings.map((h) => (
+                    <li key={h.id}>
+                      <button
+                        type="button"
+                        className={`google-doc-outline-item level-${h.level}`}
+                        onClick={() => scrollToHeading(h.id)}
+                        title={h.text}
+                      >
+                        {h.text}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="google-doc-outline-empty">
+                  Headings you add to the document will appear here.
+                </div>
+              )}
+            </div>
+
+            {/* Centered Document Sheet */}
+            <div className="google-doc-canvas-scroll-wrapper">
+              <div className="google-doc-canvas">
+                {/* Feature Title Document Header */}
+                {featureName && (
+                  <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '1.25rem', marginBottom: '1.75rem', userSelect: 'none' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Feature Document
+                    </span>
+                    <h1 style={{ fontSize: '1.85rem', fontWeight: 800, margin: '0.25rem 0 0 0', color: 'var(--text-primary)', border: 'none', background: 'none', outline: 'none' }}>
+                      {featureName}
+                    </h1>
+                  </div>
+                )}
+                {/* Editable or Read-Only Canvas Area */}
+                <div
+                  ref={canvasRef}
+                  className="google-doc-canvas-editor-area"
+                  contentEditable={canEdit}
+                  onInput={handleInput}
+                  onFocus={handleFocus}
+                  onBlur={handleBlur}
+                  onPaste={handlePaste}
+                  onKeyDown={handleKeyDown}
+                  onKeyUp={() => {
+                    updateActiveStates();
+                    extractHeadings();
+                  }}
+                  onMouseUp={updateActiveStates}
+                  onClick={updateActiveStates}
+                  data-placeholder={placeholder}
+                  style={{ outline: 'none', minHeight: '600px' }}
+                />
+              </div>
+            </div>
+
+            {/* Right spacer to keep the document canvas centered */}
+            <div className="google-doc-layout-spacer" />
+          </div>
+        </div>
+
+        {renderTableFloatingToolbars()}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Standard In-line View */}
+      <div className="rich-editor-container">
+        {renderToolbar(true)}
+        <div
+          ref={editorRef}
+          className="rich-editor-content"
+          contentEditable={canEdit}
+          onInput={handleInput}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          onPaste={handlePaste}
+          onKeyDown={handleKeyDown}
+          onKeyUp={updateActiveStates}
+          onMouseUp={updateActiveStates}
+          onClick={updateActiveStates}
+          data-placeholder={placeholder}
+        />
+      </div>
+
+      {/* Full Canvas Modal (Google Docs style) - Rendered via Portal at body level to bypass drawer stacking contexts */}
+      {isExpanded && createPortal(
+        <div className="google-doc-modal">
+          <div className="google-doc-modal-content">
+            {/* Toolbar fixed at top of modal */}
+            {renderToolbar(false)}
+
+            {/* Google Doc sheet background */}
+            <div className="google-doc-canvas-container">
+              <div className="google-doc-layout">
+                
+                {/* Left Google Docs style outline sidebar */}
+                <div className="google-doc-outline-sidebar">
+                  <div className="google-doc-outline-title">Document Outline</div>
+                  {headings.length > 0 ? (
+                    <ul className="google-doc-outline-list">
+                      {headings.map((h) => (
+                        <li key={h.id}>
+                          <button
+                            type="button"
+                            className={`google-doc-outline-item level-${h.level}`}
+                            onClick={() => scrollToHeading(h.id)}
+                            title={h.text}
+                          >
+                            {h.text}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="google-doc-outline-empty">
+                      Headings you add to the document will appear here.
+                    </div>
+                  )}
+                </div>
+
+                {/* Centered Document Sheet */}
+                <div className="google-doc-canvas-scroll-wrapper">
+                  <div className="google-doc-canvas">
+                    {/* Feature Title Document Header */}
+                    {featureName && (
+                      <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '1.25rem', marginBottom: '1.75rem', userSelect: 'none' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Feature Document
+                        </span>
+                        <h1 style={{ fontSize: '1.85rem', fontWeight: 800, margin: '0.25rem 0 0 0', color: 'var(--text-primary)', border: 'none', background: 'none', outline: 'none' }}>
+                          {featureName}
+                        </h1>
+                      </div>
+                    )}
+                    {/* Editable Area */}
+                    <div
+                      ref={canvasRef}
+                      className="google-doc-canvas-editor-area"
+                      contentEditable={canEdit}
+                      onInput={handleInput}
+                      onFocus={handleFocus}
+                      onBlur={handleBlur}
+                      onPaste={handlePaste}
+                      onKeyDown={handleKeyDown}
+                      onKeyUp={() => {
+                        updateActiveStates();
+                        extractHeadings();
+                      }}
+                      onMouseUp={updateActiveStates}
+                      onClick={updateActiveStates}
+                      data-placeholder={placeholder}
+                      style={{ outline: 'none', minHeight: '600px' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Right spacer to keep the document canvas perfectly centered in the layout */}
+                <div className="google-doc-layout-spacer" />
+                
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {renderTableFloatingToolbars()}
     </>
   );
 };

@@ -62,7 +62,6 @@ import {
 } from 'lucide-react';
 
 import { isAudioMuted, toggleAudioMute, playPopSound } from './utils/audio';
-import { ensureHtmlDescription } from './utils/text';
 import { RichTextEditor } from './components/RichTextEditor';
 
 const SailboatIcon: React.FC<{ size?: number; className?: string; style?: React.CSSProperties }> = ({ size = 16, className, style }) => {
@@ -925,12 +924,6 @@ const DashboardContent: React.FC = () => {
   }, [activeTab, fetchUnreleasedMeetingCounts]);
 
   // Public document shared link states
-  interface DocumentHeading {
-    id: string;
-    text: string;
-    level: number;
-  }
-
   interface PublicDocData {
     id: string;
     feature: string;
@@ -946,7 +939,6 @@ const DashboardContent: React.FC = () => {
   const [publicDocError, setPublicDocError] = useState<string | null>(null);
   const [isSharedGoogleSigningIn, setIsSharedGoogleSigningIn] = useState(false);
   const [sharedLoginError, setSharedLoginError] = useState<string | null>(null);
-  const [publicDocHeadings, setPublicDocHeadings] = useState<DocumentHeading[]>([]);
 
   // Load public shared document
   useEffect(() => {
@@ -1467,122 +1459,17 @@ const DashboardContent: React.FC = () => {
             </div>
           )}
 
-          {/* Main Layout containing Outline Sidebar and Canvas */}
-          <div className="google-doc-canvas-container" style={{ flex: 1, minHeight: 0, display: 'flex', background: 'var(--panel-bg-alt)', overflow: 'hidden' }}>
-            <div className="google-doc-layout" style={{ display: 'flex', width: '100%', height: '100%', maxWidth: '1600px', margin: '0 auto', gap: '2rem' }}>
-              
-              {/* Outline Sidebar */}
-              <div className="google-doc-outline-sidebar" style={{ width: '240px', flexShrink: 0, borderRight: '1px solid var(--border-light)', padding: '1.5rem 1rem 1.5rem 1.5rem', display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box', overflowY: 'auto' }}>
-                <div className="google-doc-outline-title" style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em', marginBottom: '1rem' }}>Document Outline</div>
-                {publicDocHeadings.length > 0 ? (
-                  <ul className="google-doc-outline-list" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                    {publicDocHeadings.map((h) => (
-                      <li key={h.id} style={{ margin: '0 0 0.5rem 0' }}>
-                        <button
-                          type="button"
-                          className={`google-doc-outline-item level-${h.level}`}
-                          onClick={() => {
-                            const scrollContainer = document.querySelector('.google-doc-canvas-scroll-wrapper');
-                            const el = document.getElementById(h.id);
-                            if (el && scrollContainer) {
-                              const containerRect = scrollContainer.getBoundingClientRect();
-                              const elRect = el.getBoundingClientRect();
-                              const relativeTop = elRect.top - containerRect.top + scrollContainer.scrollTop;
-                              scrollContainer.scrollTo({
-                                top: relativeTop - 20,
-                                behavior: 'smooth'
-                              });
-                            }
-                          }}
-                          style={{
-                            background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left',
-                            fontSize: '0.82rem', color: 'var(--text-secondary)', transition: 'color 0.15s ease',
-                            paddingLeft: h.level === 2 ? '0.75rem' : h.level === 3 ? '1.5rem' : '0',
-                            fontWeight: h.level === 1 ? 600 : 500, lineHeight: 1.4
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.color = 'var(--primary)'}
-                          onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
-                          title={h.text}
-                        >
-                          {h.text}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="google-doc-outline-empty" style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                    No headings detected in this document.
-                  </div>
-                )}
-              </div>
-
-              {/* Centered Document Sheet */}
-              <div className="google-doc-canvas-scroll-wrapper" style={{ flex: 1, overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: '1.5rem 0 3rem 0' }}>
-                <div className="google-doc-canvas-wrapper" style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '816px', alignItems: 'flex-start', boxSizing: 'border-box', padding: '0 1rem' }}>
-                  
-                  {/* Rich Text Editor for POCs, or Pure Read-Only Render for Guests */}
-                  {currentUser && isAuthorizedPoc ? (
-                    <div style={{ width: '100%' }}>
-                      <RichTextEditor
-                        value={publicDoc.description || ''}
-                        itemId={publicDoc.id}
-                        featureName={publicDoc.feature || ''}
-                        onChange={handleUpdatePublicDoc}
-                        placeholder="Feature document is empty..."
-                        canEdit={true}
-                      />
-                    </div>
-                  ) : (
-                    <div className="google-doc-canvas" style={{
-                      backgroundColor: 'var(--panel-bg)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '8px',
-                      boxShadow: 'var(--shadow-md)',
-                      width: '100%',
-                      padding: '2.5rem 3rem',
-                      boxSizing: 'border-box',
-                      minHeight: '600px'
-                    }}>
-                      <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '1.25rem', marginBottom: '1.75rem', userSelect: 'none' }}>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          Feature Document
-                        </span>
-                        <h1 style={{ fontSize: '1.85rem', fontWeight: 800, margin: '0.25rem 0 0 0', color: 'var(--text-primary)', border: 'none', background: 'none' }}>
-                          {publicDoc.feature}
-                        </h1>
-                      </div>
-                      <div 
-                        ref={(el) => {
-                          if (el) {
-                            // Extract headings for outline sidebar
-                            const headingElements = el.querySelectorAll('h1, h2, h3');
-                            const detectedHeadings: DocumentHeading[] = [];
-                            headingElements.forEach((hEl, idx) => {
-                              const uniqueId = `public-heading-ref-${idx}`;
-                              hEl.id = uniqueId;
-                              detectedHeadings.push({
-                                id: uniqueId,
-                                text: hEl.textContent || 'Untitled Heading',
-                                level: parseInt(hEl.tagName.replace('H', ''), 10)
-                              });
-                            });
-                            // Prevent infinite updates
-                            if (JSON.stringify(detectedHeadings) !== JSON.stringify(publicDocHeadings)) {
-                              setPublicDocHeadings(detectedHeadings);
-                            }
-                          }
-                        }}
-                        className="google-doc-canvas-editor-area rich-editor-content"
-                        dangerouslySetInnerHTML={{ __html: ensureHtmlDescription(publicDoc.description) }}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Right spacer */}
-              <div className="google-doc-layout-spacer" style={{ width: '240px', flexShrink: 0 }} />
-            </div>
+          {/* Main Document Workspace */}
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <RichTextEditor
+              value={publicDoc.description || ''}
+              itemId={publicDoc.id}
+              featureName={publicDoc.feature || ''}
+              onChange={handleUpdatePublicDoc}
+              placeholder="Feature document is empty..."
+              canEdit={Boolean(currentUser && isAuthorizedPoc)}
+              fullPage={true}
+            />
           </div>
         </div>
       );
