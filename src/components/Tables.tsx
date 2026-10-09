@@ -17520,8 +17520,8 @@ export const ProductWiseSheet: React.FC = () => {
 // DailyIssueDetailModal is deprecated in favor of unified ProductDetailView
 
 export const IssuesTable: React.FC = () => {
-  const { dailyIssues, addDailyIssue, deleteDailyIssue, statuses, setPreviewProductId, currentUser, confirm, fetchPaginatedMeetingsData } = useDashboard();
-  const [filterType, setFilterType] = useState('All');
+  const { dailyIssues, addDailyIssue, deleteDailyIssue, statuses, setPreviewProductId, previewProductId, currentUser, confirm, fetchPaginatedMeetingsData } = useDashboard();
+  const [subTab, setSubTab] = useState<'Bug' | 'Improvement'>('Bug');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState('All');
   const [filterSuperPriorityOnly, setFilterSuperPriorityOnly] = useState(false);
@@ -17530,6 +17530,38 @@ export const IssuesTable: React.FC = () => {
   const statusOptions = productStatuses.length > 0 ? productStatuses : ['On Hold', 'In Progress', 'Ongoing', 'Completed'];
   const [sortField, setSortField] = useState<keyof DailyIssue | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
+
+  // Fallback calculations from loaded dailyIssues context
+  const dailyNeedsList = useMemo(() => {
+    return dailyIssues.filter(item => 
+      !['Feature Gap', 'Enhancement', 'BUG', 'New Feature', 'Data Needed', 'Term Report/ Transcript'].includes(item.type || '')
+    );
+  }, [dailyIssues]);
+
+  const bugsList = useMemo(() => {
+    return dailyNeedsList.filter(item => item.type !== 'Improvement');
+  }, [dailyNeedsList]);
+
+  const improvementsList = useMemo(() => {
+    return dailyNeedsList.filter(item => item.type === 'Improvement');
+  }, [dailyNeedsList]);
+
+  const fallbackTotalBugs = bugsList.length;
+  const fallbackCompletedBugs = bugsList.filter(b => !!b.finalReleaseCompleted).length;
+  const fallbackTotalImprovements = improvementsList.length;
+  const fallbackCompletedImprovements = improvementsList.filter(i => !!i.finalReleaseCompleted).length;
+
+  const [serverCounts, setServerCounts] = useState<{
+    totalBugs?: number;
+    completedBugs?: number;
+    totalImprovements?: number;
+    completedImprovements?: number;
+  }>({});
+
+  const displayTotalBugs = serverCounts.totalBugs ?? fallbackTotalBugs;
+  const displayCompletedBugs = serverCounts.completedBugs ?? fallbackCompletedBugs;
+  const displayTotalImprovements = serverCounts.totalImprovements ?? fallbackTotalImprovements;
+  const displayCompletedImprovements = serverCounts.completedImprovements ?? fallbackCompletedImprovements;
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -17541,44 +17573,88 @@ export const IssuesTable: React.FC = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterPriority, filterSuperPriorityOnly, filterStatuses, filterType]);
+  }, [searchQuery, filterPriority, filterSuperPriorityOnly, filterStatuses, subTab]);
 
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      setIsFetching(true);
-      const res = await fetchPaginatedMeetingsData({
-        type: 'dailyIssues',
-        page: currentPage,
-        limit: pageSize,
-        search: searchQuery,
-        superPriority: filterSuperPriorityOnly,
-        priority: filterPriority !== 'All' ? filterPriority : undefined,
-        statuses: filterStatuses,
-        sortField: sortField || undefined,
-        sortAsc: sortAsc
-      });
-      if (active) {
-        if (res.success) {
-          let items = res.data || [];
-          if (filterType !== 'All') {
-            items = items.filter((item: DailyIssue) => {
-              const isImprovement = item.type === 'Improvement';
-              return filterType === 'Improvement' ? isImprovement : !isImprovement;
-            });
-          }
-          setPaginatedIssues(items);
-          setTotalItems(res.totalItems);
-          setCompletedItems(res.completedItems || 0);
-          setTotalPages(res.totalPages);
-        }
-        setIsFetching(false);
+  const loadData = useCallback(async () => {
+    setIsFetching(true);
+    const res = await fetchPaginatedMeetingsData({
+      type: 'dailyIssues',
+      page: currentPage,
+      limit: pageSize,
+      search: searchQuery,
+      superPriority: filterSuperPriorityOnly,
+      priority: filterPriority !== 'All' ? filterPriority : undefined,
+      statuses: filterStatuses,
+      sortField: sortField || undefined,
+      sortAsc: sortAsc,
+      issueType: subTab
+    });
+
+    if (res && res.success) {
+      if (res.totalBugs !== undefined) {
+        setServerCounts({
+          totalBugs: res.totalBugs,
+          completedBugs: res.completedBugs,
+          totalImprovements: res.totalImprovements,
+          completedImprovements: res.completedImprovements
+        });
       }
-    };
-    load();
-    return () => {
-      active = false;
-    };
+
+      // Detect if server properly filtered by subTab:
+      const isServerFiltered = res.data && res.data.length > 0
+        ? res.data.every((item: DailyIssue) => subTab === 'Improvement' ? item.type === 'Improvement' : item.type !== 'Improvement')
+        : (res.totalBugs !== undefined);
+
+      if (isServerFiltered && res.totalBugs !== undefined) {
+        setPaginatedIssues(res.data || []);
+        setTotalItems(res.totalItems || 0);
+        setCompletedItems(res.completedItems || 0);
+        setTotalPages(res.totalPages || 1);
+      } else {
+        // Resilient fallback if local Node process was not yet restarted
+        const baseList = subTab === 'Improvement' ? improvementsList : bugsList;
+        const filtered = baseList.filter(item => {
+          if (filterPriority !== 'All' && item.priority !== filterPriority) return false;
+          if (filterSuperPriorityOnly && !item.raisedByTarunSir) return false;
+          if (filterStatuses.length > 0 && !filterStatuses.includes(item.status || '')) return false;
+          if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase().trim();
+            const matches =
+              (item.module || '').toLowerCase().includes(q) ||
+              (item.poc || item.contact || '').toLowerCase().includes(q) ||
+              (item.notes || item.issues || '').toLowerCase().includes(q) ||
+              (item.product || '').toLowerCase().includes(q);
+            if (!matches) return false;
+          }
+          return true;
+        });
+
+        const sorted = [...filtered].sort((a, b) => {
+          const aComp = !!a.finalReleaseCompleted;
+          const bComp = !!b.finalReleaseCompleted;
+          if (aComp !== bComp) return aComp ? 1 : -1;
+          if (sortField) {
+            const valA = String(a[sortField] || '').toLowerCase();
+            const valB = String(b[sortField] || '').toLowerCase();
+            return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+          }
+          return 0;
+        });
+
+        const total = sorted.length;
+        const pages = Math.ceil(total / pageSize) || 1;
+        const activeP = Math.min(Math.max(1, currentPage), pages);
+        const start = (activeP - 1) * pageSize;
+        const pData = sorted.slice(start, start + pageSize);
+        const completed = sorted.filter(item => !!item.finalReleaseCompleted).length;
+
+        setPaginatedIssues(pData);
+        setTotalItems(total);
+        setCompletedItems(completed);
+        setTotalPages(pages);
+      }
+    }
+    setIsFetching(false);
   }, [
     currentPage,
     pageSize,
@@ -17586,14 +17662,25 @@ export const IssuesTable: React.FC = () => {
     filterPriority,
     filterSuperPriorityOnly,
     filterStatuses,
-    filterType,
+    subTab,
     sortField,
     sortAsc,
-    dailyIssues,
-    fetchPaginatedMeetingsData
+    fetchPaginatedMeetingsData,
+    improvementsList,
+    bugsList
   ]);
 
-  const activePage = Math.min(currentPage, totalPages);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    if (!previewProductId) {
+      loadData();
+    }
+  }, [previewProductId, loadData]);
+
+  const activePage = Math.min(Math.max(1, currentPage), totalPages);
   const startIndex = totalItems === 0 ? 0 : (activePage - 1) * pageSize;
   const endIndex = Math.min(startIndex + pageSize, totalItems);
 
@@ -17606,14 +17693,14 @@ export const IssuesTable: React.FC = () => {
     }
   };
 
-  const handleAddNew = () => {
-    const newId = String(Math.max(...dailyIssues.map(i => parseInt(i.id) || 0), 0) + 1);
+  const handleAddNew = async () => {
+    const newId = String(Date.now());
     const newItem: DailyIssue = {
       id: newId,
       cohort: '',
       product: '',
-      module: 'New Daily Need',
-      type: 'Bug',
+      module: `New ${subTab === 'Improvement' ? 'Improvement' : 'Bug'}`,
+      type: subTab === 'Improvement' ? 'Improvement' : 'Bug',
       issues: '',
       contact: '',
       priority: '',
@@ -17631,24 +17718,13 @@ export const IssuesTable: React.FC = () => {
       tarunSirApproval: false,
       createdAt: new Date().toISOString()
     };
-    addDailyIssue(newItem);
+    await addDailyIssue(newItem);
     setSearchQuery('');
     setSortField(null);
+    loadData();
     setTimeout(() => {
       setPreviewProductId(newItem.id);
     }, 50);
-  };
-
-  const renderTextCell = (item: DailyIssue, field: keyof DailyIssue, fallback = '—') => {
-    const val = String(item[field] || fallback);
-    if (field === 'poc' && item[field]) {
-      return (
-        <span style={getPOCBadgeStyle(String(item[field]))}>
-          {val}
-        </span>
-      );
-    }
-    return <span>{val}</span>;
   };
 
   const renderDateCell = (item: DailyIssue, field: keyof DailyIssue, previousFields?: (keyof DailyIssue)[]) => {
@@ -17675,8 +17751,6 @@ export const IssuesTable: React.FC = () => {
   };
 
   const renderRow = (item: DailyIssue) => {
-    const isImprovement = item.type === 'Improvement';
-    const typeLabel = isImprovement ? 'Improvement' : 'Bug';
     return (
       <tr 
         key={item.id} 
@@ -17686,49 +17760,66 @@ export const IssuesTable: React.FC = () => {
       >
         <td
           className="sticky-col"
-          style={{ fontWeight: 600, width: '280px', minWidth: '280px', maxWidth: '280px', whiteSpace: 'normal' }}
+          style={{ fontWeight: 600, width: '300px', minWidth: '300px', maxWidth: '300px', whiteSpace: 'normal' }}
         >
           <div style={{ lineHeight: '1.4', wordBreak: 'break-word' }}>
-            <span>
-              {item.module || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
-            </span>
-            <span style={{
-              backgroundColor: isImprovement ? 'rgba(59, 130, 246, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-              color: isImprovement ? '#2563eb' : '#dc2626',
-              border: `1px solid ${isImprovement ? 'rgba(59, 130, 246, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-              padding: '1px 6px',
-              fontSize: '0.65rem',
-              borderRadius: '4px',
-              fontWeight: 650,
-              display: 'inline-flex',
-              alignItems: 'center',
-              verticalAlign: 'middle',
-              marginLeft: '6px',
-              whiteSpace: 'nowrap'
-            }}>
-              {typeLabel}
-            </span>
-            {item.priority && (
-              <span className={`badge badge-${item.priority.toLowerCase()}`} style={{ marginLeft: '6px', padding: '1px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', fontWeight: 650, whiteSpace: 'nowrap' }}>
-                {item.priority}
-              </span>
+            {item.product && (
+              <div style={{
+                fontSize: '0.68rem',
+                color: 'var(--text-secondary)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                fontWeight: 700,
+                marginBottom: '2px'
+              }}>
+                {item.product}
+              </div>
             )}
-            {item.raisedByTarunSir && (
-              <span className="badge-super-priority" style={{ marginLeft: '6px', padding: '1px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', gap: '2px', whiteSpace: 'nowrap' }}>
-                <Star size={10} fill="currentColor" /> Super Priority
+            <div>
+              <span>
+                {item.module || <span style={{ color: 'var(--text-muted)' }}>— (No title)</span>}
               </span>
-            )}
-            {item.tarunSirApproval && (
-              <span className="badge-verified" style={{ marginLeft: '6px', padding: '1px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', gap: '2px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', fontWeight: 650, whiteSpace: 'nowrap' }}>
-                <CheckCircle size={10} /> Verified
-              </span>
-            )}
+              {item.priority && (
+                <span className={`badge badge-${item.priority.toLowerCase()}`} style={{ marginLeft: '6px', padding: '1px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', fontWeight: 650, whiteSpace: 'nowrap' }}>
+                  {item.priority}
+                </span>
+              )}
+              {item.raisedByTarunSir && (
+                <span className="badge-super-priority" style={{ marginLeft: '6px', padding: '1px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', gap: '2px', whiteSpace: 'nowrap' }}>
+                  <Star size={10} fill="currentColor" /> Super Priority
+                </span>
+              )}
+              {item.tarunSirApproval && (
+                <span className="badge-verified" style={{ marginLeft: '6px', padding: '1px 6px', fontSize: '0.65rem', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', gap: '2px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.2)', fontWeight: 650, whiteSpace: 'nowrap' }}>
+                  <CheckCircle size={10} /> Verified
+                </span>
+              )}
+            </div>
           </div>
         </td>
         <td>
-          {item.product || '—'}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+            {item.poc ? (
+              <span style={{ ...getPOCBadgeStyle(item.poc) }}>
+                {item.poc}
+              </span>
+            ) : item.contact ? (
+              <span style={{ ...getPOCBadgeStyle(item.contact) }}>
+                {item.contact}
+              </span>
+            ) : '—'}
+            {item.clickupAssignee && (
+              <div className="cu-tooltip-container">
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>
+                  CU: {formatClickupAssignee(item.clickupAssignee)}
+                </span>
+                <span className="cu-tooltip-text">
+                  {item.clickupAssignee.split(',').map(s => s.trim()).join('\n')}
+                </span>
+              </div>
+            )}
+          </div>
         </td>
-        <td style={{ fontWeight: 500 }}>{renderTextCell(item, 'poc', item.contact || '—')}</td>
         <td>
           {item.status ? (() => {
             const matched = statuses.find(s => s.label === item.status);
@@ -17780,7 +17871,8 @@ export const IssuesTable: React.FC = () => {
             onClick={async (e) => {
               e.stopPropagation();
               if (await confirm("Are you sure you want to delete this daily need?", "Delete Daily Need")) {
-                deleteDailyIssue(item.id);
+                await deleteDailyIssue(item.id);
+                loadData();
               }
             }} 
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center' }}
@@ -17798,14 +17890,9 @@ export const IssuesTable: React.FC = () => {
       searchQuery={searchQuery}
       setSearchQuery={setSearchQuery}
       onAddClick={handleAddNew}
-      addLabel="Add Need"
+      addLabel={subTab === 'Improvement' ? 'Add Improvement' : 'Add Bug'}
       filterComponent={
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <select className="filter-select" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-            <option value="All">All Types</option>
-            <option value="Bug">Bug</option>
-            <option value="Improvement">Improvement</option>
-          </select>
           <select className="filter-select" value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)}>
             <option value="All">All Priorities</option>
             <option value="P0">P0 (Critical)</option>
@@ -17834,12 +17921,84 @@ export const IssuesTable: React.FC = () => {
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', flex: 1, minHeight: 0, minWidth: 0, width: '100%' }}>
+        {/* SUB-TABS ROW: Bug & Improvement with counts like 3/10 */}
+        <div style={{ 
+          display: 'flex', 
+          borderBottom: '1px solid var(--border)', 
+          padding: '0.25rem 1.5rem 0 1.5rem', 
+          background: 'var(--panel-bg)', 
+          gap: '1.5rem' 
+        }}>
+          <button
+            type="button"
+            onClick={() => setSubTab('Bug')}
+            style={{
+              padding: '0.75rem 0.5rem',
+              border: 'none',
+              background: 'none',
+              borderBottom: subTab === 'Bug' ? '2px solid var(--primary)' : '2px solid transparent',
+              color: subTab === 'Bug' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontWeight: 650,
+              fontSize: '0.875rem',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              outline: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>Bug</span>
+            <span style={{
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              padding: '1px 7px',
+              borderRadius: '10px',
+              backgroundColor: subTab === 'Bug' ? 'rgba(239, 68, 68, 0.12)' : 'var(--background-alt)',
+              color: subTab === 'Bug' ? '#ef4444' : 'var(--text-muted)',
+              border: `1px solid ${subTab === 'Bug' ? 'rgba(239, 68, 68, 0.25)' : 'var(--border)'}`
+            }}>
+              {displayCompletedBugs}/{displayTotalBugs}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSubTab('Improvement')}
+            style={{
+              padding: '0.75rem 0.5rem',
+              border: 'none',
+              background: 'none',
+              borderBottom: subTab === 'Improvement' ? '2px solid var(--primary)' : '2px solid transparent',
+              color: subTab === 'Improvement' ? 'var(--text-primary)' : 'var(--text-secondary)',
+              fontWeight: 650,
+              fontSize: '0.875rem',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              outline: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>Improvement</span>
+            <span style={{
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              padding: '1px 7px',
+              borderRadius: '10px',
+              backgroundColor: subTab === 'Improvement' ? 'rgba(59, 130, 246, 0.12)' : 'var(--background-alt)',
+              color: subTab === 'Improvement' ? '#2563eb' : 'var(--text-muted)',
+              border: `1px solid ${subTab === 'Improvement' ? 'rgba(59, 130, 246, 0.25)' : 'var(--border)'}`
+            }}>
+              {displayCompletedImprovements}/{displayTotalImprovements}
+            </span>
+          </button>
+        </div>
         <div className="table-responsive" style={{ flex: 1, overflow: 'auto' }}>
           <table className="grid-table">
             <thead>
               <tr>
-                <th className="sticky-header-col" onClick={() => handleSort('module')} style={{ width: '280px', minWidth: '280px', maxWidth: '280px', cursor: 'pointer' }}>Feature {sortField === 'module' ? (sortAsc ? '▲' : '▼') : ''}</th>
-                <th onClick={() => handleSort('product')} style={{ cursor: 'pointer' }}>Product Group {sortField === 'product' ? (sortAsc ? '▲' : '▼') : ''}</th>
+                <th className="sticky-header-col" onClick={() => handleSort('module')} style={{ width: '300px', minWidth: '300px', maxWidth: '300px', cursor: 'pointer' }}>Feature {sortField === 'module' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('poc')} style={{ cursor: 'pointer' }}>POC Owner {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('status')} style={{ cursor: 'pointer' }}>Status {sortField === 'status' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('clickupStatus')} style={{ cursor: 'pointer' }}>Clickup {sortField === 'clickupStatus' ? (sortAsc ? '▲' : '▼') : ''}</th>
@@ -17856,7 +18015,6 @@ export const IssuesTable: React.FC = () => {
                   <tr key={`skeleton-${idx}`} style={{ height: '56px' }}>
                     <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '90%', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
                     <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '90px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
-                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '80px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
                     <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '20px', width: '80px', borderRadius: '12px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
                     <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '60px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
                     <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
@@ -17868,8 +18026,8 @@ export const IssuesTable: React.FC = () => {
                 ))
               ) : paginatedIssues.length === 0 ? (
                 <tr>
-                  <td colSpan={10} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                    No active issues logged.
+                  <td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                    No active {subTab === 'Improvement' ? 'improvements' : 'bugs'} logged.
                   </td>
                 </tr>
               ) : (

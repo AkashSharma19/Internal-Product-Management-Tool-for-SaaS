@@ -382,7 +382,18 @@ interface DashboardContextType {
     cohorts?: string[];
     blockersOnly?: boolean;
     requestType?: 'BUG' | 'FEATURE';
-  }) => Promise<{ success: boolean; data: any[]; totalItems: number; totalPages: number; completedItems?: number }>;
+    issueType?: 'Bug' | 'Improvement' | 'All';
+  }) => Promise<{ 
+    success: boolean; 
+    data: any[]; 
+    totalItems: number; 
+    totalPages: number; 
+    completedItems?: number;
+    totalBugs?: number;
+    completedBugs?: number;
+    totalImprovements?: number;
+    completedImprovements?: number;
+  }>;
   searchGlobalTasks: (query: string) => Promise<{ success: boolean; data: any[] }>;
   highlightedCallId: string | null;
   setHighlightedCallId: (id: string | null) => void;
@@ -1569,6 +1580,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     cohorts?: string[];
     blockersOnly?: boolean;
     requestType?: 'BUG' | 'FEATURE';
+    issueType?: 'Bug' | 'Improvement' | 'All';
   }) => {
     setSyncStatus('syncing');
     try {
@@ -1604,6 +1616,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
       if (options.requestType) {
         params.append('requestType', options.requestType);
+      }
+      if (options.issueType) {
+        params.append('issueType', options.issueType);
       }
       if (options.sortField) params.append('sortField', options.sortField);
       if (options.sortAsc !== undefined) params.append('sortAsc', String(options.sortAsc));

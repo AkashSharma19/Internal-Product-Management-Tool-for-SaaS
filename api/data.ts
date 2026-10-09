@@ -3144,54 +3144,83 @@ export default async function handler(req: any, res: any) {
           }
 
           if (type === 'dailyIssues') {
-            const rawIssues = await modelsMap['dailyIssues'].find({}).lean();
             const filterStatuses = statusesParam ? statusesParam.split(',') : [];
             const filterPocs = pocsParam ? pocsParam.split(',') : [];
             const priorityParam = url.searchParams.get('priority') || '';
+            const issueTypeParam = url.searchParams.get('issueType') || '';
 
-            const filtered = rawIssues.filter((item: any) => {
-              if (['Feature Gap', 'Enhancement', 'BUG', 'New Feature', 'Data Needed', 'Term Report/ Transcript'].includes(item.type)) return false;
+            const excludedTypes = ['Feature Gap', 'Enhancement', 'BUG', 'New Feature', 'Data Needed', 'Term Report/ Transcript'];
+            const bugTypeFilter = { $nin: [...excludedTypes, 'Improvement'] };
 
-              if (priorityParam && priorityParam !== 'All') {
-                if (item.priority !== priorityParam) return false;
-              }
+            // Query total counts for Bug and Improvement sub-tabs
+            const [totalBugs, completedBugs, totalImprovements, completedImprovements] = await Promise.all([
+              modelsMap['dailyIssues'].countDocuments({ type: bugTypeFilter }),
+              modelsMap['dailyIssues'].countDocuments({ type: bugTypeFilter, finalReleaseCompleted: true }),
+              modelsMap['dailyIssues'].countDocuments({ type: 'Improvement' }),
+              modelsMap['dailyIssues'].countDocuments({ type: 'Improvement', finalReleaseCompleted: true })
+            ]);
 
-              if (filterStatuses.length > 0 && !filterStatuses.includes(item.status || '')) return false;
-              if (filterPocs.length > 0 && !filterPocs.includes(item.poc || '')) return false;
-              if (superPriority && !item.raisedByTarunSir) return false;
+            // Construct filter query for the requested page
+            const filterQuery: any = {};
+            if (issueTypeParam === 'Improvement') {
+              filterQuery.type = 'Improvement';
+            } else if (issueTypeParam === 'Bug') {
+              filterQuery.type = bugTypeFilter;
+            } else {
+              filterQuery.type = { $nin: excludedTypes };
+            }
 
-              if (search) {
-                const matchesSearch =
-                  (item.module || '').toLowerCase().includes(search) ||
-                  (item.poc || item.contact || '').toLowerCase().includes(search) ||
-                  (item.notes || item.issues || '').toLowerCase().includes(search) ||
-                  (item.product || '').toLowerCase().includes(search);
-                if (!matchesSearch) return false;
-              }
+            if (priorityParam && priorityParam !== 'All') {
+              filterQuery.priority = priorityParam;
+            }
 
-              return true;
-            });
+            if (filterStatuses.length > 0) {
+              filterQuery.status = { $in: filterStatuses };
+            }
 
-            const sorted = [...filtered];
-            sorted.sort((a: any, b: any) => {
-              const aComp = !!a.finalReleaseCompleted;
-              const bComp = !!b.finalReleaseCompleted;
-              if (aComp !== bComp) return aComp ? 1 : -1;
+            if (filterPocs.length > 0) {
+              filterQuery.poc = { $in: filterPocs };
+            }
 
-              if (sortField) {
-                const valA = String(a[sortField] || '').toLowerCase();
-                const valB = String(b[sortField] || '').toLowerCase();
-                return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-              }
-              return 0;
-            });
+            if (superPriority) {
+              filterQuery.raisedByTarunSir = true;
+            }
 
-            const totalItems = sorted.length;
+            if (search) {
+              const searchRegex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+              filterQuery.$or = [
+                { module: searchRegex },
+                { poc: searchRegex },
+                { contact: searchRegex },
+                { notes: searchRegex },
+                { issues: searchRegex },
+                { product: searchRegex }
+              ];
+            }
+
+            const [totalItems, completedItems] = await Promise.all([
+              modelsMap['dailyIssues'].countDocuments(filterQuery),
+              modelsMap['dailyIssues'].countDocuments({ ...filterQuery, finalReleaseCompleted: true })
+            ]);
+
             const totalPages = Math.ceil(totalItems / limit) || 1;
-            const activePage = Math.min(page, totalPages);
-            const startIndex = (activePage - 1) * limit;
-            const paginatedData = sorted.slice(startIndex, startIndex + limit);
-            const completedItems = sorted.filter((item: any) => !!item.finalReleaseCompleted).length;
+            const activePage = Math.min(Math.max(1, page), totalPages);
+            const skip = (activePage - 1) * limit;
+
+            const sortObj: any = { finalReleaseCompleted: 1 };
+            if (sortField) {
+              sortObj[sortField] = sortAsc ? 1 : -1;
+            } else {
+              sortObj.createdAt = -1;
+            }
+
+            // Only fetch the specific page items directly from MongoDB
+            const paginatedData = await modelsMap['dailyIssues']
+              .find(filterQuery)
+              .sort(sortObj)
+              .skip(skip)
+              .limit(limit)
+              .lean();
 
             return res.status(200).json({
               success: true,
@@ -3199,7 +3228,11 @@ export default async function handler(req: any, res: any) {
               totalItems,
               totalPages,
               page: activePage,
-              completedItems
+              completedItems,
+              totalBugs,
+              completedBugs,
+              totalImprovements,
+              completedImprovements
             });
           }
 
