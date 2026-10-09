@@ -4209,21 +4209,41 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({ value, onChange, produc
     if (!status) return '#6b7280';
     const s = status.trim().toLowerCase();
     
-    // Check if there is a color configured
+    // Check if there is a color configured in the database
     const matched = productStatuses.find(p => p.label.toLowerCase() === s);
     if (matched && matched.color) return matched.color;
     
     if (s === 'completed' || s === 'done' || s === 'delivered' || s === 'closed') return '#10b981';
-    if (s === 'in progress' || s === 'in-progress' || s === 'active') return '#3b82f6';
-    if (s === 'on hold' || s === 'on-hold' || s === 'hold') return '#f59e0b';
+    if (s === 'in progress' || s === 'in-progress' || s === 'active') return '#f59e0b';
+    if (s === 'on hold' || s === 'on-hold' || s === 'hold') return '#ef4444';
     if (s === 'ongoing') return '#8b5cf6';
+    if (s === 'information pending') return '#ec4899';
+    if (s === 'removed') return '#ef4444';
+    if (s === 'under review') return '#8b5cf6';
+    if (s === 'not feasible') return '#ef4444';
     return '#6b7280';
   };
 
   const statusColor = getStatusColor(value);
 
+  const allStatuses = useMemo(() => {
+    const list = [...productStatuses];
+    if (value && !list.some(s => s.label.toLowerCase() === value.trim().toLowerCase())) {
+      list.push({ id: `custom-${value}`, label: value, color: getStatusColor(value) });
+    }
+    return list;
+  }, [productStatuses, value]);
+
   return (
-    <div className="status-dropdown-container" ref={containerRef} style={{ position: 'relative', display: 'inline-block' }}>
+    <div 
+      className="status-dropdown-container" 
+      ref={containerRef} 
+      style={{ 
+        position: 'relative', 
+        display: 'inline-block',
+        zIndex: isOpen ? 100 : 'auto'
+      }}
+    >
       {/* Trigger Button */}
       <button
         type="button"
@@ -4271,18 +4291,23 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({ value, onChange, produc
             position: 'absolute',
             top: 'calc(100% + 4px)',
             left: 0,
-            zIndex: 100,
+            zIndex: 1000,
             backgroundColor: 'var(--panel-bg)',
             border: '1px solid var(--border)',
             borderRadius: '8px',
-            boxShadow: 'var(--shadow)',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.2)',
             padding: '4px',
-            minWidth: '160px',
+            minWidth: '180px',
+            maxHeight: '280px',
+            overflowY: 'auto',
             display: 'flex',
             flexDirection: 'column',
             gap: '2px',
-            animation: 'fadeIn 0.15s ease-out'
+            animation: 'fadeIn 0.15s ease-out',
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'var(--border-light) transparent'
           }}
+          className="status-dropdown-menu"
         >
           <div
             onClick={() => {
@@ -4304,12 +4329,12 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({ value, onChange, produc
             — None —
           </div>
           
-          {productStatuses.map(s => {
-            const isSelected = s.label === value;
+          {allStatuses.map((s, idx) => {
+            const isSelected = s.label.toLowerCase() === (value || '').trim().toLowerCase();
             const itemColor = getStatusColor(s.label);
             return (
               <div
-                key={s.id}
+                key={s.id || `status-${idx}`}
                 onClick={() => {
                   onChange(s.label);
                   setIsOpen(false);
@@ -4322,7 +4347,8 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({ value, onChange, produc
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   transition: 'background-color 0.15s',
-                  backgroundColor: isSelected ? 'var(--background-alt)' : 'transparent'
+                  backgroundColor: isSelected ? 'var(--background-alt)' : 'transparent',
+                  whiteSpace: 'nowrap'
                 }}
                 className="status-dropdown-option-row"
               >
@@ -4340,12 +4366,13 @@ const StatusDropdown: React.FC<StatusDropdownProps> = ({ value, onChange, produc
                   padding: '3px 8px',
                   borderRadius: '6px',
                   display: 'inline-flex',
-                  alignItems: 'center'
+                  alignItems: 'center',
+                  whiteSpace: 'nowrap'
                 }}>
                   {s.label}
                 </span>
                 {isSelected && (
-                  <CheckSquare size={12} style={{ color: itemColor, marginLeft: '8px' }} />
+                  <CheckSquare size={12} style={{ color: itemColor, marginLeft: '8px', flexShrink: 0 }} />
                 )}
               </div>
             );
@@ -5429,7 +5456,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
             <div className="premium-properties-dashboard">
               
               {/* PANEL 1: Lifecycle & Integration */}
-              <div className="properties-panel">
+              <div className="properties-panel" style={{ position: 'relative', zIndex: 30 }}>
                 <h4 className="properties-panel-title">Lifecycle & Integration</h4>
 
                 {/* Product Group */}
@@ -5682,7 +5709,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
               </div>
 
               {/* PANEL 2: Governance & Ownership */}
-              <div className="properties-panel">
+              <div className="properties-panel" style={{ position: 'relative', zIndex: 20 }}>
                 <h4 className="properties-panel-title">Governance & Ownership</h4>
 
                 {/* Assignees */}
@@ -5867,7 +5894,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
               </div>
 
               {/* PANEL 3: Release & Enablement */}
-              <div className="properties-panel">
+              <div className="properties-panel" style={{ position: 'relative', zIndex: 10 }}>
                 <h4 className="properties-panel-title">Release & Enablement</h4>
 
                 {/* Conduct Demo */}
@@ -7300,7 +7327,7 @@ export const ProductTable: React.FC = () => {
                   </td>
                   <td>
                     {item.status ? (() => {
-                      const matched = statuses.find(s => s.label === item.status);
+                      const matched = statuses.find(s => s.label.toLowerCase() === item.status.trim().toLowerCase());
                       if (matched) {
                         return (
                           <span className="badge" style={{
@@ -9052,7 +9079,7 @@ export const StudentProjectsTable: React.FC = () => {
                   </td>
                   <td>
                     {p.status ? (() => {
-                      const matched = statuses.find(s => s.label === p.status);
+                      const matched = statuses.find(s => s.label.toLowerCase() === p.status.trim().toLowerCase());
                       if (matched) {
                         return (
                           <span className="badge" style={{
