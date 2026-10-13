@@ -69,10 +69,10 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
   if (cat === 'admin-calls' || cat === 'ama-meetings' || cat === 'student-projects') {
     resolvedCategory = cat;
   } else if (itemId) {
-    if (itemId.startsWith('adm-')) resolvedCategory = 'admin-calls';
-    else if (itemId.startsWith('meet-')) resolvedCategory = 'ama-meetings';
-    else if (itemId.startsWith('ama-')) resolvedCategory = 'ama-meetings';
-    else if (itemId.startsWith('proj-')) resolvedCategory = 'student-projects';
+    if (itemId.startsWith('adm-') || itemId.startsWith('adm_')) resolvedCategory = 'admin-calls';
+    else if (itemId.startsWith('meet-') || itemId.startsWith('meet_')) resolvedCategory = 'ama-meetings';
+    else if (itemId.startsWith('ama-') || itemId.startsWith('ama_')) resolvedCategory = 'ama-meetings';
+    else if (itemId.startsWith('proj-') || itemId.startsWith('proj_')) resolvedCategory = 'student-projects';
   }
 
   // 2. Fetch Meeting/Project details
@@ -128,7 +128,11 @@ export const PublicFeedbackForm: React.FC<PublicFeedbackFormProps> = ({ itemId, 
 
   // 4. Check past submissions
   const userPastSubmission = googleUser
-    ? feedbackSubmissions.find(sub => sub.itemId === itemId && sub.submittedByEmail === googleUser.email)
+    ? feedbackSubmissions.find(sub =>
+        sub.itemId === itemId
+        && sub.submittedByEmail === googleUser.email
+        && (!config?.id || !sub.formId || sub.formId === config.id)
+      )
     : null;
 
   // If already submitted, pre-fill and lock form
