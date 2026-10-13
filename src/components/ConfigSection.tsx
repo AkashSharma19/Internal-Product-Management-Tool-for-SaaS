@@ -2954,7 +2954,7 @@ Description: Please share your honest rating and suggestions.
 };
 
 const FormBuilderSection: React.FC = () => {
-  const { formConfigs, saveFormConfig, deleteFormConfig, canUserEdit, alert, confirm } = useDashboard();
+  const { formConfigs, feedbackSubmissions, saveFormConfig, deleteFormConfig, canUserEdit, alert, confirm } = useDashboard();
   const [selectedCategory, setSelectedCategory] = useState<'admin-calls' | 'ama-meetings' | 'student-projects'>('admin-calls');
   
   // View mode: 'list' or 'edit'
@@ -3047,6 +3047,11 @@ const FormBuilderSection: React.FC = () => {
       id: newId,
       title: `${form.title || categoryLabels[selectedCategory]} (Copy)`,
       isDefault: false,
+      fields: (form.fields || []).map((field, index) => ({
+        ...field,
+        id: `field-${Date.now()}-${index + 1}-${Math.floor(Math.random() * 1000)}`,
+        order: index
+      })),
       createdAt: new Date().toISOString()
     };
     try {
@@ -3072,6 +3077,16 @@ const FormBuilderSection: React.FC = () => {
 
   const handleDelete = async (form: FeedbackFormConfig, e: React.MouseEvent) => {
     e.stopPropagation();
+    const responseCount = feedbackSubmissions.filter(sub => sub.formId === form.id).length;
+    if (responseCount > 0) {
+      await alert(
+        `This form has ${responseCount} saved response${responseCount === 1 ? '' : 's'} and cannot be deleted. Disable it instead so historical answers remain readable.`,
+        'Form Has Responses',
+        'OK',
+        'warning'
+      );
+      return;
+    }
     const ok = await confirm(
       `Are you sure you want to delete "${form.title || 'this form'}"? Historical submissions will be preserved.`,
       'Delete Feedback Form',
@@ -3143,6 +3158,21 @@ const FormBuilderSection: React.FC = () => {
     }
 
     const configId = editingFormId || `form-${selectedCategory}-${Date.now()}`;
+    const existingForm = formConfigs.find(form => form.id === configId);
+    const hasSavedResponses = feedbackSubmissions.some(sub => sub.formId === configId);
+    if (existingForm && hasSavedResponses) {
+      const oldStructure = (existingForm.fields || []).map(field => `${field.id}:${field.type}`).join('|');
+      const newStructure = fields.map(field => `${field.id}:${field.type}`).join('|');
+      if (oldStructure !== newStructure) {
+        await alert(
+          'Questions cannot be added, removed, reordered, or have their type changed after responses are received. Duplicate this form to create a new version.',
+          'Form Structure Locked',
+          'OK',
+          'warning'
+        );
+        return;
+      }
+    }
     try {
       await saveFormConfig({
         id: configId,

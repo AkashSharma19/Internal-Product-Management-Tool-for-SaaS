@@ -1,4 +1,5 @@
 import React from 'react';
+import { getSubmissionFieldUnion } from '../../utils/feedback';
 import type { 
   ProductItem, 
   SupportDocItem,
@@ -312,17 +313,16 @@ export const exportItemFeedbackToExcel = (
     || formConfigs.find(c => c.category === category && c.isDefault)
     || formConfigs.find(c => c.category === category && c.enabled !== false)
     || formConfigs.find(c => c.category === category);
-
-  if (!config || !config.fields || config.fields.length === 0) {
-    alert('No form configuration found for this category.');
-    return;
-  }
-
-  const sortedFields = [...config.fields].sort((a, b) => a.order - b.order);
   const submissions = feedbackSubmissions.filter(sub => sub.itemId === itemId);
 
   if (submissions.length === 0) {
     alert('No feedback submissions to export for this item.');
+    return;
+  }
+
+  const sortedFields = getSubmissionFieldUnion(submissions, formConfigs, config?.fields || []);
+  if (sortedFields.length === 0) {
+    alert('No feedback answers found for this item.');
     return;
   }
 
@@ -366,17 +366,16 @@ export const exportAttendeeFeedbackToExcel = (
   const config = formConfigs.find(c => c.category === category && c.isDefault)
     || formConfigs.find(c => c.category === category && c.enabled !== false)
     || formConfigs.find(c => c.category === category);
-
-  if (!config || !config.fields || config.fields.length === 0) {
-    alert('No form configuration found for this category.');
-    return;
-  }
-
-  const sortedFields = [...config.fields].sort((a, b) => a.order - b.order);
   const submissions = feedbackSubmissions.filter(sub => sub.category === category);
 
   if (submissions.length === 0) {
     alert('No feedback submissions to export.');
+    return;
+  }
+
+  const sortedFields = getSubmissionFieldUnion(submissions, formConfigs, config?.fields || []);
+  if (sortedFields.length === 0) {
+    alert('No feedback answers found for this category.');
     return;
   }
 

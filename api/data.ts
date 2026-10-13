@@ -819,24 +819,32 @@ export default async function handler(req: any, res: any) {
           });
 
           const getCategoryRating = (cat: string) => {
-            const config = formConfigs.find((c: any) => c.category === cat);
-            if (!config || !config.enabled) return null;
             const submissions = feedbackSubmissions.filter((sub: any) => sub.category === cat);
             if (submissions.length === 0) return null;
-            const ratingFields = config.fields.filter((f: any) => f.type === 'rating');
-            if (ratingFields.length === 0) return null;
-            
+
             const scores: number[] = [];
+            let ratedSubmissionCount = 0;
             submissions.forEach((sub: any) => {
+              const config = (sub.formId ? formConfigs.find((c: any) => c.id === sub.formId) : null)
+                || formConfigs.find((c: any) => c.category === cat && c.isDefault)
+                || formConfigs.find((c: any) => c.category === cat && c.enabled)
+                || formConfigs.find((c: any) => c.category === cat);
+              const ratingFields = (config?.fields || []).filter((field: any) => field.type === 'rating');
+              let hasRating = false;
               ratingFields.forEach((field: any) => {
-                const score = Number(sub.answers[field.id]);
-                if (!isNaN(score) && score > 0) scores.push(score);
+                const score = Number(sub.answers?.[field.id]);
+                if (!isNaN(score) && score > 0) {
+                  scores.push(score);
+                  hasRating = true;
+                }
               });
+              if (hasRating) ratedSubmissionCount += 1;
             });
+
             if (scores.length === 0) return null;
             return {
               avg: (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1),
-              count: submissions.length
+              count: ratedSubmissionCount
             };
           };
 

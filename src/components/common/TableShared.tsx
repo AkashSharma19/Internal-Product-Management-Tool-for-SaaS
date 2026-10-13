@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useDashboard } from '../../context/DashboardContext';
 import { stripHtml } from '../../utils/text';
+import { getSubmissionFields, getSubmissionFieldUnion } from '../../utils/feedback';
 import { triggerReleaseConfetti } from '../../utils/confetti';
 import { playPopSound } from '../../utils/audio';
 import {
@@ -993,6 +994,7 @@ export const AttendeeFeedbackDetails: React.FC<{
 
   const isFormConfigured = config && config.enabled && config.fields && config.fields.length > 0;
   const submissions = feedbackSubmissions.filter(sub => sub.itemId === itemId);
+  const responseFields = getSubmissionFieldUnion(submissions, formConfigs, config?.fields || []);
 
   useEffect(() => {
     // Reset states when changing items
@@ -1044,7 +1046,7 @@ export const AttendeeFeedbackDetails: React.FC<{
           data: {
             itemId,
             category,
-            fields: config?.fields || [],
+            fields: responseFields,
             submissions,
             model: geminiModel
           }
@@ -1132,7 +1134,7 @@ export const AttendeeFeedbackDetails: React.FC<{
     });
   };
 
-  if (!isFormConfigured) {
+  if (!isFormConfigured && submissions.length === 0) {
     return (
       <div style={{ marginTop: '1.25rem', padding: '1rem', border: '1px dashed var(--border)', borderRadius: '8px', background: 'var(--background-alt)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1148,16 +1150,15 @@ export const AttendeeFeedbackDetails: React.FC<{
   }
 
   // Calculate Averages for rating fields
-  const ratingFields = config.fields.filter(f => f.type === 'rating');
+  const sortedFields = responseFields;
+  const ratingFields = sortedFields.filter(field => field.type === 'rating');
   const ratingsSummary = ratingFields.map(field => {
     const scores = submissions
-      .map(sub => Number(sub.answers[field.id]))
+      .map(sub => Number(sub.answers?.[field.id]))
       .filter(score => !isNaN(score) && score > 0);
     const avg = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : null;
     return { fieldId: field.id, label: field.label, avg, count: scores.length };
   });
-
-  const sortedFields = [...config.fields].sort((a, b) => a.order - b.order);
 
   return (
     <div style={{
@@ -1895,7 +1896,7 @@ export const AttendeeFeedbackDetails: React.FC<{
       {viewingSubmission && (
         <FeedbackSubmissionModal
           submission={viewingSubmission}
-          fields={config.fields}
+          fields={getSubmissionFields(viewingSubmission, formConfigs, config?.fields || [])}
           onClose={() => setViewingSubmission(null)}
         />
       )}
@@ -1922,10 +1923,12 @@ export const FeedbackRatingCell: React.FC<{
     || formConfigs.find(c => c.category === category && c.enabled !== false)
     || formConfigs.find(c => c.category === category);
 
-  if (!config || !config.enabled) return <span style={{ color: 'var(--text-muted)' }}>—</span>;
-
   const submissions = feedbackSubmissions.filter(sub => sub.itemId === itemId);
-  const formTitle = config.title || (config.isDefault ? 'Default Form' : 'Feedback Form');
+  if ((!config || !config.enabled) && submissions.length === 0) {
+    return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+  }
+
+  const formTitle = config?.title || (config?.isDefault ? 'Default Form' : 'Feedback Form');
   const isExplicitlyAssigned = !!assignedFormId;
 
   if (submissions.length === 0) {
@@ -1965,23 +1968,26 @@ export const FeedbackRatingCell: React.FC<{
     );
   }
 
-  const ratingFields = (config.fields || []).filter(f => f.type === 'rating');
+  const responseFields = getSubmissionFieldUnion(submissions, formConfigs, config?.fields || []);
+  const ratingFields = responseFields.filter(field => field.type === 'rating');
   let avg: string | null = null;
   let totalCount = 0;
 
   if (ratingFields.length > 0) {
     const scores: number[] = [];
+    const ratedSubmissionIds = new Set<string>();
     submissions.forEach(sub => {
       ratingFields.forEach(field => {
-        const score = Number(sub.answers[field.id]);
+        const score = Number(sub.answers?.[field.id]);
         if (!isNaN(score) && score > 0) {
           scores.push(score);
+          ratedSubmissionIds.add(sub.id);
         }
       });
     });
     if (scores.length > 0) {
       avg = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
-      totalCount = submissions.length;
+      totalCount = ratedSubmissionIds.size;
     }
   }
 
