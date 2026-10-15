@@ -12,6 +12,7 @@ import type {
   ContentItem, 
   DailyIssue, 
   FeatureAdoption,
+  Campaign,
   ConfigSpeaker,
   ConfigProductGroup,
   ConfigStatus,
@@ -119,6 +120,12 @@ interface DashboardContextType {
   updateFeatureAdoption: (id: string, updated: Partial<FeatureAdoption>) => void;
   addFeatureAdoption: (item: FeatureAdoption) => void;
   deleteFeatureAdoption: (id: string) => void;
+
+  campaigns: Campaign[];
+  setCampaigns: React.Dispatch<React.SetStateAction<Campaign[]>>;
+  updateCampaign: (id: string, updated: Partial<Campaign>) => Promise<boolean>;
+  addCampaign: (item: Campaign) => Promise<boolean>;
+  deleteCampaign: (id: string) => Promise<boolean>;
 
   teamContacts: TeamContact[];
   setTeamContacts: React.Dispatch<React.SetStateAction<TeamContact[]>>;
@@ -473,7 +480,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [activeTab, rawSetActiveTab] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get('tab');
-    const validTabs = ['dashboard', 'product', 'plan', 'projects', 'meetings', 'admin', 'content', 'product-wise', 'issues', 'adoption', 'config'];
+    const validTabs = ['dashboard', 'calendar', 'product', 'plan', 'projects', 'meetings', 'admin', 'content', 'product-wise', 'issues', 'adoption', 'campaigns', 'config'];
     if (tabParam && validTabs.includes(tabParam)) {
       return tabParam;
     }
@@ -579,7 +586,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const tabParam = params.get('tab');
       const taskParam = params.get('task');
 
-      const validTabs = ['dashboard', 'calendar', 'product', 'plan', 'projects', 'meetings', 'admin', 'content', 'product-wise', 'issues', 'adoption', 'config'];
+      const validTabs = ['dashboard', 'calendar', 'product', 'plan', 'projects', 'meetings', 'admin', 'content', 'product-wise', 'issues', 'adoption', 'campaigns', 'config'];
       if (tabParam && validTabs.includes(tabParam)) {
         rawSetActiveTab(tabParam);
       }
@@ -728,6 +735,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [dailyIssues, setDailyIssues] = useState<DailyIssue[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [featureAdoptions, setFeatureAdoptions] = useState<FeatureAdoption[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [directoryContacts, setDirectoryContacts] = useState<DirectoryContact[]>([]);
   const [repoTabs, setRepoTabs] = useState<RepoTab[]>([]);
   const [repoDocs, setRepoDocs] = useState<RepoDoc[]>([]);
@@ -990,7 +998,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     return null;
   });
-  const canUserEdit = currentUser ? (currentUser.canEdit !== false) : true;
+  const canUserEdit = currentUser ? (currentUser.role !== 'Guest' && currentUser.canEdit !== false) : true;
 
   const loginUser = async (speakerId: string, password: string): Promise<{ success: boolean; error?: string }> => {
     const speaker = speakers.find(s => s.id === speakerId);
@@ -1141,7 +1149,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const persistChange = async (action: 'create' | 'update' | 'delete' | 'batch-import', type: string, id: string | null, data: any) => {
     setSyncStatus('syncing');
-    const writePromise = (async () => {
+    const writePromise = pendingWritesRef.current.then(async () => {
       try {
         const headers: Record<string, string> = {
           'Content-Type': 'application/json'
@@ -1159,19 +1167,18 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (response.ok) {
           setSyncStatus('synced');
           return true;
-        } else {
-          console.error(`Persist failed for ${type} ${action}:`, await response.text());
-          setSyncStatus('error');
-          return false;
         }
+        console.error(`Persist failed for ${type} ${action}:`, await response.text());
+        setSyncStatus('error');
+        return false;
       } catch (err) {
         console.error(`Failed to connect to API for ${type} ${action}:`, err);
         setSyncStatus('error');
         return false;
       }
-    })();
+    });
 
-    pendingWritesRef.current = pendingWritesRef.current.then(() => writePromise).catch(() => {});
+    pendingWritesRef.current = writePromise.then(() => undefined, () => undefined);
     return writePromise;
   };
 
@@ -1235,6 +1242,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       'issues': ['dailyIssues'],
       'feature-requests': ['dailyIssues'],
       'adoption': ['featureAdoptions'],
+      'campaigns': ['campaigns'],
       'challenges': ['challenges', 'products']
     };
 
@@ -1271,6 +1279,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             if (type === 'dailyIssues') setDailyIssues(dataList);
             if (type === 'challenges') setChallenges(dataList);
             if (type === 'featureAdoptions') setFeatureAdoptions(dataList);
+            if (type === 'campaigns') setCampaigns(dataList);
             
             setLoadedTabs(prev => [...prev, type]);
           }
@@ -1849,6 +1858,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (db.dailyIssues !== undefined)                    { setDailyIssues(db.dailyIssues);     updatedSheets++; }
         if (db.challenges !== undefined)                     { setChallenges(db.challenges);       updatedSheets++; }
         if (db.featureAdoptions !== undefined)               { setFeatureAdoptions(db.featureAdoptions); updatedSheets++; }
+        if (db.campaigns !== undefined)                      { setCampaigns(db.campaigns); updatedSheets++; }
         if (db.directoryContacts !== undefined)              { setDirectoryContacts(db.directoryContacts); updatedSheets++; }
         if (db.repoTabs !== undefined)                       { setRepoTabs(db.repoTabs);           updatedSheets++; }
         if (db.repoDocs !== undefined)                       { setRepoDocs(db.repoDocs);           updatedSheets++; }
@@ -2799,6 +2809,31 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     persistChange('delete', 'featureAdoptions', id, null);
   };
 
+  const addCampaign = async (item: Campaign): Promise<boolean> => {
+    setCampaigns(prev => [item, ...prev]);
+    const saved = await persistChange('create', 'campaigns', null, item);
+    if (!saved) setCampaigns(prev => prev.filter(campaign => campaign.id !== item.id));
+    return saved;
+  };
+
+  const updateCampaign = async (id: string, updated: Partial<Campaign>): Promise<boolean> => {
+    const previous = campaigns.find(campaign => campaign.id === id);
+    if (!previous) return false;
+    const nextItem = { ...previous, ...updated };
+    setCampaigns(prev => prev.map(campaign => campaign.id === id ? nextItem : campaign));
+    const saved = await persistChange('update', 'campaigns', id, nextItem);
+    if (!saved) setCampaigns(prev => prev.map(campaign => campaign.id === id ? previous : campaign));
+    return saved;
+  };
+
+  const deleteCampaign = async (id: string): Promise<boolean> => {
+    const previous = campaigns.find(campaign => campaign.id === id);
+    setCampaigns(prev => prev.filter(campaign => campaign.id !== id));
+    const saved = await persistChange('delete', 'campaigns', id, null);
+    if (!saved && previous) setCampaigns(prev => [previous, ...prev]);
+    return saved;
+  };
+
   // Config CRUD helpers
   const addSpeaker = (item: ConfigSpeaker) => {
     const newItem = { ...item, canEdit: item.canEdit !== false };
@@ -3254,6 +3289,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       stickyNotes, setStickyNotes, updateStickyNote, addStickyNote, deleteStickyNote,
       completedNotesCount, setCompletedNotesCount, deleteAllCompletedNotes, restoreAllCompletedNotes,
       featureAdoptions, setFeatureAdoptions, updateFeatureAdoption, addFeatureAdoption, deleteFeatureAdoption,
+      campaigns, setCampaigns, updateCampaign, addCampaign, deleteCampaign,
       teamContacts, setTeamContacts, updateTeamContact, addTeamContact, deleteTeamContact,
       directoryContacts, updateDirectoryContact, addDirectoryContact, deleteDirectoryContact,
       repoTabs, addRepoTab, updateRepoTab, deleteRepoTab,

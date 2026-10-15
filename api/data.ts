@@ -29,7 +29,8 @@ import {
   ChallengeModel,
   StickyNoteModel,
   FeedbackAnalysisModel,
-  ReleaseNoteModel
+  ReleaseNoteModel,
+  CampaignModel
 } from './lib/models.js';
 
 const modelsMap: Record<string, any> = {
@@ -60,7 +61,8 @@ const modelsMap: Record<string, any> = {
   challenges: ChallengeModel,
   stickyNotes: StickyNoteModel,
   feedbackAnalyses: FeedbackAnalysisModel,
-  releaseNotes: ReleaseNoteModel
+  releaseNotes: ReleaseNoteModel,
+  campaigns: CampaignModel
 };
 
 // --- Date helper function ---
@@ -3650,7 +3652,8 @@ export default async function handler(req: any, res: any) {
             return res.status(200).json({ success: true, data: [] });
           }
 
-          const regex = new RegExp(queryStr, 'i');
+          const escapedQuery = queryStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const regex = new RegExp(escapedQuery, 'i');
 
           const [
             products,
@@ -3880,6 +3883,27 @@ export default async function handler(req: any, res: any) {
             return res.status(400).json({ success: false, error: `Invalid entity type: ${type}` });
           }
           const rawItems = await modelsMap[type].find({}).lean();
+
+          if (type === 'campaigns') {
+            const featureIds = Array.from(new Set(rawItems.flatMap((campaign: any) =>
+              (campaign.features || []).map((feature: any) => feature.id).filter(Boolean)
+            )));
+            const products = featureIds.length
+              ? await ProductItemModel.find({ id: { $in: featureIds } })
+                  .select('id feature product status clickupStatus finalRelease supportDocsRequired supportDocLink supportDocs')
+                  .lean()
+              : [];
+            const productsById = new Map(products.map((product: any) => [product.id, product]));
+            const campaigns = rawItems.map((campaign: any) => ({
+              ...campaign,
+              features: (campaign.features || []).map((feature: any) => ({
+                ...feature,
+                ...(productsById.get(feature.id) || {})
+              }))
+            }));
+            return res.status(200).json({ success: true, data: campaigns });
+          }
+
           const items = rawItems.map((item: any) => {
             const hasLink = type === 'plans' 
               ? (item.link && item.link.trim() !== '') 
@@ -6294,6 +6318,21 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
       return res.status(400).json({ success: false, error: `Invalid entity type: ${type}` });
     }
 
+    // Campaign planning is editable only by users who have edit access.
+    if (type === 'campaigns') {
+      const campaignUserId = req.headers['x-user-id'];
+      const host = req.headers.host || '';
+      const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('3000') || host.includes('5173');
+      if (!isLocalhost) {
+        const campaignUser = campaignUserId
+          ? await ConfigSpeakerModel.findOne({ id: campaignUserId }).lean() as any
+          : null;
+        if (!campaignUser || campaignUser.canEdit === false) {
+          return res.status(403).json({ success: false, error: 'Campaigns can only be changed by users with edit access.' });
+        }
+      }
+    }
+
     try {
       if (action === 'delete-all-completed-notes') {
         const userId = req.headers['x-user-id'];
@@ -6538,7 +6577,12 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
           }
         }
 
-        const updatedItem = await Model.findOneAndUpdate(query, data, { new: true, upsert: true, strict: false });
+        const updatedItem = await Model.findOneAndUpdate(query, data, {
+          new: true,
+          upsert: true,
+          strict: type === 'campaigns',
+          runValidators: type === 'campaigns'
+        });
         return res.status(200).json({ success: true, item: updatedItem });
       }
 

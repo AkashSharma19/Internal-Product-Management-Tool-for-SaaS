@@ -269,6 +269,76 @@ export interface FeatureAdoption {
   status?: 'Used' | 'Not Used';
 }
 
+export type CampaignAudience = 'Staff' | 'Students';
+export type CampaignStatus = 'Draft' | 'Scheduled' | 'Active' | 'Paused' | 'Completed' | 'Cancelled';
+export type CampaignPriority = 'High' | 'Medium' | 'Low';
+export type CampaignOccurrenceStatus = 'Upcoming' | 'Completed' | 'Skipped' | 'Cancelled';
+
+export interface CampaignFeature {
+  id: string;
+  feature: string;
+  product?: string;
+  status?: string;
+  finalRelease?: string;
+  supportDocsRequired?: boolean;
+  supportDocLink?: string;
+  supportDocs?: SupportDocItem[];
+}
+
+export interface CampaignOccurrence {
+  id: string;
+  scheduledAt: string;
+  status: CampaignOccurrenceStatus;
+  completedAt?: string;
+  completedById?: string;
+  completedByName?: string;
+}
+
+export interface CampaignRecurrence {
+  enabled: boolean;
+  frequency: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'custom';
+  interval: number;
+  unit: 'days' | 'weeks' | 'months';
+  endType: 'date' | 'count';
+  endDate?: string;
+  occurrenceCount?: number;
+}
+
+export interface CampaignActivity {
+  id: string;
+  title: string;
+  channel: 'Email' | 'WhatsApp' | 'In-app announcement' | 'LMS announcement' | 'Push notification' | 'Webinar/demo' | 'Social media' | 'Help article' | 'Internal announcement' | 'Other';
+  customChannel?: string;
+  ownerId: string;
+  ownerName: string;
+  scheduledAt: string;
+  content: string;
+  callToAction?: string;
+  supportingLink?: string;
+  recurrence: CampaignRecurrence;
+  occurrences: CampaignOccurrence[];
+}
+
+export interface Campaign {
+  id: string;
+  name: string;
+  objective: 'Feature awareness' | 'Increase adoption' | 'Training and education' | 'Product announcement' | 'Re-engagement' | 'Collect feedback' | 'Other';
+  description?: string;
+  audience: CampaignAudience;
+  ownerId: string;
+  ownerName: string;
+  priority: CampaignPriority;
+  startDate: string;
+  endDate: string;
+  status: CampaignStatus;
+  features: CampaignFeature[];
+  activities: CampaignActivity[];
+  createdById?: string;
+  createdByName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 // ── Configuration Types ──────────────────────────────────────────────────────
 
 export interface ConfigSpeaker {

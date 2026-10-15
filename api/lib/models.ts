@@ -472,6 +472,59 @@ const ChallengeSchema = new Schema({
 
 export const ChallengeModel = mongoose.models.Challenge || mongoose.model('Challenge', ChallengeSchema);
 
+// Campaign Builder
+const CampaignOccurrenceSchema = new Schema({
+  id: { type: String, required: true },
+  scheduledAt: { type: String, required: true },
+  status: { type: String, enum: ['Upcoming', 'Completed', 'Skipped', 'Cancelled'], default: 'Upcoming' },
+  completedAt: { type: String, default: '' },
+  completedById: { type: String, default: '' },
+  completedByName: { type: String, default: '' }
+}, { _id: false });
+
+const CampaignActivitySchema = new Schema({
+  id: { type: String, required: true },
+  title: { type: String, required: true },
+  channel: { type: String, required: true },
+  customChannel: { type: String, default: '' },
+  ownerId: { type: String, required: true },
+  ownerName: { type: String, default: '' },
+  scheduledAt: { type: String, required: true },
+  content: { type: String, default: '' },
+  callToAction: { type: String, default: '' },
+  supportingLink: { type: String, default: '' },
+  recurrence: {
+    enabled: { type: Boolean, default: false },
+    frequency: { type: String, default: 'weekly' },
+    interval: { type: Number, default: 1 },
+    unit: { type: String, default: 'weeks' },
+    endType: { type: String, default: 'count' },
+    endDate: { type: String, default: '' },
+    occurrenceCount: { type: Number, default: 1 }
+  },
+  occurrences: { type: [CampaignOccurrenceSchema], default: [] }
+}, { _id: false });
+
+const CampaignSchema = new Schema({
+  id: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  objective: { type: String, required: true },
+  description: { type: String, default: '' },
+  audience: { type: String, enum: ['Staff', 'Students'], required: true },
+  ownerId: { type: String, required: true },
+  ownerName: { type: String, default: '' },
+  priority: { type: String, enum: ['High', 'Medium', 'Low'], default: 'Medium' },
+  startDate: { type: String, default: '' },
+  endDate: { type: String, default: '' },
+  status: { type: String, enum: ['Draft', 'Scheduled', 'Active', 'Paused', 'Completed', 'Cancelled'], default: 'Draft' },
+  features: { type: [Schema.Types.Mixed], default: [] },
+  activities: { type: [CampaignActivitySchema], default: [] },
+  createdById: { type: String, default: '' },
+  createdByName: { type: String, default: '' }
+}, { timestamps: true });
+
+export const CampaignModel = mongoose.models.Campaign || mongoose.model('Campaign', CampaignSchema);
+
 // Feedback Analysis Schema
 const FeedbackAnalysisSchema = new Schema({
   id: { type: String, required: true, unique: true },

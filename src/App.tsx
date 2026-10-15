@@ -27,6 +27,7 @@ import { PublicFeedbackForm } from './components/PublicFeedbackForm';
 import { TeamView } from './components/TeamView';
 import { StickyNotesBot } from './components/StickyNotesBot';
 import { ReleaseNotes } from './components/ReleaseNotes';
+import { CampaignBuilder } from './components/CampaignBuilder';
 import {
   LayoutDashboard,
   Calendar,
@@ -58,7 +59,8 @@ import {
   Briefcase,
   Rocket,
   BookMarked,
-  Presentation
+  Presentation,
+  Megaphone
 } from 'lucide-react';
 
 import { isAudioMuted, toggleAudioMute, playPopSound } from './utils/audio';
@@ -1934,6 +1936,7 @@ const DashboardContent: React.FC = () => {
         { id: 'product-wise', label: 'Product Breakdown', icon: <PieChart size={18} /> },
         { id: 'repository', label: 'Repository', icon: <FolderOpen size={18} /> },
         { id: 'adoption', label: 'Demo Tracker', icon: <Presentation size={18} /> },
+        { id: 'campaigns', label: 'Campaign Builder', icon: <Megaphone size={18} /> },
         { id: 'team', label: 'Team', icon: <UserCheck size={18} /> },
       ]
     },
@@ -2000,6 +2003,8 @@ const DashboardContent: React.FC = () => {
         return <SupportDocsTable />;
       case 'adoption':
         return <AdoptionTable />;
+      case 'campaigns':
+        return <CampaignBuilder />;
       case 'config':
         return <ConfigSection />;
       default:
@@ -2480,6 +2485,7 @@ const DashboardContent: React.FC = () => {
                   case 'feature-requests': return !loadedTabs.includes('dailyIssues');
                   case 'challenges': return !loadedTabs.includes('challenges');
                   case 'adoption': return !loadedTabs.includes('featureAdoptions');
+                  case 'campaigns': return !loadedTabs.includes('campaigns');
                   case 'repository': return !loadedTabs.includes('repoDocs');
                   default: return false;
                 }
