@@ -1,5 +1,6 @@
 import https from 'https';
 import nodemailer from 'nodemailer';
+import { createHash } from 'node:crypto';
 import { connectToDatabase } from './lib/db.js';
 import {
   ProductItemModel,
@@ -30,7 +31,8 @@ import {
   StickyNoteModel,
   FeedbackAnalysisModel,
   ReleaseNoteModel,
-  CampaignModel
+  CampaignModel,
+  PublicDocViewModel
 } from './lib/models.js';
 
 const modelsMap: Record<string, any> = {
@@ -3620,13 +3622,16 @@ export default async function handler(req: any, res: any) {
           }
           const item: any = await modelsMap['products'].findOne(query).lean();
           if (item) {
+            const docId = item.id || `prod-db-${item._id}`;
+            const uniqueViewCount = await PublicDocViewModel.countDocuments({ docId });
             return res.status(200).json({
               success: true,
               data: {
-                id: item.id || `prod-db-${item._id}`,
+                id: docId,
                 feature: item.feature,
                 description: item.description || '',
-                poc: item.poc || ''
+                poc: item.poc || '',
+                uniqueViewCount
               }
             });
           }
@@ -4219,6 +4224,47 @@ export default async function handler(req: any, res: any) {
   if (method === 'POST') {
     const { action: bodyAction, type, id, data } = req.body || {};
     const action = bodyAction || url.searchParams.get('action');
+
+    if (action === 'record-public-doc-view') {
+      try {
+        const { id: documentId, viewerToken } = data || {};
+        if (!documentId || typeof documentId !== 'string') {
+          return res.status(400).json({ success: false, error: 'Document ID is required.' });
+        }
+        if (!viewerToken || typeof viewerToken !== 'string' || !/^[A-Za-z0-9_-]{20,200}$/.test(viewerToken)) {
+          return res.status(400).json({ success: false, error: 'A valid viewer token is required.' });
+        }
+
+        let productQuery: any = { id: documentId };
+        if (documentId.startsWith('prod-db-')) {
+          productQuery = { _id: documentId.replace('prod-db-', '') };
+        }
+        const product: any = await ProductItemModel.findOne(productQuery).select('id').lean();
+        if (!product) {
+          return res.status(404).json({ success: false, error: 'Document not found.' });
+        }
+
+        const docId = product.id || `prod-db-${product._id}`;
+        const viewerHash = createHash('sha256').update(`${docId}:${viewerToken}`).digest('hex');
+        let counted = false;
+        try {
+          const result = await PublicDocViewModel.updateOne(
+            { docId, viewerHash },
+            { $setOnInsert: { docId, viewerHash, firstViewedAt: new Date() } },
+            { upsert: true }
+          );
+          counted = result.upsertedCount > 0;
+        } catch (viewErr: any) {
+          if (viewErr?.code !== 11000) throw viewErr;
+        }
+
+        const uniqueViewCount = await PublicDocViewModel.countDocuments({ docId });
+        return res.status(200).json({ success: true, counted, uniqueViewCount });
+      } catch (err: any) {
+        console.error('Record public document view error:', err);
+        return res.status(500).json({ success: false, error: 'Unable to record document view.' });
+      }
+    }
 
     if (action === 'login') {
       try {

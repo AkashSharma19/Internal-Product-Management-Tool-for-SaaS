@@ -667,10 +667,10 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   ];
 
   return (
-    <div className="premium-workspace animate-fade-in" key={item.id} style={{ display: 'flex', flexDirection: 'column', padding: '1.5rem', height: '100%', overflow: 'hidden', position: 'relative' }}>
+    <div className="premium-workspace product-detail-workspace animate-fade-in" key={item.id} style={{ display: 'flex', flexDirection: 'column', padding: '1.5rem', height: '100%', overflow: 'hidden', position: 'relative' }}>
       
       {/* Top Navigation & Breadcrumbs */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem', flexShrink: 0 }}>
+      <div className="product-detail-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem', flexShrink: 0 }}>
         <div className="premium-breadcrumb">
           <button className="btn-back" style={{ width: '24px', height: '24px', borderRadius: '6px', marginRight: '0.25rem' }} onClick={onBack} title="Back to Table">
             <ArrowLeft size={12} />
@@ -690,7 +690,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="product-detail-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           {canUserEdit && (
             <button
               onClick={async () => {
@@ -741,10 +741,10 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
       </div>
 
       {/* TWO COLUMN CONTENT LAYOUT */}
-      <div style={{ display: 'flex', gap: isChatCollapsed ? '0' : '1.5rem', flex: 1, minHeight: 0, marginTop: '1rem', position: 'relative' }}>
+      <div className="product-detail-body" style={{ display: 'flex', gap: isChatCollapsed ? '0' : '1.5rem', flex: 1, minHeight: 0, marginTop: '1rem', position: 'relative' }}>
         
         {/* LEFT COLUMN: Main details (scrollable) */}
-        <div style={{ flex: '1 1 0%', overflowY: 'auto', paddingRight: isChatCollapsed ? '0.25rem' : '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', minWidth: 0, transition: 'padding 0.2s ease' }}>
+        <div className="product-detail-main" style={{ flex: '1 1 0%', overflowY: 'auto', paddingRight: isChatCollapsed ? '0.25rem' : '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', minWidth: 0, transition: 'padding 0.2s ease' }}>
           <div style={{ pointerEvents: canUserEdit ? 'auto' : 'none', opacity: canUserEdit ? 1 : 0.95, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             
             {/* Task Title (Editable) + inline link button */}
@@ -1886,8 +1886,9 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
         {/* RIGHT COLUMN: Pinned Chat / Discussion sidebar */}
         <div 
+          className={`product-detail-discussion ${isChatCollapsed ? 'is-collapsed' : 'is-open'}`}
           style={{ 
-            width: isChatCollapsed ? '0px' : '380px', 
+            width: isChatCollapsed ? '0px' : '380px',
             minWidth: isChatCollapsed ? '0px' : '340px',
             flexShrink: 0, 
             height: '100%', 

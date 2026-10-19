@@ -6974,3 +6974,313 @@ body.read-only-mode .btn:has(svg.lucide-plus) {
 
 
 
+
+/* Product Detail: responsive small-desktop/tablet layout */
+.rich-editor-toolbar {
+  flex-wrap: nowrap;
+  overflow: visible;
+}
+
+.rich-editor-format-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.rich-editor-format-controls > * {
+  flex: 0 0 auto;
+}
+
+.rich-editor-format-controls::-webkit-scrollbar {
+  height: 4px;
+}
+
+.rich-editor-format-controls::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: 999px;
+}
+
+.rich-editor-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-left: 0.35rem;
+  background: var(--background-alt);
+  border-left: 1px solid var(--border);
+}
+
+.product-detail-main {
+  container-type: inline-size;
+}
+
+@container (max-width: 780px) {
+  .premium-properties-dashboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (max-width: 520px) {
+  .premium-properties-dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .property-row-flat .premium-property-label {
+    white-space: normal !important;
+    line-height: 1.2;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1300px) {
+  .product-detail-workspace {
+    padding: 1rem !important;
+  }
+
+  .product-detail-header {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center !important;
+    gap: 0.5rem 0.75rem !important;
+  }
+
+  .product-detail-header .premium-breadcrumb {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .product-detail-header .premium-breadcrumb > span:last-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .product-detail-actions {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .product-detail-body {
+    gap: 0.75rem !important;
+  }
+
+  .product-detail-main {
+    padding-right: 0.25rem !important;
+  }
+
+  .product-detail-discussion.is-open {
+    width: 320px !important;
+    min-width: 280px !important;
+  }
+
+  .premium-timeline-track-wrapper {
+    overflow-x: auto;
+    overflow-y: visible;
+    padding-bottom: 0.4rem;
+    scrollbar-width: thin;
+  }
+
+  .premium-timeline-track {
+    min-width: 620px;
+  }
+
+  .premium-timeline-line-connector {
+    width: 620px;
+    right: auto;
+  }
+
+  .premium-timeline-node {
+    flex: 0 0 90px;
+  }
+
+  .rich-editor-dropdown:first-child {
+    max-width: 96px;
+  }
+
+  .rich-editor-dropdown:nth-child(2) {
+    width: 105px !important;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1100px) {
+  .product-detail-body {
+    gap: 0 !important;
+  }
+
+  .product-detail-discussion.is-open {
+    position: absolute !important;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 70;
+    width: min(360px, 85%) !important;
+    min-width: 300px !important;
+    height: 100% !important;
+    background: var(--panel-bg);
+    box-shadow: -12px 0 28px rgba(0, 0, 0, 0.18);
+    border-radius: 12px;
+  }
+
+  .product-detail-discussion.is-collapsed {
+    width: 0 !important;
+    min-width: 0 !important;
+  }
+
+  .app-container:has(.product-detail-discussion.is-open) .sticky-bot-fab {
+    right: min(376px, calc(85% + 16px));
+  }
+}
+
+@media (min-width: 769px) and (max-width: 900px) {
+  .product-detail-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .product-detail-actions {
+    justify-self: end;
+  }
+
+  .rich-editor-copy-link-btn span,
+  .rich-editor-toolbar-actions > span span {
+    display: none;
+  }
+
+  .rich-editor-copy-link-btn {
+    width: 28px;
+    padding: 0;
+  }
+}
+
+/* Responsive editor overflow menu: keep primary tools and actions visible without scrolling */
+.rich-editor-container,
+.google-doc-modal-content,
+.google-doc-fullpage-workspace {
+  container-type: inline-size;
+}
+
+.rich-editor-container {
+  overflow: visible;
+}
+
+.rich-editor-content {
+  border-radius: 0 0 8px 8px;
+}
+
+.rich-editor-more-wrapper {
+  display: none;
+  position: relative;
+}
+
+.rich-editor-more-btn {
+  display: none;
+}
+
+.rich-editor-more-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 10030;
+  width: 180px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-bg);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.22);
+}
+
+.rich-editor-more-menu button {
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  font: inherit;
+  font-size: 0.73rem;
+  cursor: pointer;
+}
+
+.rich-editor-more-menu button:hover {
+  background: var(--background-alt);
+  color: var(--primary);
+}
+
+.rich-editor-more-menu button.danger-item {
+  color: var(--danger);
+}
+
+.rich-editor-more-section-label {
+  padding: 5px 9px 2px;
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.rich-editor-more-select-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px 7px;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.rich-editor-more-select-label select {
+  width: 100%;
+  height: 30px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--background);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.73rem;
+  text-transform: none;
+}
+
+.rich-editor-more-divider {
+  height: 1px;
+  margin: 4px 3px;
+  background: var(--border);
+}
+
+@container (max-width: 980px) {
+  .rich-editor-format-controls > :nth-child(n + 11) {
+    display: none !important;
+  }
+
+  .rich-editor-more-wrapper,
+  .rich-editor-more-btn {
+    display: inline-flex;
+  }
+}
+
+@container (max-width: 620px) {
+  .rich-editor-format-controls > :nth-child(2),
+  .rich-editor-format-controls > :nth-child(7),
+  .rich-editor-format-controls > :nth-child(8) {
+    display: none !important;
+  }
+
+  .rich-editor-format-controls {
+    gap: 0.15rem;
+  }
+
+  .rich-editor-toolbar-actions {
+    gap: 0.15rem;
+    padding-left: 0.2rem;
+  }
+}

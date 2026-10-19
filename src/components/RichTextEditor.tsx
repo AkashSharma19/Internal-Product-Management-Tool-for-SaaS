@@ -5,7 +5,7 @@ import {
   AlignLeft, AlignCenter, AlignRight, AlignJustify, 
   Palette, Highlighter, Minus, Quote,
   List, ListOrdered, Link, Unlink, Maximize2, Eraser, X, Share2, Table,
-  GripVertical, GripHorizontal, Trash2, Plus
+  GripVertical, GripHorizontal, Trash2, Plus, Eye, MoreHorizontal
 } from 'lucide-react';
 import { ensureHtmlDescription } from '../utils/text';
 
@@ -23,6 +23,7 @@ interface RichTextEditorProps {
   featureName?: string;
   itemId?: string;
   fullPage?: boolean;
+  uniqueViewCount?: number;
 }
 
 const TEXT_COLORS = [
@@ -79,6 +80,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   featureName = '',
   itemId,
   fullPage = false,
+  uniqueViewCount,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const isDocumentView = isExpanded || fullPage;
@@ -87,6 +89,21 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const isUpdatingRef = useRef(false);
   const isFocusedRef = useRef(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [fetchedUniqueViewCount, setFetchedUniqueViewCount] = useState(0);
+  const displayUniqueViewCount = uniqueViewCount ?? fetchedUniqueViewCount;
+
+  useEffect(() => {
+    if (typeof uniqueViewCount === 'number' || !isDocumentView || !itemId) return;
+
+    let active = true;
+    fetch(`/api/data?action=get-public-doc&id=${encodeURIComponent(itemId)}`)
+      .then(response => response.json())
+      .then(result => {
+        if (active && result.success) setFetchedUniqueViewCount(result.data?.uniqueViewCount || 0);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [isDocumentView, itemId, uniqueViewCount]);
 
   // States for active formatting highlights
   const [isBold, setIsBold] = useState(false);
@@ -102,9 +119,11 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   // Custom Color Picker popover states
   const [showTextColorPicker, setShowTextColorPicker] = useState(false);
   const [showHighlightColorPicker, setShowHighlightColorPicker] = useState(false);
+  const [showMoreFormatting, setShowMoreFormatting] = useState(false);
 
   const textColorRef = useRef<HTMLDivElement>(null);
   const highlightColorRef = useRef<HTMLDivElement>(null);
+  const moreFormattingRef = useRef<HTMLDivElement>(null);
 
   // Headings state for Google Docs Outline Sidebar
   const [headings, setHeadings] = useState<DocumentHeading[]>([]);
@@ -177,6 +196,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       }
       if (tableDropdownRef.current && !tableDropdownRef.current.contains(target)) {
         setShowTableDropdown(false);
+      }
+      if (moreFormattingRef.current && !moreFormattingRef.current.contains(target)) {
+        setShowMoreFormatting(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -1216,6 +1238,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     if (!canEdit) return null;
     return (
       <div className="rich-editor-toolbar">
+        <div className="rich-editor-format-controls">
         {/* Text styling selection */}
         <select 
           className="rich-editor-dropdown" 
@@ -1535,9 +1558,67 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         >
           <Eraser size={14} />
         </button>
+        </div>
 
-        <div style={{ marginLeft: 'auto' }} />
-
+        <div className="rich-editor-toolbar-actions">
+        <div className="rich-editor-more-wrapper" ref={moreFormattingRef}>
+          <button
+            type="button"
+            className={`rich-editor-btn rich-editor-more-btn ${showMoreFormatting ? 'active' : ''}`}
+            title="More formatting options"
+            aria-label="More formatting options"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setShowMoreFormatting(previous => !previous)}
+          >
+            <MoreHorizontal size={15} />
+          </button>
+          {showMoreFormatting && (
+            <div className="rich-editor-more-menu" onMouseDown={(e) => e.preventDefault()}>
+              <label className="rich-editor-more-select-label">
+                <span>Font</span>
+                <select
+                  value={FONTS.some(font => font.name === activeFont) ? activeFont : 'Default Font'}
+                  onChange={(e) => {
+                    const font = FONTS.find(item => item.name === e.target.value);
+                    if (font) executeCommand('fontName', font.value);
+                    setShowMoreFormatting(false);
+                  }}
+                >
+                  {FONTS.map(font => <option key={font.name} value={font.name}>{font.name}</option>)}
+                </select>
+              </label>
+              <div className="rich-editor-more-divider" />
+              <button type="button" onClick={() => { executeCommand('strikeThrough'); setShowMoreFormatting(false); }}>Strikethrough</button>
+              <button type="button" onClick={() => { executeCommand('justifyLeft'); setShowMoreFormatting(false); }}>Align left</button>
+              <button type="button" onClick={() => { executeCommand('justifyCenter'); setShowMoreFormatting(false); }}>Align center</button>
+              <button type="button" onClick={() => { executeCommand('justifyRight'); setShowMoreFormatting(false); }}>Align right</button>
+              <button type="button" onClick={() => { executeCommand('justifyFull'); setShowMoreFormatting(false); }}>Justify</button>
+              <div className="rich-editor-more-divider" />
+              <button type="button" onClick={() => { executeCommand('insertUnorderedList'); setShowMoreFormatting(false); }}>Bullet list</button>
+              <button type="button" onClick={() => { executeCommand('insertOrderedList'); setShowMoreFormatting(false); }}>Numbered list</button>
+              <button type="button" onClick={() => { handleQuoteBlock(); setShowMoreFormatting(false); }}>Quote block</button>
+              <button type="button" onClick={() => { executeCommand('insertHorizontalRule'); setShowMoreFormatting(false); }}>Divider line</button>
+              <button type="button" onClick={() => { handleInsertTable(); setShowMoreFormatting(false); }}>Insert table</button>
+              {isInTable && (
+                <>
+                  <div className="rich-editor-more-divider" />
+                  <div className="rich-editor-more-section-label">Table layout</div>
+                  <button type="button" onClick={() => { handleInsertRowAbove(); setShowMoreFormatting(false); }}>Add row above</button>
+                  <button type="button" onClick={() => { handleInsertRowBelow(); setShowMoreFormatting(false); }}>Add row below</button>
+                  <button type="button" onClick={() => { handleInsertColumnLeft(); setShowMoreFormatting(false); }}>Add column left</button>
+                  <button type="button" onClick={() => { handleInsertColumnRight(); setShowMoreFormatting(false); }}>Add column right</button>
+                  <button type="button" className="danger-item" onClick={() => { handleDeleteRow(); setShowMoreFormatting(false); }}>Delete row</button>
+                  <button type="button" className="danger-item" onClick={() => { handleDeleteColumn(); setShowMoreFormatting(false); }}>Delete column</button>
+                  <button type="button" className="danger-item" onClick={() => { handleDeleteTable(); setShowMoreFormatting(false); }}>Delete table</button>
+                </>
+              )}
+              <div className="rich-editor-more-divider" />
+              <button type="button" onClick={() => { handleAddLink(); setShowMoreFormatting(false); }}>Insert link</button>
+              <button type="button" onClick={() => { handleUnlink(); setShowMoreFormatting(false); }}>Remove link</button>
+              <button type="button" onClick={() => { handleClearFormat(); setShowMoreFormatting(false); }}>Clear formatting</button>
+            </div>
+          )}
+        </div>
         {/* Keep sharing available from the compact editor without opening the full canvas */}
         {!isDocumentView && itemId && (
           <button
@@ -1564,6 +1645,22 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           >
             <Maximize2 size={14} />
           </button>
+        )}
+
+        {/* Unique public views (shown beside Share in expanded/public document mode) */}
+        {isDocumentView && itemId && (
+          <span
+            title="Unique browsers/devices that successfully opened the public share link"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '5px',
+              height: '28px', padding: '0 9px', marginRight: '4px',
+              borderRadius: '4px', background: 'var(--background-alt)',
+              border: '1px solid var(--border)', color: 'var(--text-secondary)',
+              fontSize: '0.72rem', fontWeight: 650, whiteSpace: 'nowrap'
+            }}
+          >
+            <Eye size={12} /> {displayUniqueViewCount} unique {displayUniqueViewCount === 1 ? 'view' : 'views'}
+          </span>
         )}
 
         {/* Share Button (Only show in document view and when itemId is provided) */}
@@ -1614,6 +1711,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
             <X size={15} />
           </button>
         )}
+        </div>
       </div>
     );
   };

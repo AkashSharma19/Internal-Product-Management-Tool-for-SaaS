@@ -1,5 +1,15 @@
 import mongoose, { Schema } from 'mongoose';
 
+// Privacy-safe ledger for lifetime unique public-document views.
+const PublicDocViewSchema = new Schema({
+  docId: { type: String, required: true, index: true },
+  viewerHash: { type: String, required: true },
+  firstViewedAt: { type: Date, default: Date.now }
+}, { versionKey: false });
+PublicDocViewSchema.index({ docId: 1, viewerHash: 1 }, { unique: true });
+
+export const PublicDocViewModel = mongoose.models.PublicDocView || mongoose.model('PublicDocView', PublicDocViewSchema);
+
 // 1. ProductItem (Priority Requests)
 const ProductItemSchema = new Schema({
   id: { type: String, required: true, unique: true },

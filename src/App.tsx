@@ -931,6 +931,7 @@ const DashboardContent: React.FC = () => {
     feature: string;
     description: string;
     poc: string;
+    uniqueViewCount: number;
   }
 
   const [publicDocId] = useState<string | null>(() => {
@@ -941,6 +942,20 @@ const DashboardContent: React.FC = () => {
   const [publicDocError, setPublicDocError] = useState<string | null>(null);
   const [isSharedGoogleSigningIn, setIsSharedGoogleSigningIn] = useState(false);
   const [sharedLoginError, setSharedLoginError] = useState<string | null>(null);
+  const publicDocViewRecordedRef = useRef<string | null>(null);
+
+  const getPublicDocViewerToken = () => {
+    const storageKey = 'public-doc-viewer-id';
+    try {
+      const existing = localStorage.getItem(storageKey);
+      if (existing) return existing;
+      const token = crypto.randomUUID();
+      localStorage.setItem(storageKey, token);
+      return token;
+    } catch {
+      return `viewer-${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+    }
+  };
 
   // Load public shared document
   useEffect(() => {
@@ -950,10 +965,33 @@ const DashboardContent: React.FC = () => {
       setPublicDocLoading(true);
       setPublicDocError(null);
       try {
-        const response = await fetch(`/api/data?action=get-public-doc&id=${publicDocId}`);
+        const response = await fetch(`/api/data?action=get-public-doc&id=${encodeURIComponent(publicDocId)}`);
         const result = await response.json();
         if (response.ok && result.success) {
           setPublicDoc(result.data);
+
+          if (publicDocViewRecordedRef.current !== result.data.id) {
+            publicDocViewRecordedRef.current = result.data.id;
+            const viewerToken = getPublicDocViewerToken();
+            void fetch('/api/data', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'record-public-doc-view',
+                data: { id: result.data.id, viewerToken }
+              })
+            })
+              .then(async viewResponse => {
+                const viewResult = await viewResponse.json();
+                if (viewResponse.ok && viewResult.success) {
+                  setPublicDoc(previous => previous ? {
+                    ...previous,
+                    uniqueViewCount: viewResult.uniqueViewCount
+                  } : previous);
+                }
+              })
+              .catch(error => console.error('Failed to record public document view:', error));
+          }
         } else {
           setPublicDocError(result.error || 'Failed to load document');
         }
@@ -1399,7 +1437,13 @@ const DashboardContent: React.FC = () => {
             </div>
             
             {/* Status Info */}
-            <div className="header-status-badge">
+            <div className="header-status-badge" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span
+                title="Unique browsers/devices that successfully opened this shared document"
+                style={{ fontSize: '0.75rem', fontWeight: 650, color: 'var(--primary)', background: 'var(--primary-glow)', padding: '4px 8px', borderRadius: '6px' }}
+              >
+                👁 {publicDoc.uniqueViewCount || 0} unique {publicDoc.uniqueViewCount === 1 ? 'view' : 'views'}
+              </span>
               {currentUser ? (
                 isAuthorizedPoc ? (
                   <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#10b981', background: 'rgba(16, 185, 129, 0.12)', padding: '4px 8px', borderRadius: '6px' }}>✍️ Editing Mode</span>
@@ -1471,6 +1515,7 @@ const DashboardContent: React.FC = () => {
               placeholder="Feature document is empty..."
               canEdit={Boolean(currentUser && isAuthorizedPoc)}
               fullPage={true}
+              uniqueViewCount={publicDoc.uniqueViewCount || 0}
             />
           </div>
         </div>
