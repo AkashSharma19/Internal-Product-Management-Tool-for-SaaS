@@ -531,7 +531,12 @@ const CampaignActivitySchema = new Schema({
 
 const CampaignSchema = new Schema({
   id: { type: String, required: true, unique: true },
-  name: { type: String, required: true },
+  name: {
+    type: String,
+    required: true,
+    trim: true,
+    validate: { validator: (value: string) => value.trim().length > 0, message: 'Campaign name is required.' }
+  },
   objective: { type: String, required: true },
   description: { type: String, default: '' },
   audience: { type: String, enum: ['Staff', 'Students'], required: true },
@@ -541,7 +546,17 @@ const CampaignSchema = new Schema({
   startDate: { type: String, default: '' },
   endDate: { type: String, default: '' },
   status: { type: String, enum: ['Draft', 'Scheduled', 'Active', 'Paused', 'Completed', 'Cancelled'], default: 'Draft' },
-  features: { type: [Schema.Types.Mixed], default: [] },
+  features: {
+    type: [Schema.Types.Mixed],
+    default: [],
+    validate: {
+      validator: (values: Array<{ id?: string }>) => {
+        const ids = values.map(value => String(value?.id || '').trim()).filter(Boolean);
+        return ids.length === values.length && new Set(ids).size === ids.length;
+      },
+      message: 'Campaign features must have valid, unique IDs.'
+    }
+  },
   activities: {
     type: [CampaignActivitySchema],
     default: [],

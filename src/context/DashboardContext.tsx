@@ -1250,8 +1250,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const typesToLoad = tabToType[tabName] || [];
     if (typesToLoad.length === 0) return;
 
+    const shouldRefresh = tabName === 'campaigns';
     const allAlreadyLoaded = typesToLoad.every(type => loadedTabs.includes(type));
-    if (allAlreadyLoaded) return;
+    if (allAlreadyLoaded && !shouldRefresh) return;
 
     setSyncStatus('syncing');
     try {
@@ -1262,7 +1263,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
 
       await Promise.all(typesToLoad.map(async (type) => {
-        if (loadedTabs.includes(type)) return;
+        if (loadedTabs.includes(type) && !shouldRefresh) return;
 
         const response = await dedupedFetch(`/api/data?action=tab-data&type=${type}`, { headers });
         if (response.ok) {
@@ -1282,7 +1283,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             if (type === 'featureAdoptions') setFeatureAdoptions(dataList);
             if (type === 'campaigns') setCampaigns(dataList);
             
-            setLoadedTabs(prev => [...prev, type]);
+            setLoadedTabs(prev => prev.includes(type) ? prev : [...prev, type]);
           }
         }
       }));

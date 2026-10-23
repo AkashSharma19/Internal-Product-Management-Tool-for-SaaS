@@ -3953,13 +3953,42 @@ export default async function handler(req: any, res: any) {
                 else activities.push(normalizedActivity);
               });
 
+              const seenFeatureIds = new Set<string>();
+              const normalizedFeatures = (Array.isArray(campaign.features) ? campaign.features : [])
+                .map((feature: any) => {
+                  const featureId = String(feature?.id || '').trim();
+                  if (!featureId || seenFeatureIds.has(featureId)) return null;
+                  seenFeatureIds.add(featureId);
+                  const product: any = productsById.get(featureId);
+                  return {
+                    id: featureId,
+                    feature: String(product?.feature || feature?.feature || 'Unknown feature'),
+                    product: String(product?.product || feature?.product || ''),
+                    status: String(product?.status || product?.clickupStatus || feature?.status || ''),
+                    finalRelease: String(product?.finalRelease || feature?.finalRelease || ''),
+                    supportDocsRequired: Boolean(product?.supportDocsRequired ?? feature?.supportDocsRequired),
+                    supportDocLink: String(product ? product.supportDocLink || '' : feature?.supportDocLink || ''),
+                    supportDocs: (Array.isArray(product?.supportDocs)
+                      ? product.supportDocs
+                      : Array.isArray(feature?.supportDocs) ? feature.supportDocs : [])
+                      .map((doc: any, index: number) => ({
+                        id: String(doc?.id || `${featureId}-doc-${index}`),
+                        name: String(doc?.name || 'Support Document'),
+                        link: String(doc?.link || '')
+                      }))
+                      .filter((doc: any) => doc.link)
+                  };
+                })
+                .filter(Boolean);
+              const campaignName = String(campaign.name || '').trim()
+                || (normalizedFeatures[0] as any)?.feature
+                || 'Untitled Campaign';
+
               return {
                 ...campaign,
+                name: campaignName,
                 activities,
-                features: (campaign.features || []).map((feature: any) => ({
-                  ...feature,
-                  ...(productsById.get(feature.id) || {})
-                }))
+                features: normalizedFeatures
               };
             });
             return res.status(200).json({ success: true, data: campaigns });
@@ -6429,7 +6458,7 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
         const campaignUser = campaignUserId
           ? await ConfigSpeakerModel.findOne({ id: campaignUserId }).lean() as any
           : null;
-        if (!campaignUser || campaignUser.canEdit === false) {
+        if (!campaignUser || campaignUser.canEdit === false || String(campaignUser.role || '').toLowerCase() === 'guest') {
           return res.status(403).json({ success: false, error: 'Campaigns can only be changed by users with edit access.' });
         }
       }
@@ -6479,6 +6508,24 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
           await session.endSession();
         }
         return res.status(200).json({ success: true, movedCount: operations.length });
+      }
+
+      if (type === 'campaigns' && (action === 'create' || action === 'update')) {
+        const campaignName = String(data?.name || '').trim();
+        const rawFeatures = Array.isArray(data?.features) ? data.features : [];
+        const seenFeatureIds = new Set<string>();
+        const features = rawFeatures.filter((feature: any) => {
+          const featureId = String(feature?.id || '').trim();
+          if (!featureId || seenFeatureIds.has(featureId)) return false;
+          seenFeatureIds.add(featureId);
+          return true;
+        });
+        if (!campaignName) {
+          return res.status(400).json({ success: false, error: 'Campaign name is required.' });
+        }
+        data.name = campaignName;
+        data.features = features;
+        if (!Array.isArray(data.activities)) data.activities = [];
       }
 
       if (action === 'delete-all-completed-notes') {
