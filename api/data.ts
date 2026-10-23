@@ -2,6 +2,7 @@ import https from 'https';
 import nodemailer from 'nodemailer';
 import { createHash } from 'node:crypto';
 import { connectToDatabase } from './lib/db.js';
+import { generateCampaignOccurrences, getOccurrenceViewStatus } from '../src/utils/campaigns.js';
 import {
   ProductItemModel,
   PlanItemModel,
@@ -1477,7 +1478,7 @@ export default async function handler(req: any, res: any) {
              'Specs', 'UI/UX', 'Dev', 'Release', 'Commited'
            ];
 
-          const [productsRaw, projectsRaw, amaSessionsRaw, meetingsRaw, adminCallsRaw, tarunSirMeetingsRaw, contentRaw, issuesRaw] = await Promise.all([
+          const [productsRaw, projectsRaw, amaSessionsRaw, meetingsRaw, adminCallsRaw, tarunSirMeetingsRaw, contentRaw, issuesRaw, campaignsRaw] = await Promise.all([
             ProductItemModel.find({}).lean(),
             StudentProjectModel.find({}).lean(),
             AMASessionModel.find({}).lean(),
@@ -1485,7 +1486,8 @@ export default async function handler(req: any, res: any) {
             AdminCallModel.find({}).lean(),
             TarunSirMeetingModel.find({}).lean(),
             ContentItemModel.find({}).lean(),
-            DailyIssueModel.find({}).lean()
+            DailyIssueModel.find({}).lean(),
+            isPublic ? Promise.resolve([]) : CampaignModel.find({}).lean()
           ]);
 
           const products = productsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
@@ -1496,6 +1498,7 @@ export default async function handler(req: any, res: any) {
           const tarunSirMeetings = tarunSirMeetingsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
           const content = contentRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
           const issues = issuesRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
+          const campaigns = campaignsRaw.map((item: any) => ({ ...item, id: item.id || String(item._id) }));
 
           const list: any[] = [];
           const parseDateToYYYYMMDD = (dateStr: string | undefined): string => {
@@ -1573,6 +1576,9 @@ export default async function handler(req: any, res: any) {
             tab: string
           ) => {
             if (isPublic) {
+              // Campaign communications contain internal planning details and are not part of the public calendar.
+              if (tab === 'campaigns') return;
+
               // 1. Check if source/tab is allowed
               if (tab === 'product' && !allowedSources.includes('product')) return;
               if (tab === 'projects' && !allowedSources.includes('projects')) return;
@@ -1608,7 +1614,8 @@ export default async function handler(req: any, res: any) {
             const evDateMidnight = new Date(normalized);
             evDateMidnight.setHours(0, 0, 0, 0);
             
-            const isOverdue = !isCompleted && evDateMidnight < today;
+            const isResolved = isCompleted || Boolean(rawItem.isResolved);
+            const isOverdue = !isResolved && evDateMidnight < today;
 
             if (isCurrentMonth || isOverdue) {
               const activeBlockerStr = (() => {
@@ -1633,7 +1640,8 @@ export default async function handler(req: any, res: any) {
                 blockers: Array.isArray(rawItem.blockers) ? rawItem.blockers : [],
                 rawItem,
                 tab,
-                isCompleted
+                isCompleted,
+                isResolved
               });
             }
           };
@@ -1735,6 +1743,71 @@ export default async function handler(req: any, res: any) {
               addEvent(item.id, 'Daily Issues Log', item.module || `Issue #${item.id}`, 'Final Release', item.finalRelease, !!item.finalReleaseCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'issues');
               addEvent(item.id, 'Daily Issues Log', item.module || `Issue #${item.id}`, 'Commited', item.committedDate, !!item.finalReleaseCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'issues');
             }
+          });
+
+          campaigns.forEach((campaign: any, campaignIndex: number) => {
+            const campaignId = String(campaign.id || campaign._id || `campaign-${campaignIndex}`);
+            const campaignName = String(campaign.name || 'Untitled Campaign').trim() || 'Untitled Campaign';
+            const activities = Array.isArray(campaign.activities) ? campaign.activities : [];
+
+            activities.forEach((activity: any, activityIndex: number) => {
+              const activityId = String(activity.id || `${campaignId}-activity-${activityIndex}`);
+              const normalizedActivity = {
+                ...activity,
+                id: activityId,
+                scheduledAt: String(activity.scheduledAt || ''),
+                recurrence: {
+                  enabled: false,
+                  frequency: 'weekly',
+                  interval: 1,
+                  unit: 'weeks',
+                  endType: 'count',
+                  occurrenceCount: 1,
+                  endDate: '',
+                  ...(activity.recurrence || {})
+                },
+                occurrences: Array.isArray(activity.occurrences) ? activity.occurrences : []
+              };
+
+              generateCampaignOccurrences(normalizedActivity).forEach((occurrence: any, occurrenceIndex: number) => {
+                const occurrenceId = String(occurrence.id || `${activityId}-occurrence-${occurrenceIndex}`);
+                const status = occurrence.status || 'Upcoming';
+                const viewStatus = getOccurrenceViewStatus({ ...occurrence, id: occurrenceId, status });
+                const isCompleted = status === 'Completed';
+                const isResolved = isCompleted || status === 'Skipped' || status === 'Cancelled';
+                const channel = activity.channel === 'Other'
+                  ? String(activity.customChannel || 'Other')
+                  : String(activity.channel || 'Communication');
+                const supportingLink = String(activity.supportingLink || '').trim();
+                const normalizedLink = supportingLink
+                  ? (/^https?:\/\//i.test(supportingLink) ? supportingLink : `https://${supportingLink}`)
+                  : undefined;
+
+                addEvent(
+                  `campaign-${campaignId}-${activityId}-${occurrenceId}`,
+                  'Campaign Communications',
+                  `${String(activity.title || 'Communication')} · ${campaignName}`,
+                  'Communication Date',
+                  occurrence.scheduledAt,
+                  isCompleted,
+                  String(activity.ownerName || campaign.ownerName || ''),
+                  campaign.priority,
+                  normalizedLink,
+                  {
+                    id: occurrenceId,
+                    campaignId,
+                    campaignName,
+                    activityId,
+                    occurrenceId,
+                    channel,
+                    audience: campaign.audience,
+                    status: `${viewStatus} • ${channel}`,
+                    isResolved
+                  },
+                  'campaigns'
+                );
+              });
+            });
           });
 
           // Deduplicate by event ID — a task linked to multiple meetings or with

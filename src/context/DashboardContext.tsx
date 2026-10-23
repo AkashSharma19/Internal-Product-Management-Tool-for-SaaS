@@ -126,6 +126,8 @@ interface DashboardContextType {
   updateCampaign: (id: string, updated: Partial<Campaign>) => Promise<boolean>;
   addCampaign: (item: Campaign) => Promise<boolean>;
   deleteCampaign: (id: string) => Promise<boolean>;
+  campaignCalendarTarget: { campaignId: string; activityId: string; occurrenceId: string } | null;
+  setCampaignCalendarTarget: React.Dispatch<React.SetStateAction<{ campaignId: string; activityId: string; occurrenceId: string } | null>>;
 
   teamContacts: TeamContact[];
   setTeamContacts: React.Dispatch<React.SetStateAction<TeamContact[]>>;
@@ -737,6 +739,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [featureAdoptions, setFeatureAdoptions] = useState<FeatureAdoption[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaignCalendarTarget, setCampaignCalendarTarget] = useState<{ campaignId: string; activityId: string; occurrenceId: string } | null>(null);
   const [directoryContacts, setDirectoryContacts] = useState<DirectoryContact[]>([]);
   const [repoTabs, setRepoTabs] = useState<RepoTab[]>([]);
   const [repoDocs, setRepoDocs] = useState<RepoDoc[]>([]);
@@ -1720,7 +1723,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return allEvts.filter(evt => {
-      if (evt.isCompleted) return false;
+      if (evt.isCompleted || evt.isResolved) return false;
       const evtDate = new Date(evt.dateStr);
       evtDate.setHours(0, 0, 0, 0);
       return evtDate < today;
@@ -3344,6 +3347,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       completedNotesCount, setCompletedNotesCount, deleteAllCompletedNotes, restoreAllCompletedNotes,
       featureAdoptions, setFeatureAdoptions, updateFeatureAdoption, addFeatureAdoption, deleteFeatureAdoption,
       campaigns, setCampaigns, updateCampaign, addCampaign, deleteCampaign,
+      campaignCalendarTarget, setCampaignCalendarTarget,
       teamContacts, setTeamContacts, updateTeamContact, addTeamContact, deleteTeamContact,
       directoryContacts, updateDirectoryContact, addDirectoryContact, deleteDirectoryContact, moveDirectoryContactGroup,
       repoTabs, addRepoTab, updateRepoTab, deleteRepoTab,

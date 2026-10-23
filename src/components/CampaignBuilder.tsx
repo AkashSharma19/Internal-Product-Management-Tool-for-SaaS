@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
   BookOpen,
@@ -160,6 +160,8 @@ export const CampaignBuilder: React.FC = () => {
     addCampaign,
     updateCampaign,
     deleteCampaign,
+    campaignCalendarTarget,
+    setCampaignCalendarTarget,
     confirm,
     alert
   } = useDashboard();
@@ -171,6 +173,7 @@ export const CampaignBuilder: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [expandedCampaignId, setExpandedCampaignId] = useState<string | null>(null);
+  const [highlightedOccurrenceId, setHighlightedOccurrenceId] = useState<string | null>(null);
   const [featureEditor, setFeatureEditor] = useState<Campaign | null>(null);
   const [communicationEditor, setCommunicationEditor] = useState<CommunicationEditor | null>(null);
   const [featureSearch, setFeatureSearch] = useState('');
@@ -181,6 +184,31 @@ export const CampaignBuilder: React.FC = () => {
   const featureSearchSequenceRef = useRef(0);
   const [formError, setFormError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (!campaignCalendarTarget) return;
+    const campaignIndex = campaigns.findIndex(campaign => campaign.id === campaignCalendarTarget.campaignId);
+    if (campaignIndex < 0) return;
+
+    const target = campaignCalendarTarget;
+    const focusTimer = window.setTimeout(() => {
+      setSearchQuery('');
+      setAudienceFilter('');
+      setOwnerFilter('');
+      setChannelFilter('');
+      setCurrentPage(Math.floor(campaignIndex / pageSize) + 1);
+      setExpandedCampaignId(target.campaignId);
+      setHighlightedOccurrenceId(target.occurrenceId);
+      setCampaignCalendarTarget(null);
+
+      window.setTimeout(() => {
+        document.querySelector(`[data-campaign-id="${target.campaignId}"]`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }, 0);
+
+    return () => window.clearTimeout(focusTimer);
+  }, [campaignCalendarTarget, campaigns, pageSize, setCampaignCalendarTarget]);
 
   const owners = useMemo(() => speakers.filter(speaker => speaker.role !== 'Guest'), [speakers]);
 
@@ -523,7 +551,7 @@ export const CampaignBuilder: React.FC = () => {
                 const missingSupportDocs = getMissingSupportDocFeatures(features);
                 const products = getCampaignProducts(campaign);
                 return <React.Fragment key={campaign.id}>
-                  <tr className={isExpanded ? 'campaign-parent-expanded' : ''} onClick={() => setExpandedCampaignId(isExpanded ? null : campaign.id)} style={{ cursor: 'pointer' }}>
+                  <tr data-campaign-id={campaign.id} className={isExpanded ? 'campaign-parent-expanded' : ''} onClick={() => setExpandedCampaignId(isExpanded ? null : campaign.id)} style={{ cursor: 'pointer' }}>
                     <td><div className="campaign-feature-cell">{isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}<div><strong>{campaign.name}</strong><div className="campaign-muted">{campaign.activities.length} communication{campaign.activities.length === 1 ? '' : 's'} • {rows.length} scheduled item{rows.length === 1 ? '' : 's'}</div></div></div></td>
                     <td><div className="campaign-feature-chips">{features.slice(0, 3).map(feature => <span key={feature.id} title={feature.feature}>{feature.feature}</span>)}{features.length > 3 && <span>+{features.length - 3} more</span>}{features.length === 0 && <span>No features</span>}</div></td>
                     <td>{products.length ? products.join(', ') : '—'}</td>
@@ -583,7 +611,7 @@ export const CampaignBuilder: React.FC = () => {
                         <div className="campaign-related-header"><div><strong>Related Communications</strong><span>Communications planned for {campaign.name}</span></div>{canUserEdit && <button className="btn btn-secondary btn-sm" onClick={() => openAddCommunication(campaign)}><Plus size={13} /> Add Communication</button>}</div>
                       {rows.length === 0 ? <div className="campaign-related-empty"><Megaphone size={25} /><span>No communications added to this campaign.</span>{canUserEdit && <button className="btn btn-secondary btn-sm" onClick={() => openAddCommunication(campaign)}>Create one now</button>}</div> : <div className="table-responsive campaign-related-table-wrap"><table className="grid-table campaign-related-table"><thead><tr><th style={{ width: 54 }}>Done</th><th style={{ minWidth: 240 }}>Communication</th><th style={{ minWidth: 140 }}>Channel</th><th style={{ minWidth: 150 }}>Owner</th><th style={{ minWidth: 180 }}>Planned For</th><th style={{ minWidth: 100 }}>Recurring</th><th style={{ minWidth: 115 }}>Status</th><th style={{ width: 90 }}></th></tr></thead><tbody>{rows.map(({ activity, occurrence, occurrenceIndex }) => {
                         const viewStatus = getOccurrenceViewStatus(occurrence);
-                        return <tr key={occurrence.id}>
+                        return <tr key={occurrence.id} className={highlightedOccurrenceId === occurrence.id ? 'campaign-calendar-target' : ''}>
                           <td><input className="campaign-done-checkbox" type="checkbox" title="Mark as done" disabled={!canUserEdit || occurrence.status === 'Skipped' || occurrence.status === 'Cancelled'} checked={occurrence.status === 'Completed'} onChange={event => updateOccurrence(campaign, activity.id, occurrence.id, event.target.checked ? 'Completed' : 'Upcoming')} /></td>
                           <td><div className="campaign-communication-title">{activity.title}{activity.recurrence.enabled && <span className="campaign-occurrence-number">#{occurrenceIndex + 1}</span>}</div>{activity.content && <div className="campaign-communication-preview">{activity.content}</div>}{activity.callToAction && <div className="campaign-muted">CTA: {activity.callToAction}</div>}</td>
                           <td><span className="campaign-badge">{activity.channel === 'Other' ? activity.customChannel : activity.channel}</span></td>

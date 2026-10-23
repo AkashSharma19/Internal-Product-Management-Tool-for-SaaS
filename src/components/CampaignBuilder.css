@@ -49,6 +49,9 @@
 .campaign-related-table { font-size: .75rem; }
 .campaign-related-table th { top: 0; font-size: .63rem; }
 .campaign-related-table td { padding: .55rem .7rem; }
+.campaign-related-table tr.campaign-calendar-target td { background: rgba(13,148,136,.14) !important; animation: campaign-calendar-highlight 1.8s ease-out; }
+.campaign-related-table tr.campaign-calendar-target td:first-child { border-left-color: #0d9488 !important; }
+@keyframes campaign-calendar-highlight { from { background: rgba(13,148,136,.32); } to { background: rgba(13,148,136,.14); } }
 .campaign-related-empty { padding: 1.5rem; border: 1px dashed var(--border); border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .5rem; color: var(--text-secondary); font-size: .8rem; background: var(--background); }
 .campaign-done-checkbox { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
 .campaign-done-checkbox:disabled { cursor: not-allowed; opacity: .5; }

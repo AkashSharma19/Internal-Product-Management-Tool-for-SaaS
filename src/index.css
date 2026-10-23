@@ -4109,6 +4109,7 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-secondary);
   font-size: 0.54rem;
   font-weight: 500;
+  text-decoration: none;
   cursor: pointer;
 }
 
@@ -4136,6 +4137,7 @@ h1, h2, h3, h4, h5, h6 {
 .bg-stage-meeting  { background-color: #f97316; }
 .bg-stage-deadline { background-color: #f59e0b; }
 .bg-stage-committed { background-color: #10b981; }
+.bg-stage-communication { background-color: #0d9488; }
 /* Legacy source-based (kept for backwards compat if referenced elsewhere) */
 .bg-priority-requests { background-color: #ef4444; }
 .bg-student-projects  { background-color: #10b981; }

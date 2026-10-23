@@ -12,7 +12,8 @@ import {
   Check,
   AlertTriangle,
   Filter,
-  CheckCheck
+  CheckCheck,
+  ExternalLink
 } from 'lucide-react';
 import { getClickupBadgeStyle } from './Tables';
 import type { ProductItem } from '../types';
@@ -84,9 +85,9 @@ const isCompletedStatus = (status?: string): boolean => {
 
 interface CalendarEvent {
   id: string;
-  source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA Sessions' | 'Student Meetings' | 'Admin Calls' | 'Tarun Sir Meetings' | 'Daily Issues Log' | 'Daily Needs';
+  source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA Sessions' | 'Student Meetings' | 'Admin Calls' | 'Tarun Sir Meetings' | 'Daily Issues Log' | 'Daily Needs' | 'Campaign Communications';
   title: string;
-  stage: 'Specs' | 'UI/UX' | 'Dev' | 'Final Release' | 'AMA Date' | 'Call Date' | 'Meeting Date' | 'Publish Date' | 'Deadline' | 'Commited';
+  stage: 'Specs' | 'UI/UX' | 'Dev' | 'Final Release' | 'AMA Date' | 'Call Date' | 'Meeting Date' | 'Publish Date' | 'Deadline' | 'Commited' | 'Communication Date';
   dateStr: string; // normalized YYYY-MM-DD
   poc: string;
   priority?: string;
@@ -97,13 +98,14 @@ interface CalendarEvent {
   rawItem: any;
   tab: string;
   isCompleted: boolean;
+  isResolved?: boolean;
 }
 
-export type MilestoneCategoryKey = 'dev' | 'uiux' | 'specs' | 'release' | 'committed' | 'meetings';
+export type MilestoneCategoryKey = 'dev' | 'uiux' | 'specs' | 'release' | 'committed' | 'meetings' | 'communications';
 
-export const ALL_MILESTONE_KEYS: MilestoneCategoryKey[] = ['dev', 'uiux', 'specs', 'release', 'committed', 'meetings'];
+export const ALL_MILESTONE_KEYS: MilestoneCategoryKey[] = ['dev', 'uiux', 'specs', 'release', 'committed', 'meetings', 'communications'];
 
-const CALENDAR_MILESTONES_STORAGE_KEY = 'calendar_milestone_filters';
+const CALENDAR_MILESTONES_STORAGE_KEY = 'calendar_milestone_filters_v2';
 
 export interface MilestoneCategoryConfig {
   key: MilestoneCategoryKey;
@@ -169,6 +171,15 @@ export const MILESTONE_CATEGORIES: MilestoneCategoryConfig[] = [
     color: '#f97316',
     bgLight: 'rgba(249, 115, 22, 0.14)',
     description: 'AMA sessions, admin calls & student meetings'
+  },
+  {
+    key: 'communications',
+    label: 'Campaign Communications',
+    shortLabel: 'Comms',
+    stages: ['Communication Date'],
+    color: '#0d9488',
+    bgLight: 'rgba(13, 148, 136, 0.14)',
+    description: 'Campaign emails, announcements, demos & other communications'
   }
 ];
 
@@ -179,6 +190,7 @@ export const getEventMilestoneCategory = (stage: string): MilestoneCategoryKey |
   if (stage === 'Final Release' || stage === 'Publish Date' || stage === 'Deadline') return 'release';
   if (stage === 'Commited') return 'committed';
   if (stage === 'AMA Date' || stage === 'Call Date' || stage === 'Meeting Date') return 'meetings';
+  if (stage === 'Communication Date') return 'communications';
   return null;
 };
 
@@ -194,7 +206,7 @@ export const getEventTaskId = (evt: CalendarEvent): string => {
     return String(evt.rawItem.id);
   }
   if (evt.id) {
-    const match = evt.id.match(/^(.*?)(?:-(?:Specs|UI\/UX|Dev|Final Release|Publish Date|Deadline|Commited|AMA Date|Call Date|Meeting Date))?$/);
+    const match = evt.id.match(/^(.*?)(?:-(?:Specs|UI\/UX|Dev|Final Release|Publish Date|Deadline|Commited|AMA Date|Call Date|Meeting Date|Communication Date))?$/);
     if (match && match[1]) {
       return match[1];
     }
@@ -222,7 +234,7 @@ const getEventBlocker = (evt: CalendarEvent): string => {
 };
 
 const isCalendarEventOverdue = (evt: CalendarEvent): boolean => {
-  return !evt.isCompleted && evt.dateStr < toLocalDateStr(new Date());
+  return !evt.isCompleted && !evt.isResolved && evt.dateStr < toLocalDateStr(new Date());
 };
 
 const getPocInitials = (name: string): string => {
@@ -340,6 +352,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
     openPreviewForFeature,
     activeTab,
     setPreviousTab,
+    setCampaignCalendarTarget,
     sharableCalendarSources,
     currentUser,
     comments,
@@ -437,7 +450,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
   const [rescheduleToast, setRescheduleToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const handleDragStart = (e: React.DragEvent, evt: CalendarEvent) => {
-    if (isPublic) return;
+    if (isPublic || evt.source === 'Campaign Communications') return;
     setDraggedEvent(evt);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', evt.id);
@@ -466,7 +479,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
   const handleDropOnDate = async (e: React.DragEvent, targetDateStr: string) => {
     e.preventDefault();
     setDragOverDateStr(null);
-    if (!draggedEvent || isPublic) return;
+    if (!draggedEvent || isPublic || draggedEvent.source === 'Campaign Communications') return;
     if (draggedEvent.dateStr === targetDateStr) return;
 
     const evt = draggedEvent;
@@ -777,6 +790,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
       release: new Set(),
       committed: new Set(),
       meetings: new Set(),
+      communications: new Set(),
     };
     monthEvents.forEach(evt => {
       const cat = getEventMilestoneCategory(evt.stage);
@@ -791,6 +805,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
       release: taskSets.release.size,
       committed: taskSets.committed.size,
       meetings: taskSets.meetings.size,
+      communications: taskSets.communications.size,
     };
   }, [monthEvents]);
 
@@ -810,7 +825,8 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
           evt.poc.toLowerCase().includes(query) ||
           evt.source.toLowerCase().includes(query) ||
           (evt.priority && evt.priority.toLowerCase().includes(query)) ||
-          (evt.status && evt.status.toLowerCase().includes(query));
+          (evt.status && evt.status.toLowerCase().includes(query)) ||
+          (typeof evt.rawItem?.audience === 'string' && evt.rawItem.audience.toLowerCase().includes(query));
         if (!matchesQuery) return false;
       }
 
@@ -944,6 +960,13 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
       return;
     }
     setPreviousTab(activeTab);
+    if (evt.source === 'Campaign Communications') {
+      setCampaignCalendarTarget({
+        campaignId: String(evt.rawItem?.campaignId || ''),
+        activityId: String(evt.rawItem?.activityId || ''),
+        occurrenceId: String(evt.rawItem?.occurrenceId || '')
+      });
+    }
     setActiveTab(evt.tab);
     setTimeout(() => {
       // Direct drawer preview if the rawItem represents a Priority Request task
@@ -987,7 +1010,8 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
     'AMA Date':     { bg: '#f97316', label: 'AMA',      css: 'bg-stage-meeting' },
     'Call Date':    { bg: '#f97316', label: 'Call',     css: 'bg-stage-meeting' },
     'Deadline':     { bg: '#8b5cf6', label: 'Release',  css: 'bg-stage-release' },
-    'Commited':     { bg: '#10b981', label: 'Commited', css: 'bg-stage-committed' },
+    'Commited':         { bg: '#10b981', label: 'Commited', css: 'bg-stage-committed' },
+    'Communication Date': { bg: '#0d9488', label: 'Comms', css: 'bg-stage-communication' },
   };
 
   const getStageColor = (stage: string): string => {
@@ -1004,21 +1028,13 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
 
   const getEventClass = (evt: CalendarEvent) => {
     if (evt.isCompleted) return 'bg-completed';
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const evtDate = new Date(evt.dateStr);
-    evtDate.setHours(0, 0, 0, 0);
-    if (evtDate < today) return 'bg-overdue';
+    if (isCalendarEventOverdue(evt)) return 'bg-overdue';
     return getStageClass(evt.stage);
   };
 
   const getEventColor = (evt: CalendarEvent) => {
     if (evt.isCompleted) return '#10b981';
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const evtDate = new Date(evt.dateStr);
-    evtDate.setHours(0, 0, 0, 0);
-    if (evtDate < today) return '#ef4444';
+    if (isCalendarEventOverdue(evt)) return '#ef4444';
     return getStageColor(evt.stage);
   };
 
@@ -1064,7 +1080,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
     today.setHours(0, 0, 0, 0);
     const overdueTaskIds = new Set<string>();
     filteredEvents.forEach(evt => {
-      if (!evt.isCompleted) {
+      if (!evt.isCompleted && !evt.isResolved) {
         const evtDate = new Date(evt.dateStr);
         evtDate.setHours(0, 0, 0, 0);
         if (evtDate < today) {
@@ -1573,17 +1589,17 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
                               {dayEvents.slice(0, 3).map(evt => (
                                 <div
                                   key={evt.id}
-                                  draggable={!isPublic}
+                                  draggable={!isPublic && evt.source !== 'Campaign Communications'}
                                   onDragStart={(e) => handleDragStart(e, evt)}
                                   onDragEnd={handleDragEnd}
                                   className={`calendar-mini-event-badge ${getEventClass(evt)}`}
                                   style={{
                                     opacity: draggedEvent?.id === evt.id ? 0.4 : evt.isCompleted ? 0.6 : 1,
-                                    cursor: isPublic ? 'pointer' : 'grab'
+                                    cursor: isPublic || evt.source === 'Campaign Communications' ? 'pointer' : 'grab'
                                   }}
                                   title={getEventBlocker(evt)
                                     ? `Blocker: ${getEventBlocker(evt)} · [${getStageLabel(evt.stage)}] ${evt.title}${evt.isCompleted ? ' ✓' : ''}`
-                                    : `[${getStageLabel(evt.stage)}] ${evt.title}${evt.isCompleted ? ' ✓' : ''}${isPublic ? '' : ' (Drag to reschedule)'}`}
+                                    : `[${getStageLabel(evt.stage)}] ${evt.title}${evt.isCompleted ? ' ✓' : ''}${isPublic || evt.source === 'Campaign Communications' ? '' : ' (Drag to reschedule)'}`}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleEventClick(evt);
@@ -1677,7 +1693,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
                     <article
                       key={evt.id}
                       className={`calendar-agenda-card ${blocker ? 'is-blocked' : ''} ${isOverdue ? 'is-overdue' : ''} ${evt.isCompleted ? 'is-completed' : ''}`}
-                      draggable={!isPublic}
+                      draggable={!isPublic && evt.source !== 'Campaign Communications'}
                       tabIndex={0}
                       aria-label={`${evt.title}, ${getStageLabel(evt.stage)}${blocker ? `, blocked: ${blocker}` : ''}`}
                       onDragStart={(e) => handleDragStart(e, evt)}
@@ -1692,7 +1708,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
                       style={{
                         borderLeftColor: blocker ? '#f97316' : evt.isCompleted ? 'var(--success, #10b981)' : getEventColor(evt),
                         opacity: draggedEvent?.id === evt.id ? 0.45 : 1,
-                        cursor: isPublic ? 'pointer' : 'grab'
+                        cursor: isPublic || evt.source === 'Campaign Communications' ? 'pointer' : 'grab'
                       }}
                     >
                       <div className="calendar-agenda-card-topline">
@@ -1730,7 +1746,18 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
                           <span>{evt.poc || 'Unassigned'}</span>
                         </div>
 
-                        {taskLink && (
+                        {taskLink && (evt.source === 'Campaign Communications' ? (
+                          <a
+                            className="calendar-agenda-clickup"
+                            href={taskLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            title="Open supporting link"
+                          >
+                            <ExternalLink size={11} /> Supporting link
+                          </a>
+                        ) : (
                           <button
                             type="button"
                             className={`calendar-agenda-clickup ${copiedId === evt.id ? 'copied' : ''}`}
@@ -1739,7 +1766,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
                           >
                             {copiedId === evt.id ? <><Check size={11} /> Copied</> : <><Copy size={11} /> ClickUp</>}
                           </button>
-                        )}
+                        ))}
                       </div>
                     </article>
                   );
