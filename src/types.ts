@@ -394,11 +394,15 @@ export interface DirectoryContact {
   name: string;
   email: string;
   mobile: string;
-  whatsapp: string;
-  tier: 'L0' | 'L1' | 'L2';
-  programId: string;
-  cohortId: string;
   department: string;
+  categoryId?: string;
+  parentId?: string;
+  order?: number;
+  // Legacy fields retained so existing directory records remain compatible.
+  whatsapp?: string;
+  tier?: 'L0' | 'L1' | 'L2';
+  programId?: string;
+  cohortId?: string;
 }
 
 // ── Feedback & Form Builder Types ──────────────────────────────────────────

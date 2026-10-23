@@ -185,6 +185,7 @@ interface DashboardContextType {
   addDirectoryContact: (item: DirectoryContact) => void;
   updateDirectoryContact: (id: string, updated: Partial<DirectoryContact>) => void;
   deleteDirectoryContact: (id: string) => void;
+  moveDirectoryContactGroup: (sourceId: string, targetParentId: string, categoryId: string) => Promise<boolean>;
 
   repoTabs: RepoTab[];
   addRepoTab: (item: RepoTab) => void;
@@ -2513,6 +2514,58 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setDirectoryContacts(prev => prev.filter(item => item.id !== id));
     persistChange('delete', 'directoryContacts', id, null);
   };
+  const moveDirectoryContactGroup = async (sourceId: string, targetParentId: string, categoryId: string): Promise<boolean> => {
+    const source = directoryContacts.find(contact => contact.id === sourceId && !contact.parentId);
+    if (!source) return false;
+
+    const targetChildCount = directoryContacts.filter(contact => contact.parentId === targetParentId).length;
+    const sourceChildren = directoryContacts
+      .filter(contact => contact.parentId === sourceId)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    // Compatibility path for servers that predate the atomic move action or
+    // Mongo deployments without transaction support. Children move first and
+    // the parent moves last, so an interrupted operation cannot hide children
+    // beneath a contact that is no longer rendered at the outer level.
+    for (let index = 0; index < sourceChildren.length; index += 1) {
+      const child = sourceChildren[index];
+      const updatedChild = {
+        ...child,
+        parentId: targetParentId,
+        categoryId,
+        programId: '',
+        cohortId: '',
+        order: targetChildCount + index + 1
+      };
+      const childSaved = await persistChange('update', 'directoryContacts', child.id, updatedChild);
+      if (!childSaved) return false;
+    }
+
+    const updatedSource = {
+      ...source,
+      parentId: targetParentId,
+      categoryId,
+      programId: '',
+      cohortId: '',
+      order: targetChildCount
+    };
+    const sourceSaved = await persistChange('update', 'directoryContacts', source.id, updatedSource);
+    if (!sourceSaved) return false;
+
+    const movedById = new Map<string, DirectoryContact>([
+      [source.id, updatedSource],
+      ...sourceChildren.map((child, index) => [child.id, {
+        ...child,
+        parentId: targetParentId,
+        categoryId,
+        programId: '',
+        cohortId: '',
+        order: targetChildCount + index + 1
+      }] as [string, DirectoryContact])
+    ]);
+    setDirectoryContacts(previous => previous.map(contact => movedById.get(contact.id) || contact));
+    return true;
+  };
 
   const addRepoTab = (item: RepoTab) => {
     setRepoTabs(prev => [...prev, item]);
@@ -3291,7 +3344,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       featureAdoptions, setFeatureAdoptions, updateFeatureAdoption, addFeatureAdoption, deleteFeatureAdoption,
       campaigns, setCampaigns, updateCampaign, addCampaign, deleteCampaign,
       teamContacts, setTeamContacts, updateTeamContact, addTeamContact, deleteTeamContact,
-      directoryContacts, updateDirectoryContact, addDirectoryContact, deleteDirectoryContact,
+      directoryContacts, updateDirectoryContact, addDirectoryContact, deleteDirectoryContact, moveDirectoryContactGroup,
       repoTabs, addRepoTab, updateRepoTab, deleteRepoTab,
       repoDocs, addRepoDoc, updateRepoDoc, deleteRepoDoc,
       programCohortRows, setProgramCohortRows, updateProgramCohortRow, addProgramCohortRow, deleteProgramCohortRow,

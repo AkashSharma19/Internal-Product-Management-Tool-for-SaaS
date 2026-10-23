@@ -2,23 +2,41 @@ import type { Campaign, CampaignActivity, CampaignOccurrence } from '../types';
 
 export type CampaignOccurrenceViewStatus = CampaignOccurrence['status'] | 'Due today' | 'Overdue';
 
-const startOfDay = (value: Date) => new Date(value.getFullYear(), value.getMonth(), value.getDate());
-
-export const toLocalDateTimeInput = (date = new Date()): string => {
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+export const toLocalDateInput = (date = new Date()): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
+
+export const normalizeCampaignDate = (value: string | undefined | null): string => {
+  if (!value) return '';
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? '' : toLocalDateInput(parsed);
+};
+
+const parseCampaignDate = (value: string | undefined | null): Date | null => {
+  const normalized = normalizeCampaignDate(value);
+  if (!normalized) return null;
+  const [year, month, day] = normalized.split('-').map(Number);
+  const parsed = new Date(year, month - 1, day);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const startOfDay = (value: Date) => new Date(value.getFullYear(), value.getMonth(), value.getDate());
 
 export const getOccurrenceViewStatus = (
   occurrence: CampaignOccurrence,
   now = new Date()
 ): CampaignOccurrenceViewStatus => {
   if (occurrence.status !== 'Upcoming') return occurrence.status;
-  const scheduled = new Date(occurrence.scheduledAt);
-  if (Number.isNaN(scheduled.getTime())) return 'Upcoming';
+  const scheduled = parseCampaignDate(occurrence.scheduledAt);
+  if (!scheduled) return 'Upcoming';
   const scheduledDay = startOfDay(scheduled).getTime();
   const today = startOfDay(now).getTime();
-  if (scheduledDay < today || scheduled.getTime() < now.getTime()) return 'Overdue';
+  if (scheduledDay < today) return 'Overdue';
   if (scheduledDay === today) return 'Due today';
   return 'Upcoming';
 };
@@ -46,9 +64,11 @@ const nextOccurrenceDate = (current: Date, activity: CampaignActivity): Date => 
       next.setMonth(targetMonth);
       const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
       next.setDate(Math.min(originalDay, lastDay));
+    } else if (recurrence.unit === 'weeks') {
+      next.setDate(next.getDate() + (interval * 7));
+    } else {
+      next.setDate(next.getDate() + interval);
     }
-    else if (recurrence.unit === 'weeks') next.setDate(next.getDate() + (interval * 7));
-    else next.setDate(next.getDate() + interval);
   } else {
     next.setDate(next.getDate() + 1);
   }
@@ -59,9 +79,9 @@ const MAX_CAMPAIGN_OCCURRENCES = 120;
 
 export const campaignRecurrenceExceedsLimit = (activity: CampaignActivity): boolean => {
   if (!activity.recurrence.enabled || activity.recurrence.endType !== 'date' || !activity.recurrence.endDate) return false;
-  const end = new Date(`${activity.recurrence.endDate}T23:59:59`);
-  let cursor = new Date(activity.scheduledAt);
-  if (Number.isNaN(cursor.getTime()) || Number.isNaN(end.getTime())) return false;
+  const end = parseCampaignDate(activity.recurrence.endDate);
+  let cursor = parseCampaignDate(activity.scheduledAt);
+  if (!cursor || !end) return false;
   for (let count = 1; count < MAX_CAMPAIGN_OCCURRENCES; count += 1) {
     const next = nextOccurrenceDate(cursor, activity);
     if (next <= cursor || next > end) return false;
@@ -71,17 +91,48 @@ export const campaignRecurrenceExceedsLimit = (activity: CampaignActivity): bool
   return next > cursor && next <= end;
 };
 
+const occurrenceDateKey = (value: string) => normalizeCampaignDate(value) || `raw:${value}`;
+
+export const dedupeCampaignOccurrences = (occurrences: CampaignOccurrence[] = []): CampaignOccurrence[] => {
+  const byDate = new Map<string, CampaignOccurrence>();
+  occurrences.forEach(occurrence => {
+    const key = occurrenceDateKey(occurrence.scheduledAt);
+    const normalized = { ...occurrence, scheduledAt: normalizeCampaignDate(occurrence.scheduledAt) || occurrence.scheduledAt };
+    const existing = byDate.get(key);
+    if (!existing || (existing.status === 'Upcoming' && normalized.status !== 'Upcoming')) {
+      byDate.set(key, normalized);
+    }
+  });
+  return Array.from(byDate.values()).sort((a, b) =>
+    occurrenceDateKey(a.scheduledAt).localeCompare(occurrenceDateKey(b.scheduledAt))
+  );
+};
+
 export const generateCampaignOccurrences = (activity: CampaignActivity): CampaignOccurrence[] => {
-  const firstDate = new Date(activity.scheduledAt);
-  if (Number.isNaN(firstDate.getTime())) return [];
+  const firstDate = parseCampaignDate(activity.scheduledAt);
+  if (!firstDate) return [];
 
-  const previousByDate = new Map((activity.occurrences || []).map(item => [item.scheduledAt, item]));
+  const previousOccurrences = dedupeCampaignOccurrences(activity.occurrences || []);
+  const previousByDate = new Map(previousOccurrences.map(item => [occurrenceDateKey(item.scheduledAt), item]));
+
+  if (!activity.recurrence.enabled) {
+    const terminalOccurrence = previousOccurrences.find(item => item.status === 'Completed')
+      || previousOccurrences.find(item => item.status === 'Skipped' || item.status === 'Cancelled');
+    if (terminalOccurrence) return [terminalOccurrence];
+
+    const scheduledAt = toLocalDateInput(firstDate);
+    return [previousByDate.get(occurrenceDateKey(scheduledAt)) || {
+      id: `${activity.id}-occ-${firstDate.getTime()}`,
+      scheduledAt,
+      status: 'Upcoming' as const
+    }];
+  }
+
   const dates: Date[] = [firstDate];
-
-  if (activity.recurrence.enabled) {
-    const maxOccurrences = MAX_CAMPAIGN_OCCURRENCES;
-    if (activity.recurrence.endType === 'date' && activity.recurrence.endDate) {
-      const end = new Date(`${activity.recurrence.endDate}T23:59:59`);
+  const maxOccurrences = MAX_CAMPAIGN_OCCURRENCES;
+  if (activity.recurrence.endType === 'date' && activity.recurrence.endDate) {
+    const end = parseCampaignDate(activity.recurrence.endDate);
+    if (end) {
       let cursor = firstDate;
       while (dates.length < maxOccurrences) {
         const next = nextOccurrenceDate(cursor, activity);
@@ -89,41 +140,36 @@ export const generateCampaignOccurrences = (activity: CampaignActivity): Campaig
         dates.push(next);
         cursor = next;
       }
-    } else {
-      const count = Math.min(maxOccurrences, Math.max(1, activity.recurrence.occurrenceCount || 1));
-      let cursor = firstDate;
-      while (dates.length < count) {
-        const next = nextOccurrenceDate(cursor, activity);
-        if (next <= cursor) break;
-        dates.push(next);
-        cursor = next;
-      }
+    }
+  } else {
+    const count = Math.min(maxOccurrences, Math.max(1, activity.recurrence.occurrenceCount || 1));
+    let cursor = firstDate;
+    while (dates.length < count) {
+      const next = nextOccurrenceDate(cursor, activity);
+      if (next <= cursor) break;
+      dates.push(next);
+      cursor = next;
     }
   }
 
   const generated = dates.map(date => {
-    const scheduledAt = toLocalDateTimeInput(date);
-    return previousByDate.get(scheduledAt) || {
+    const scheduledAt = toLocalDateInput(date);
+    return previousByDate.get(occurrenceDateKey(scheduledAt)) || {
       id: `${activity.id}-occ-${date.getTime()}`,
       scheduledAt,
       status: 'Upcoming' as const
     };
   });
 
-  // Resolved occurrences are permanent history. Pending occurrences that are
-  // already overdue must also remain until explicitly completed, skipped or
-  // cancelled, even when future recurrence settings are changed.
-  const generatedDates = new Set(generated.map(item => item.scheduledAt));
-  const now = Date.now();
-  const historicalRequired = (activity.occurrences || []).filter(item => {
-    if (generatedDates.has(item.scheduledAt)) return false;
+  const generatedDates = new Set(generated.map(item => occurrenceDateKey(item.scheduledAt)));
+  const today = startOfDay(new Date()).getTime();
+  const historicalRequired = previousOccurrences.filter(item => {
+    if (generatedDates.has(occurrenceDateKey(item.scheduledAt))) return false;
     if (item.status !== 'Upcoming') return true;
-    const scheduledTime = new Date(item.scheduledAt).getTime();
-    return !Number.isNaN(scheduledTime) && scheduledTime < now;
+    const scheduled = parseCampaignDate(item.scheduledAt);
+    return Boolean(scheduled && activity.recurrence.enabled && scheduled.getTime() < today);
   });
-  return [...historicalRequired, ...generated].sort((a, b) =>
-    new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
-  );
+  return dedupeCampaignOccurrences([...historicalRequired, ...generated]);
 };
 
 export const getCampaignProgress = (campaign: Campaign) => {
@@ -154,7 +200,5 @@ export const getCampaignDisplayStatus = (campaign: Campaign, now = new Date()): 
     (activity.occurrences || []).some(item => getOccurrenceViewStatus(item, now) === 'Overdue')
   );
   if (hasOverdue) return 'Overdue';
-  const start = new Date(`${campaign.startDate}T00:00:00`);
-  if (!Number.isNaN(start.getTime()) && start > now) return 'Scheduled';
   return 'Active';
 };

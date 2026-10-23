@@ -3899,13 +3899,69 @@ export default async function handler(req: any, res: any) {
                   .lean()
               : [];
             const productsById = new Map(products.map((product: any) => [product.id, product]));
-            const campaigns = rawItems.map((campaign: any) => ({
-              ...campaign,
-              features: (campaign.features || []).map((feature: any) => ({
-                ...feature,
-                ...(productsById.get(feature.id) || {})
-              }))
-            }));
+            const campaigns = rawItems.map((campaign: any) => {
+              const reserveUniqueId = (baseId: string, usedIds: Set<string>) => {
+                let candidate = baseId;
+                let suffix = 2;
+                while (usedIds.has(candidate)) {
+                  candidate = `${baseId}-${suffix}`;
+                  suffix += 1;
+                }
+                usedIds.add(candidate);
+                return candidate;
+              };
+
+              const usedActivityIds = new Set<string>();
+              const activities: any[] = [];
+              (campaign.activities || []).forEach((activity: any, activityIndex: number) => {
+                const hasPersistedId = activity.id !== undefined && activity.id !== null && String(activity.id).trim() !== '';
+                const baseActivityId = String(activity.id || `${campaign.id}-activity-${activityIndex}`);
+                const existingActivityIndex = hasPersistedId
+                  ? activities.findIndex(existing => existing.id === baseActivityId)
+                  : -1;
+                const activityId = existingActivityIndex >= 0
+                  ? baseActivityId
+                  : reserveUniqueId(baseActivityId, usedActivityIds);
+
+                const combinedOccurrences = existingActivityIndex >= 0
+                  ? [...(activities[existingActivityIndex].occurrences || []), ...(activity.occurrences || [])]
+                  : (activity.occurrences || []);
+                const occurrencesByTime = new Map<string, any>();
+                combinedOccurrences.forEach((occurrence: any, occurrenceIndex: number) => {
+                  const rawDate = String(occurrence.scheduledAt || '');
+                  const dateMatch = rawDate.match(/^(\d{4}-\d{2}-\d{2})/);
+                  const parsedDate = dateMatch ? dateMatch[1] : (() => {
+                    const parsed = new Date(rawDate);
+                    return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
+                  })();
+                  const timeKey = parsedDate ? `date:${parsedDate}` : `raw:${rawDate}:${occurrenceIndex}`;
+                  const normalizedOccurrence = parsedDate ? { ...occurrence, scheduledAt: parsedDate } : occurrence;
+                  const existing = occurrencesByTime.get(timeKey);
+                  if (!existing || (existing.status === 'Upcoming' && normalizedOccurrence.status !== 'Upcoming')) {
+                    occurrencesByTime.set(timeKey, normalizedOccurrence);
+                  }
+                });
+
+                const usedOccurrenceIds = new Set<string>();
+                const occurrences = Array.from(occurrencesByTime.values()).map((occurrence: any, occurrenceIndex: number) => {
+                  const baseOccurrenceId = String(occurrence.id || `${activityId}-occurrence-${occurrenceIndex}`);
+                  const occurrenceId = reserveUniqueId(baseOccurrenceId, usedOccurrenceIds);
+                  return { ...occurrence, id: occurrenceId };
+                });
+                const normalizedActivity = { ...activity, id: activityId, occurrences };
+                if (existingActivityIndex >= 0) activities[existingActivityIndex] = normalizedActivity;
+                else activities.push(normalizedActivity);
+              });
+
+              return {
+                ...campaign,
+                activities,
+                features: (campaign.features || []).map((feature: any) => ({
+                  ...feature,
+                  ...(productsById.get(feature.id) || {})
+                }))
+              };
+            });
             return res.status(200).json({ success: true, data: campaigns });
           }
 
@@ -6380,6 +6436,51 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
     }
 
     try {
+      if (action === 'move-directory-contact-group') {
+        const { sourceId, targetParentId, categoryId } = data || {};
+        if (!sourceId || !targetParentId || !categoryId || sourceId === targetParentId) {
+          return res.status(400).json({ success: false, error: 'Valid source, target, and category are required.' });
+        }
+
+        const [source, target, sourceChildren, targetChildCount] = await Promise.all([
+          Model.findOne({ id: sourceId }).lean(),
+          Model.findOne({ id: targetParentId, parentId: { $in: ['', null] } }).lean(),
+          Model.find({ parentId: sourceId }).sort({ order: 1, name: 1 }).lean(),
+          Model.countDocuments({ parentId: targetParentId })
+        ]);
+        if (!source || source.parentId) {
+          return res.status(409).json({ success: false, error: 'Only a main contact can be moved inside another contact.' });
+        }
+        if (!target) {
+          return res.status(404).json({ success: false, error: 'Destination contact not found.' });
+        }
+
+        const operations = [
+          {
+            updateOne: {
+              filter: { id: sourceId, parentId: { $in: ['', null] } },
+              update: { $set: { parentId: targetParentId, categoryId, programId: '', cohortId: '', order: targetChildCount } }
+            }
+          },
+          ...sourceChildren.map((child: any, index: number) => ({
+            updateOne: {
+              filter: { id: child.id, parentId: sourceId },
+              update: { $set: { parentId: targetParentId, categoryId, programId: '', cohortId: '', order: targetChildCount + index + 1 } }
+            }
+          }))
+        ];
+
+        const session = await Model.db.startSession();
+        try {
+          await session.withTransaction(async () => {
+            await Model.bulkWrite(operations, { session, ordered: true });
+          });
+        } finally {
+          await session.endSession();
+        }
+        return res.status(200).json({ success: true, movedCount: operations.length });
+      }
+
       if (action === 'delete-all-completed-notes') {
         const userId = req.headers['x-user-id'];
         await Model.deleteMany({ userId: userId || '', completed: true });

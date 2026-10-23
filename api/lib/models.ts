@@ -345,11 +345,15 @@ const DirectoryContactSchema = new Schema({
   name: { type: String, required: true },
   email: { type: String, default: "" },
   mobile: { type: String, default: "" },
+  department: { type: String, default: "" },
+  categoryId: { type: String, default: "", index: true },
+  parentId: { type: String, default: "", index: true },
+  order: { type: Number, default: 0 },
+  // Legacy fields retained for backwards compatibility with existing records.
   whatsapp: { type: String, default: "" },
-  tier: { type: String, default: "L0" }, // 'L0' | 'L1' | 'L2'
-  programId: { type: String, required: true },
-  cohortId: { type: String, default: "" },
-  department: { type: String, default: "" }
+  tier: { type: String, default: "L0" },
+  programId: { type: String, default: "" },
+  cohortId: { type: String, default: "" }
 }, { timestamps: true });
 
 // StickyNote Schema
@@ -512,7 +516,17 @@ const CampaignActivitySchema = new Schema({
     endDate: { type: String, default: '' },
     occurrenceCount: { type: Number, default: 1 }
   },
-  occurrences: { type: [CampaignOccurrenceSchema], default: [] }
+  occurrences: {
+    type: [CampaignOccurrenceSchema],
+    default: [],
+    validate: {
+      validator: (values: Array<{ id?: string }>) => {
+        const ids = values.map(value => value.id).filter(Boolean);
+        return ids.length === values.length && new Set(ids).size === ids.length;
+      },
+      message: 'Communication occurrence IDs must be present and unique.'
+    }
+  }
 }, { _id: false });
 
 const CampaignSchema = new Schema({
@@ -528,7 +542,17 @@ const CampaignSchema = new Schema({
   endDate: { type: String, default: '' },
   status: { type: String, enum: ['Draft', 'Scheduled', 'Active', 'Paused', 'Completed', 'Cancelled'], default: 'Draft' },
   features: { type: [Schema.Types.Mixed], default: [] },
-  activities: { type: [CampaignActivitySchema], default: [] },
+  activities: {
+    type: [CampaignActivitySchema],
+    default: [],
+    validate: {
+      validator: (values: Array<{ id?: string }>) => {
+        const ids = values.map(value => value.id).filter(Boolean);
+        return ids.length === values.length && new Set(ids).size === ids.length;
+      },
+      message: 'Communication IDs must be present and unique within a campaign.'
+    }
+  },
   createdById: { type: String, default: '' },
   createdByName: { type: String, default: '' }
 }, { timestamps: true });

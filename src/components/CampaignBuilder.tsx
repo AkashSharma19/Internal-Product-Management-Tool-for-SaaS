@@ -25,10 +25,12 @@ import type {
 } from '../types';
 import {
   campaignRecurrenceExceedsLimit,
+  dedupeCampaignOccurrences,
   generateCampaignOccurrences,
   getCampaignProgress,
   getOccurrenceViewStatus,
-  toLocalDateTimeInput
+  normalizeCampaignDate,
+  toLocalDateInput
 } from '../utils/campaigns';
 import './CampaignBuilder.css';
 
@@ -40,11 +42,12 @@ const CHANNELS: CampaignActivity['channel'][] = [
 
 const makeId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-const formatDateTime = (value: string) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value || '—';
-  return date.toLocaleString(undefined, {
-    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+const formatDate = (value: string) => {
+  const normalized = normalizeCampaignDate(value);
+  if (!normalized) return value || '—';
+  const [year, month, day] = normalized.split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+    day: 'numeric', month: 'short', year: 'numeric'
   });
 };
 
@@ -86,7 +89,7 @@ const createCommunication = (campaign: Campaign): CampaignActivity => ({
   channel: 'Email',
   ownerId: campaign.ownerId,
   ownerName: campaign.ownerName,
-  scheduledAt: toLocalDateTimeInput(new Date(Date.now() + 86_400_000)),
+  scheduledAt: toLocalDateInput(new Date(Date.now() + 86_400_000)),
   content: '',
   callToAction: '',
   supportingLink: '',
@@ -102,7 +105,9 @@ const createCommunication = (campaign: Campaign): CampaignActivity => ({
   occurrences: []
 });
 
-type CommunicationEditor = { campaignId: string; activity: CampaignActivity } | null;
+type CommunicationEditor =
+  | { mode: 'create'; campaignId: string; activity: CampaignActivity; scheduleDirty: boolean }
+  | { mode: 'edit'; campaignId: string; activity: CampaignActivity; originalActivityId: string; originalIndex: number; scheduleDirty: boolean };
 type CommunicationRow = { activity: CampaignActivity; occurrence: CampaignOccurrence; occurrenceIndex: number };
 
 export const CampaignBuilder: React.FC = () => {
@@ -126,7 +131,7 @@ export const CampaignBuilder: React.FC = () => {
   const [pageSize, setPageSize] = useState(20);
   const [expandedCampaignId, setExpandedCampaignId] = useState<string | null>(null);
   const [featureEditor, setFeatureEditor] = useState<Campaign | null>(null);
-  const [communicationEditor, setCommunicationEditor] = useState<CommunicationEditor>(null);
+  const [communicationEditor, setCommunicationEditor] = useState<CommunicationEditor | null>(null);
   const [featureSearch, setFeatureSearch] = useState('');
   const [featureResults, setFeatureResults] = useState<ProductItem[]>([]);
   const [isSearchingFeatures, setIsSearchingFeatures] = useState(false);
@@ -287,17 +292,30 @@ export const CampaignBuilder: React.FC = () => {
 
   const openAddCommunication = (campaign: Campaign) => {
     setFormError('');
-    setCommunicationEditor({ campaignId: campaign.id, activity: createCommunication(campaign) });
+    setCommunicationEditor({ mode: 'create', campaignId: campaign.id, activity: createCommunication(campaign), scheduleDirty: true });
   };
 
   const openEditCommunication = (campaign: Campaign, activity: CampaignActivity) => {
     setFormError('');
-    setCommunicationEditor({ campaignId: campaign.id, activity: JSON.parse(JSON.stringify(activity)) });
+    const originalIndex = campaign.activities.findIndex(item => item === activity);
+    const canonicalId = typeof activity.id === 'string' && activity.id.trim()
+      ? activity.id
+      : makeId('campaign-communication');
+    const normalizedActivity = { ...activity, id: canonicalId };
+    setCommunicationEditor({
+      mode: 'edit',
+      campaignId: campaign.id,
+      activity: JSON.parse(JSON.stringify(normalizedActivity)),
+      originalActivityId: typeof activity.id === 'string' ? activity.id : '',
+      originalIndex,
+      scheduleDirty: false
+    });
   };
 
   const updateCommunicationDraft = (updates: Partial<CampaignActivity>) => {
     setCommunicationEditor(previous => previous ? {
       ...previous,
+      scheduleDirty: previous.scheduleDirty || Object.prototype.hasOwnProperty.call(updates, 'scheduledAt'),
       activity: { ...previous.activity, ...updates }
     } : previous);
   };
@@ -305,6 +323,7 @@ export const CampaignBuilder: React.FC = () => {
   const updateRecurrenceDraft = (updates: Partial<CampaignActivity['recurrence']>) => {
     setCommunicationEditor(previous => previous ? {
       ...previous,
+      scheduleDirty: true,
       activity: {
         ...previous.activity,
         recurrence: { ...previous.activity.recurrence, ...updates }
@@ -319,7 +338,7 @@ export const CampaignBuilder: React.FC = () => {
     const activity = communicationEditor.activity;
     if (!activity.title.trim()) return setFormError('Communication title is required.');
     if (!activity.ownerId) return setFormError('Select a communication owner.');
-    if (!activity.scheduledAt) return setFormError('Planned date and time are required.');
+    if (!activity.scheduledAt) return setFormError('Planned date is required.');
     if (activity.channel === 'Other' && !activity.customChannel?.trim()) return setFormError('Enter the custom channel name.');
     if (activity.recurrence.enabled && activity.recurrence.endType === 'date' && !activity.recurrence.endDate) {
       return setFormError('Select when the recurring communication should end.');
@@ -330,17 +349,38 @@ export const CampaignBuilder: React.FC = () => {
     const normalizedActivity: CampaignActivity = {
       ...activity,
       title: activity.title.trim(),
+      scheduledAt: normalizeCampaignDate(activity.scheduledAt),
       content: activity.content.trim(),
       customChannel: activity.customChannel?.trim() || '',
       callToAction: activity.callToAction?.trim() || '',
       supportingLink: activity.supportingLink?.trim() || ''
     };
-    normalizedActivity.occurrences = generateCampaignOccurrences(normalizedActivity);
+    let activities: CampaignActivity[];
+    if (communicationEditor.mode === 'edit') {
+      let editIndex = communicationEditor.originalActivityId
+        ? campaign.activities.findIndex(item => item.id === communicationEditor.originalActivityId)
+        : communicationEditor.originalIndex;
+      if (editIndex < 0 && communicationEditor.originalIndex < campaign.activities.length) {
+        editIndex = communicationEditor.originalIndex;
+      }
+      if (editIndex < 0 || editIndex >= campaign.activities.length) {
+        return setFormError('This communication changed while you were editing it. Close the form and try again.');
+      }
 
-    const exists = campaign.activities.some(item => item.id === activity.id);
-    const activities = exists
-      ? campaign.activities.map(item => item.id === activity.id ? normalizedActivity : item)
-      : [...campaign.activities, normalizedActivity];
+      const currentActivity = campaign.activities[editIndex];
+      if (communicationEditor.scheduleDirty || !normalizedActivity.recurrence.enabled) {
+        normalizedActivity.occurrences = generateCampaignOccurrences({
+          ...normalizedActivity,
+          occurrences: currentActivity.occurrences || []
+        });
+      } else {
+        normalizedActivity.occurrences = dedupeCampaignOccurrences(currentActivity.occurrences || []);
+      }
+      activities = campaign.activities.map((item, index) => index === editIndex ? normalizedActivity : item);
+    } else {
+      normalizedActivity.occurrences = generateCampaignOccurrences(normalizedActivity);
+      activities = [...campaign.activities, normalizedActivity];
+    }
     setIsSaving(true);
     const saved = await updateCampaign(campaign.id, { activities });
     setIsSaving(false);
@@ -377,9 +417,13 @@ export const CampaignBuilder: React.FC = () => {
   };
 
   const getCommunicationRows = (campaign: Campaign): CommunicationRow[] => campaign.activities
-    .flatMap(activity => (activity.occurrences.length ? activity.occurrences : generateCampaignOccurrences(activity))
-      .map((occurrence, occurrenceIndex) => ({ activity, occurrence, occurrenceIndex })))
-    .sort((a, b) => new Date(a.occurrence.scheduledAt).getTime() - new Date(b.occurrence.scheduledAt).getTime());
+    .flatMap(activity => {
+      const occurrences = activity.recurrence.enabled
+        ? (activity.occurrences.length ? dedupeCampaignOccurrences(activity.occurrences) : generateCampaignOccurrences(activity))
+        : generateCampaignOccurrences(activity);
+      return occurrences.map((occurrence, occurrenceIndex) => ({ activity, occurrence, occurrenceIndex }));
+    })
+    .sort((a, b) => normalizeCampaignDate(a.occurrence.scheduledAt).localeCompare(normalizeCampaignDate(b.occurrence.scheduledAt)));
 
   return (
     <TabContainer
@@ -476,7 +520,7 @@ export const CampaignBuilder: React.FC = () => {
                           <td><div className="campaign-communication-title">{activity.title}{activity.recurrence.enabled && <span className="campaign-occurrence-number">#{occurrenceIndex + 1}</span>}</div>{activity.content && <div className="campaign-communication-preview">{activity.content}</div>}{activity.callToAction && <div className="campaign-muted">CTA: {activity.callToAction}</div>}</td>
                           <td><span className="campaign-badge">{activity.channel === 'Other' ? activity.customChannel : activity.channel}</span></td>
                           <td>{activity.ownerName || '—'}</td>
-                          <td>{formatDateTime(occurrence.scheduledAt)}</td>
+                          <td>{formatDate(occurrence.scheduledAt)}</td>
                           <td>{activity.recurrence.enabled ? <span className="campaign-badge"><Repeat2 size={10} /> Yes</span> : 'No'}</td>
                           <td>{canUserEdit ? <select className={`campaign-status-select ${statusClass(viewStatus)}`} value={occurrence.status} onChange={event => updateOccurrence(campaign, activity.id, occurrence.id, event.target.value as CampaignOccurrenceStatus)}><option value="Upcoming">{viewStatus === 'Upcoming' ? 'Upcoming' : viewStatus}</option><option value="Completed">Completed</option><option value="Skipped">Skipped</option><option value="Cancelled">Cancelled</option></select> : <span className={`campaign-badge ${statusClass(viewStatus)}`}>{viewStatus}</span>}</td>
                           <td><div className="campaign-row-actions">{activity.supportingLink && <a href={activity.supportingLink} target="_blank" rel="noopener noreferrer" title="Open supporting link"><Link2 size={13} /><ExternalLink size={9} /></a>}{canUserEdit && <><button title="Edit communication" onClick={() => openEditCommunication(campaign, activity)}><Edit3 size={13} /></button><button className="danger" title="Delete communication" onClick={() => deleteCommunication(campaign, activity)}><Trash2 size={13} /></button></>}</div></td>
@@ -524,14 +568,14 @@ export const CampaignBuilder: React.FC = () => {
         <div className="campaign-modal-footer"><button className="btn btn-secondary" onClick={() => setFeatureEditor(null)}>Cancel</button><button className="btn btn-primary" disabled={isSaving} onClick={saveFeature}>{isSaving ? 'Saving...' : 'Save Feature'}</button></div>
       </div></div>}
 
-      {communicationEditor && (() => { const campaign = campaigns.find(item => item.id === communicationEditor.campaignId); const activity = communicationEditor.activity; const isExisting = !!campaign?.activities.some(item => item.id === activity.id); return <div className="campaign-modal-overlay" onClick={() => setCommunicationEditor(null)}><div className="campaign-modal campaign-modal-wide" onClick={event => event.stopPropagation()}>
+      {communicationEditor && (() => { const campaign = campaigns.find(item => item.id === communicationEditor.campaignId); const activity = communicationEditor.activity; const isExisting = communicationEditor.mode === 'edit'; return <div className="campaign-modal-overlay" onClick={() => setCommunicationEditor(null)}><div className="campaign-modal campaign-modal-wide" onClick={event => event.stopPropagation()}>
         <div className="campaign-modal-header"><div><h2>{isExisting ? 'Edit Communication' : 'Add Communication'}</h2><p>{campaign?.features[0]?.feature || campaign?.name}</p></div><button onClick={() => setCommunicationEditor(null)}><X size={18} /></button></div>
         <div className="campaign-modal-body">{formError && <div className="campaign-error">{formError}</div>}<div className="campaign-form-grid">
           <div className="campaign-field campaign-form-full"><label>Communication title *</label><input value={activity.title} onChange={event => updateCommunicationDraft({ title: event.target.value })} placeholder="e.g. Send feature launch email" /></div>
           <div className="campaign-field"><label>Channel *</label><select value={activity.channel} onChange={event => updateCommunicationDraft({ channel: event.target.value as CampaignActivity['channel'] })}>{CHANNELS.map(channel => <option key={channel}>{channel}</option>)}</select></div>
           {activity.channel === 'Other' && <div className="campaign-field"><label>Custom channel *</label><input value={activity.customChannel || ''} onChange={event => updateCommunicationDraft({ customChannel: event.target.value })} /></div>}
           <div className="campaign-field"><label>Owner *</label><select value={activity.ownerId} onChange={event => { const owner = owners.find(item => item.id === event.target.value); updateCommunicationDraft({ ownerId: event.target.value, ownerName: owner?.name || '' }); }}><option value="">Select owner</option>{owners.map(owner => <option key={owner.id} value={owner.id}>{owner.name}</option>)}</select></div>
-          <div className="campaign-field"><label>Planned date and time *</label><input type="datetime-local" value={activity.scheduledAt} onChange={event => updateCommunicationDraft({ scheduledAt: event.target.value })} /></div>
+          <div className="campaign-field"><label>Planned date *</label><input type="date" value={normalizeCampaignDate(activity.scheduledAt)} onChange={event => updateCommunicationDraft({ scheduledAt: event.target.value })} /></div>
           <div className="campaign-field campaign-form-full"><label>Communication content</label><textarea value={activity.content} onChange={event => updateCommunicationDraft({ content: event.target.value })} placeholder="Draft the email, WhatsApp message, announcement or agenda..." /></div>
           <div className="campaign-field"><label>Call to action</label><input value={activity.callToAction || ''} onChange={event => updateCommunicationDraft({ callToAction: event.target.value })} /></div>
           <div className="campaign-field"><label>Supporting link</label><input type="url" value={activity.supportingLink || ''} onChange={event => updateCommunicationDraft({ supportingLink: event.target.value })} placeholder="https://..." /></div>
