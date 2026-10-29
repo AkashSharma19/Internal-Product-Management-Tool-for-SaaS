@@ -519,16 +519,22 @@ export const formatClickupAssignee = (assigneesStr: string) => {
 export const extractClickupTaskId = (url: string): string | null => {
   if (!url) return null;
   const trimmed = url.trim();
-  if (/^[a-zA-Z0-9\-_]{7,12}$/.test(trimmed)) {
+  const taskIdPattern = /^[a-zA-Z0-9\-_]{7,12}$/;
+
+  if (taskIdPattern.test(trimmed)) {
     return trimmed;
   }
+
   try {
     const parsed = new URL(trimmed);
-    if (parsed.hostname.includes('clickup.com')) {
+    if (parsed.hostname === 'clickup.com' || parsed.hostname.endsWith('.clickup.com')) {
       const pathParts = parsed.pathname.split('/').filter(Boolean);
       const tIndex = pathParts.indexOf('t');
-      if (tIndex !== -1 && tIndex < pathParts.length - 1) {
-        return pathParts[tIndex + 1];
+      const taskId = pathParts.at(-1);
+
+      // ClickUp links can be /t/{taskId} or /t/{workspaceId}/{taskId}.
+      if (tIndex !== -1 && taskId && tIndex < pathParts.length - 1 && taskIdPattern.test(taskId)) {
+        return taskId;
       }
     }
   } catch (e) {}

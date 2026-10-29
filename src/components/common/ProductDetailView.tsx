@@ -81,18 +81,17 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     setCuCommentError(null);
     try {
       const savedUserId = localStorage.getItem('logged-in-user-id') || '';
-      const response = await fetch(`/api/data?action=clickup-comments&taskId=${taskId}`, {
+      const response = await fetch(`/api/data?action=clickup-comments&taskId=${encodeURIComponent(taskId)}`, {
         headers: { 'x-user-id': savedUserId }
       });
-      if (response.ok) {
-        const resData = await response.json();
-        if (resData.success) {
-          setClickupComments(resData.comments || []);
-        } else {
-          setCuCommentError(resData.error || 'Failed to fetch ClickUp comments');
-        }
+      const resData = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(resData?.error || 'Failed to fetch comments from ClickUp');
+      }
+      if (resData?.success) {
+        setClickupComments(resData.comments || []);
       } else {
-        setCuCommentError('Failed to fetch comments from ClickUp');
+        setCuCommentError(resData?.error || 'Failed to fetch ClickUp comments');
       }
     } catch (err: any) {
       setCuCommentError(err.message || 'Error fetching comments');
