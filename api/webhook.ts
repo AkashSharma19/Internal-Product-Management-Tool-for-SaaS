@@ -66,6 +66,7 @@ const normalizeTicketType = (category: string): string | null => {
     'bug/defect': 'BUG',
     'defect': 'BUG',
     'feature': 'New Feature',
+    'request': 'New Feature',
     'feature request': 'New Feature',
     'new feature': 'New Feature',
     'enhancement': 'Enhancement',
