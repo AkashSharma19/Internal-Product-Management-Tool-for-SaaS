@@ -1,4 +1,5 @@
 import https from 'https';
+import { timingSafeEqual } from 'node:crypto';
 import { connectToDatabase } from './lib/db.js';
 import {
   ProductItemModel,
@@ -9,6 +10,71 @@ import {
   GlobalSettingsModel,
   ChangeHistoryModel
 } from './lib/models.js';
+
+const PRODUCTSHIP_EVENT = 'ticket_created';
+const PRODUCTSHIP_ID_PREFIX = 'productship:';
+
+const firstHeaderValue = (value: unknown): string => {
+  if (Array.isArray(value)) return String(value[0] || '').trim();
+  return typeof value === 'string' ? value.trim() : '';
+};
+
+const getProductShipSecret = (headers: Record<string, unknown> = {}): string => {
+  const authorization = firstHeaderValue(headers.authorization);
+  if (/^Bearer\s+/i.test(authorization)) {
+    return authorization.replace(/^Bearer\s+/i, '').trim();
+  }
+
+  return firstHeaderValue(headers['x-productship-webhook-secret'])
+    || firstHeaderValue(headers['x-webhook-secret']);
+};
+
+const secretsMatch = (actual: string, expected: string): boolean => {
+  const actualBuffer = Buffer.from(actual);
+  const expectedBuffer = Buffer.from(expected);
+  return actualBuffer.length === expectedBuffer.length
+    && timingSafeEqual(actualBuffer, expectedBuffer);
+};
+
+const requiredString = (value: unknown, field: string, maxLength: number): string => {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error(`${field} is required.`);
+  }
+  const trimmed = value.trim();
+  if (trimmed.length > maxLength) {
+    throw new Error(`${field} must be ${maxLength} characters or fewer.`);
+  }
+  return trimmed;
+};
+
+const optionalString = (value: unknown, field: string, maxLength: number): string => {
+  if (value === null || value === undefined || value === '') return '';
+  if (typeof value !== 'string') {
+    throw new Error(`${field} must be a string.`);
+  }
+  const trimmed = value.trim();
+  if (trimmed.length > maxLength) {
+    throw new Error(`${field} must be ${maxLength} characters or fewer.`);
+  }
+  return trimmed;
+};
+
+const normalizeTicketType = (category: string): string | null => {
+  const normalized = category.toLowerCase().replace(/[\s_-]+/g, ' ').trim();
+  const types: Record<string, string> = {
+    'bug': 'BUG',
+    'bug/defect': 'BUG',
+    'defect': 'BUG',
+    'feature': 'New Feature',
+    'feature request': 'New Feature',
+    'new feature': 'New Feature',
+    'enhancement': 'Enhancement',
+    'feature gap': 'Feature Gap',
+    'data needed': 'Data Needed',
+    'term report/ transcript': 'Term Report/ Transcript'
+  };
+  return types[normalized] || null;
+};
 
 export default async function handler(req: any, res: any) {
   // GET: return info about the last payload received — reads from MongoDB so it works across serverless instances
@@ -45,6 +111,99 @@ export default async function handler(req: any, res: any) {
 
     const payload = req.body || {};
     debugEntry.event = payload.event;
+
+    if (payload.event === PRODUCTSHIP_EVENT) {
+      const expectedSecret = String(process.env.PRODUCTSHIP_WEBHOOK_SECRET || '').trim();
+      if (!expectedSecret) {
+        console.error('[ProductShip Webhook] PRODUCTSHIP_WEBHOOK_SECRET is not configured.');
+        return res.status(500).json({ success: false, error: 'Webhook authentication is not configured.' });
+      }
+
+      const suppliedSecret = getProductShipSecret(req.headers || {});
+      if (!suppliedSecret || !secretsMatch(suppliedSecret, expectedSecret)) {
+        console.warn('[ProductShip Webhook] Rejected request with invalid credentials.');
+        return res.status(401).json({ success: false, error: 'Invalid webhook credentials.' });
+      }
+
+      try {
+        const externalTicketId = requiredString(payload.externalTicketId, 'externalTicketId', 128);
+        if (!/^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/.test(externalTicketId)) {
+          return res.status(400).json({ success: false, error: 'externalTicketId contains unsupported characters.' });
+        }
+
+        const category = requiredString(payload.category, 'category', 64);
+        const type = normalizeTicketType(category);
+        if (!type) {
+          return res.status(400).json({ success: false, error: `Unsupported ticket category: ${category}` });
+        }
+
+        const title = requiredString(payload.title, 'title', 300);
+        const description = optionalString(payload.description, 'description', 10000);
+        const program = optionalString(payload.program, 'program', 200);
+        const raisedByName = optionalString(payload.raisedByName, 'raisedByName', 200);
+        const raisedByEmail = optionalString(payload.raisedByEmail, 'raisedByEmail', 320);
+        const clickupLink = optionalString(payload.clickupLink, 'clickupLink', 2000);
+        const createdFrom = optionalString(payload.createdFrom, 'createdFrom', 200);
+        const neededByDate = optionalString(payload.neededByDate, 'neededByDate', 64);
+        const internalTicketId = `${PRODUCTSHIP_ID_PREFIX}${externalTicketId}`;
+        const contact = raisedByName && raisedByEmail
+          ? `${raisedByName} (${raisedByEmail})`
+          : raisedByName || raisedByEmail;
+        const notes = [
+          createdFrom ? `Created from: ${createdFrom}` : '',
+          `External ticket ID: ${externalTicketId}`
+        ].filter(Boolean).join('\n');
+
+        const createdDate = optionalString(payload.createdDate, 'createdDate', 64);
+        const createdAt = createdDate ? new Date(createdDate) : null;
+        if (createdAt && Number.isNaN(createdAt.getTime())) {
+          return res.status(400).json({ success: false, error: 'createdDate must be a valid date.' });
+        }
+        if (neededByDate && Number.isNaN(new Date(neededByDate).getTime())) {
+          return res.status(400).json({ success: false, error: 'neededByDate must be a valid date.' });
+        }
+
+        const ticket: Record<string, unknown> = {
+          id: internalTicketId,
+          cohort: program,
+          module: title,
+          type,
+          issues: description,
+          contact,
+          taskLink: clickupLink,
+          deadline: neededByDate,
+          notes
+        };
+        if (createdAt) ticket.createdAt = createdAt;
+
+        const result = await DailyIssueModel.updateOne(
+          { id: internalTicketId },
+          { $setOnInsert: ticket },
+          { upsert: true }
+        );
+        const created = result.upsertedCount > 0;
+
+        debugEntry.externalTicketId = externalTicketId;
+        debugEntry.internalTicketId = internalTicketId;
+        debugEntry.created = created;
+        await GlobalSettingsModel.updateOne(
+          { key: '_webhookLastEvent' },
+          { $set: { key: '_webhookLastEvent', value: JSON.stringify(debugEntry) } },
+          { upsert: true }
+        );
+
+        console.log(`[ProductShip Webhook] ${created ? 'Created' : 'Acknowledged existing'} ticket ${internalTicketId}.`);
+        return res.status(200).json({
+          success: true,
+          ticketId: internalTicketId,
+          created,
+          alreadyExists: !created
+        });
+      } catch (validationError: any) {
+        return res.status(400).json({ success: false, error: validationError.message });
+      }
+    }
+
     debugEntry.task_id = payload.task_id;
     debugEntry.payload = payload;
 
