@@ -131,7 +131,7 @@ export default async function handler(req: any, res: any) {
           return res.status(400).json({ success: false, error: 'externalTicketId contains unsupported characters.' });
         }
 
-        const category = requiredString(payload.category, 'category', 64);
+        const category = requiredString(payload.ticketType ?? payload.category, 'ticketType or category', 64);
         const type = normalizeTicketType(category);
         if (!type) {
           return res.status(400).json({ success: false, error: `Unsupported ticket category: ${category}` });
