@@ -6836,7 +6836,7 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
                 }
               }
               
-              const fieldsToTrack = ['productDeadline', 'uiux', 'deadline', 'finalRelease', 'poc', 'committedDate', 'clickupStatus', 'clickupAssignee'];
+              const fieldsToTrack = ['productDeadline', 'uiux', 'review', 'deadline', 'finalRelease', 'poc', 'committedDate', 'clickupStatus', 'clickupAssignee'];
               const ChangeHistory = modelsMap['changeHistories'];
               if (ChangeHistory) {
                 for (const field of fieldsToTrack) {
