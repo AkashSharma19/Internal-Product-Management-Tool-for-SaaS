@@ -342,7 +342,8 @@ interface DashboardContextType {
     pocs?: string[];
     sortField?: string;
     sortAsc?: boolean;
-  }) => Promise<{ success: boolean; data: any[]; totalItems: number; totalPages: number; productCounts?: Record<string, { total: number; completed: number }>; completedItems?: number }>;
+    exportAll?: boolean;
+  }) => Promise<{ success: boolean; data: any[]; totalItems: number; totalPages: number; productCounts?: Record<string, { total: number; completed: number }>; completedItems?: number; error?: string }>;
   fetchSupportDocsData: (options: {
     page: number;
     limit: number;
@@ -1422,6 +1423,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     pocs?: string[];
     sortField?: string;
     sortAsc?: boolean;
+    exportAll?: boolean;
   }) => {
     setSyncStatus('syncing');
     try {
@@ -1430,6 +1432,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       params.append('product', options.product);
       params.append('page', String(options.page));
       params.append('limit', String(options.limit));
+      if (options.exportAll) params.append('exportAll', 'true');
       if (options.search) params.append('search', options.search);
       if (options.superPriority) params.append('superPriority', 'true');
       if (options.statuses && options.statuses.length > 0) {

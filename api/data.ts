@@ -1941,6 +1941,7 @@ export default async function handler(req: any, res: any) {
 
         if (action === 'product-breakdown-data') {
           const product = url.searchParams.get('product') || '';
+          const exportAll = url.searchParams.get('exportAll') === 'true';
           const page = parseInt(url.searchParams.get('page') || '1', 10);
           const limit = parseInt(url.searchParams.get('limit') || '25', 10);
           const search = (url.searchParams.get('search') || '').trim().toLowerCase();
@@ -1953,9 +1954,11 @@ export default async function handler(req: any, res: any) {
           const activeProduct = product;
           const isNoGroupTab = activeProduct === 'No Product Group Assigned';
 
-          const dbProductFilter = isNoGroupTab
-            ? { $or: [{ product: { $exists: false } }, { product: null }, { product: '' }] }
-            : { product: activeProduct };
+          const dbProductFilter = exportAll
+            ? {}
+            : isNoGroupTab
+              ? { $or: [{ product: { $exists: false } }, { product: null }, { product: '' }] }
+              : { product: activeProduct };
 
           const productItems = await modelsMap['products'].find(dbProductFilter).lean();
           const studentProjects = await modelsMap['projects'].find(dbProductFilter).lean();
@@ -2077,6 +2080,12 @@ export default async function handler(req: any, res: any) {
                 uiuxCompleted: item.uiuxCompleted || isCompletedStatusLocal(item.status),
                 deadlineCompleted: item.deadlineCompleted || isCompletedStatusLocal(item.status),
                 finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatusLocal(item.status),
+                blockers: item.blockers || [],
+                clickupAssignee: hasLink ? (item.clickupAssignee || '') : '',
+                clickupSubtasksCount: hasLink ? (item.clickupSubtasksCount || 0) : 0,
+                committedDate: item.committedDate || '',
+                createdAt: item.createdAt,
+                updatedAt: item.updatedAt,
                 sourceLabel: 'Student Projects',
                 sourceId: item.id || item._id,
                 canDelete: false
@@ -2110,6 +2119,18 @@ export default async function handler(req: any, res: any) {
                 uiuxCompleted: item.uiuxCompleted || isCompletedStatusLocal(item.status),
                 deadlineCompleted: item.deadlineCompleted || isCompletedStatusLocal(item.status),
                 finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatusLocal(item.status),
+                blockers: item.blockers || [],
+                clickupAssignee: hasLink ? (item.clickupAssignee || '') : '',
+                clickupSubtasksCount: hasLink ? (item.clickupSubtasksCount || 0) : 0,
+                committedDate: item.committedDate || '',
+                supportDocsRequired: !!item.supportDocsRequired,
+                supportDocLink: item.supportDocLink || '',
+                supportDocs: item.supportDocs || [],
+                conductDemo: !!item.conductDemo,
+                demoCohorts: item.demoCohorts || '',
+                notificationSent: !!item.notificationSent,
+                createdAt: item.createdAt,
+                updatedAt: item.updatedAt,
                 sourceLabel: 'Content Pipeline',
                 sourceId: item.id || item._id,
                 canDelete: false
@@ -2143,6 +2164,12 @@ export default async function handler(req: any, res: any) {
                 uiuxCompleted: item.uiuxCompleted || isCompletedStatusLocal(item.status),
                 deadlineCompleted: item.deadlineCompleted || isCompletedStatusLocal(item.status),
                 finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatusLocal(item.status),
+                blockers: item.blockers || [],
+                clickupAssignee: hasLink ? (item.clickupAssignee || '') : '',
+                clickupSubtasksCount: hasLink ? (item.clickupSubtasksCount || 0) : 0,
+                committedDate: item.committedDate || '',
+                createdAt: item.createdAt,
+                updatedAt: item.updatedAt,
                 sourceLabel: 'Student Meetings',
                 sourceId: item.id || item._id,
                 canDelete: false
@@ -2177,6 +2204,18 @@ export default async function handler(req: any, res: any) {
                 uiuxCompleted: item.uiuxCompleted || isCompletedStatusLocal(item.status),
                 deadlineCompleted: item.deadlineCompleted || isCompletedStatusLocal(item.status),
                 finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatusLocal(item.status),
+                blockers: item.blockers || [],
+                clickupAssignee: hasLink ? (item.clickupAssignee || '') : '',
+                clickupSubtasksCount: hasLink ? (item.clickupSubtasksCount || 0) : 0,
+                committedDate: item.committedDate || '',
+                supportDocsRequired: !!item.supportDocsRequired,
+                supportDocLink: item.supportDocLink || '',
+                supportDocs: item.supportDocs || [],
+                conductDemo: !!item.conductDemo,
+                demoCohorts: item.demoCohorts || '',
+                notificationSent: !!item.notificationSent,
+                createdAt: item.createdAt,
+                updatedAt: item.updatedAt,
                 sourceLabel: 'Daily Issues',
                 sourceId: item.id || item._id,
                 canDelete: false
@@ -2211,6 +2250,18 @@ export default async function handler(req: any, res: any) {
                 uiuxCompleted: item.uiuxCompleted || isCompletedStatusLocal(item.status),
                 deadlineCompleted: item.deadlineCompleted || isCompletedStatusLocal(item.status),
                 finalReleaseCompleted: item.finalReleaseCompleted || isCompletedStatusLocal(item.status),
+                blockers: item.blockers || [],
+                clickupAssignee: hasLink ? (item.clickupAssignee || '') : '',
+                clickupSubtasksCount: hasLink ? (item.clickupSubtasksCount || 0) : 0,
+                committedDate: item.committedDate || '',
+                supportDocsRequired: !!item.supportDocsRequired,
+                supportDocLink: item.supportDocLink || '',
+                supportDocs: item.supportDocs || [],
+                conductDemo: !!item.conductDemo,
+                demoCohorts: item.demoCohorts || '',
+                notificationSent: !!item.notificationSent,
+                createdAt: item.createdAt,
+                updatedAt: item.updatedAt,
                 sourceLabel: 'Feature Request',
                 sourceId: item.id || item._id,
                 canDelete: false
@@ -2273,11 +2324,13 @@ export default async function handler(req: any, res: any) {
           });
 
           const totalItems = sortedFeatures.length;
-          const totalPages = Math.ceil(totalItems / limit) || 1;
-          const activePage = Math.min(page, totalPages);
+          const totalPages = exportAll ? 1 : Math.ceil(totalItems / limit) || 1;
+          const activePage = exportAll ? 1 : Math.min(page, totalPages);
           const startIndex = (activePage - 1) * limit;
           const endIndex = Math.min(startIndex + limit, totalItems);
-          const paginatedFeatures = sortedFeatures.slice(startIndex, endIndex);
+          const paginatedFeatures = exportAll
+            ? sortedFeatures
+            : sortedFeatures.slice(startIndex, endIndex);
 
           const getProductBreakdownCounts = async () => {
             const counts: Record<string, { total: number; completed: number }> = {};
@@ -2360,7 +2413,7 @@ export default async function handler(req: any, res: any) {
             return counts;
           };
 
-          const productCounts = await getProductBreakdownCounts();
+          const productCounts = exportAll ? {} : await getProductBreakdownCounts();
           const completedItems = sortedFeatures.filter((item: any) => !!item.finalReleaseCompleted).length;
 
           return res.status(200).json({

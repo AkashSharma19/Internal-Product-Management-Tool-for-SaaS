@@ -280,15 +280,17 @@ export const getAssigneeColor = (name: string) => {
 
 export const downloadCSV = (filename: string, headers: string[], rows: (string | number | boolean | null | undefined)[][]) => {
   const BOM = '\uFEFF';
+  const escapeCell = (cell: string | number | boolean | null | undefined) => {
+    if (cell === null || cell === undefined) return '""';
+    let value = String(cell);
+    if (/^[\t\r\n ]*[=+\-@]/.test(value)) {
+      value = `'${value}`;
+    }
+    return `"${value.replace(/"/g, '""')}"`;
+  };
   const csvContent = [
-    headers.map(h => `"${String(h ?? '').replace(/"/g, '""')}"`).join(','),
-    ...rows.map(row => 
-      row.map(cell => {
-        if (cell === null || cell === undefined) return '""';
-        const str = String(cell).replace(/"/g, '""');
-        return `"${str}"`;
-      }).join(',')
-    )
+    headers.map(escapeCell).join(','),
+    ...rows.map(row => row.map(escapeCell).join(','))
   ].join('\r\n');
 
   const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });

@@ -7,7 +7,8 @@ import {
   CheckCircle,
   Search,
   Plus,
-  MessageSquare
+  MessageSquare,
+  Download
 } from 'lucide-react';
 import type {
   ProductItem
@@ -17,7 +18,8 @@ import {
   getClickupBadgeStyle,
   formatClickupAssignee,
   formatDateToUserPattern,
-  getDateSpanStyle
+  getDateSpanStyle,
+  downloadCSV
 } from '../common/tableUtils';
 import {
   DateDiffBadge,
@@ -72,6 +74,7 @@ export const ProductWiseSheet: React.FC = () => {
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isFetchingData, setIsFetchingData] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const openPreviewRef = useRef(openPreviewForFeature);
   openPreviewRef.current = openPreviewForFeature;
@@ -262,6 +265,99 @@ export const ProductWiseSheet: React.FC = () => {
     }, 50);
   };
 
+  const handleExportAllTasks = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      const res = await fetchProductBreakdownData({
+        product: activeProduct,
+        page: 1,
+        limit: 1,
+        sortField: 'product',
+        sortAsc: true,
+        exportAll: true
+      });
+
+      if (!res?.success) {
+        throw new Error(res?.error || 'Failed to load tasks for export.');
+      }
+
+      const tasks = Array.isArray(res.data) ? res.data : [];
+      if (tasks.length !== Number(res.totalItems || 0)) {
+        throw new Error('The export was incomplete. Please try again.');
+      }
+      if (tasks.length === 0) {
+        await alert('There are no tasks available to export.', 'Nothing to Export', 'OK', 'warning');
+        return;
+      }
+
+      const headers = [
+        'Source', 'Source ID', 'Task ID', 'Feature', 'Description', 'Product', 'Module', 'Type',
+        'POC Owner', 'Priority', 'ProductShip Status', 'ClickUp Status', 'ClickUp Assignee',
+        'ClickUp Subtasks', 'ClickUp Task Link', 'Primary Blocker', 'Blockers', 'Notes',
+        'Specs Date', 'Specs Complete', 'UI/UX Date', 'UI/UX Complete', 'Dev Date', 'Dev Complete',
+        'Release Date', 'Release Complete', 'Committed Date', 'Super Priority', 'Tarun Sir Verified',
+        'Support Docs Required', 'Support Doc Link', 'Support Docs', 'Conduct Demo', 'Demo Cohorts',
+        'Notification Sent', 'Created By', 'Created At', 'Updated At'
+      ];
+
+      const yesNo = (value: unknown) => value ? 'Yes' : 'No';
+      const serialize = (value: unknown) => Array.isArray(value) && value.length > 0
+        ? JSON.stringify(value)
+        : '';
+      const rows = tasks.map((task: any) => [
+        task.sourceLabel || '',
+        task.sourceId || '',
+        task.id || '',
+        task.feature || '',
+        task.description || '',
+        task.product || '',
+        task.module || '',
+        task.type || '',
+        task.poc || '',
+        task.priority || '',
+        task.status || '',
+        task.clickupStatus || '',
+        task.clickupAssignee || '',
+        task.clickupSubtasksCount ?? 0,
+        task.taskLink || '',
+        task.blocker || '',
+        serialize(task.blockers),
+        task.notes || '',
+        task.productDeadline || '',
+        yesNo(task.productDeadlineCompleted),
+        task.uiux || '',
+        yesNo(task.uiuxCompleted),
+        task.deadline || '',
+        yesNo(task.deadlineCompleted),
+        task.finalRelease || '',
+        yesNo(task.finalReleaseCompleted),
+        task.committedDate || '',
+        yesNo(task.raisedByTarunSir),
+        yesNo(task.tarunSirApproval),
+        yesNo(task.supportDocsRequired),
+        task.supportDocLink || '',
+        serialize(task.supportDocs),
+        yesNo(task.conductDemo),
+        task.demoCohorts || '',
+        yesNo(task.notificationSent),
+        task.createdBy || '',
+        task.createdAt || '',
+        task.updatedAt || ''
+      ]);
+
+      downloadCSV(
+        `Product_Breakdown_All_Tasks_${new Date().toISOString().slice(0, 10)}.csv`,
+        headers,
+        rows
+      );
+    } catch (err: any) {
+      await alert(err.message || 'Failed to export tasks.', 'Export Failed', 'OK', 'danger');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const activePage = Math.min(currentPage, totalPages);
   const startIndex = totalItems === 0 ? -1 : (activePage - 1) * pageSize;
   const endIndex = Math.min(startIndex + pageSize, totalItems);
@@ -403,6 +499,15 @@ export const ProductWiseSheet: React.FC = () => {
                   </button>
                 )}
               </div>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={handleExportAllTasks}
+                disabled={isExporting}
+                title="Download every Product Breakdown task with all available details as an Excel-compatible CSV"
+                style={{ whiteSpace: 'nowrap', flexShrink: 0, opacity: isExporting ? 0.65 : 1 }}
+              >
+                <Download size={14} /> {isExporting ? 'Preparing...' : 'Download Excel'}
+              </button>
               <button
                 className="btn btn-primary btn-sm"
                 onClick={handleAddNewFeature}
