@@ -2,6 +2,7 @@ import https from 'https';
 import nodemailer from 'nodemailer';
 import { createHash } from 'node:crypto';
 import { connectToDatabase } from './lib/db.js';
+import { enqueuePortalEvent, extractClickupTaskId } from './lib/productShipSync.js';
 import { generateCampaignOccurrences, getOccurrenceViewStatus } from '../src/utils/campaigns.js';
 import {
   ProductItemModel,
@@ -33,7 +34,8 @@ import {
   FeedbackAnalysisModel,
   ReleaseNoteModel,
   CampaignModel,
-  PublicDocViewModel
+  PublicDocViewModel,
+  WebhookOutboxModel
 } from './lib/models.js';
 
 const modelsMap: Record<string, any> = {
@@ -6583,6 +6585,18 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
       return res.status(400).json({ success: false, error: `Invalid entity type: ${type}` });
     }
 
+    if (data && typeof data === 'object' && Object.keys(data).some(key => key.startsWith('$'))) {
+      return res.status(400).json({ success: false, error: 'MongoDB update operators are not allowed.' });
+    }
+
+    if (type === 'dailyIssues' && data && typeof data === 'object') {
+      for (const field of [
+        'externalSource', 'organizationId', 'environment', 'externalTicketId', 'clickupTaskId',
+        'clickupLinkUpdatedAt', 'clickupLinkUpdatedBySource', 'statusUpdatedAt',
+        'statusUpdatedBySource', 'committedDateUpdatedAt', 'committedDateUpdatedBySource'
+      ]) delete data[field];
+    }
+
     // Campaign planning is editable only by users who have edit access.
     if (type === 'campaigns') {
       const campaignUserId = req.headers['x-user-id'];
@@ -6675,6 +6689,21 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
       }
 
       if (action === 'create') {
+        let commentSyncParent: any = null;
+        if (type === 'comments') {
+          const userId = String(req.headers['x-user-id'] || '');
+          const authenticatedUser: any = userId && !userId.startsWith('guest-')
+            ? await ConfigSpeakerModel.findOne({ id: userId }).lean()
+            : null;
+          data.authorName = authenticatedUser?.name || (userId.startsWith('guest-') ? userId.slice(6).split('@')[0] : data.authorName);
+          data.authorEmail = authenticatedUser?.email || (userId.startsWith('guest-') ? userId.slice(6) : data.authorEmail || '');
+          data.source = 'productship';
+          data.organizationId = '';
+          data.externalCommentId = '';
+          data.originEventId = '';
+          commentSyncParent = await DailyIssueModel.findOne({ id: data.itemId }).lean();
+          data.syncStatus = commentSyncParent?.externalSource === 'coachlms' ? 'pending' : 'local';
+        }
         if (type === 'categories') {
           const categoryName = String(data?.name || '').trim();
           if (!categoryName) {
@@ -6688,6 +6717,24 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
         }
         const newItem = new Model(data);
         await newItem.save();
+        if (type === 'comments') {
+          try {
+            if (commentSyncParent?.externalSource === 'coachlms') {
+              await enqueuePortalEvent(commentSyncParent, 'ticket_comment_created', {
+                comment: {
+                  externalCommentId: newItem.id,
+                  content: newItem.content,
+                  author: { name: newItem.authorName, email: newItem.authorEmail || null },
+                  createdAt: newItem.createdAt.toISOString()
+                }
+              }, newItem.createdAt, newItem.id);
+            }
+          } catch (syncError) {
+            await newItem.deleteOne();
+            console.error('[CoachLMS Sync] Failed to enqueue comment:', syncError);
+            throw syncError;
+          }
+        }
         return res.status(201).json({ success: true, item: newItem });
       }
 
@@ -6696,6 +6743,18 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
         
         // Use key for settings, and id for all other tables
         const query = type === 'settings' ? { key: id } : { id };
+        const syncBefore: any = type === 'dailyIssues' ? await Model.findOne(query).lean() : null;
+        if (syncBefore?.externalSource === 'coachlms') {
+          if (data.taskLink !== undefined && String(data.taskLink || '').trim() && !extractClickupTaskId(data.taskLink)) {
+            return res.status(400).json({ success: false, error: 'ClickUp link must be a valid HTTPS ClickUp task URL.' });
+          }
+          if (data.status !== undefined && !['On Hold', 'In Progress', 'Ongoing', 'Completed'].includes(String(data.status || '').trim())) {
+            return res.status(400).json({ success: false, error: 'Synchronized ticket status is invalid.' });
+          }
+          if (data.committedDate !== undefined && String(data.committedDate || '').trim() && !parseDate(String(data.committedDate))) {
+            return res.status(400).json({ success: false, error: 'Committed Date is invalid.' });
+          }
+        }
 
         if (type === 'categories' && data?.name !== undefined) {
           const categoryName = String(data.name).trim();
@@ -6911,6 +6970,74 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
           strict: type === 'campaigns',
           runValidators: type === 'campaigns'
         });
+
+        if (type === 'dailyIssues' && syncBefore?.externalSource === 'coachlms' && updatedItem) {
+          const queuedEventIds: string[] = [];
+          try {
+            const after: any = updatedItem.toObject();
+            const changedByUser: any = req.headers['x-user-id']
+              ? await ConfigSpeakerModel.findOne({ id: req.headers['x-user-id'] }).lean()
+              : null;
+            const changedBy = {
+              name: changedByUser?.name || String(req.headers['x-user-id'] || 'ProductShip User'),
+              email: changedByUser?.email || null
+            };
+            const now = new Date();
+            const metadataUpdates: Record<string, unknown> = {};
+
+            if (String(syncBefore.taskLink || '') !== String(after.taskLink || '')) {
+              const clickupLink = String(after.taskLink || '').trim() || null;
+              const clickupTaskId = clickupLink ? extractClickupTaskId(clickupLink) : null;
+              if (!clickupLink || clickupTaskId) {
+                const queuedId = await enqueuePortalEvent(after, 'ticket_clickup_link_updated', { clickupLink, clickupTaskId, changedBy }, now);
+                if (queuedId) queuedEventIds.push(queuedId);
+                metadataUpdates.clickupLinkUpdatedAt = now;
+                metadataUpdates.clickupLinkUpdatedBySource = 'productship';
+              }
+            }
+
+            if (String(syncBefore.status || '') !== String(after.status || '') && String(after.status || '').trim()) {
+              const queuedId = await enqueuePortalEvent(after, 'ticket_status_updated', { status: after.status || '', changedBy }, now);
+              if (queuedId) queuedEventIds.push(queuedId);
+              metadataUpdates.statusUpdatedAt = now;
+              metadataUpdates.statusUpdatedBySource = 'productship';
+            }
+
+            if (String(syncBefore.committedDate || '') !== String(after.committedDate || '')) {
+              const parsedCommittedDate = after.committedDate ? parseDate(String(after.committedDate)) : null;
+              const deadline = parsedCommittedDate
+                ? new Date(Date.UTC(parsedCommittedDate.getUTCFullYear(), parsedCommittedDate.getUTCMonth(), parsedCommittedDate.getUTCDate())).toISOString()
+                : null;
+              const queuedId = await enqueuePortalEvent(after, 'ticket_deadline_updated', { deadline, changedBy }, now);
+              if (queuedId) queuedEventIds.push(queuedId);
+              metadataUpdates.committedDateUpdatedAt = now;
+              metadataUpdates.committedDateUpdatedBySource = 'productship';
+            }
+
+            if (Object.keys(metadataUpdates).length > 0) {
+              await DailyIssueModel.updateOne({ id }, { $set: metadataUpdates });
+              Object.assign(updatedItem, metadataUpdates);
+            }
+          } catch (syncError) {
+            await WebhookOutboxModel.deleteMany({ eventId: { $in: queuedEventIds } }).catch(() => undefined);
+            await DailyIssueModel.updateOne({ id }, {
+              $set: {
+                taskLink: syncBefore.taskLink || '',
+                status: syncBefore.status || '',
+                committedDate: syncBefore.committedDate || '',
+                clickupLinkUpdatedAt: syncBefore.clickupLinkUpdatedAt,
+                clickupLinkUpdatedBySource: syncBefore.clickupLinkUpdatedBySource || '',
+                statusUpdatedAt: syncBefore.statusUpdatedAt,
+                statusUpdatedBySource: syncBefore.statusUpdatedBySource || '',
+                committedDateUpdatedAt: syncBefore.committedDateUpdatedAt,
+                committedDateUpdatedBySource: syncBefore.committedDateUpdatedBySource || ''
+              }
+            }).catch(() => undefined);
+            console.error('[CoachLMS Sync] Failed to enqueue ticket update:', syncError);
+            throw syncError;
+          }
+        }
+
         return res.status(200).json({ success: true, item: updatedItem });
       }
 

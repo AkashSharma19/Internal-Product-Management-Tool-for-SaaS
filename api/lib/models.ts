@@ -232,6 +232,17 @@ const ContentItemSchema = new Schema({
 // 8. DailyIssue
 const DailyIssueSchema = new Schema({
   id: { type: String, required: true, unique: true },
+  externalSource: { type: String, default: '', index: true },
+  organizationId: { type: String, default: '', index: true },
+  environment: { type: String, default: '' },
+  externalTicketId: { type: String, default: '', index: true },
+  clickupTaskId: { type: String, default: '' },
+  clickupLinkUpdatedAt: { type: Date },
+  clickupLinkUpdatedBySource: { type: String, default: '' },
+  statusUpdatedAt: { type: Date },
+  statusUpdatedBySource: { type: String, default: '' },
+  committedDateUpdatedAt: { type: Date },
+  committedDateUpdatedBySource: { type: String, default: '' },
   cohort: { type: String, default: "" },
   product: { type: String, default: "" },
   module: { type: String, default: "" },
@@ -268,6 +279,17 @@ const DailyIssueSchema = new Schema({
   demoCohorts: { type: String, default: "" },
   notificationSent: { type: Boolean, default: false }
 }, { timestamps: true });
+DailyIssueSchema.index(
+  { externalSource: 1, organizationId: 1, environment: 1, externalTicketId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      externalSource: 'coachlms',
+      organizationId: { $type: 'string', $gt: '' },
+      externalTicketId: { $type: 'string', $gt: '' }
+    }
+  }
+);
 
 // 9. FeatureAdoption
 const FeatureAdoptionSchema = new Schema({
@@ -437,11 +459,52 @@ const CommentSchema = new Schema({
   id: { type: String, required: true, unique: true },
   itemId: { type: String, required: true }, // refers to productItem ID or dailyIssue ID
   authorName: { type: String, required: true },
-  authorEmail: { type: String, required: true },
-  content: { type: String, required: true }
+  authorEmail: { type: String, default: '' },
+  content: { type: String, required: true },
+  source: { type: String, default: 'productship' },
+  organizationId: { type: String, default: '' },
+  externalCommentId: { type: String, default: '' },
+  originEventId: { type: String, default: '' },
+  sourceCreatedAt: { type: Date },
+  syncStatus: { type: String, default: 'local' }
 }, { timestamps: true });
+CommentSchema.index(
+  { source: 1, organizationId: 1, externalCommentId: 1 },
+  { unique: true, partialFilterExpression: { source: 'coachlms', externalCommentId: { $type: 'string', $gt: '' } } }
+);
 
 export const CommentModel = mongoose.models.Comment || mongoose.model('Comment', CommentSchema);
+
+const WebhookInboxSchema = new Schema({
+  organizationId: { type: String, required: true },
+  eventId: { type: String, required: true },
+  source: { type: String, required: true },
+  event: { type: String, required: true },
+  status: { type: String, default: 'processed' },
+  result: { type: Schema.Types.Mixed },
+  processedAt: { type: Date, default: Date.now }
+}, { timestamps: true });
+WebhookInboxSchema.index({ organizationId: 1, eventId: 1 }, { unique: true });
+
+const WebhookOutboxSchema = new Schema({
+  organizationId: { type: String, required: true },
+  environment: { type: String, required: true },
+  eventId: { type: String, required: true },
+  event: { type: String, required: true },
+  relatedCommentId: { type: String, default: '' },
+  payload: { type: Schema.Types.Mixed, required: true },
+  status: { type: String, default: 'pending' },
+  attempts: { type: Number, default: 0 },
+  nextAttemptAt: { type: Date, default: Date.now },
+  deliveredAt: { type: Date },
+  lastError: { type: String, default: '' },
+  lockedUntil: { type: Date }
+}, { timestamps: true });
+WebhookOutboxSchema.index({ organizationId: 1, eventId: 1 }, { unique: true });
+WebhookOutboxSchema.index({ status: 1, nextAttemptAt: 1, lockedUntil: 1 });
+
+export const WebhookInboxModel = mongoose.models.WebhookInbox || mongoose.model('WebhookInbox', WebhookInboxSchema);
+export const WebhookOutboxModel = mongoose.models.WebhookOutbox || mongoose.model('WebhookOutbox', WebhookOutboxSchema);
 
 const ChangeHistorySchema = new Schema({
   id: { type: String, required: true, unique: true },

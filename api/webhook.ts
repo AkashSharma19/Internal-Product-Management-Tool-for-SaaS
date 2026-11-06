@@ -9,11 +9,32 @@ import {
   PlanItemModel,
   GlobalSettingsModel,
   ChangeHistoryModel,
-  CommentModel
+  CommentModel,
+  WebhookInboxModel
 } from './lib/models.js';
+import {
+  PORTAL_EVENTS,
+  buildImportedTicketId,
+  extractClickupTaskId,
+  findImportedTicket
+} from './lib/productShipSync.js';
 
 const PRODUCTSHIP_EVENT = 'ticket_created';
 const PRODUCTSHIP_ID_PREFIX = 'productship:';
+const LMS_TO_PRODUCTSHIP_STATUS: Record<string, string> = {
+  'open': 'On Hold',
+  'in progress': 'In Progress',
+  'in-progress': 'In Progress',
+  'development': 'In Progress',
+  'in design': 'Ongoing',
+  'under review': 'Ongoing',
+  'testing': 'Ongoing',
+  'tested': 'Completed',
+  'completed': 'Completed',
+  'resolved': 'Completed',
+  'closed': 'Completed',
+  'cancelled': 'On Hold'
+};
 
 const firstHeaderValue = (value: unknown): string => {
   if (Array.isArray(value)) return String(value[0] || '').trim();
@@ -78,6 +99,176 @@ const normalizeTicketType = (category: string): string | null => {
   return types[normalized] || null;
 };
 
+class PortalHttpError extends Error {
+  constructor(public statusCode: number, message: string, public eventId = '') {
+    super(message);
+  }
+}
+
+const normalizeNullableString = (value: unknown, field: string, maxLength: number): string | null => {
+  if (value === null) return null;
+  if (typeof value !== 'string') throw new PortalHttpError(400, `${field} must be a string or null.`);
+  const result = value.trim();
+  if (result.length > maxLength) throw new PortalHttpError(400, `${field} is too long.`);
+  return result || null;
+};
+
+const portalRequiredString = (value: unknown, field: string, maxLength: number, eventId = ''): string => {
+  try {
+    return requiredString(value, field, maxLength);
+  } catch (error: any) {
+    throw new PortalHttpError(400, error.message, eventId);
+  }
+};
+
+const portalResult = (eventId: string, processed: boolean, alreadyProcessed = false, reason?: string) => ({
+  success: true,
+  eventId,
+  processed,
+  alreadyProcessed,
+  ...(reason ? { reason } : {})
+});
+
+async function handlePortalV2Event(payload: any) {
+  const eventId = portalRequiredString(payload.eventId, 'eventId', 128);
+  const organizationId = portalRequiredString(payload.organizationId, 'organizationId', 128, eventId);
+  const externalTicketId = portalRequiredString(payload.externalTicketId, 'externalTicketId', 128, eventId);
+  const environment = portalRequiredString(payload.environment, 'environment', 32, eventId);
+  if (payload.schemaVersion !== 1) throw new PortalHttpError(400, 'Unsupported schemaVersion.', eventId);
+  if (payload.source !== 'coachlms') throw new PortalHttpError(400, 'source must be coachlms.', eventId);
+  if (!['development', 'production'].includes(environment)) throw new PortalHttpError(400, 'Invalid environment.', eventId);
+  const occurredAt = new Date(portalRequiredString(payload.occurredAt, 'occurredAt', 64, eventId));
+  if (Number.isNaN(occurredAt.getTime())) throw new PortalHttpError(400, 'occurredAt must be a valid date.', eventId);
+  if (!payload.data || typeof payload.data !== 'object' || Array.isArray(payload.data)) {
+    throw new PortalHttpError(400, 'data must be an object.', eventId);
+  }
+
+  const duplicate: any = await WebhookInboxModel.findOne({ organizationId, eventId }).lean();
+  if (duplicate) {
+    if (duplicate.status === 'processed') return portalResult(eventId, false, true, 'duplicate');
+    throw new PortalHttpError(503, 'Event is currently being processed.', eventId);
+  }
+
+  const ticket: any = await findImportedTicket(organizationId, externalTicketId, environment);
+  if (!ticket) throw new PortalHttpError(404, 'Ticket not found for organization.', eventId);
+
+  try {
+    await WebhookInboxModel.create({ organizationId, eventId, source: 'coachlms', event: payload.event, status: 'processing' });
+  } catch (error: any) {
+    if (error?.code === 11000) {
+      const raced: any = await WebhookInboxModel.findOne({ organizationId, eventId }).lean();
+      if (raced?.status === 'processed') return portalResult(eventId, false, true, 'duplicate');
+      throw new PortalHttpError(503, 'Event is currently being processed.', eventId);
+    }
+    throw error;
+  }
+
+  const clockDecision = (clockValue: unknown, currentValue: unknown, nextValue: unknown) => {
+    if (!clockValue) return 'apply';
+    const currentTime = new Date(clockValue as any).getTime();
+    const incomingTime = occurredAt.getTime();
+    if (incomingTime < currentTime) return 'stale';
+    if (incomingTime === currentTime) return String(currentValue ?? '') === String(nextValue ?? '') ? 'unchanged' : 'conflict';
+    return String(currentValue ?? '') === String(nextValue ?? '') ? 'advance' : 'apply';
+  };
+
+  let reason = '';
+  try {
+    if (payload.event === 'ticket_clickup_link_updated') {
+      const clickupLink = normalizeNullableString(payload.data.clickupLink, 'data.clickupLink', 2000);
+      const suppliedTaskId = normalizeNullableString(payload.data.clickupTaskId, 'data.clickupTaskId', 64);
+      const parsedTaskId = clickupLink ? extractClickupTaskId(clickupLink) : null;
+      if (clickupLink && !parsedTaskId) throw new PortalHttpError(400, 'clickupLink must be a valid HTTPS ClickUp task URL.', eventId);
+      if ((clickupLink === null) !== (suppliedTaskId === null)) throw new PortalHttpError(400, 'clickupLink and clickupTaskId must both be null when clearing.', eventId);
+      if (suppliedTaskId && parsedTaskId !== suppliedTaskId) throw new PortalHttpError(400, 'clickupTaskId does not match clickupLink.', eventId);
+      const decision = clockDecision(ticket.clickupLinkUpdatedAt, ticket.taskLink, clickupLink || '');
+      if (decision === 'conflict') throw new PortalHttpError(409, 'Conflicting ClickUp link update.', eventId);
+      reason = decision === 'apply' ? '' : decision === 'advance' ? 'unchanged' : decision;
+      if (decision === 'apply') {
+        ticket.taskLink = clickupLink || '';
+        ticket.clickupTaskId = parsedTaskId || '';
+        if (!clickupLink) {
+          ticket.clickupStatus = '';
+          ticket.clickupAssignee = '';
+          ticket.clickupSubtasksCount = 0;
+        }
+      }
+      if (decision === 'apply' || decision === 'advance') {
+        ticket.clickupLinkUpdatedAt = occurredAt;
+        ticket.clickupLinkUpdatedBySource = 'coachlms';
+      }
+    } else if (payload.event === 'ticket_status_updated') {
+      const incomingStatus = portalRequiredString(payload.data.status, 'data.status', 100, eventId);
+      const status = LMS_TO_PRODUCTSHIP_STATUS[incomingStatus.toLowerCase()];
+      if (!status) throw new PortalHttpError(400, `Unknown status: ${incomingStatus}`, eventId);
+      const decision = clockDecision(ticket.statusUpdatedAt, ticket.status, status);
+      if (decision === 'conflict') throw new PortalHttpError(409, 'Conflicting status update.', eventId);
+      reason = decision === 'apply' ? '' : decision === 'advance' ? 'unchanged' : decision;
+      if (decision === 'apply') ticket.status = status;
+      if (decision === 'apply' || decision === 'advance') {
+        ticket.statusUpdatedAt = occurredAt;
+        ticket.statusUpdatedBySource = 'coachlms';
+      }
+    } else if (payload.event === 'ticket_deadline_updated') {
+      const deadline = normalizeNullableString(payload.data.deadline, 'data.deadline', 64);
+      if (deadline && Number.isNaN(new Date(deadline).getTime())) throw new PortalHttpError(400, 'data.deadline must be a valid date or null.', eventId);
+      const normalized = deadline ? new Date(deadline).toISOString().slice(0, 10) : '';
+      const decision = clockDecision(ticket.committedDateUpdatedAt, ticket.committedDate, normalized);
+      if (decision === 'conflict') throw new PortalHttpError(409, 'Conflicting deadline update.', eventId);
+      reason = decision === 'apply' ? '' : decision === 'advance' ? 'unchanged' : decision;
+      if (decision === 'apply') ticket.committedDate = normalized;
+      if (decision === 'apply' || decision === 'advance') {
+        ticket.committedDateUpdatedAt = occurredAt;
+        ticket.committedDateUpdatedBySource = 'coachlms';
+      }
+    } else if (payload.event === 'ticket_comment_created') {
+      const comment = payload.data.comment;
+      if (!comment || typeof comment !== 'object') throw new PortalHttpError(400, 'data.comment is required.', eventId);
+      const externalCommentId = portalRequiredString(comment.externalCommentId, 'data.comment.externalCommentId', 256, eventId);
+      const content = portalRequiredString(comment.content, 'data.comment.content', 10000, eventId);
+      const authorName = portalRequiredString(comment.author?.name, 'data.comment.author.name', 200, eventId);
+      const authorEmail = normalizeNullableString(comment.author?.email ?? null, 'data.comment.author.email', 320) || '';
+      const sourceCreatedAt = new Date(portalRequiredString(comment.createdAt, 'data.comment.createdAt', 64, eventId));
+      if (Number.isNaN(sourceCreatedAt.getTime())) throw new PortalHttpError(400, 'data.comment.createdAt must be a valid date.', eventId);
+      const result = await CommentModel.updateOne(
+        { source: 'coachlms', organizationId, externalCommentId },
+        { $setOnInsert: {
+          id: `coachlms:${organizationId}:${externalCommentId}`,
+          itemId: ticket.id,
+          authorName,
+          authorEmail,
+          content,
+          source: 'coachlms',
+          organizationId,
+          externalCommentId,
+          originEventId: eventId,
+          sourceCreatedAt,
+          syncStatus: 'imported',
+          createdAt: sourceCreatedAt
+        } },
+        { upsert: true }
+      );
+      reason = result.upsertedCount ? '' : 'duplicate';
+    } else {
+      throw new PortalHttpError(400, `Unsupported event: ${payload.event}`, eventId);
+    }
+
+    if (!ticket.externalSource) {
+      ticket.externalSource = 'coachlms';
+      ticket.organizationId = organizationId;
+      ticket.environment = environment;
+      ticket.externalTicketId = externalTicketId;
+    }
+    if (payload.event !== 'ticket_comment_created') await ticket.save();
+    const result = portalResult(eventId, !reason, reason === 'duplicate', reason || undefined);
+    await WebhookInboxModel.updateOne({ organizationId, eventId }, { $set: { status: 'processed', result, processedAt: new Date() } });
+    return result;
+  } catch (error) {
+    await WebhookInboxModel.deleteOne({ organizationId, eventId });
+    throw error;
+  }
+}
+
 export default async function handler(req: any, res: any) {
   // GET: return info about the last payload received — reads from MongoDB so it works across serverless instances
   if (req.method === 'GET') {
@@ -114,6 +305,23 @@ export default async function handler(req: any, res: any) {
     const payload = req.body || {};
     debugEntry.event = payload.event;
 
+    if (payload.event !== PRODUCTSHIP_EVENT && (payload.source === 'coachlms' || payload.schemaVersion !== undefined || (PORTAL_EVENTS as readonly string[]).includes(payload.event))) {
+      const expectedSecret = String(process.env.PRODUCTSHIP_WEBHOOK_SECRET || '').trim();
+      if (!expectedSecret) return res.status(500).json({ success: false, eventId: payload.eventId || '', error: 'Webhook authentication is not configured.' });
+      const suppliedSecret = getProductShipSecret(req.headers || {});
+      if (!suppliedSecret || !secretsMatch(suppliedSecret, expectedSecret)) {
+        return res.status(401).json({ success: false, eventId: payload.eventId || '', error: 'Invalid webhook credentials.' });
+      }
+      try {
+        const result = await handlePortalV2Event(payload);
+        return res.status(200).json(result);
+      } catch (error: any) {
+        const statusCode = error instanceof PortalHttpError ? error.statusCode : 500;
+        console.error('[CoachLMS Sync] Inbound event failed:', error.message);
+        return res.status(statusCode).json({ success: false, eventId: payload.eventId || '', error: error.message || 'Internal server error.' });
+      }
+    }
+
     if (payload.event === PRODUCTSHIP_EVENT) {
       const expectedSecret = String(process.env.PRODUCTSHIP_WEBHOOK_SECRET || '').trim();
       if (!expectedSecret) {
@@ -147,7 +355,28 @@ export default async function handler(req: any, res: any) {
         const clickupLink = optionalString(payload.clickupLink, 'clickupLink', 2000);
         const createdFrom = optionalString(payload.createdFrom, 'createdFrom', 200);
         const neededByDate = optionalString(payload.neededByDate, 'neededByDate', 64);
-        const internalTicketId = `${PRODUCTSHIP_ID_PREFIX}${externalTicketId}`;
+        const organizationId = optionalString(payload.organizationId, 'organizationId', 128);
+        const environment = optionalString(payload.environment, 'environment', 32);
+        if ((organizationId && !environment) || (!organizationId && environment)) {
+          return res.status(400).json({ success: false, error: 'organizationId and environment must be provided together.' });
+        }
+        if (environment && !['development', 'production'].includes(environment)) {
+          return res.status(400).json({ success: false, error: 'Invalid environment.' });
+        }
+        const existingTicket: any = organizationId
+          ? (await findImportedTicket(organizationId, externalTicketId, environment)
+            || await DailyIssueModel.findOne({
+              id: `${PRODUCTSHIP_ID_PREFIX}${externalTicketId}`,
+              $or: [{ externalSource: '' }, { externalSource: { $exists: false } }],
+              $and: [
+                { $or: [{ organizationId: '' }, { organizationId: { $exists: false } }] },
+                { $or: [{ environment: '' }, { environment: { $exists: false } }] }
+              ]
+            }))
+          : null;
+        const internalTicketId = existingTicket?.id || (organizationId
+          ? buildImportedTicketId(organizationId, environment, externalTicketId)
+          : `${PRODUCTSHIP_ID_PREFIX}${externalTicketId}`);
         const contact = raisedByName && raisedByEmail
           ? `${raisedByName} (${raisedByEmail})`
           : raisedByName || raisedByEmail;
@@ -167,6 +396,10 @@ export default async function handler(req: any, res: any) {
 
         const ticket: Record<string, unknown> = {
           id: internalTicketId,
+          externalSource: organizationId ? 'coachlms' : '',
+          organizationId,
+          environment,
+          externalTicketId: organizationId ? externalTicketId : '',
           cohort: program,
           module: title,
           type,
@@ -184,6 +417,12 @@ export default async function handler(req: any, res: any) {
           { upsert: true }
         );
         const created = result.upsertedCount > 0;
+        if (organizationId) {
+          await DailyIssueModel.updateOne(
+            { id: internalTicketId },
+            { $set: { externalSource: 'coachlms', organizationId, environment, externalTicketId } }
+          );
+        }
 
         let neededByCommentCreated = false;
         let correctedLegacyDevDate = false;
@@ -195,7 +434,9 @@ export default async function handler(req: any, res: any) {
             year: 'numeric',
             timeZone: 'UTC'
           }).format(neededBy);
-          const commentId = `productship-needed-by:${externalTicketId}`;
+          const commentId = organizationId
+            ? `productship-needed-by:${organizationId}:${externalTicketId}`
+            : `productship-needed-by:${externalTicketId}`;
           const commentResult = await CommentModel.updateOne(
             { id: commentId },
             {
@@ -205,6 +446,10 @@ export default async function handler(req: any, res: any) {
                 authorName: raisedByName || createdFrom || 'External Portal',
                 authorEmail: raisedByEmail,
                 content: `Needed by date: ${formattedNeededBy}`,
+                source: 'coachlms',
+                organizationId,
+                externalCommentId: `needed-by:${externalTicketId}`,
+                syncStatus: 'imported',
                 ...(createdAt ? { createdAt } : {})
               }
             },

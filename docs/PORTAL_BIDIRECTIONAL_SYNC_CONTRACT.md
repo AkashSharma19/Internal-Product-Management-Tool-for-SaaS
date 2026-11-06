@@ -14,7 +14,7 @@ Required behavior:
 1. When the External Portal adds, replaces, or clears a ClickUp link, ProductShip updates the matching ticket.
 2. When ProductShip adds, replaces, clears, or creates a ClickUp task for an externally originated ticket, the External Portal updates the matching ticket.
 3. When either system changes the ticket workflow status, the other system receives the equivalent status.
-4. ProductShip's **Release Date** (`finalRelease`) is published to the External Portal as its deadline. The External Portal's `neededByDate` is informational in ProductShip and appears only as a Discussion comment; it must not populate Specs, UI/UX, Dev, Release, or Committed dates.
+4. ProductShip's **Committed Date** (`committedDate`) and the Coach LMS `deadline` synchronize in both directions. Coach LMS `neededByDate` is informational in ProductShip and appears only as a Discussion comment; it must not populate any milestone.
 5. When either system adds a discussion comment, the other system receives it exactly once.
 6. Retries must not create duplicate tickets or comments.
 7. Receiving an event must not cause the same event to echo indefinitely between systems.
@@ -42,7 +42,7 @@ Required rules:
 - Validate `organizationId` against a server-side allowlist or persisted integration mapping before applying an event.
 - Resolve the External Portal API base URL and credentials from trusted per-organization configuration, preferably `OrganizationIntegration`, rather than from request payload fields.
 - The same external ticket ID may exist in different organizations. Idempotency and database uniqueness must use `(organizationId, externalTicketId)`.
-- The current ProductShip ID `productship:{externalTicketId}` is legacy behavior. The tenant-safe target format is `productship:{organizationId}:{externalTicketId}`, with a migration/compatibility lookup for existing records.
+- The current ProductShip ID `productship:{externalTicketId}` is legacy behavior. The tenant-safe target format is `productship:{organizationId}:{environment}:{externalTicketId}`, with a migration/compatibility lookup for existing records.
 - Coach Resume hostname-based `lmsTenant` routing is a separate feature and must not be reused as general webhook tenant resolution.
 
 Known Coach LMS API deployments:
@@ -74,7 +74,7 @@ The following behavior does not exist yet:
 - Updating ProductShip when the External Portal changes a link after ticket creation.
 - Sending ProductShip link changes to the External Portal.
 - Synchronizing ProductShip workflow `status` with the External Portal's ticket status.
-- Publishing ProductShip `finalRelease` to the External Portal's deadline field.
+- Synchronizing ProductShip `committedDate` with Coach LMS `deadline` in both directions.
 - Adding the External Portal's `neededByDate` to ProductShip Discussion as an idempotent informational comment without changing any milestone date.
 - Exchanging discussion comments between portals.
 - A configured External Portal callback URL in ProductShip.
@@ -113,23 +113,15 @@ PRODUCTSHIP_WEBHOOK_SECRET=<same-rotated-shared-secret>
 
 The External Portal team must provide production and staging HTTPS endpoints for each participating organization. ProductShip must store endpoint and credential references in trusted per-organization configuration. A single environment variable may be used only for an initial one-organization rollout.
 
-Proposed initial ProductShip configuration:
+Proposed ProductShip configuration:
 
 ```env
-EXTERNAL_PORTAL_WEBHOOK_URL=<team-to-provide>
-EXTERNAL_PORTAL_WEBHOOK_SECRET=<separate-rotated-secret>
+COACHLMS_WEBHOOK_SECRET=<rotated-secret-from-private-channel>
+COACHLMS_WEBHOOK_URLS_JSON={"77aa25d2-d52c-4c7b-ad4b-7b7de339fc4e:development":"https://api-dev.mastersunion.in/api/v1/feature-requests/productship/webhook","77aa25d2-d52c-4c7b-ad4b-7b7de339fc4e:production":"https://api.mastersunion.in/api/v1/feature-requests/productship/webhook"}
+COACHLMS_WEBHOOK_TIMEOUT_MS=10000
 ```
 
-Target multi-tenant configuration:
-
-```text
-OrganizationIntegration
-  organizationId
-  integrationType: productship
-  webhookUrl
-  webhookSecretReference
-  enabled
-```
+`COACHLMS_WEBHOOK_URL` may be used only for a single-tenant rollout. Tetr production must be added to `COACHLMS_WEBHOOK_URLS_JSON` after its first authenticated `ticket_created` provides its `organizationId`.
 
 Proposed request:
 
@@ -263,11 +255,11 @@ The External Portal should implement the mirror behavior:
 | ProductShip field | External Portal field | Meaning |
 |---|---|---|
 | `status` | `status` | Ticket workflow status; synchronized in both directions |
-| `finalRelease` (Release Date) | `deadline` | Published from ProductShip to the External Portal |
+| `committedDate` (Committed Date) | `deadline` | Synchronized in both directions; UTC midnight on the wire |
 | No ProductShip milestone field | existing `neededByDate` | Imported as a ProductShip Discussion comment only |
 | `clickupStatus` | No automatic mapping | Status read from ClickUp; keep separate from ticket workflow status |
 
-**Important:** The External Portal's `neededByDate` must never populate ProductShip `productDeadline` (Specs), `uiux`, `deadline` (Dev Date), `finalRelease` (Release Date), or `committedDate`. ProductShip creates one Discussion comment in the format `Needed by date: DD Mon YYYY`. ProductShip `finalRelease` may still be sent outward as the External Portal deadline.
+**Important:** Coach LMS `neededByDate` must never populate a ProductShip milestone. ProductShip creates one Discussion comment in the format `Needed by date: DD Mon YYYY`. Coach LMS `deadline` is a separate synchronized field and maps to ProductShip `committedDate`.
 
 ### 7.2 Status event
 
@@ -315,7 +307,7 @@ Requirements:
 
 Unknown status values must return `400` rather than silently creating a status that is hidden or invalid in either portal.
 
-### 7.3 ProductShip release-date event
+### 7.3 Committed Date ↔ Coach LMS deadline event
 
 Event name:
 
@@ -323,7 +315,7 @@ Event name:
 ticket_deadline_updated
 ```
 
-Payload sent by ProductShip when Release Date changes:
+Payload sent when ProductShip Committed Date or Coach LMS deadline changes:
 
 ```json
 {
@@ -359,14 +351,13 @@ To clear the deadline:
 
 Requirements:
 
-- ProductShip `finalRelease` → External Portal deadline.
-- This is an outbound publication from ProductShip; the External Portal must not send its deadline back into a ProductShip milestone field.
-- External Portal `neededByDate` → one ProductShip Discussion comment only.
-- ProductShip `deadline` is the Dev Date and must not be used for `neededByDate`.
-- ProductShip `productDeadline`, `uiux`, `finalRelease`, and `committedDate` must also remain unchanged by `neededByDate`.
-- Use an ISO-8601 UTC value on the wire. Each application may render it in its local display format.
-- `null` from ProductShip explicitly clears the External Portal deadline; omission means no change.
-- Stale ProductShip release-date events must not overwrite a newer External Portal value.
+- ProductShip `committedDate` ↔ Coach LMS `deadline`.
+- Both directions use `ticket_deadline_updated`; inbound values update `committedDate`, outbound values originate from `committedDate`.
+- Coach LMS `neededByDate` → one ProductShip Discussion comment only.
+- No ProductShip milestone, including Dev Date and Release Date, may be populated by `neededByDate`.
+- Use ISO-8601 UTC midnight on the wire.
+- `null` explicitly clears the synchronized Committed Date/deadline; omission means no change.
+- Older events are acknowledged as stale; equal timestamps with different values return `409`.
 - Existing and new `ticket_created` payloads must create at most one `Needed by date: DD Mon YYYY` Discussion comment.
 - On a retry, ProductShip may remove a legacy Dev Date only when its stored raw value exactly equals the same incoming `neededByDate`; independently edited Dev Dates must be preserved.
 
@@ -499,11 +490,11 @@ The receiver should always return JSON with `success` and a safe error message. 
 
 Proposed version 1 behavior:
 
-1. Each system stores the latest accepted `occurredAt` or revision independently for the ClickUp link and workflow status. ProductShip also tracks outbound Release Date publication.
+1. Each system stores the latest accepted `occurredAt` independently for the ClickUp link, workflow status, and committed-date/deadline fields.
 2. An older event must not overwrite a newer value for the same synchronized field.
 3. If timestamps or revisions are equal but synchronized values differ, return `409` and require reconciliation.
 4. Link clearing is an explicit update using `null`; an omitted field means no change.
-5. ProductShip `finalRelease` is published outward as the External Portal deadline. External `neededByDate` is imported only as a Discussion comment and is never a ProductShip milestone.
+5. ProductShip `committedDate` and Coach LMS `deadline` are one bidirectional field. Coach LMS `neededByDate` remains a Discussion comment only.
 6. ProductShip `status` and External Portal `status` use the approved mapping table. `clickupStatus` remains independent.
 7. Comments are append-only and identified by immutable source IDs.
 
@@ -523,8 +514,8 @@ clickupLinkUpdatedAt
 clickupLinkUpdatedBySource
 statusUpdatedAt
 statusUpdatedBySource
-finalReleaseUpdatedAt
-finalReleaseUpdatedBySource
+committedDateUpdatedAt
+committedDateUpdatedBySource
 ```
 
 Proposed additions to comments:
@@ -602,14 +593,13 @@ Please complete and return this section.
 - External Portal status field name: `______________________________`
 - Event emitted when status changes: `______________________________`
 - Complete and approve the ProductShip ↔ External Portal status mapping in Section 7.2.
-- External Portal deadline field updated by ProductShip Release Date: `deadline` / Other: `____________`
-- Event accepted when ProductShip publishes a Release Date: `______________________________`
-- Can ProductShip clear the External Portal deadline? Yes / No
-- Confirm ProductShip **Release Date (`finalRelease`)** publishes to the External Portal deadline: Yes / No
-- Confirm External `neededByDate` becomes only a ProductShip Discussion comment: Yes / No
-- Confirm `neededByDate` does not populate ProductShip Specs, UI/UX, Dev, Release, or Committed dates: Yes / No
+- Coach LMS deadline field synchronized with ProductShip Committed Date: `deadline`
+- Event used in both directions: `ticket_deadline_updated`
+- Confirm ProductShip **Committed Date (`committedDate`)** ↔ Coach LMS deadline: Yes / No
+- Confirm Coach LMS `neededByDate` becomes only a ProductShip Discussion comment: Yes / No
+- Confirm `neededByDate` does not populate any ProductShip milestone: Yes / No
 - Which system wins a simultaneous status conflict? `______________________________`
-- How should the External Portal handle an outbound ProductShip Release Date older than its current deadline? `______________________________`
+- Confirm equal-time different deadline values return `409`: Yes / No
 
 ### Comment behavior
 
@@ -675,8 +665,9 @@ Please complete and return this section.
 | Portal retries the same ticket with `neededByDate` | ProductShip does not create a duplicate needed-by comment |
 | Legacy imported ticket has Dev Date equal to the retried `neededByDate` | ProductShip removes that legacy Dev Date and preserves the comment |
 | Existing Dev Date differs from incoming `neededByDate` | ProductShip preserves the independently edited Dev Date |
-| ProductShip changes Release Date | External Portal updates its deadline |
-| ProductShip clears Release Date | External Portal clears its deadline if the agreed contract allows it |
+| ProductShip changes Committed Date | Coach LMS updates its deadline |
+| Coach LMS changes deadline | ProductShip updates Committed Date |
+| Either side clears Committed Date/deadline | The other side clears the mapped field |
 | Portal changes workflow status | ProductShip applies the approved mapped status |
 | ProductShip changes workflow status | External Portal applies the approved mapped status |
 | ClickUp status changes | It does not overwrite either portal's workflow status unless separately approved |
@@ -696,7 +687,7 @@ Please complete and return this section.
 4. Implement tenant-safe identity and idempotency using `(organizationId, externalTicketId)` and `(organizationId, eventId)`.
 5. Ensure `ticket_created.neededByDate` creates one ProductShip Discussion comment and does not populate any milestone date.
 6. Implement and test inbound link and status events in ProductShip staging.
-7. Implement and test outbound link, status, and ProductShip Release Date events against External Portal staging.
+7. Implement and test outbound link, status, comment, and Committed Date events against Coach LMS staging.
 8. Implement discussion-comment events and deduplication.
 9. Run every acceptance test in Section 14.
 10. Enable production delivery for one organization and one test ticket.
@@ -711,8 +702,8 @@ The teams must confirm:
 2. The authoritative `organizationId` values and brand mapping.
 3. Whether the proposed event names and envelope are accepted.
 4. The exact bidirectional workflow-status mapping.
-5. Confirmation that ProductShip `finalRelease` publishes outward as the External Portal deadline, while inbound `neededByDate` creates only a ProductShip Discussion comment and never changes a milestone.
+5. Confirmation that ProductShip `committedDate` and Coach LMS `deadline` synchronize bidirectionally, while `neededByDate` creates only a ProductShip Discussion comment.
 6. Whether comments synchronize only between the two portals or also with ClickUp.
 7. Whether comment edits/deletes are in scope.
-8. The conflict rule for link, status, and outbound Release Date fields, and whether a record revision is available.
+8. The conflict rule for link, status, and committed-date/deadline fields.
 9. How a ticket created first in ProductShip receives an External Portal ticket ID and organization ID, if that workflow is required.

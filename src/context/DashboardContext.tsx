@@ -3273,9 +3273,12 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
     
     // Save to server
-    await persistChange('create', 'comments', newComment.id, newComment);
-    
-    // Update local state immediately
+    const saved = await persistChange('create', 'comments', newComment.id, newComment);
+    if (!saved) {
+      return { success: false, error: 'Failed to save comment' };
+    }
+
+    // Update local state after persistence succeeds
     setComments(prev => [...prev, newComment]);
     
     return { success: true, comment: newComment };

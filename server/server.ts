@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import mongoose from 'mongoose';
 import { connectToDatabase } from '../api/lib/db.js';
+import { startCoachLmsOutboxWorker } from '../api/lib/productShipSync.js';
 
 import dataHandler from '../api/data.js';
 import webhookHandler from '../api/webhook.js';
@@ -199,6 +200,7 @@ createServer(async (req, res) => {
   runEmailDigestScheduler().catch((err) => {
     console.error('[Scheduler] Initialization failed:', err);
   });
+  startCoachLmsOutboxWorker();
 });
 
 // Helper to make local POST request to trigger email digest

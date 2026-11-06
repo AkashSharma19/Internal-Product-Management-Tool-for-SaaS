@@ -263,6 +263,17 @@ export interface DailyIssue {
   conductDemo?: boolean;
   demoCohorts?: string;
   notificationSent?: boolean;
+  externalSource?: 'coachlms' | '';
+  organizationId?: string;
+  environment?: 'development' | 'production' | '';
+  externalTicketId?: string;
+  clickupTaskId?: string;
+  clickupLinkUpdatedAt?: string;
+  clickupLinkUpdatedBySource?: string;
+  statusUpdatedAt?: string;
+  statusUpdatedBySource?: string;
+  committedDateUpdatedAt?: string;
+  committedDateUpdatedBySource?: string;
 }
 
 export interface FeatureAdoption {
