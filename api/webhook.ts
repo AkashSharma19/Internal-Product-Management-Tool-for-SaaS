@@ -172,6 +172,7 @@ export default async function handler(req: any, res: any) {
           type,
           issues: description,
           contact,
+          poc: '',
           taskLink: clickupLink,
           notes
         };

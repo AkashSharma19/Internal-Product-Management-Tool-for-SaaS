@@ -439,7 +439,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
     if (Array.isArray(dailyIssues)) {
       dailyIssues.forEach((pi: any) => {
-        const poc = pi.poc || pi.contact;
+        const poc = pi.poc;
         if (poc && isTaskActive(pi)) {
           counts[poc] = (counts[poc] || 0) + 1;
         }

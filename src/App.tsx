@@ -2645,7 +2645,7 @@ const DashboardContent: React.FC = () => {
                 tarunSirApproval: foundIssue.tarunSirApproval || false,
                 raisedByTarunSir: foundIssue.raisedByTarunSir || false,
                 priority: foundIssue.priority as any || '',
-                poc: foundIssue.poc || foundIssue.contact || '',
+                poc: foundIssue.poc || '',
                 status: foundIssue.status as any || '',
                 clickupStatus: foundIssue.clickupStatus || foundIssue.type || '',
                 taskLink: foundIssue.taskLink || '',
