@@ -34,7 +34,7 @@ export interface ProductItem {
   module?: string;
   type?: string;
   uiux: string; // date or notes
-  review: string; // date or notes
+  review?: string; // date or notes
   finalRelease: string; // date or notes
   productDeadline: string; // date or notes
   productDeadlineCompleted?: boolean;
