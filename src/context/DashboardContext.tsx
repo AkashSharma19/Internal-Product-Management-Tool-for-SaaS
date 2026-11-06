@@ -2794,7 +2794,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
       const updatedItem = next.find(item => item.id === id);
       if (updatedItem) {
-        persistChange('update', 'dailyIssues', id, updatedItem);
+        persistChange('update', 'dailyIssues', id, updated);
         setCalendarEvents(evts => evts.map(evt => {
           if (evt.rawItem?.id === id || evt.id?.startsWith(`${id}-`)) {
             return {
