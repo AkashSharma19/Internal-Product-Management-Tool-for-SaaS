@@ -16,6 +16,7 @@ import {
   PORTAL_EVENTS,
   buildImportedTicketId,
   extractClickupTaskId,
+  fetchClickupTaskMetadata,
   findImportedTicket
 } from './lib/productShipSync.js';
 
@@ -191,6 +192,13 @@ async function handlePortalV2Event(payload: any) {
           ticket.clickupStatus = '';
           ticket.clickupAssignee = '';
           ticket.clickupSubtasksCount = 0;
+        } else if (parsedTaskId) {
+          const metadata = await fetchClickupTaskMetadata(parsedTaskId);
+          if (metadata) {
+            ticket.clickupStatus = metadata.status;
+            ticket.clickupAssignee = metadata.assignee;
+            ticket.clickupSubtasksCount = metadata.subtasksCount;
+          }
         }
       }
       if (decision === 'apply' || decision === 'advance') {
@@ -424,6 +432,20 @@ export default async function handler(req: any, res: any) {
           );
         }
 
+        let clickupMetadataUpdated = false;
+        const clickupTaskId = clickupLink ? extractClickupTaskId(clickupLink) : null;
+        if (clickupTaskId) {
+          const metadata = await fetchClickupTaskMetadata(clickupTaskId);
+          const metadataUpdate: Record<string, unknown> = { clickupTaskId };
+          if (metadata) {
+            metadataUpdate.clickupStatus = metadata.status;
+            metadataUpdate.clickupAssignee = metadata.assignee;
+            metadataUpdate.clickupSubtasksCount = metadata.subtasksCount;
+            clickupMetadataUpdated = true;
+          }
+          await DailyIssueModel.updateOne({ id: internalTicketId }, { $set: metadataUpdate });
+        }
+
         let neededByCommentCreated = false;
         let correctedLegacyDevDate = false;
         if (neededByDate) {
@@ -483,7 +505,8 @@ export default async function handler(req: any, res: any) {
           created,
           alreadyExists: !created,
           neededByCommentCreated,
-          correctedLegacyDevDate
+          correctedLegacyDevDate,
+          clickupMetadataUpdated
         });
       } catch (validationError: any) {
         return res.status(400).json({ success: false, error: validationError.message });
@@ -607,7 +630,8 @@ export default async function handler(req: any, res: any) {
     console.log(`[Webhook] Updating task ${taskId} with payload:`, updatePayload);
 
     // Match the task ID inside link fields using a case-insensitive regex
-    const regexFilter = { $regex: taskId, $options: 'i' };
+    const escapedTaskId = String(taskId).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regexFilter = { $regex: escapedTaskId, $options: 'i' };
 
     // Fetch matching products to audit status/assignee transitions
     try {
@@ -656,7 +680,7 @@ export default async function handler(req: any, res: any) {
       ProductItemModel.updateMany({ taskLink: regexFilter }, { $set: updatePayload }),
       StudentProjectModel.updateMany({ taskLink: regexFilter }, { $set: updatePayload }),
       StudentMeetingModel.updateMany({ taskLink: regexFilter }, { $set: updatePayload }),
-      DailyIssueModel.updateMany({ taskLink: regexFilter }, { $set: updatePayload }),
+      DailyIssueModel.updateMany({ $or: [{ clickupTaskId: taskId }, { taskLink: regexFilter }] }, { $set: updatePayload }),
       PlanItemModel.updateMany({ link: regexFilter }, { $set: updatePayload })
     ]);
 

@@ -2652,7 +2652,7 @@ const DashboardContent: React.FC = () => {
                 priority: foundIssue.priority as any || '',
                 poc: foundIssue.poc || '',
                 status: foundIssue.status as any || '',
-                clickupStatus: foundIssue.clickupStatus || foundIssue.type || '',
+                clickupStatus: foundIssue.clickupStatus || '',
                 taskLink: foundIssue.taskLink || '',
                 blocker: foundIssue.blocker || '',
                 blockers: foundIssue.blockers || [],

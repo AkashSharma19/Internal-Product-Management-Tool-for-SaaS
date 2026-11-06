@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { DailyIssueModel, CommentModel, WebhookOutboxModel } from './models.js';
+import { DailyIssueModel, CommentModel, GlobalSettingsModel, WebhookOutboxModel } from './models.js';
 
 export const PORTAL_EVENTS = [
   'ticket_comment_created',
@@ -36,6 +36,31 @@ export function extractClickupTaskId(link: unknown): string | null {
     const taskId = parts.at(-1) || '';
     return parts.includes('t') && /^[a-zA-Z0-9_-]{7,20}$/.test(taskId) ? taskId : null;
   } catch {
+    return null;
+  }
+}
+
+export async function fetchClickupTaskMetadata(taskId: string) {
+  const setting: any = await GlobalSettingsModel.findOne({ key: 'clickupApiKey' }).lean();
+  const apiKey = String(setting?.value || '').trim();
+  if (!apiKey) return null;
+  try {
+    const response = await fetch(`https://api.clickup.com/api/v2/task/${encodeURIComponent(taskId)}?include_subtasks=true`, {
+      headers: { Authorization: apiKey },
+      signal: AbortSignal.timeout(10_000)
+    });
+    if (!response.ok) return null;
+    const task: any = await response.json();
+    if (!task?.status?.status) return null;
+    return {
+      status: String(task.status.status),
+      assignee: Array.isArray(task.assignees)
+        ? task.assignees.map((item: any) => item.username || item.email || '').filter(Boolean).join(', ')
+        : '',
+      subtasksCount: Array.isArray(task.subtasks) ? task.subtasks.length : 0
+    };
+  } catch (error: any) {
+    console.warn(`[ClickUp Sync] Could not fetch task ${taskId}:`, error?.message || error);
     return null;
   }
 }

@@ -2199,7 +2199,7 @@ export default async function handler(req: any, res: any) {
                 priority: item.priority || '',
                 poc: item.poc || item.contact || '',
                 status: item.status || '',
-                clickupStatus: hasLink ? (item.clickupStatus || item.type || '') : '',
+                clickupStatus: hasLink ? (item.clickupStatus || '') : '',
                 taskLink: item.taskLink || '',
                 blocker: item.blocker || '',
                 deadline: item.deadline || '',
