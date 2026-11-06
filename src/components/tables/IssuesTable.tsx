@@ -245,9 +245,24 @@ export const IssuesTable: React.FC = () => {
     return (
       <>
         {prevDate && <DateDiffBadge prevDate={prevDate} currentDate={value} />}
-        <span style={getDateSpanStyle(value, completed)}>
-          {value ? formatDateToUserPattern(value) : '—'}
-        </span>
+        {value ? (
+          <span style={getDateSpanStyle(value, completed)}>
+            {formatDateToUserPattern(value)}
+          </span>
+        ) : completed ? (
+          <span style={{
+            fontSize: '0.68rem',
+            padding: '2px 6px',
+            borderRadius: '4px',
+            fontWeight: 700,
+            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+            color: '#10b981',
+            display: 'inline-block',
+            whiteSpace: 'nowrap'
+          }}>
+            Delivered
+          </span>
+        ) : '—'}
       </>
     );
   };
