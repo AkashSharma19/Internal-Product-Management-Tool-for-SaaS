@@ -14,7 +14,7 @@ Required behavior:
 1. When the External Portal adds, replaces, or clears a ClickUp link, ProductShip updates the matching ticket.
 2. When ProductShip adds, replaces, clears, or creates a ClickUp task for an externally originated ticket, the External Portal updates the matching ticket.
 3. When either system changes the ticket workflow status, the other system receives the equivalent status.
-4. ProductShip's **Release Date** (`finalRelease`) and the External Portal's **deadline** (`neededByDate` on the existing create payload) represent the same field and synchronize in both directions.
+4. ProductShip's **Release Date** (`finalRelease`) is published to the External Portal as its deadline. The External Portal's `neededByDate` is informational in ProductShip and appears only as a Discussion comment; it must not populate Specs, UI/UX, Dev, Release, or Committed dates.
 5. When either system adds a discussion comment, the other system receives it exactly once.
 6. Retries must not create duplicate tickets or comments.
 7. Receiving an event must not cause the same event to echo indefinitely between systems.
@@ -74,7 +74,8 @@ The following behavior does not exist yet:
 - Updating ProductShip when the External Portal changes a link after ticket creation.
 - Sending ProductShip link changes to the External Portal.
 - Synchronizing ProductShip workflow `status` with the External Portal's ticket status.
-- Synchronizing ProductShip `finalRelease` with the External Portal's deadline/`neededByDate`.
+- Publishing ProductShip `finalRelease` to the External Portal's deadline field.
+- Adding the External Portal's `neededByDate` to ProductShip Discussion as an idempotent informational comment without changing any milestone date.
 - Exchanging discussion comments between portals.
 - A configured External Portal callback URL in ProductShip.
 - Stable cross-system comment identity and event deduplication.
@@ -255,17 +256,18 @@ The External Portal should implement the mirror behavior:
 - Deduplicate by `(organizationId, eventId)`.
 - Mark the origin as `productship` and do not echo it back.
 
-## 7. Workflow status and deadline synchronization
+## 7. Workflow status, release-date publishing, and needed-by comments
 
 ### 7.1 Canonical field mapping
 
 | ProductShip field | External Portal field | Meaning |
 |---|---|---|
-| `status` | `status` | Ticket workflow status |
-| `finalRelease` (Release Date) | `deadline` / existing `neededByDate` | The committed deadline for delivery |
+| `status` | `status` | Ticket workflow status; synchronized in both directions |
+| `finalRelease` (Release Date) | `deadline` | Published from ProductShip to the External Portal |
+| No ProductShip milestone field | existing `neededByDate` | Imported as a ProductShip Discussion comment only |
 | `clickupStatus` | No automatic mapping | Status read from ClickUp; keep separate from ticket workflow status |
 
-**Important:** The External Portal's `neededByDate` must populate ProductShip `finalRelease`, not ProductShip `deadline` (Dev Date). When ProductShip changes `finalRelease`, the External Portal must update its deadline field.
+**Important:** The External Portal's `neededByDate` must never populate ProductShip `productDeadline` (Specs), `uiux`, `deadline` (Dev Date), `finalRelease` (Release Date), or `committedDate`. ProductShip creates one Discussion comment in the format `Needed by date: DD Mon YYYY`. ProductShip `finalRelease` may still be sent outward as the External Portal deadline.
 
 ### 7.2 Status event
 
@@ -313,7 +315,7 @@ Requirements:
 
 Unknown status values must return `400` rather than silently creating a status that is hidden or invalid in either portal.
 
-### 7.3 Deadline event
+### 7.3 ProductShip release-date event
 
 Event name:
 
@@ -357,13 +359,16 @@ To clear the deadline:
 
 Requirements:
 
-- External Portal `deadline` or existing `neededByDate` → ProductShip `finalRelease`.
 - ProductShip `finalRelease` → External Portal deadline.
-- ProductShip `deadline` is the Dev Date and must not be used for this integration.
+- This is an outbound publication from ProductShip; the External Portal must not send its deadline back into a ProductShip milestone field.
+- External Portal `neededByDate` → one ProductShip Discussion comment only.
+- ProductShip `deadline` is the Dev Date and must not be used for `neededByDate`.
+- ProductShip `productDeadline`, `uiux`, `finalRelease`, and `committedDate` must also remain unchanged by `neededByDate`.
 - Use an ISO-8601 UTC value on the wire. Each application may render it in its local display format.
-- `null` explicitly clears the field; omission means no change.
-- Stale events must not overwrite a newer deadline.
-- Existing `ticket_created` payloads must apply `neededByDate` to ProductShip `finalRelease` during initial creation.
+- `null` from ProductShip explicitly clears the External Portal deadline; omission means no change.
+- Stale ProductShip release-date events must not overwrite a newer External Portal value.
+- Existing and new `ticket_created` payloads must create at most one `Needed by date: DD Mon YYYY` Discussion comment.
+- On a retry, ProductShip may remove a legacy Dev Date only when its stored raw value exactly equals the same incoming `neededByDate`; independently edited Dev Dates must be preserved.
 
 ## 8. Comment synchronization
 
@@ -494,11 +499,11 @@ The receiver should always return JSON with `success` and a safe error message. 
 
 Proposed version 1 behavior:
 
-1. Each system stores the latest accepted `occurredAt` or revision independently for the ClickUp link, workflow status, and deadline fields.
-2. An older event must not overwrite a newer value for the same field.
-3. If timestamps or revisions are equal but values differ, return `409` and require reconciliation.
-4. Link and deadline clearing are explicit updates using `null`; an omitted field means no change.
-5. ProductShip `finalRelease` and the External Portal deadline are one logical field. ProductShip `deadline` remains the separate Dev Date.
+1. Each system stores the latest accepted `occurredAt` or revision independently for the ClickUp link and workflow status. ProductShip also tracks outbound Release Date publication.
+2. An older event must not overwrite a newer value for the same synchronized field.
+3. If timestamps or revisions are equal but synchronized values differ, return `409` and require reconciliation.
+4. Link clearing is an explicit update using `null`; an omitted field means no change.
+5. ProductShip `finalRelease` is published outward as the External Portal deadline. External `neededByDate` is imported only as a Discussion comment and is never a ProductShip milestone.
 6. ProductShip `status` and External Portal `status` use the approved mapping table. `clickupStatus` remains independent.
 7. Comments are append-only and identified by immutable source IDs.
 
@@ -597,13 +602,14 @@ Please complete and return this section.
 - External Portal status field name: `______________________________`
 - Event emitted when status changes: `______________________________`
 - Complete and approve the ProductShip ↔ External Portal status mapping in Section 7.2.
-- External Portal deadline field name: `deadline` / `neededByDate` / Other: `____________`
-- Event emitted when the deadline changes: `______________________________`
-- Can users clear an existing deadline? Yes / No
-- Confirm External deadline maps to ProductShip **Release Date (`finalRelease`)**: Yes / No
-- Confirm ProductShip **Dev Date (`deadline`)** is excluded: Yes / No
+- External Portal deadline field updated by ProductShip Release Date: `deadline` / Other: `____________`
+- Event accepted when ProductShip publishes a Release Date: `______________________________`
+- Can ProductShip clear the External Portal deadline? Yes / No
+- Confirm ProductShip **Release Date (`finalRelease`)** publishes to the External Portal deadline: Yes / No
+- Confirm External `neededByDate` becomes only a ProductShip Discussion comment: Yes / No
+- Confirm `neededByDate` does not populate ProductShip Specs, UI/UX, Dev, Release, or Committed dates: Yes / No
 - Which system wins a simultaneous status conflict? `______________________________`
-- Which system wins a simultaneous deadline conflict? `______________________________`
+- How should the External Portal handle an outbound ProductShip Release Date older than its current deadline? `______________________________`
 
 ### Comment behavior
 
@@ -665,10 +671,12 @@ Please complete and return this section.
 | ProductShip manually adds a link | External Portal displays it |
 | ProductShip creates a ClickUp task | External Portal receives and displays the generated link |
 | ProductShip retries link delivery | External Portal applies it once |
-| Portal creates a ticket with `neededByDate` | ProductShip stores it as Release Date (`finalRelease`), not Dev Date |
-| Portal changes its deadline | ProductShip updates Release Date |
+| Portal creates a ticket with `neededByDate` | ProductShip creates one Discussion comment and leaves every milestone date empty/unchanged |
+| Portal retries the same ticket with `neededByDate` | ProductShip does not create a duplicate needed-by comment |
+| Legacy imported ticket has Dev Date equal to the retried `neededByDate` | ProductShip removes that legacy Dev Date and preserves the comment |
+| Existing Dev Date differs from incoming `neededByDate` | ProductShip preserves the independently edited Dev Date |
 | ProductShip changes Release Date | External Portal updates its deadline |
-| Either side clears the shared deadline | The other side clears the corresponding field |
+| ProductShip clears Release Date | External Portal clears its deadline if the agreed contract allows it |
 | Portal changes workflow status | ProductShip applies the approved mapped status |
 | ProductShip changes workflow status | External Portal applies the approved mapped status |
 | ClickUp status changes | It does not overwrite either portal's workflow status unless separately approved |
@@ -686,9 +694,9 @@ Please complete and return this section.
 2. Configure the rotated inbound secret in both deployments.
 3. External Portal team completes Section 13, supplies the organization/brand mapping, and confirms the proposed payloads and status mapping.
 4. Implement tenant-safe identity and idempotency using `(organizationId, externalTicketId)` and `(organizationId, eventId)`.
-5. Correct initial `ticket_created.neededByDate` ingestion to populate ProductShip `finalRelease`.
-6. Implement and test inbound link, status, and deadline events in ProductShip staging.
-7. Implement and test outbound link, status, and deadline events against External Portal staging.
+5. Ensure `ticket_created.neededByDate` creates one ProductShip Discussion comment and does not populate any milestone date.
+6. Implement and test inbound link and status events in ProductShip staging.
+7. Implement and test outbound link, status, and ProductShip Release Date events against External Portal staging.
 8. Implement discussion-comment events and deduplication.
 9. Run every acceptance test in Section 14.
 10. Enable production delivery for one organization and one test ticket.
@@ -703,8 +711,8 @@ The teams must confirm:
 2. The authoritative `organizationId` values and brand mapping.
 3. Whether the proposed event names and envelope are accepted.
 4. The exact bidirectional workflow-status mapping.
-5. Confirmation that External Portal deadline/`neededByDate` maps to ProductShip `finalRelease` and not ProductShip `deadline`.
+5. Confirmation that ProductShip `finalRelease` publishes outward as the External Portal deadline, while inbound `neededByDate` creates only a ProductShip Discussion comment and never changes a milestone.
 6. Whether comments synchronize only between the two portals or also with ClickUp.
 7. Whether comment edits/deletes are in scope.
-8. The conflict rule for link, status, and deadline fields, and whether a record revision is available.
+8. The conflict rule for link, status, and outbound Release Date fields, and whether a record revision is available.
 9. How a ticket created first in ProductShip receives an External Portal ticket ID and organization ID, if that workflow is required.

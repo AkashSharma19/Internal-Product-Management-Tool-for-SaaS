@@ -8,7 +8,8 @@ import {
   DailyIssueModel,
   PlanItemModel,
   GlobalSettingsModel,
-  ChangeHistoryModel
+  ChangeHistoryModel,
+  CommentModel
 } from './lib/models.js';
 
 const PRODUCTSHIP_EVENT = 'ticket_created';
@@ -172,7 +173,6 @@ export default async function handler(req: any, res: any) {
           issues: description,
           contact,
           taskLink: clickupLink,
-          deadline: neededByDate,
           notes
         };
         if (createdAt) ticket.createdAt = createdAt;
@@ -184,9 +184,46 @@ export default async function handler(req: any, res: any) {
         );
         const created = result.upsertedCount > 0;
 
+        let neededByCommentCreated = false;
+        let correctedLegacyDevDate = false;
+        if (neededByDate) {
+          const neededBy = new Date(neededByDate);
+          const formattedNeededBy = new Intl.DateTimeFormat('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            timeZone: 'UTC'
+          }).format(neededBy);
+          const commentId = `productship-needed-by:${externalTicketId}`;
+          const commentResult = await CommentModel.updateOne(
+            { id: commentId },
+            {
+              $setOnInsert: {
+                id: commentId,
+                itemId: internalTicketId,
+                authorName: raisedByName || createdFrom || 'External Portal',
+                authorEmail: raisedByEmail,
+                content: `Needed by date: ${formattedNeededBy}`,
+                ...(createdAt ? { createdAt } : {})
+              }
+            },
+            { upsert: true }
+          );
+          neededByCommentCreated = commentResult.upsertedCount > 0;
+
+          // Repair records created by the previous mapping, but preserve any independently edited Dev Date.
+          const correctionResult = await DailyIssueModel.updateOne(
+            { id: internalTicketId, deadline: neededByDate },
+            { $unset: { deadline: '' } }
+          );
+          correctedLegacyDevDate = correctionResult.modifiedCount > 0;
+        }
+
         debugEntry.externalTicketId = externalTicketId;
         debugEntry.internalTicketId = internalTicketId;
         debugEntry.created = created;
+        debugEntry.neededByCommentCreated = neededByCommentCreated;
+        debugEntry.correctedLegacyDevDate = correctedLegacyDevDate;
         await GlobalSettingsModel.updateOne(
           { key: '_webhookLastEvent' },
           { $set: { key: '_webhookLastEvent', value: JSON.stringify(debugEntry) } },
@@ -198,7 +235,9 @@ export default async function handler(req: any, res: any) {
           success: true,
           ticketId: internalTicketId,
           created,
-          alreadyExists: !created
+          alreadyExists: !created,
+          neededByCommentCreated,
+          correctedLegacyDevDate
         });
       } catch (validationError: any) {
         return res.status(400).json({ success: false, error: validationError.message });
