@@ -10,6 +10,7 @@ import {
   AlertCircle,
   AlertTriangle,
   Palette,
+  Eye,
   Code,
   Sparkles,
   Calendar,
@@ -119,6 +120,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const [isEditingCreatedAt, setIsEditingCreatedAt] = useState(false);
   const [isEditingSpecsDate, setIsEditingSpecsDate] = useState(false);
   const [isEditingUiuxDate, setIsEditingUiuxDate] = useState(false);
+  const [isEditingReviewDate, setIsEditingReviewDate] = useState(false);
   const [isEditingDevDate, setIsEditingDevDate] = useState(false);
   const [isEditingReleaseDate, setIsEditingReleaseDate] = useState(false);
   const [isEditingCommittedDate, setIsEditingCommittedDate] = useState(false);
@@ -460,6 +462,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   // Overdue milestones flags
   const specsOverdue = isDateOverdue(item.productDeadline, item.productDeadlineCompleted);
   const uiuxOverdue = isDateOverdue(item.uiux, item.uiuxCompleted);
+  const reviewOverdue = isDateOverdue(item.review, item.reviewCompleted);
   const devOverdue = isDateOverdue(item.deadline, item.deadlineCompleted);
   const releaseOverdue = isDateOverdue(item.finalRelease, item.finalReleaseCompleted);
   const isOverallCompleted = isCompletedStatus(item.status);
@@ -569,11 +572,12 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     if (item.createdAt) list.push({ date: item.createdAt, label: 'Created', color: '#10b981' });
     if (item.productDeadline) list.push({ date: item.productDeadline, label: 'Specs', color: '#3b82f6' });
     if (item.uiux) list.push({ date: item.uiux, label: 'UI/UX', color: '#8b5cf6' });
+    if (item.review) list.push({ date: item.review, label: 'Review', color: '#14b8a6' });
     if (item.deadline) list.push({ date: item.deadline, label: 'Dev', color: '#f59e0b' });
     if (item.finalRelease) list.push({ date: item.finalRelease, label: 'Release', color: '#ec4899' });
     if (item.committedDate) list.push({ date: item.committedDate, label: 'Committed', color: '#6366f1' });
     return list;
-  }, [item.createdAt, item.productDeadline, item.uiux, item.deadline, item.finalRelease, item.committedDate]);
+  }, [item.createdAt, item.productDeadline, item.uiux, item.review, item.deadline, item.finalRelease, item.committedDate]);
 
   const steps = [
     {
@@ -619,19 +623,34 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
       diffTitle: item.productDeadline ? 'Days since Specs Date' : 'Days since Created Date'
     },
     {
+      label: 'Review Date',
+      date: item.review,
+      dateVal: item.review ? formatDateToShortPattern(item.review) : 'Set Date',
+      completed: !!item.reviewCompleted,
+      classStr: item.reviewCompleted ? 'completed' : reviewOverdue ? 'overdue' : (item.uiuxCompleted ? 'active' : 'pending'),
+      isEditing: isEditingReviewDate,
+      setIsEditing: setIsEditingReviewDate,
+      icon: item.reviewCompleted ? <Check size={14} /> : <Eye size={14} />,
+      historyField: 'review',
+      historyLabel: 'Review Date',
+      completedKey: 'reviewCompleted',
+      diffDays: item.review ? getDateDiffDays(item.uiux || item.productDeadline || item.createdAt, item.review) : null,
+      diffTitle: item.uiux ? 'Days since UI/UX Date' : item.productDeadline ? 'Days since Specs Date' : 'Days since Created Date'
+    },
+    {
       label: 'Dev Date',
       date: item.deadline,
       dateVal: item.deadline ? formatDateToShortPattern(item.deadline) : 'Set Date',
       completed: !!item.deadlineCompleted,
-      classStr: item.deadlineCompleted ? 'completed' : devOverdue ? 'overdue' : (item.uiuxCompleted ? 'active' : 'pending'),
+      classStr: item.deadlineCompleted ? 'completed' : devOverdue ? 'overdue' : (item.reviewCompleted ? 'active' : 'pending'),
       isEditing: isEditingDevDate,
       setIsEditing: setIsEditingDevDate,
       icon: item.deadlineCompleted ? <Check size={14} /> : <Code size={14} />,
       historyField: 'deadline',
       historyLabel: 'Dev Date',
       completedKey: 'deadlineCompleted',
-      diffDays: item.deadline ? getDateDiffDays(item.uiux || item.productDeadline || item.createdAt, item.deadline) : null,
-      diffTitle: item.uiux ? 'Days since UI/UX Date' : item.productDeadline ? 'Days since Specs Date' : 'Days since Created Date'
+      diffDays: item.deadline ? getDateDiffDays(item.review || item.uiux || item.productDeadline || item.createdAt, item.deadline) : null,
+      diffTitle: item.review ? 'Days since Review Date' : item.uiux ? 'Days since UI/UX Date' : item.productDeadline ? 'Days since Specs Date' : 'Days since Created Date'
     },
     {
       label: 'Release Date',
@@ -645,8 +664,8 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
       historyField: 'finalRelease',
       historyLabel: 'Release Date',
       completedKey: 'finalReleaseCompleted',
-      diffDays: item.finalRelease ? getDateDiffDays(item.deadline || item.uiux || item.productDeadline || item.createdAt, item.finalRelease) : null,
-      diffTitle: item.deadline ? 'Days since Dev Date' : item.uiux ? 'Days since UI/UX Date' : item.productDeadline ? 'Days since Specs Date' : 'Days since Created Date'
+      diffDays: item.finalRelease ? getDateDiffDays(item.deadline || item.review || item.uiux || item.productDeadline || item.createdAt, item.finalRelease) : null,
+      diffTitle: item.deadline ? 'Days since Dev Date' : item.review ? 'Days since Review Date' : item.uiux ? 'Days since UI/UX Date' : item.productDeadline ? 'Days since Specs Date' : 'Days since Created Date'
     },
     {
       label: 'Commited Date',
@@ -660,7 +679,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
       historyField: 'committedDate',
       historyLabel: 'Commited Date',
       completedKey: 'committedDateCompleted',
-      diffDays: item.committedDate ? getDateDiffDays(item.finalRelease || item.deadline || item.uiux || item.productDeadline || item.createdAt, item.committedDate) : null,
+      diffDays: item.committedDate ? getDateDiffDays(item.finalRelease || item.deadline || item.review || item.uiux || item.productDeadline || item.createdAt, item.committedDate) : null,
       diffTitle: item.finalRelease ? 'Days since Release Date' : 'Days since Created Date'
     }
   ];
@@ -1047,6 +1066,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                           true,
                           !!item.productDeadlineCompleted,
                           !!item.uiuxCompleted,
+                          !!item.reviewCompleted,
                           !!item.deadlineCompleted,
                           !!item.finalReleaseCompleted,
                           !!item.finalReleaseCompleted

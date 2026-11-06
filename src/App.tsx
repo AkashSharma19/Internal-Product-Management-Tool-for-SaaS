@@ -1284,6 +1284,7 @@ const DashboardContent: React.FC = () => {
         deadline: '',
         notes: `Raised by guest request from public calendar.`,
         uiux: '',
+        review: '',
         finalRelease: '',
         productDeadline: '',
         raisedByTarunSir: false,
@@ -2572,10 +2573,12 @@ const DashboardContent: React.FC = () => {
                 module: foundContent.module || '',
                 type: foundContent.type || '',
                 uiux: foundContent.uiux || '',
+                review: foundContent.review || '',
                 finalRelease: foundContent.finalRelease || '',
                 productDeadline: foundContent.productDeadline || '',
                 productDeadlineCompleted: !!foundContent.productDeadlineCompleted,
                 uiuxCompleted: !!foundContent.uiuxCompleted,
+                reviewCompleted: !!foundContent.reviewCompleted,
                 deadlineCompleted: !!foundContent.deadlineCompleted,
                 finalReleaseCompleted: !!foundContent.finalReleaseCompleted,
                 committedDate: foundContent.committedDate || '',
@@ -2603,10 +2606,12 @@ const DashboardContent: React.FC = () => {
                 if (updated.module !== undefined) updatedContent.module = updated.module;
                 if (updated.type !== undefined) updatedContent.type = updated.type as ContentItem['type'];
                 if (updated.uiux !== undefined) updatedContent.uiux = updated.uiux;
+                if (updated.review !== undefined) updatedContent.review = updated.review;
                 if (updated.finalRelease !== undefined) updatedContent.finalRelease = updated.finalRelease;
                 if (updated.productDeadline !== undefined) updatedContent.productDeadline = updated.productDeadline;
                 if (updated.productDeadlineCompleted !== undefined) updatedContent.productDeadlineCompleted = updated.productDeadlineCompleted;
                 if (updated.uiuxCompleted !== undefined) updatedContent.uiuxCompleted = updated.uiuxCompleted;
+                if (updated.reviewCompleted !== undefined) updatedContent.reviewCompleted = updated.reviewCompleted;
                 if (updated.deadlineCompleted !== undefined) updatedContent.deadlineCompleted = updated.deadlineCompleted;
                 if (updated.finalReleaseCompleted !== undefined) updatedContent.finalReleaseCompleted = updated.finalReleaseCompleted;
                 if (updated.committedDate !== undefined) updatedContent.committedDate = updated.committedDate;
@@ -2657,10 +2662,12 @@ const DashboardContent: React.FC = () => {
                 module: foundIssue.module || '',
                 type: foundIssue.type || '',
                 uiux: foundIssue.uiux || '',
+                review: foundIssue.review || '',
                 finalRelease: foundIssue.finalRelease || '',
                 productDeadline: foundIssue.productDeadline || '',
                 productDeadlineCompleted: !!foundIssue.productDeadlineCompleted,
                 uiuxCompleted: !!foundIssue.uiuxCompleted,
+                reviewCompleted: !!foundIssue.reviewCompleted,
                 deadlineCompleted: !!foundIssue.deadlineCompleted,
                 finalReleaseCompleted: !!foundIssue.finalReleaseCompleted,
                 committedDate: foundIssue.committedDate || '',
@@ -2690,10 +2697,12 @@ const DashboardContent: React.FC = () => {
                 if (updated.module !== undefined) updatedIssue.module = updated.module;
                 if (updated.type !== undefined) updatedIssue.type = updated.type as DailyIssue['type'];
                 if (updated.uiux !== undefined) updatedIssue.uiux = updated.uiux;
+                if (updated.review !== undefined) updatedIssue.review = updated.review;
                 if (updated.finalRelease !== undefined) updatedIssue.finalRelease = updated.finalRelease;
                 if (updated.productDeadline !== undefined) updatedIssue.productDeadline = updated.productDeadline;
                 if (updated.productDeadlineCompleted !== undefined) updatedIssue.productDeadlineCompleted = updated.productDeadlineCompleted;
                 if (updated.uiuxCompleted !== undefined) updatedIssue.uiuxCompleted = updated.uiuxCompleted;
+                if (updated.reviewCompleted !== undefined) updatedIssue.reviewCompleted = updated.reviewCompleted;
                 if (updated.deadlineCompleted !== undefined) updatedIssue.deadlineCompleted = updated.deadlineCompleted;
                 if (updated.finalReleaseCompleted !== undefined) updatedIssue.finalReleaseCompleted = updated.finalReleaseCompleted;
                 if (updated.committedDate !== undefined) updatedIssue.committedDate = updated.committedDate;

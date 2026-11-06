@@ -87,7 +87,7 @@ interface CalendarEvent {
   id: string;
   source: 'Priority Requests' | 'Student Projects' | 'Content Pipeline' | 'AMA Sessions' | 'Student Meetings' | 'Admin Calls' | 'Tarun Sir Meetings' | 'Daily Issues Log' | 'Daily Needs' | 'Campaign Communications';
   title: string;
-  stage: 'Specs' | 'UI/UX' | 'Dev' | 'Final Release' | 'AMA Date' | 'Call Date' | 'Meeting Date' | 'Publish Date' | 'Deadline' | 'Commited' | 'Communication Date';
+  stage: 'Specs' | 'UI/UX' | 'Review' | 'Dev' | 'Final Release' | 'AMA Date' | 'Call Date' | 'Meeting Date' | 'Publish Date' | 'Deadline' | 'Commited' | 'Communication Date';
   dateStr: string; // normalized YYYY-MM-DD
   poc: string;
   priority?: string;
@@ -101,9 +101,9 @@ interface CalendarEvent {
   isResolved?: boolean;
 }
 
-export type MilestoneCategoryKey = 'dev' | 'uiux' | 'specs' | 'release' | 'committed' | 'meetings' | 'communications';
+export type MilestoneCategoryKey = 'dev' | 'uiux' | 'review' | 'specs' | 'release' | 'committed' | 'meetings' | 'communications';
 
-export const ALL_MILESTONE_KEYS: MilestoneCategoryKey[] = ['dev', 'uiux', 'specs', 'release', 'committed', 'meetings', 'communications'];
+export const ALL_MILESTONE_KEYS: MilestoneCategoryKey[] = ['dev', 'uiux', 'review', 'specs', 'release', 'committed', 'meetings', 'communications'];
 
 const CALENDAR_MILESTONES_STORAGE_KEY = 'calendar_milestone_filters_v2';
 
@@ -135,6 +135,15 @@ export const MILESTONE_CATEGORIES: MilestoneCategoryConfig[] = [
     color: '#ec4899',
     bgLight: 'rgba(236, 72, 153, 0.14)',
     description: 'Design, wireframing & UX review tasks'
+  },
+  {
+    key: 'review',
+    label: 'Review Date',
+    shortLabel: 'Review',
+    stages: ['Review'],
+    color: '#14b8a6',
+    bgLight: 'rgba(20, 184, 166, 0.14)',
+    description: 'Post UI/UX review milestone tasks'
   },
   {
     key: 'specs',
@@ -186,6 +195,7 @@ export const MILESTONE_CATEGORIES: MilestoneCategoryConfig[] = [
 export const getEventMilestoneCategory = (stage: string): MilestoneCategoryKey | null => {
   if (stage === 'Dev') return 'dev';
   if (stage === 'UI/UX') return 'uiux';
+  if (stage === 'Review') return 'review';
   if (stage === 'Specs') return 'specs';
   if (stage === 'Final Release' || stage === 'Publish Date' || stage === 'Deadline') return 'release';
   if (stage === 'Commited') return 'committed';
@@ -206,7 +216,7 @@ export const getEventTaskId = (evt: CalendarEvent): string => {
     return String(evt.rawItem.id);
   }
   if (evt.id) {
-    const match = evt.id.match(/^(.*?)(?:-(?:Specs|UI\/UX|Dev|Final Release|Publish Date|Deadline|Commited|AMA Date|Call Date|Meeting Date|Communication Date))?$/);
+    const match = evt.id.match(/^(.*?)(?:-(?:Specs|UI\/UX|Review|Dev|Final Release|Publish Date|Deadline|Commited|AMA Date|Call Date|Meeting Date|Communication Date))?$/);
     if (match && match[1]) {
       return match[1];
     }
@@ -489,6 +499,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
     let fieldToUpdate = '';
     if (evt.stage === 'Specs') fieldToUpdate = 'productDeadline';
     else if (evt.stage === 'UI/UX') fieldToUpdate = 'uiux';
+    else if (evt.stage === 'Review') fieldToUpdate = 'review';
     else if (evt.stage === 'Dev') fieldToUpdate = 'deadline';
     else if (evt.stage === 'Final Release') fieldToUpdate = 'finalRelease';
     else if (evt.stage === 'Publish Date') fieldToUpdate = 'finalRelease';
@@ -786,6 +797,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
     const taskSets: Record<MilestoneCategoryKey, Set<string>> = {
       dev: new Set(),
       uiux: new Set(),
+      review: new Set(),
       specs: new Set(),
       release: new Set(),
       committed: new Set(),
@@ -801,6 +813,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
     return {
       dev: taskSets.dev.size,
       uiux: taskSets.uiux.size,
+      review: taskSets.review.size,
       specs: taskSets.specs.size,
       release: taskSets.release.size,
       committed: taskSets.committed.size,
@@ -1004,6 +1017,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
   const STAGE_COLORS: Record<string, { bg: string; label: string; css: string }> = {
     'Specs':         { bg: '#6366f1', label: 'Specs',    css: 'bg-stage-specs' },
     'UI/UX':        { bg: '#ec4899', label: 'UI/UX',    css: 'bg-stage-uiux' },
+    'Review':       { bg: '#14b8a6', label: 'Review',   css: 'bg-stage-review' },
     'Dev':          { bg: '#3b82f6', label: 'Dev',      css: 'bg-stage-dev' },
     'Final Release':{ bg: '#8b5cf6', label: 'Release',  css: 'bg-stage-release' },
     'Publish Date': { bg: '#8b5cf6', label: 'Release',  css: 'bg-stage-release' },

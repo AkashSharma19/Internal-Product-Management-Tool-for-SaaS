@@ -243,8 +243,9 @@ The feature preview page (`ProductDetailView` in [Tables.tsx](file:///c:/Users/A
    - Step 0: Created Date
    - Step 1: Specs Date (`productDeadline`) — displays days elapsed since **Created Date**
    - Step 2: UI/UX Date (`uiux`) — displays days elapsed since **Specs Date**
-   - Step 3: Dev Date (`deadline`) — displays days elapsed since **UI/UX Date** (or Specs Date)
-   - Step 4: Release Date (`finalRelease`) — displays days elapsed since **Dev Date** (or preceding milestones)
+   - Step 3: Review Date (`review`) — displays days elapsed since **UI/UX Date**
+   - Step 4: Dev Date (`deadline`) — displays days elapsed since **Review Date** (or UI/UX/Specs Date)
+   - Step 5: Release Date (`finalRelease`) — displays days elapsed since **Dev Date** (or preceding milestones)
    - Progress connector line automatically updates fill percentage based on completed milestones.
 3. **Popup Calendar (`CustomDatePicker`)**:
    - `position: absolute; top: 110%; zIndex: 10005`.

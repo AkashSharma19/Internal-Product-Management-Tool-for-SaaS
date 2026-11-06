@@ -34,10 +34,12 @@ export interface ProductItem {
   module?: string;
   type?: string;
   uiux: string; // date or notes
+  review: string; // date or notes
   finalRelease: string; // date or notes
   productDeadline: string; // date or notes
   productDeadlineCompleted?: boolean;
   uiuxCompleted?: boolean;
+  reviewCompleted?: boolean;
   deadlineCompleted?: boolean;
   finalReleaseCompleted?: boolean;
   committedDate?: string;
@@ -86,6 +88,7 @@ export interface StudentProject {
   taskLink?: string;
   productDeadline?: string;
   uiux?: string;
+  review?: string;
   deadline?: string;
   finalRelease?: string;
   raisedByTarunSir?: boolean;
@@ -95,6 +98,7 @@ export interface StudentProject {
   type?: string;
   productDeadlineCompleted?: boolean;
   uiuxCompleted?: boolean;
+  reviewCompleted?: boolean;
   deadlineCompleted?: boolean;
   finalReleaseCompleted?: boolean;
   committedDate?: string;
@@ -140,12 +144,14 @@ export interface StudentMeeting {
   module?: string;
   type?: string;
   uiux?: string;
+  review?: string;
   finalRelease?: string;
   productDeadline?: string;
   raisedByTarunSir?: boolean;
   tarunSirApproval?: boolean;
   productDeadlineCompleted?: boolean;
   uiuxCompleted?: boolean;
+  reviewCompleted?: boolean;
   deadlineCompleted?: boolean;
   finalReleaseCompleted?: boolean;
   committedDate?: string;
@@ -201,10 +207,12 @@ export interface ContentItem {
   createdAt?: string;
   productDeadline?: string;
   uiux?: string;
+  review?: string;
   deadline?: string;
   finalRelease?: string;
   productDeadlineCompleted?: boolean;
   uiuxCompleted?: boolean;
+  reviewCompleted?: boolean;
   deadlineCompleted?: boolean;
   finalReleaseCompleted?: boolean;
   raisedByTarunSir?: boolean;
@@ -238,10 +246,12 @@ export interface DailyIssue {
   deadline?: string;
   notes?: string;
   uiux?: string;
+  review?: string;
   finalRelease?: string;
   productDeadline?: string;
   productDeadlineCompleted?: boolean;
   uiuxCompleted?: boolean;
+  reviewCompleted?: boolean;
   deadlineCompleted?: boolean;
   finalReleaseCompleted?: boolean;
   raisedByTarunSir?: boolean;

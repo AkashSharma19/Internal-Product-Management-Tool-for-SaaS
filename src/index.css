@@ -4132,6 +4132,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Stage-based event color schemes — used on calendar badges */
 .bg-stage-specs    { background-color: #6366f1; }
 .bg-stage-uiux     { background-color: #ec4899; }
+.bg-stage-review   { background-color: #14b8a6; }
 .bg-stage-dev      { background-color: #3b82f6; }
 .bg-stage-release  { background-color: #8b5cf6; }
 .bg-stage-meeting  { background-color: #f97316; }

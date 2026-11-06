@@ -4427,7 +4427,7 @@ const CalendarConfigSection: React.FC = () => {
   });
 
   const [stages, setStages] = useState<string[]>(() => {
-    return sharableCalendarStages ? sharableCalendarStages.split(',') : ['Specs', 'UI/UX', 'Dev', 'Release', 'Commited'];
+    return sharableCalendarStages ? sharableCalendarStages.split(',') : ['Specs', 'UI/UX', 'Review', 'Dev', 'Release', 'Commited'];
   });
 
   const [isSaved, setIsSaved] = useState(false);
@@ -4438,7 +4438,7 @@ const CalendarConfigSection: React.FC = () => {
   }, [sharableCalendarSources]);
 
   React.useEffect(() => {
-    setStages(sharableCalendarStages ? sharableCalendarStages.split(',') : ['Specs', 'UI/UX', 'Dev', 'Release', 'Commited']);
+    setStages(sharableCalendarStages ? sharableCalendarStages.split(',') : ['Specs', 'UI/UX', 'Review', 'Dev', 'Release', 'Commited']);
   }, [sharableCalendarStages]);
 
   const toggleSource = (sourceId: string) => {
@@ -4581,6 +4581,7 @@ const CalendarConfigSection: React.FC = () => {
             {[
               { id: 'Specs', label: 'Specs Date', description: 'Specs/Product deadline' },
               { id: 'UI/UX', label: 'UI/UX Date', description: 'Design/Prototype milestone' },
+              { id: 'Review', label: 'Review Date', description: 'Post UI/UX review milestone' },
               { id: 'Dev',   label: 'Dev Date',   description: 'Development deadline' },
               { id: 'Release', label: 'Release Date', description: 'Final release/Launch' },
               { id: 'Commited', label: 'Commited Date', description: 'Date promised to the staff for users' },

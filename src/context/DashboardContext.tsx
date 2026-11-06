@@ -662,10 +662,12 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               module: fallbackData.module !== undefined ? fallbackData.module : item.module,
               type: fallbackData.type !== undefined ? fallbackData.type : item.type,
               uiux: fallbackData.uiux !== undefined ? fallbackData.uiux : item.uiux,
+              review: fallbackData.review !== undefined ? fallbackData.review : item.review,
               finalRelease: fallbackData.finalRelease !== undefined ? fallbackData.finalRelease : item.finalRelease,
               productDeadline: fallbackData.productDeadline !== undefined ? fallbackData.productDeadline : item.productDeadline,
               productDeadlineCompleted: fallbackData.productDeadlineCompleted !== undefined ? fallbackData.productDeadlineCompleted : item.productDeadlineCompleted,
               uiuxCompleted: fallbackData.uiuxCompleted !== undefined ? fallbackData.uiuxCompleted : item.uiuxCompleted,
+              reviewCompleted: fallbackData.reviewCompleted !== undefined ? fallbackData.reviewCompleted : item.reviewCompleted,
               deadlineCompleted: fallbackData.deadlineCompleted !== undefined ? fallbackData.deadlineCompleted : item.deadlineCompleted,
               finalReleaseCompleted: fallbackData.finalReleaseCompleted !== undefined ? fallbackData.finalReleaseCompleted : item.finalReleaseCompleted,
               committedDate: fallbackData.committedDate !== undefined ? fallbackData.committedDate : item.committedDate,
@@ -710,10 +712,12 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         module: fallbackData?.module || '',
         type: fallbackData?.type || '',
         uiux: fallbackData?.uiux || '',
+        review: fallbackData?.review || '',
         finalRelease: fallbackData?.finalRelease || '',
         productDeadline: fallbackData?.productDeadline || '',
         productDeadlineCompleted: fallbackData?.productDeadlineCompleted || false,
         uiuxCompleted: fallbackData?.uiuxCompleted || false,
+        reviewCompleted: fallbackData?.reviewCompleted || false,
         deadlineCompleted: fallbackData?.deadlineCompleted || false,
         finalReleaseCompleted: fallbackData?.finalReleaseCompleted || false,
         committedDate: fallbackData?.committedDate || '',
@@ -866,7 +870,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   const [sharableCalendarStages, setSharableCalendarStages] = useState<string>(() => {
-    return localStorage.getItem('config-sharable-calendar-stages') || 'Specs,UI/UX,Dev,Release';
+    return localStorage.getItem('config-sharable-calendar-stages') || 'Specs,UI/UX,Review,Dev,Release';
   });
 
   const [digestRecipient, setDigestRecipient] = useState<string>(() => {
@@ -1939,7 +1943,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           if (calSourcesSetting) setSharableCalendarSources(calSourcesSetting.value || '');
 
           const calStagesSetting = db.settings.find((s: any) => s.key === 'sharableCalendarStages');
-          if (calStagesSetting) setSharableCalendarStages(calStagesSetting.value || 'Specs,UI/UX,Dev,Release');
+          if (calStagesSetting) setSharableCalendarStages(calStagesSetting.value || 'Specs,UI/UX,Review,Dev,Release');
 
           const recipientSetting = db.settings.find((s: any) => s.key === 'digestRecipient');
           if (recipientSetting) setDigestRecipient(recipientSetting.value || '');
@@ -2250,6 +2254,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               taskLink: updatedItem.taskLink !== undefined ? updatedItem.taskLink : p.taskLink,
               productDeadline: updatedItem.productDeadline !== undefined ? updatedItem.productDeadline : p.productDeadline,
               uiux: updatedItem.uiux !== undefined ? updatedItem.uiux : p.uiux,
+              review: updatedItem.review !== undefined ? updatedItem.review : p.review,
               deadline: updatedItem.deadline !== undefined ? updatedItem.deadline : p.deadline,
               finalRelease: updatedItem.finalRelease !== undefined ? updatedItem.finalRelease : p.finalRelease,
               raisedByTarunSir: updatedItem.raisedByTarunSir !== undefined ? updatedItem.raisedByTarunSir : p.raisedByTarunSir,
@@ -2259,6 +2264,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               type: updatedItem.type !== undefined ? updatedItem.type : p.type,
               productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : p.productDeadlineCompleted,
               uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : p.uiuxCompleted,
+              reviewCompleted: updatedItem.reviewCompleted !== undefined ? updatedItem.reviewCompleted : p.reviewCompleted,
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
               finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted,
               committedDate: updatedItem.committedDate !== undefined ? updatedItem.committedDate : p.committedDate
@@ -2284,6 +2290,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               taskLink: updatedItem.taskLink !== undefined ? updatedItem.taskLink : m.taskLink,
               productDeadline: updatedItem.productDeadline !== undefined ? updatedItem.productDeadline : m.productDeadline,
               uiux: updatedItem.uiux !== undefined ? updatedItem.uiux : m.uiux,
+              review: updatedItem.review !== undefined ? updatedItem.review : m.review,
               deadline: updatedItem.deadline !== undefined ? updatedItem.deadline : m.deadline,
               finalRelease: updatedItem.finalRelease !== undefined ? updatedItem.finalRelease : m.finalRelease,
               raisedByTarunSir: updatedItem.raisedByTarunSir !== undefined ? updatedItem.raisedByTarunSir : m.raisedByTarunSir,
@@ -2293,6 +2300,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               type: updatedItem.type !== undefined ? updatedItem.type : m.type,
               productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : m.productDeadlineCompleted,
               uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : m.uiuxCompleted,
+              reviewCompleted: updatedItem.reviewCompleted !== undefined ? updatedItem.reviewCompleted : m.reviewCompleted,
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : m.deadlineCompleted,
               finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : m.finalReleaseCompleted,
               committedDate: updatedItem.committedDate !== undefined ? updatedItem.committedDate : m.committedDate
@@ -2315,10 +2323,12 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               clickupStatus: updatedItem.clickupStatus !== undefined ? updatedItem.clickupStatus : p.clickupStatus,
               productDeadline: updatedItem.productDeadline !== undefined ? updatedItem.productDeadline : p.productDeadline,
               uiux: updatedItem.uiux !== undefined ? updatedItem.uiux : p.uiux,
+              review: updatedItem.review !== undefined ? updatedItem.review : p.review,
               deadline: updatedItem.deadline !== undefined ? updatedItem.deadline : p.deadline,
               finalRelease: updatedItem.finalRelease !== undefined ? updatedItem.finalRelease : p.finalRelease,
               productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : p.productDeadlineCompleted,
               uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : p.uiuxCompleted,
+              reviewCompleted: updatedItem.reviewCompleted !== undefined ? updatedItem.reviewCompleted : p.reviewCompleted,
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
               finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted,
               status: updatedItem.status !== undefined ? updatedItem.status : p.status,
@@ -2345,10 +2355,12 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               clickupStatus: updatedItem.clickupStatus !== undefined ? updatedItem.clickupStatus : issue.clickupStatus,
               productDeadline: updatedItem.productDeadline !== undefined ? updatedItem.productDeadline : issue.productDeadline,
               uiux: updatedItem.uiux !== undefined ? updatedItem.uiux : issue.uiux,
+              review: updatedItem.review !== undefined ? updatedItem.review : issue.review,
               deadline: updatedItem.deadline !== undefined ? updatedItem.deadline : issue.deadline,
               finalRelease: updatedItem.finalRelease !== undefined ? updatedItem.finalRelease : issue.finalRelease,
               productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : issue.productDeadlineCompleted,
               uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : issue.uiuxCompleted,
+              reviewCompleted: updatedItem.reviewCompleted !== undefined ? updatedItem.reviewCompleted : issue.reviewCompleted,
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : issue.deadlineCompleted,
               finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : issue.finalReleaseCompleted,
               status: updatedItem.status !== undefined ? updatedItem.status : issue.status,
@@ -2442,6 +2454,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               clickupStatus: updatedItem.clickupStatus !== undefined ? updatedItem.clickupStatus : p.clickupStatus,
               productDeadline: updatedItem.productDeadline !== undefined ? updatedItem.productDeadline : p.productDeadline,
               uiux: updatedItem.uiux !== undefined ? updatedItem.uiux : p.uiux,
+              review: updatedItem.review !== undefined ? updatedItem.review : p.review,
               deadline: updatedItem.deadline !== undefined ? updatedItem.deadline : p.deadline,
               finalRelease: updatedItem.finalRelease !== undefined ? updatedItem.finalRelease : p.finalRelease,
               raisedByTarunSir: updatedItem.raisedByTarunSir !== undefined ? updatedItem.raisedByTarunSir : p.raisedByTarunSir,
@@ -2449,6 +2462,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               product: updatedItem.product !== undefined ? updatedItem.product : p.product,
               productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : p.productDeadlineCompleted,
               uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : p.uiuxCompleted,
+              reviewCompleted: updatedItem.reviewCompleted !== undefined ? updatedItem.reviewCompleted : p.reviewCompleted,
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
               finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted,
               createdAt: updatedItem.createdAt !== undefined ? updatedItem.createdAt : p.createdAt,
@@ -2633,6 +2647,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               clickupStatus: updatedItem.clickupStatus || p.clickupStatus,
               productDeadline: updatedItem.productDeadline || p.productDeadline,
               uiux: updatedItem.uiux || p.uiux,
+              review: updatedItem.review || p.review,
               deadline: updatedItem.deadline || p.deadline,
               finalRelease: updatedItem.finalRelease || p.finalRelease,
               raisedByTarunSir: updatedItem.raisedByTarunSir !== undefined ? updatedItem.raisedByTarunSir : p.raisedByTarunSir,
@@ -2640,6 +2655,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               product: updatedItem.product || p.product,
               productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : p.productDeadlineCompleted,
               uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : p.uiuxCompleted,
+              reviewCompleted: updatedItem.reviewCompleted !== undefined ? updatedItem.reviewCompleted : p.reviewCompleted,
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
               finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted,
               createdAt: updatedItem.createdAt || p.createdAt,
@@ -2739,10 +2755,12 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               clickupStatus: updatedItem.clickupStatus || p.clickupStatus,
               productDeadline: updatedItem.productDeadline || p.productDeadline,
               uiux: updatedItem.uiux || p.uiux,
+              review: updatedItem.review || p.review,
               deadline: updatedItem.deadline || p.deadline,
               finalRelease: updatedItem.finalRelease || p.finalRelease,
               productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : p.productDeadlineCompleted,
               uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : p.uiuxCompleted,
+              reviewCompleted: updatedItem.reviewCompleted !== undefined ? updatedItem.reviewCompleted : p.reviewCompleted,
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
               finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted,
               status: updatedItem.status as ProductItem['status'],
@@ -2802,10 +2820,12 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               clickupStatus: updatedItem.clickupStatus || p.clickupStatus,
               productDeadline: updatedItem.productDeadline || p.productDeadline,
               uiux: updatedItem.uiux || p.uiux,
+              review: updatedItem.review || p.review,
               deadline: updatedItem.deadline || p.deadline,
               finalRelease: updatedItem.finalRelease || p.finalRelease,
               productDeadlineCompleted: updatedItem.productDeadlineCompleted !== undefined ? updatedItem.productDeadlineCompleted : p.productDeadlineCompleted,
               uiuxCompleted: updatedItem.uiuxCompleted !== undefined ? updatedItem.uiuxCompleted : p.uiuxCompleted,
+              reviewCompleted: updatedItem.reviewCompleted !== undefined ? updatedItem.reviewCompleted : p.reviewCompleted,
               deadlineCompleted: updatedItem.deadlineCompleted !== undefined ? updatedItem.deadlineCompleted : p.deadlineCompleted,
               finalReleaseCompleted: updatedItem.finalReleaseCompleted !== undefined ? updatedItem.finalReleaseCompleted : p.finalReleaseCompleted,
               status: updatedItem.status as ProductItem['status'],

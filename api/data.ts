@@ -1475,7 +1475,7 @@ export default async function handler(req: any, res: any) {
 
            const calStagesSetting = rawSettings.find((s: any) => s.key === 'sharableCalendarStages');
            const allowedStages = calStagesSetting ? calStagesSetting.value.split(',') : [
-             'Specs', 'UI/UX', 'Dev', 'Release', 'Commited'
+             'Specs', 'UI/UX', 'Review', 'Dev', 'Release', 'Commited'
            ];
 
           const [productsRaw, projectsRaw, amaSessionsRaw, meetingsRaw, adminCallsRaw, tarunSirMeetingsRaw, contentRaw, issuesRaw, campaignsRaw] = await Promise.all([
@@ -1594,6 +1594,7 @@ export default async function handler(req: any, res: any) {
                 let mappedCheckbox = '';
                 if (stage === 'Specs') mappedCheckbox = 'Specs';
                 else if (stage === 'UI/UX') mappedCheckbox = 'UI/UX';
+                else if (stage === 'Review') mappedCheckbox = 'Review';
                 else if (stage === 'Dev') mappedCheckbox = 'Dev';
                 else if (['Final Release', 'Publish Date', 'Deadline'].includes(stage)) mappedCheckbox = 'Release';
                 else if (stage === 'Commited') mappedCheckbox = 'Commited';
@@ -1652,6 +1653,7 @@ export default async function handler(req: any, res: any) {
             const isOverallCompleted = isCompletedStatus(item.status);
              addEvent(item.id, 'Priority Requests', item.feature, 'Specs', item.productDeadline, !!item.productDeadlineCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item, 'product');
              addEvent(item.id, 'Priority Requests', item.feature, 'UI/UX', item.uiux, !!item.uiuxCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item, 'product');
+             addEvent(item.id, 'Priority Requests', item.feature, 'Review', item.review, !!item.reviewCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item, 'product');
              addEvent(item.id, 'Priority Requests', item.feature, 'Dev', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item, 'product');
              addEvent(item.id, 'Priority Requests', item.feature, 'Final Release', item.finalRelease, !!item.finalReleaseCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item, 'product');
              addEvent(item.id, 'Priority Requests', item.feature, 'Commited', item.committedDate, !!item.finalReleaseCompleted || isOverallCompleted, item.poc, item.priority, item.taskLink, item, 'product');
@@ -1661,6 +1663,7 @@ export default async function handler(req: any, res: any) {
             const isOverallCompleted = isCompletedStatus(item.status);
             addEvent(item.id, 'Student Projects', item.title, 'Specs', item.productDeadline, !!item.productDeadlineCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'projects');
             addEvent(item.id, 'Student Projects', item.title, 'UI/UX', item.uiux, !!item.uiuxCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'projects');
+            addEvent(item.id, 'Student Projects', item.title, 'Review', item.review, !!item.reviewCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'projects');
             addEvent(item.id, 'Student Projects', item.title, 'Dev', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'projects');
             addEvent(item.id, 'Student Projects', item.title, 'Final Release', item.finalRelease, !!item.finalReleaseCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'projects');
             addEvent(item.id, 'Student Projects', item.title, 'Commited', item.committedDate, !!item.finalReleaseCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'projects');
@@ -1676,6 +1679,7 @@ export default async function handler(req: any, res: any) {
               const isOverallCompleted = isCompletedStatus(task.status);
               addEvent(task.id, 'AMA Sessions', task.feature, 'Specs', task.productDeadline, !!task.productDeadlineCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'meetings');
               addEvent(task.id, 'AMA Sessions', task.feature, 'UI/UX', task.uiux, !!task.uiuxCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'meetings');
+              addEvent(task.id, 'AMA Sessions', task.feature, 'Review', task.review, !!task.reviewCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'meetings');
               addEvent(task.id, 'AMA Sessions', task.feature, 'Dev', task.deadline, !!task.deadlineCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'meetings');
               addEvent(task.id, 'AMA Sessions', task.feature, 'Final Release', task.finalRelease, !!task.finalReleaseCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'meetings');
               addEvent(task.id, 'AMA Sessions', task.feature, 'Commited', task.committedDate, !!task.finalReleaseCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'meetings');
@@ -1699,6 +1703,7 @@ export default async function handler(req: any, res: any) {
               const isOverallCompleted = isCompletedStatus(task.status);
               addEvent(task.id, 'Admin Calls', task.feature, 'Specs', task.productDeadline, !!task.productDeadlineCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'admin');
               addEvent(task.id, 'Admin Calls', task.feature, 'UI/UX', task.uiux, !!task.uiuxCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'admin');
+              addEvent(task.id, 'Admin Calls', task.feature, 'Review', task.review, !!task.reviewCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'admin');
               addEvent(task.id, 'Admin Calls', task.feature, 'Dev', task.deadline, !!task.deadlineCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'admin');
               addEvent(task.id, 'Admin Calls', task.feature, 'Final Release', task.finalRelease, !!task.finalReleaseCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'admin');
               addEvent(task.id, 'Admin Calls', task.feature, 'Commited', task.committedDate, !!task.finalReleaseCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'admin');
@@ -1715,6 +1720,7 @@ export default async function handler(req: any, res: any) {
               const isOverallCompleted = isCompletedStatus(task.status);
               addEvent(task.id, 'Tarun Sir Meetings', task.feature, 'Specs', task.productDeadline, !!task.productDeadlineCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'tarun-meetings');
               addEvent(task.id, 'Tarun Sir Meetings', task.feature, 'UI/UX', task.uiux, !!task.uiuxCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'tarun-meetings');
+              addEvent(task.id, 'Tarun Sir Meetings', task.feature, 'Review', task.review, !!task.reviewCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'tarun-meetings');
               addEvent(task.id, 'Tarun Sir Meetings', task.feature, 'Dev', task.deadline, !!task.deadlineCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'tarun-meetings');
               addEvent(task.id, 'Tarun Sir Meetings', task.feature, 'Final Release', task.finalRelease, !!task.finalReleaseCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'tarun-meetings');
               addEvent(task.id, 'Tarun Sir Meetings', task.feature, 'Commited', task.committedDate, !!task.finalReleaseCompleted || isOverallCompleted, task.poc, task.priority, task.taskLink, task, 'tarun-meetings');
@@ -1733,12 +1739,14 @@ export default async function handler(req: any, res: any) {
             if (['Feature Gap', 'Enhancement', 'BUG', 'New Feature', 'Data Needed', 'Term Report/ Transcript'].includes(item.type)) {
               addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Specs', item.productDeadline, !!item.productDeadlineCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
               addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'UI/UX', item.uiux, !!item.uiuxCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
+              addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Review', item.review, !!item.reviewCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
               addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Dev', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
               addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Final Release', item.finalRelease, !!item.finalReleaseCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
               addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Commited', item.committedDate, !!item.finalReleaseCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
             } else {
               addEvent(item.id, 'Daily Issues Log', item.module || `Issue #${item.id}`, 'Specs', item.productDeadline, !!item.productDeadlineCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'issues');
               addEvent(item.id, 'Daily Issues Log', item.module || `Issue #${item.id}`, 'UI/UX', item.uiux, !!item.uiuxCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'issues');
+              addEvent(item.id, 'Daily Issues Log', item.module || `Issue #${item.id}`, 'Review', item.review, !!item.reviewCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'issues');
               addEvent(item.id, 'Daily Issues Log', item.module || `Issue #${item.id}`, 'Dev', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'issues');
               addEvent(item.id, 'Daily Issues Log', item.module || `Issue #${item.id}`, 'Final Release', item.finalRelease, !!item.finalReleaseCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'issues');
               addEvent(item.id, 'Daily Issues Log', item.module || `Issue #${item.id}`, 'Commited', item.committedDate, !!item.finalReleaseCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'issues');
