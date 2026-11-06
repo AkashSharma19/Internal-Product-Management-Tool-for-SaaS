@@ -98,12 +98,83 @@ jobs:
           echo "Pushed ${{ steps.ecr-login.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}"
           echo "Digest ${{ steps.docker-build.outputs.digest }}"
 
-      - name: Force new ECS deployment
+      - name: Register ECS task definition with Sync V2 configuration
+        env:
+          PRODUCTSHIP_WEBHOOK_SECRET: ${{ secrets.PRODUCTSHIP_WEBHOOK_SECRET }}
+          COACHLMS_WEBHOOK_SECRET: ${{ secrets.COACHLMS_WEBHOOK_SECRET }}
+        run: |
+          if [ -z "$PRODUCTSHIP_WEBHOOK_SECRET" ] || [ -z "$COACHLMS_WEBHOOK_SECRET" ]; then
+            echo "Required Sync V2 secrets are not configured."
+            exit 1
+          fi
+
+          TASK_DEFINITION_ARN=$(aws ecs describe-services \
+            --region "$AWS_REGION" \
+            --cluster "$ECS_CLUSTER" \
+            --services "$ECS_SERVICE" \
+            --query 'services[0].taskDefinition' \
+            --output text)
+
+          aws ecs describe-task-definition \
+            --region "$AWS_REGION" \
+            --task-definition "$TASK_DEFINITION_ARN" \
+            --query 'taskDefinition' \
+            --output json > current-task-definition.json
+
+          CONTAINER_NAME=$(jq -r --arg repository "$ECR_REPOSITORY" \
+            '.containerDefinitions[] | select(.image | contains($repository)) | .name' \
+            current-task-definition.json | head -n 1)
+
+          if [ -z "$CONTAINER_NAME" ]; then
+            echo "Could not identify the application container."
+            exit 1
+          fi
+
+          jq \
+            --arg container "$CONTAINER_NAME" \
+            --arg inboundSecret "$PRODUCTSHIP_WEBHOOK_SECRET" \
+            --arg outboundSecret "$COACHLMS_WEBHOOK_SECRET" \
+            --arg timeout "10000" \
+            'del(
+              .taskDefinitionArn,
+              .revision,
+              .status,
+              .requiresAttributes,
+              .compatibilities,
+              .registeredAt,
+              .registeredBy,
+              .deregisteredAt
+            )
+            | .containerDefinitions |= map(
+                if .name == $container then
+                  .environment = (
+                    (.environment // [])
+                    | map(select(.name != "PRODUCTSHIP_WEBHOOK_SECRET" and .name != "COACHLMS_WEBHOOK_SECRET" and .name != "COACHLMS_WEBHOOK_TIMEOUT_MS"))
+                    + [
+                        {"name":"PRODUCTSHIP_WEBHOOK_SECRET","value":$inboundSecret},
+                        {"name":"COACHLMS_WEBHOOK_SECRET","value":$outboundSecret},
+                        {"name":"COACHLMS_WEBHOOK_TIMEOUT_MS","value":$timeout}
+                      ]
+                  )
+                else . end
+              )' current-task-definition.json > updated-task-definition.json
+
+          REGISTERED_TASK_DEFINITION=$(aws ecs register-task-definition \
+            --region "$AWS_REGION" \
+            --cli-input-json file://updated-task-definition.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+
+          echo "REGISTERED_TASK_DEFINITION=$REGISTERED_TASK_DEFINITION" >> "$GITHUB_ENV"
+          echo "Registered a new ECS task-definition revision for Sync V2."
+
+      - name: Deploy new ECS task definition
         run: |
           aws ecs update-service \
             --region "$AWS_REGION" \
             --cluster "$ECS_CLUSTER" \
             --service "$ECS_SERVICE" \
+            --task-definition "$REGISTERED_TASK_DEFINITION" \
             --force-new-deployment \
             --query 'service.deployments[?status==`PRIMARY`].[id,status,rolloutState]' \
             --output table
