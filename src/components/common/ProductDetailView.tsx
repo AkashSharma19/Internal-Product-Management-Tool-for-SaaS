@@ -472,6 +472,15 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const isProject = item.id.startsWith('proj-') || studentProjects.some(p => p.id === realProjectId);
 
   const productStatuses = configStatuses;
+  // Tickets synced from the external Coach LMS portal can only be set to the
+  // statuses the backend accepts for them (see PRODUCTSHIP_SYNCED_STATUSES in
+  // api/data.ts and LMS_TO_PRODUCTSHIP_STATUS in api/webhook.ts). Hide any other
+  // configured status from the dropdown so users can't pick a value the server
+  // will reject.
+  const COACHLMS_ALLOWED_STATUSES = ['On Hold', 'In Progress', 'Ongoing', 'Completed'];
+  const editableStatuses = item.externalSource === 'coachlms'
+    ? productStatuses.filter(s => COACHLMS_ALLOWED_STATUSES.includes(s.label))
+    : productStatuses;
 
 
 
@@ -1193,7 +1202,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                     <StatusDropdown
                       value={item.status}
                       onChange={(val) => handleFieldUpdate('status', val)}
-                      productStatuses={productStatuses}
+                      productStatuses={editableStatuses}
                     />
                   </div>
                 </div>

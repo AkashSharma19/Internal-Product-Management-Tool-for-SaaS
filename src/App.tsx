@@ -2677,6 +2677,7 @@ const DashboardContent: React.FC = () => {
                 clickupAssignee: foundIssue.clickupAssignee || '',
                 conductDemo: !!foundIssue.conductDemo,
                 demoCohorts: foundIssue.demoCohorts || '',
+                externalSource: foundIssue.externalSource || '',
               };
 
               const handleUpdateIssue = (id: string, updated: Partial<ProductItem>) => {
