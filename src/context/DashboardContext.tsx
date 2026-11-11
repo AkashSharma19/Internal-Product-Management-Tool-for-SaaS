@@ -260,6 +260,7 @@ interface DashboardContextType {
 
   isLoading: boolean;
   syncStatus: 'syncing' | 'synced' | 'error';
+  lastSyncError: string | null;
   confirm: (
     message: string,
     title?: string,
@@ -1155,6 +1156,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Helper to persist to API
   const [syncStatus, setSyncStatus] = useState<'syncing' | 'synced' | 'error'>('synced');
+  const [lastSyncError, setLastSyncError] = useState<string | null>(null);
 
   const persistChange = async (action: 'create' | 'update' | 'delete' | 'batch-import', type: string, id: string | null, data: any) => {
     setSyncStatus('syncing');
@@ -1175,15 +1177,26 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         });
         if (response.ok) {
           setSyncStatus('synced');
-          return true;
+          setLastSyncError(null);
+          return { success: true as const };
         }
-        console.error(`Persist failed for ${type} ${action}:`, await response.text());
+        const errorText = await response.text();
+        let errorMessage = 'Validation error. Change was not saved.';
+        try {
+          const parsed = JSON.parse(errorText);
+          if (parsed?.error) errorMessage = parsed.error;
+        } catch {
+          // response wasn't JSON, keep default message
+        }
+        console.error(`Persist failed for ${type} ${action}:`, errorText);
         setSyncStatus('error');
-        return false;
-      } catch (err) {
+        setLastSyncError(errorMessage);
+        return { success: false as const, error: errorMessage };
+      } catch (err: any) {
         console.error(`Failed to connect to API for ${type} ${action}:`, err);
         setSyncStatus('error');
-        return false;
+        setLastSyncError('Network error. Check your connection.');
+        return { success: false as const, error: 'Network error. Check your connection.' };
       }
     });
 
@@ -2790,11 +2803,21 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const updateDailyIssue = (id: string, updated: Partial<DailyIssue>) => {
+    const previousItem = dailyIssues.find(item => item.id === id);
     setDailyIssues(prev => {
       const next = prev.map(item => item.id === id ? { ...item, ...updated } : item);
       const updatedItem = next.find(item => item.id === id);
       if (updatedItem) {
-        persistChange('update', 'dailyIssues', id, updated);
+        persistChange('update', 'dailyIssues', id, updated).then(result => {
+          if (!result.success && previousItem) {
+            // Roll back the optimistic update so the UI reflects what's actually saved
+            const revertFields = Object.keys(updated).reduce((acc, key) => {
+              (acc as any)[key] = (previousItem as any)[key];
+              return acc;
+            }, {} as Partial<DailyIssue>);
+            setDailyIssues(cur => cur.map(item => item.id === id ? { ...item, ...revertFields } : item));
+          }
+        });
         setCalendarEvents(evts => evts.map(evt => {
           if (evt.rawItem?.id === id || evt.id?.startsWith(`${id}-`)) {
             return {
@@ -3403,7 +3426,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       sharableCalendarSources, updateSharableCalendarSources,
       sharableCalendarStages, updateSharableCalendarStages,
       currentUser, canUserEdit, loginUser, loginUserByEmail, logoutUser,
-      isLoading, syncStatus,
+      isLoading, syncStatus, lastSyncError,
       confirm,
       alert,
       formConfigs, setFormConfigs, saveFormConfig, deleteFormConfig,

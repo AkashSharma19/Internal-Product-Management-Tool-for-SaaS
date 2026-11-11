@@ -882,6 +882,7 @@ const DashboardContent: React.FC = () => {
     contentItems,
     updateProductItem,
     syncStatus,
+    lastSyncError,
     currentUser,
     logoutUser,
     clickupApiKey,
@@ -1113,7 +1114,7 @@ const DashboardContent: React.FC = () => {
     if (prevSyncStatusRef.current === 'syncing' && syncStatus === 'synced') {
       // Intentionally empty to disable "Changes saved to cloud" success pop-up
     } else if (syncStatus === 'error') {
-      setToastMessage('Sync failed. Offline mode active.');
+      setToastMessage(lastSyncError || 'Sync failed. Offline mode active.');
       setToastType('error');
       setShowToast(true);
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
