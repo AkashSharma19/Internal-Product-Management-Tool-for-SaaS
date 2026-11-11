@@ -2,15 +2,6 @@ import https from 'https';
 import nodemailer from 'nodemailer';
 import { createHash } from 'node:crypto';
 import { connectToDatabase } from './lib/db.js';
-
-// ProductShip-side workflow statuses allowed for Requested Features tickets synced from
-// the external Coach LMS portal (externalSource === 'coachlms'). Coach LMS's own raw
-// statuses (Open, In Progress, Completed, Cancelled, Testing, In Design, Under Review,
-// Development, Tested, Closed) are normalized down to this set on inbound webhook
-// ingestion — see LMS_TO_PRODUCTSHIP_STATUS in api/webhook.ts. Manual edits in ProductShip
-// must use the same normalized values so both ingestion paths agree.
-// See docs/PORTAL_BIDIRECTIONAL_SYNC_CONTRACT.md Section 7.2.
-const PRODUCTSHIP_SYNCED_STATUSES = ['On Hold', 'In Progress', 'Ongoing', 'Completed'];
 import { enqueuePortalEvent, extractClickupTaskId } from './lib/productShipSync.js';
 import { generateCampaignOccurrences, getOccurrenceViewStatus } from '../src/utils/campaigns.js';
 import {
@@ -6756,9 +6747,6 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
         if (syncBefore?.externalSource === 'coachlms') {
           if (data.taskLink !== undefined && String(data.taskLink || '').trim() && !extractClickupTaskId(data.taskLink)) {
             return res.status(400).json({ success: false, error: 'ClickUp link must be a valid HTTPS ClickUp task URL.' });
-          }
-          if (data.status !== undefined && !PRODUCTSHIP_SYNCED_STATUSES.includes(String(data.status || '').trim())) {
-            return res.status(400).json({ success: false, error: `Synchronized ticket status is invalid. Allowed values: ${PRODUCTSHIP_SYNCED_STATUSES.join(', ')}.` });
           }
           if (data.committedDate !== undefined && String(data.committedDate || '').trim() && !parseDate(String(data.committedDate))) {
             return res.status(400).json({ success: false, error: 'Committed Date is invalid.' });
