@@ -2915,8 +2915,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const addCampaign = async (item: Campaign): Promise<boolean> => {
     setCampaigns(prev => [item, ...prev]);
     const saved = await persistChange('create', 'campaigns', null, item);
-    if (!saved) setCampaigns(prev => prev.filter(campaign => campaign.id !== item.id));
-    return saved;
+    if (!saved.success) setCampaigns(prev => prev.filter(campaign => campaign.id !== item.id));
+    return saved.success;
   };
 
   const updateCampaign = async (id: string, updated: Partial<Campaign>): Promise<boolean> => {
@@ -2925,16 +2925,16 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const nextItem = { ...previous, ...updated };
     setCampaigns(prev => prev.map(campaign => campaign.id === id ? nextItem : campaign));
     const saved = await persistChange('update', 'campaigns', id, nextItem);
-    if (!saved) setCampaigns(prev => prev.map(campaign => campaign.id === id ? previous : campaign));
-    return saved;
+    if (!saved.success) setCampaigns(prev => prev.map(campaign => campaign.id === id ? previous : campaign));
+    return saved.success;
   };
 
   const deleteCampaign = async (id: string): Promise<boolean> => {
     const previous = campaigns.find(campaign => campaign.id === id);
     setCampaigns(prev => prev.filter(campaign => campaign.id !== id));
     const saved = await persistChange('delete', 'campaigns', id, null);
-    if (!saved && previous) setCampaigns(prev => [previous, ...prev]);
-    return saved;
+    if (!saved.success && previous) setCampaigns(prev => [previous, ...prev]);
+    return saved.success;
   };
 
   // Config CRUD helpers
@@ -2998,8 +2998,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const addCategory = async (item: ConfigCategory): Promise<boolean> => {
     setCategories(prev => [...prev, item]);
     const saved = await persistChange('create', 'categories', null, item);
-    if (!saved) setCategories(prev => prev.filter(category => category.id !== item.id));
-    return saved;
+    if (!saved.success) setCategories(prev => prev.filter(category => category.id !== item.id));
+    return saved.success;
   };
   const updateCategory = async (id: string, updated: Partial<ConfigCategory>): Promise<boolean> => {
     const previous = categories.find(category => category.id === id);
@@ -3007,10 +3007,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!nextItem) return false;
     setCategories(prev => prev.map(category => category.id === id ? nextItem : category));
     const saved = await persistChange('update', 'categories', id, nextItem);
-    if (!saved && previous) {
+    if (!saved.success && previous) {
       setCategories(prev => prev.map(category => category.id === id ? previous : category));
     }
-    return saved;
+    return saved.success;
   };
   const deleteCategory = (id: string) => {
     setPrograms(prev => prev.map(p => {
