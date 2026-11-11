@@ -22,20 +22,21 @@ import {
 
 const PRODUCTSHIP_EVENT = 'ticket_created';
 const PRODUCTSHIP_ID_PREFIX = 'productship:';
-const LMS_TO_PRODUCTSHIP_STATUS: Record<string, string> = {
-  'open': 'On Hold',
-  'in progress': 'In Progress',
-  'in-progress': 'In Progress',
-  'development': 'In Progress',
-  'in design': 'Ongoing',
-  'under review': 'Ongoing',
-  'testing': 'Ongoing',
-  'tested': 'Completed',
-  'completed': 'Completed',
-  'resolved': 'Completed',
-  'closed': 'Completed',
-  'cancelled': 'On Hold'
-};
+// Raw Coach LMS ticket statuses. These are stored and synced verbatim on
+// DailyIssue.coachlmsStatus — no translation to ProductShip's own `status` enum.
+const COACHLMS_RAW_STATUSES = [
+  'open',
+  'in progress',
+  'development',
+  'in design',
+  'under review',
+  'testing',
+  'tested',
+  'completed',
+  'resolved',
+  'closed',
+  'cancelled'
+];
 
 const firstHeaderValue = (value: unknown): string => {
   if (Array.isArray(value)) return String(value[0] || '').trim();
@@ -207,15 +208,13 @@ async function handlePortalV2Event(payload: any) {
       }
     } else if (payload.event === 'ticket_status_updated') {
       const incomingStatus = portalRequiredString(payload.data.status, 'data.status', 100, eventId);
-      const status = LMS_TO_PRODUCTSHIP_STATUS[incomingStatus.toLowerCase()];
-      if (!status) throw new PortalHttpError(400, `Unknown status: ${incomingStatus}`, eventId);
-      const decision = clockDecision(ticket.statusUpdatedAt, ticket.status, status);
+      const decision = clockDecision(ticket.coachlmsStatusUpdatedAt, ticket.coachlmsStatus, incomingStatus);
       if (decision === 'conflict') throw new PortalHttpError(409, 'Conflicting status update.', eventId);
       reason = decision === 'apply' ? '' : decision === 'advance' ? 'unchanged' : decision;
-      if (decision === 'apply') ticket.status = status;
+      if (decision === 'apply') ticket.coachlmsStatus = incomingStatus;
       if (decision === 'apply' || decision === 'advance') {
-        ticket.statusUpdatedAt = occurredAt;
-        ticket.statusUpdatedBySource = 'coachlms';
+        ticket.coachlmsStatusUpdatedAt = occurredAt;
+        ticket.coachlmsStatusUpdatedBySource = 'coachlms';
       }
     } else if (payload.event === 'ticket_deadline_updated') {
       const deadline = normalizeNullableString(payload.data.deadline, 'data.deadline', 64);

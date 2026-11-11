@@ -363,6 +363,11 @@ export const IssuesTable: React.FC = () => {
               </span>
             );
           })() : '—'}
+          {item.externalSource === 'coachlms' && item.coachlmsStatus && (
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '3px', whiteSpace: 'nowrap' }}>
+              Coach LMS: {item.coachlmsStatus}
+            </div>
+          )}
         </td>
         <td>
           {item.clickupStatus ? (

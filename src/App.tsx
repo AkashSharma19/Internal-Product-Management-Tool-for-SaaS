@@ -882,7 +882,6 @@ const DashboardContent: React.FC = () => {
     contentItems,
     updateProductItem,
     syncStatus,
-    lastSyncError,
     currentUser,
     logoutUser,
     clickupApiKey,
@@ -1114,7 +1113,7 @@ const DashboardContent: React.FC = () => {
     if (prevSyncStatusRef.current === 'syncing' && syncStatus === 'synced') {
       // Intentionally empty to disable "Changes saved to cloud" success pop-up
     } else if (syncStatus === 'error') {
-      setToastMessage(lastSyncError || 'Sync failed. Offline mode active.');
+      setToastMessage('Sync failed. Offline mode active.');
       setToastType('error');
       setShowToast(true);
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -2653,6 +2652,8 @@ const DashboardContent: React.FC = () => {
                 priority: foundIssue.priority as any || '',
                 poc: foundIssue.poc || '',
                 status: foundIssue.status as any || '',
+                coachlmsStatus: foundIssue.coachlmsStatus || '',
+                externalSource: foundIssue.externalSource || '',
                 clickupStatus: foundIssue.clickupStatus || '',
                 taskLink: foundIssue.taskLink || '',
                 blocker: foundIssue.blocker || '',
@@ -2677,7 +2678,6 @@ const DashboardContent: React.FC = () => {
                 clickupAssignee: foundIssue.clickupAssignee || '',
                 conductDemo: !!foundIssue.conductDemo,
                 demoCohorts: foundIssue.demoCohorts || '',
-                externalSource: foundIssue.externalSource || '',
               };
 
               const handleUpdateIssue = (id: string, updated: Partial<ProductItem>) => {
@@ -2689,6 +2689,7 @@ const DashboardContent: React.FC = () => {
                 if (updated.priority !== undefined) updatedIssue.priority = updated.priority;
                 if (updated.poc !== undefined) updatedIssue.poc = updated.poc;
                 if (updated.status !== undefined) updatedIssue.status = updated.status;
+                if (updated.coachlmsStatus !== undefined) updatedIssue.coachlmsStatus = updated.coachlmsStatus;
                 if (updated.clickupStatus !== undefined) updatedIssue.clickupStatus = updated.clickupStatus;
                 if (updated.taskLink !== undefined) updatedIssue.taskLink = updated.taskLink;
                 if (updated.blocker !== undefined) updatedIssue.blocker = updated.blocker;

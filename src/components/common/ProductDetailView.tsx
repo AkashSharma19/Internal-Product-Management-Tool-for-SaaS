@@ -472,15 +472,20 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const isProject = item.id.startsWith('proj-') || studentProjects.some(p => p.id === realProjectId);
 
   const productStatuses = configStatuses;
-  // Tickets synced from the external Coach LMS portal can only be set to the
-  // statuses the backend accepts for them (see PRODUCTSHIP_SYNCED_STATUSES in
-  // api/data.ts and LMS_TO_PRODUCTSHIP_STATUS in api/webhook.ts). Hide any other
-  // configured status from the dropdown so users can't pick a value the server
-  // will reject.
-  const COACHLMS_ALLOWED_STATUSES = ['On Hold', 'In Progress', 'Ongoing', 'Completed'];
-  const editableStatuses = item.externalSource === 'coachlms'
-    ? productStatuses.filter(s => COACHLMS_ALLOWED_STATUSES.includes(s.label))
-    : productStatuses;
+  // Raw Coach LMS ticket statuses, synced verbatim with Coach LMS (see api/webhook.ts COACHLMS_RAW_STATUSES).
+  const COACHLMS_STATUSES = [
+    { id: 'coachlms-open', label: 'open', color: '#6b7280' },
+    { id: 'coachlms-in-progress', label: 'in progress', color: '#f59e0b' },
+    { id: 'coachlms-development', label: 'development', color: '#f59e0b' },
+    { id: 'coachlms-in-design', label: 'in design', color: '#8b5cf6' },
+    { id: 'coachlms-under-review', label: 'under review', color: '#8b5cf6' },
+    { id: 'coachlms-testing', label: 'testing', color: '#8b5cf6' },
+    { id: 'coachlms-tested', label: 'tested', color: '#10b981' },
+    { id: 'coachlms-completed', label: 'completed', color: '#10b981' },
+    { id: 'coachlms-resolved', label: 'resolved', color: '#10b981' },
+    { id: 'coachlms-closed', label: 'closed', color: '#10b981' },
+    { id: 'coachlms-cancelled', label: 'cancelled', color: '#ef4444' }
+  ];
 
 
 
@@ -1202,10 +1207,26 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                     <StatusDropdown
                       value={item.status}
                       onChange={(val) => handleFieldUpdate('status', val)}
-                      productStatuses={editableStatuses}
+                      productStatuses={productStatuses}
                     />
                   </div>
                 </div>
+
+                {/* Coach LMS Status - Only for tickets synced from Coach LMS */}
+                {item.externalSource === 'coachlms' && (
+                  <div className="property-row-flat">
+                    <span className="premium-property-label">
+                      <RefreshCw size={13} /> Coach LMS Status
+                    </span>
+                    <div className="premium-property-value">
+                      <StatusDropdown
+                        value={item.coachlmsStatus || ''}
+                        onChange={(val) => handleFieldUpdate('coachlmsStatus', val)}
+                        productStatuses={COACHLMS_STATUSES}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Need Type - Only for Daily Needs */}
                 {isDailyNeed && (

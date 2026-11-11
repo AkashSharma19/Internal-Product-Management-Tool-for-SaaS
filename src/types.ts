@@ -24,6 +24,10 @@ export interface ProductItem {
   priority: 'P0' | 'P1' | 'P2' | 'P3' | 'P4' | '';
   poc: string; // e.g. Akash, Anushka, Nikhil
   status: 'On Hold' | 'In Progress' | 'Ongoing' | 'Completed' | '';
+  coachlmsStatus?: string; // raw Coach LMS ticket status, synced verbatim
+  coachlmsStatusUpdatedAt?: string;
+  coachlmsStatusUpdatedBySource?: string;
+  externalSource?: 'coachlms' | '';
   clickupStatus: string; // testing, development, etc.
   taskLink: string;
   blocker: string;
@@ -236,6 +240,9 @@ export interface DailyIssue {
   priority?: 'P0' | 'P1' | 'P2' | 'P3' | 'P4' | '';
   poc?: string;
   status?: 'On Hold' | 'In Progress' | 'Ongoing' | 'Completed' | '';
+  coachlmsStatus?: string; // raw Coach LMS ticket status, synced verbatim
+  coachlmsStatusUpdatedAt?: string;
+  coachlmsStatusUpdatedBySource?: string;
   clickupStatus?: string;
   clickupSubtasksCount?: number;
   clickupAssignee?: string;

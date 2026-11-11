@@ -6993,11 +6993,11 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
               }
             }
 
-            if (String(syncBefore.status || '') !== String(after.status || '') && String(after.status || '').trim()) {
-              const queuedId = await enqueuePortalEvent(after, 'ticket_status_updated', { status: after.status || '', changedBy }, now);
+            if (String(syncBefore.coachlmsStatus || '') !== String(after.coachlmsStatus || '') && String(after.coachlmsStatus || '').trim()) {
+              const queuedId = await enqueuePortalEvent(after, 'ticket_status_updated', { status: after.coachlmsStatus || '', changedBy }, now);
               if (queuedId) queuedEventIds.push(queuedId);
-              metadataUpdates.statusUpdatedAt = now;
-              metadataUpdates.statusUpdatedBySource = 'productship';
+              metadataUpdates.coachlmsStatusUpdatedAt = now;
+              metadataUpdates.coachlmsStatusUpdatedBySource = 'productship';
             }
 
             if (String(syncBefore.committedDate || '') !== String(after.committedDate || '')) {
@@ -7020,12 +7020,12 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
             await DailyIssueModel.updateOne({ id }, {
               $set: {
                 taskLink: syncBefore.taskLink || '',
-                status: syncBefore.status || '',
+                coachlmsStatus: syncBefore.coachlmsStatus || '',
                 committedDate: syncBefore.committedDate || '',
                 clickupLinkUpdatedAt: syncBefore.clickupLinkUpdatedAt,
                 clickupLinkUpdatedBySource: syncBefore.clickupLinkUpdatedBySource || '',
-                statusUpdatedAt: syncBefore.statusUpdatedAt,
-                statusUpdatedBySource: syncBefore.statusUpdatedBySource || '',
+                coachlmsStatusUpdatedAt: syncBefore.coachlmsStatusUpdatedAt,
+                coachlmsStatusUpdatedBySource: syncBefore.coachlmsStatusUpdatedBySource || '',
                 committedDateUpdatedAt: syncBefore.committedDateUpdatedAt,
                 committedDateUpdatedBySource: syncBefore.committedDateUpdatedBySource || ''
               }
