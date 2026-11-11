@@ -472,7 +472,8 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const isProject = item.id.startsWith('proj-') || studentProjects.some(p => p.id === realProjectId);
 
   const productStatuses = configStatuses;
-  // Raw Coach LMS ticket statuses, synced verbatim with Coach LMS (see api/webhook.ts COACHLMS_RAW_STATUSES).
+  // Raw Coach LMS ticket statuses. Displayed and stored verbatim; translated back to one
+  // of the 4 ProductShip statuses before being sent to Coach LMS (see api/lib/productShipSync.ts).
   const COACHLMS_STATUSES = [
     { id: 'coachlms-open', label: 'open', color: '#6b7280' },
     { id: 'coachlms-in-progress', label: 'in progress', color: '#f59e0b' },

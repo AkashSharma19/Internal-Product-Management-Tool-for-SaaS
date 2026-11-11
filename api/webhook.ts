@@ -22,22 +22,6 @@ import {
 
 const PRODUCTSHIP_EVENT = 'ticket_created';
 const PRODUCTSHIP_ID_PREFIX = 'productship:';
-// Raw Coach LMS ticket statuses. These are stored and synced verbatim on
-// DailyIssue.coachlmsStatus — no translation to ProductShip's own `status` enum.
-const COACHLMS_RAW_STATUSES = [
-  'open',
-  'in progress',
-  'development',
-  'in design',
-  'under review',
-  'testing',
-  'tested',
-  'completed',
-  'resolved',
-  'closed',
-  'cancelled'
-];
-
 const firstHeaderValue = (value: unknown): string => {
   if (Array.isArray(value)) return String(value[0] || '').trim();
   return typeof value === 'string' ? value.trim() : '';

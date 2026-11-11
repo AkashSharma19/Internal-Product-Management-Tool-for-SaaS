@@ -2,7 +2,7 @@ import https from 'https';
 import nodemailer from 'nodemailer';
 import { createHash } from 'node:crypto';
 import { connectToDatabase } from './lib/db.js';
-import { enqueuePortalEvent, extractClickupTaskId } from './lib/productShipSync.js';
+import { enqueuePortalEvent, extractClickupTaskId, mapCoachLmsStatusForOutbound } from './lib/productShipSync.js';
 import { generateCampaignOccurrences, getOccurrenceViewStatus } from '../src/utils/campaigns.js';
 import {
   ProductItemModel,
@@ -6994,8 +6994,15 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
             }
 
             if (String(syncBefore.coachlmsStatus || '') !== String(after.coachlmsStatus || '') && String(after.coachlmsStatus || '').trim()) {
-              const queuedId = await enqueuePortalEvent(after, 'ticket_status_updated', { status: after.coachlmsStatus || '', changedBy }, now);
-              if (queuedId) queuedEventIds.push(queuedId);
+              // Coach LMS's endpoint only accepts the 4 ProductShip statuses on this event,
+              // even though it sends us its own raw status text. Translate before sending.
+              const mappedStatus = mapCoachLmsStatusForOutbound(after.coachlmsStatus || '');
+              if (mappedStatus) {
+                const queuedId = await enqueuePortalEvent(after, 'ticket_status_updated', { status: mappedStatus, changedBy }, now);
+                if (queuedId) queuedEventIds.push(queuedId);
+              } else {
+                console.warn(`[CoachLMS Sync] Could not map coachlmsStatus "${after.coachlmsStatus}" to a Coach LMS-compatible status; skipping outbound sync.`);
+              }
               metadataUpdates.coachlmsStatusUpdatedAt = now;
               metadataUpdates.coachlmsStatusUpdatedBySource = 'productship';
             }
