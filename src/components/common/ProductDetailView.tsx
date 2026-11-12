@@ -495,19 +495,29 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const productStatuses = configStatuses;
   // Raw Coach LMS ticket statuses. Displayed and stored verbatim; translated back to one
   // of the 4 ProductShip statuses before being sent to Coach LMS (see api/lib/productShipSync.ts).
-  const COACHLMS_STATUSES = [
-    { id: 'coachlms-open', label: 'open', color: '#6b7280' },
-    { id: 'coachlms-in-progress', label: 'in progress', color: '#f59e0b' },
-    { id: 'coachlms-development', label: 'development', color: '#f59e0b' },
-    { id: 'coachlms-in-design', label: 'in design', color: '#8b5cf6' },
-    { id: 'coachlms-under-review', label: 'under review', color: '#8b5cf6' },
-    { id: 'coachlms-testing', label: 'testing', color: '#8b5cf6' },
-    { id: 'coachlms-tested', label: 'tested', color: '#10b981' },
-    { id: 'coachlms-completed', label: 'completed', color: '#10b981' },
-    { id: 'coachlms-resolved', label: 'resolved', color: '#10b981' },
-    { id: 'coachlms-closed', label: 'closed', color: '#10b981' },
-    { id: 'coachlms-cancelled', label: 'cancelled', color: '#ef4444' }
+  const isBug = String(item.type || '').toUpperCase() === 'BUG' || String(item.type || '').toLowerCase().includes('bug') || String(item.type || '').toLowerCase().includes('defect');
+
+  const COACHLMS_BUG_STATUSES = [
+    { id: 'coachlms-open', label: 'Open', color: '#6b7280' },
+    { id: 'coachlms-in-progress', label: 'In-Progress', color: '#f59e0b' },
+    { id: 'coachlms-resolved', label: 'Resolved', color: '#10b981' },
+    { id: 'coachlms-closed', label: 'Closed', color: '#6b7280' }
   ];
+
+  const COACHLMS_REQUEST_STATUSES = [
+    { id: 'coachlms-open', label: 'Open', color: '#6b7280' },
+    { id: 'coachlms-in-progress', label: 'In Progress', color: '#f59e0b' },
+    { id: 'coachlms-in-design', label: 'In Design', color: '#8b5cf6' },
+    { id: 'coachlms-under-review', label: 'Under Review', color: '#8b5cf6' },
+    { id: 'coachlms-development', label: 'Development', color: '#f59e0b' },
+    { id: 'coachlms-testing', label: 'Testing', color: '#3b82f6' },
+    { id: 'coachlms-tested', label: 'Tested', color: '#10b981' },
+    { id: 'coachlms-completed', label: 'Completed', color: '#10b981' },
+    { id: 'coachlms-closed', label: 'Closed', color: '#6b7280' },
+    { id: 'coachlms-cancelled', label: 'Cancelled', color: '#ef4444' }
+  ];
+
+  const currentCoachLmsStatuses = isBug ? COACHLMS_BUG_STATUSES : COACHLMS_REQUEST_STATUSES;
 
 
 
@@ -1245,7 +1255,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                       <StatusDropdown
                         value={item.coachlmsStatus || ''}
                         onChange={(val) => handleFieldUpdate('coachlmsStatus', val)}
-                        productStatuses={COACHLMS_STATUSES}
+                        productStatuses={currentCoachLmsStatuses}
                       />
                     </div>
                   </div>

@@ -6,7 +6,8 @@ import {
   enqueuePortalEvent,
   extractClickupTaskId,
   LMS_TO_PRODUCTSHIP_STATUS,
-  PRODUCTSHIP_TO_LMS_STATUS
+  PRODUCTSHIP_TO_LMS_STATUS,
+  mapStatusForCoachLmsOutbound
 } from './lib/productShipSync.js';
 import { generateCampaignOccurrences, getOccurrenceViewStatus } from '../src/utils/campaigns.js';
 import {
@@ -7012,17 +7013,25 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
             const statusChanged = String(syncBefore.status || '') !== String(after.status || '') && String(after.status || '').trim();
             const coachlmsStatusChanged = String(syncBefore.coachlmsStatus || '') !== String(after.coachlmsStatus || '') && String(after.coachlmsStatus || '').trim();
 
-            if (statusChanged) {
-              metadataUpdates.statusUpdatedAt = now;
-              metadataUpdates.statusUpdatedBySource = 'productship';
-            }
+            if (coachlmsStatusChanged || statusChanged) {
+              const rawStatusToMap = coachlmsStatusChanged ? after.coachlmsStatus : after.status;
+              const statusToSend = mapStatusForCoachLmsOutbound(after, rawStatusToMap);
 
-            if (coachlmsStatusChanged) {
-              metadataUpdates.coachlmsStatusUpdatedAt = now;
-              metadataUpdates.coachlmsStatusUpdatedBySource = 'productship';
-              // Coach LMS endpoint validates and expects one of the 4 standard ProductShip statuses:
-              // 'On Hold' | 'In Progress' | 'Ongoing' | 'Completed'
-              const statusToSend = LMS_TO_PRODUCTSHIP_STATUS[String(after.coachlmsStatus).toLowerCase()] || 'Ongoing';
+              if (coachlmsStatusChanged) {
+                metadataUpdates.coachlmsStatus = statusToSend;
+                metadataUpdates.coachlmsStatusUpdatedAt = now;
+                metadataUpdates.coachlmsStatusUpdatedBySource = 'productship';
+              }
+              if (statusChanged) {
+                metadataUpdates.statusUpdatedAt = now;
+                metadataUpdates.statusUpdatedBySource = 'productship';
+                if (!coachlmsStatusChanged) {
+                  metadataUpdates.coachlmsStatus = statusToSend;
+                  metadataUpdates.coachlmsStatusUpdatedAt = now;
+                  metadataUpdates.coachlmsStatusUpdatedBySource = 'productship';
+                }
+              }
+
               const queuedId = await enqueuePortalEvent(after, 'ticket_status_updated', { status: statusToSend, changedBy }, now);
               if (queuedId) queuedEventIds.push(queuedId);
             }

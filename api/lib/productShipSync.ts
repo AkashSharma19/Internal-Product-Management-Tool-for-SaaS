@@ -32,6 +32,52 @@ export const PRODUCTSHIP_TO_LMS_STATUS: Record<string, string> = {
   'Completed': 'completed'
 };
 
+export function isCoachLmsBug(ticket: any): boolean {
+  const typeStr = String(ticket?.type || ticket?.category || '').toUpperCase();
+  return typeStr === 'BUG' || typeStr.includes('BUG') || typeStr.includes('DEFECT');
+}
+
+export function mapStatusForCoachLmsOutbound(ticket: any, rawStatus: string): string {
+  const isBug = isCoachLmsBug(ticket);
+  const s = String(rawStatus || '').trim();
+  const lower = s.toLowerCase();
+
+  if (isBug) {
+    // Coach LMS Section 2: Bugs use fixed 4 statuses: Open, In-Progress, Resolved, Closed
+    if (['open', 'on hold', 'to do', 'under review', 'in design'].includes(lower)) return 'Open';
+    if (['in-progress', 'in progress', 'ongoing', 'development', 'testing', 'blocked'].includes(lower)) return 'In-Progress';
+    if (['resolved', 'completed', 'tested', 'accepted', 'done'].includes(lower)) return 'Resolved';
+    if (['closed', 'cancelled', 'canceled'].includes(lower)) return 'Closed';
+    return 'In-Progress';
+  }
+
+  // Coach LMS Section 3: Requests use the exact Coach LMS status string (Title Case)
+  const EXACT_REQUEST_STATUSES: Record<string, string> = {
+    'open': 'Open',
+    'in progress': 'In Progress',
+    'in-progress': 'In Progress',
+    'in design': 'In Design',
+    'under review': 'Under Review',
+    'development': 'Development',
+    'testing': 'Testing',
+    'tested': 'Tested',
+    'completed': 'Completed',
+    'closed': 'Closed',
+    'cancelled': 'Cancelled'
+  };
+  if (EXACT_REQUEST_STATUSES[lower]) {
+    return EXACT_REQUEST_STATUSES[lower];
+  }
+
+  // If a ProductShip 4-state status was passed, map using Section 3.2 recommendations:
+  if (lower === 'on hold') return 'Open';
+  if (lower === 'in progress') return 'In Progress';
+  if (lower === 'ongoing') return 'Development';
+  if (lower === 'completed') return 'Completed';
+
+  return s;
+}
+
 const KNOWN_URLS: Record<string, string> = {
   '77aa25d2-d52c-4c7b-ad4b-7b7de339fc4e:development': 'https://api-dev.mastersunion.in/api/v1/feature-requests/productship/webhook',
   '77aa25d2-d52c-4c7b-ad4b-7b7de339fc4e:production': 'https://api.mastersunion.in/api/v1/feature-requests/productship/webhook'
