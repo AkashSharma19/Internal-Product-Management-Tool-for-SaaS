@@ -2,7 +2,7 @@ import https from 'https';
 import nodemailer from 'nodemailer';
 import { createHash } from 'node:crypto';
 import { connectToDatabase } from './lib/db.js';
-import { enqueuePortalEvent, extractClickupTaskId, mapCoachLmsStatusForOutbound } from './lib/productShipSync.js';
+import { enqueuePortalEvent, extractClickupTaskId } from './lib/productShipSync.js';
 import { generateCampaignOccurrences, getOccurrenceViewStatus } from '../src/utils/campaigns.js';
 import {
   ProductItemModel,
@@ -337,9 +337,6 @@ export default async function handler(req: any, res: any) {
         if (action === 'suggest-similar') {
           const query = url.searchParams.get('query') || '';
           const excludeId = url.searchParams.get('excludeId') || '';
-          // Product tasks can be linked to Requested Features/Bugs (dailyIssues), but not the
-          // reverse — so only include dailyIssues as link targets when explicitly requested.
-          const includeDailyIssues = url.searchParams.get('includeDailyIssues') === 'true';
           const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
           const pageSize = 5;
           const skip = (page - 1) * pageSize;
@@ -348,67 +345,22 @@ export default async function handler(req: any, res: any) {
             return res.status(200).json({ success: true, data: [], total: 0, page: 1, pageSize });
           }
 
-          const productFilter: any = {
+          const filter: any = {
             id: { $ne: excludeId, $not: /^prod-temp-/ },
             feature: { $regex: query, $options: 'i' }
           };
 
-          const productFields = 'id feature product status clickupStatus taskLink deadline productDeadline finalRelease notes finalReleaseCompleted';
-
-          if (!includeDailyIssues) {
-            const [similar, total] = await Promise.all([
-              ProductItemModel.find(productFilter, productFields).skip(skip).limit(pageSize).lean(),
-              ProductItemModel.countDocuments(productFilter)
-            ]);
-
-            return res.status(200).json({
-              success: true,
-              data: similar.map((item: any) => ({
-                ...item,
-                id: item.id || String(item._id),
-                sourceType: 'products'
-              })),
-              total,
-              page,
-              pageSize
-            });
-          }
-
-          // Combine ProductItem and DailyIssue matches. DailyIssue has no `feature` field —
-          // its title lives in `module`, so match against that instead.
-          const dailyIssueFilter: any = {
-            id: { $ne: excludeId },
-            module: { $regex: query, $options: 'i' }
-          };
-          const dailyIssueFields = 'id module product status clickupStatus taskLink deadline notes finalRelease finalReleaseCompleted';
-
-          const [productMatches, dailyIssueMatches, productTotal, dailyIssueTotal] = await Promise.all([
-            ProductItemModel.find(productFilter, productFields).lean(),
-            DailyIssueModel.find(dailyIssueFilter, dailyIssueFields).lean(),
-            ProductItemModel.countDocuments(productFilter),
-            DailyIssueModel.countDocuments(dailyIssueFilter)
+          const [similar, total] = await Promise.all([
+            ProductItemModel.find(filter, 'id feature product status clickupStatus taskLink deadline productDeadline finalRelease notes finalReleaseCompleted').skip(skip).limit(pageSize).lean(),
+            ProductItemModel.countDocuments(filter)
           ]);
-
-          const combined = [
-            ...productMatches.map((item: any) => ({
-              ...item,
-              id: item.id || String(item._id),
-              sourceType: 'products'
-            })),
-            ...dailyIssueMatches.map((item: any) => ({
-              ...item,
-              id: item.id || String(item._id),
-              feature: item.module || `Issue #${item.id}`,
-              sourceType: 'dailyIssues'
-            }))
-          ];
-
-          const total = productTotal + dailyIssueTotal;
-          const paged = combined.slice(skip, skip + pageSize);
 
           return res.status(200).json({ 
             success: true, 
-            data: paged,
+            data: similar.map((item: any) => ({
+              ...item,
+              id: item.id || String(item._id)
+            })),
             total,
             page,
             pageSize
@@ -2247,7 +2199,7 @@ export default async function handler(req: any, res: any) {
                 priority: item.priority || '',
                 poc: item.poc || item.contact || '',
                 status: item.status || '',
-                clickupStatus: hasLink ? (item.clickupStatus || '') : '',
+                clickupStatus: hasLink ? (item.clickupStatus || item.type || '') : '',
                 taskLink: item.taskLink || '',
                 blocker: item.blocker || '',
                 deadline: item.deadline || '',
@@ -6796,6 +6748,9 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
           if (data.taskLink !== undefined && String(data.taskLink || '').trim() && !extractClickupTaskId(data.taskLink)) {
             return res.status(400).json({ success: false, error: 'ClickUp link must be a valid HTTPS ClickUp task URL.' });
           }
+          if (data.status !== undefined && !['On Hold', 'In Progress', 'Ongoing', 'Completed'].includes(String(data.status || '').trim())) {
+            return res.status(400).json({ success: false, error: 'Synchronized ticket status is invalid.' });
+          }
           if (data.committedDate !== undefined && String(data.committedDate || '').trim() && !parseDate(String(data.committedDate))) {
             return res.status(400).json({ success: false, error: 'Committed Date is invalid.' });
           }
@@ -7041,18 +6996,11 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
               }
             }
 
-            if (String(syncBefore.coachlmsStatus || '') !== String(after.coachlmsStatus || '') && String(after.coachlmsStatus || '').trim()) {
-              // Coach LMS's endpoint only accepts the 4 ProductShip statuses on this event,
-              // even though it sends us its own raw status text. Translate before sending.
-              const mappedStatus = mapCoachLmsStatusForOutbound(after.coachlmsStatus || '');
-              if (mappedStatus) {
-                const queuedId = await enqueuePortalEvent(after, 'ticket_status_updated', { status: mappedStatus, changedBy }, now);
-                if (queuedId) queuedEventIds.push(queuedId);
-              } else {
-                console.warn(`[CoachLMS Sync] Could not map coachlmsStatus "${after.coachlmsStatus}" to a Coach LMS-compatible status; skipping outbound sync.`);
-              }
-              metadataUpdates.coachlmsStatusUpdatedAt = now;
-              metadataUpdates.coachlmsStatusUpdatedBySource = 'productship';
+            if (String(syncBefore.status || '') !== String(after.status || '') && String(after.status || '').trim()) {
+              const queuedId = await enqueuePortalEvent(after, 'ticket_status_updated', { status: after.status || '', changedBy }, now);
+              if (queuedId) queuedEventIds.push(queuedId);
+              metadataUpdates.statusUpdatedAt = now;
+              metadataUpdates.statusUpdatedBySource = 'productship';
             }
 
             if (String(syncBefore.committedDate || '') !== String(after.committedDate || '')) {
@@ -7075,12 +7023,12 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
             await DailyIssueModel.updateOne({ id }, {
               $set: {
                 taskLink: syncBefore.taskLink || '',
-                coachlmsStatus: syncBefore.coachlmsStatus || '',
+                status: syncBefore.status || '',
                 committedDate: syncBefore.committedDate || '',
                 clickupLinkUpdatedAt: syncBefore.clickupLinkUpdatedAt,
                 clickupLinkUpdatedBySource: syncBefore.clickupLinkUpdatedBySource || '',
-                coachlmsStatusUpdatedAt: syncBefore.coachlmsStatusUpdatedAt,
-                coachlmsStatusUpdatedBySource: syncBefore.coachlmsStatusUpdatedBySource || '',
+                statusUpdatedAt: syncBefore.statusUpdatedAt,
+                statusUpdatedBySource: syncBefore.statusUpdatedBySource || '',
                 committedDateUpdatedAt: syncBefore.committedDateUpdatedAt,
                 committedDateUpdatedBySource: syncBefore.committedDateUpdatedBySource || ''
               }

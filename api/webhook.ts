@@ -16,12 +16,26 @@ import {
   PORTAL_EVENTS,
   buildImportedTicketId,
   extractClickupTaskId,
-  fetchClickupTaskMetadata,
   findImportedTicket
 } from './lib/productShipSync.js';
 
 const PRODUCTSHIP_EVENT = 'ticket_created';
 const PRODUCTSHIP_ID_PREFIX = 'productship:';
+const LMS_TO_PRODUCTSHIP_STATUS: Record<string, string> = {
+  'open': 'On Hold',
+  'in progress': 'In Progress',
+  'in-progress': 'In Progress',
+  'development': 'In Progress',
+  'in design': 'Ongoing',
+  'under review': 'Ongoing',
+  'testing': 'Ongoing',
+  'tested': 'Completed',
+  'completed': 'Completed',
+  'resolved': 'Completed',
+  'closed': 'Completed',
+  'cancelled': 'On Hold'
+};
+
 const firstHeaderValue = (value: unknown): string => {
   if (Array.isArray(value)) return String(value[0] || '').trim();
   return typeof value === 'string' ? value.trim() : '';
@@ -177,13 +191,6 @@ async function handlePortalV2Event(payload: any) {
           ticket.clickupStatus = '';
           ticket.clickupAssignee = '';
           ticket.clickupSubtasksCount = 0;
-        } else if (parsedTaskId) {
-          const metadata = await fetchClickupTaskMetadata(parsedTaskId);
-          if (metadata) {
-            ticket.clickupStatus = metadata.status;
-            ticket.clickupAssignee = metadata.assignee;
-            ticket.clickupSubtasksCount = metadata.subtasksCount;
-          }
         }
       }
       if (decision === 'apply' || decision === 'advance') {
@@ -192,13 +199,15 @@ async function handlePortalV2Event(payload: any) {
       }
     } else if (payload.event === 'ticket_status_updated') {
       const incomingStatus = portalRequiredString(payload.data.status, 'data.status', 100, eventId);
-      const decision = clockDecision(ticket.coachlmsStatusUpdatedAt, ticket.coachlmsStatus, incomingStatus);
+      const status = LMS_TO_PRODUCTSHIP_STATUS[incomingStatus.toLowerCase()];
+      if (!status) throw new PortalHttpError(400, `Unknown status: ${incomingStatus}`, eventId);
+      const decision = clockDecision(ticket.statusUpdatedAt, ticket.status, status);
       if (decision === 'conflict') throw new PortalHttpError(409, 'Conflicting status update.', eventId);
       reason = decision === 'apply' ? '' : decision === 'advance' ? 'unchanged' : decision;
-      if (decision === 'apply') ticket.coachlmsStatus = incomingStatus;
+      if (decision === 'apply') ticket.status = status;
       if (decision === 'apply' || decision === 'advance') {
-        ticket.coachlmsStatusUpdatedAt = occurredAt;
-        ticket.coachlmsStatusUpdatedBySource = 'coachlms';
+        ticket.statusUpdatedAt = occurredAt;
+        ticket.statusUpdatedBySource = 'coachlms';
       }
     } else if (payload.event === 'ticket_deadline_updated') {
       const deadline = normalizeNullableString(payload.data.deadline, 'data.deadline', 64);
@@ -415,20 +424,6 @@ export default async function handler(req: any, res: any) {
           );
         }
 
-        let clickupMetadataUpdated = false;
-        const clickupTaskId = clickupLink ? extractClickupTaskId(clickupLink) : null;
-        if (clickupTaskId) {
-          const metadata = await fetchClickupTaskMetadata(clickupTaskId);
-          const metadataUpdate: Record<string, unknown> = { clickupTaskId };
-          if (metadata) {
-            metadataUpdate.clickupStatus = metadata.status;
-            metadataUpdate.clickupAssignee = metadata.assignee;
-            metadataUpdate.clickupSubtasksCount = metadata.subtasksCount;
-            clickupMetadataUpdated = true;
-          }
-          await DailyIssueModel.updateOne({ id: internalTicketId }, { $set: metadataUpdate });
-        }
-
         let neededByCommentCreated = false;
         let correctedLegacyDevDate = false;
         if (neededByDate) {
@@ -488,8 +483,7 @@ export default async function handler(req: any, res: any) {
           created,
           alreadyExists: !created,
           neededByCommentCreated,
-          correctedLegacyDevDate,
-          clickupMetadataUpdated
+          correctedLegacyDevDate
         });
       } catch (validationError: any) {
         return res.status(400).json({ success: false, error: validationError.message });
@@ -613,8 +607,7 @@ export default async function handler(req: any, res: any) {
     console.log(`[Webhook] Updating task ${taskId} with payload:`, updatePayload);
 
     // Match the task ID inside link fields using a case-insensitive regex
-    const escapedTaskId = String(taskId).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regexFilter = { $regex: escapedTaskId, $options: 'i' };
+    const regexFilter = { $regex: taskId, $options: 'i' };
 
     // Fetch matching products to audit status/assignee transitions
     try {
@@ -663,7 +656,7 @@ export default async function handler(req: any, res: any) {
       ProductItemModel.updateMany({ taskLink: regexFilter }, { $set: updatePayload }),
       StudentProjectModel.updateMany({ taskLink: regexFilter }, { $set: updatePayload }),
       StudentMeetingModel.updateMany({ taskLink: regexFilter }, { $set: updatePayload }),
-      DailyIssueModel.updateMany({ $or: [{ clickupTaskId: taskId }, { taskLink: regexFilter }] }, { $set: updatePayload }),
+      DailyIssueModel.updateMany({ taskLink: regexFilter }, { $set: updatePayload }),
       PlanItemModel.updateMany({ link: regexFilter }, { $set: updatePayload })
     ]);
 

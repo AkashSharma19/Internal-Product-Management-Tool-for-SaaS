@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { DailyIssueModel, CommentModel, GlobalSettingsModel, WebhookOutboxModel } from './models.js';
+import { DailyIssueModel, CommentModel, WebhookOutboxModel } from './models.js';
 
 export const PORTAL_EVENTS = [
   'ticket_comment_created',
@@ -14,31 +14,6 @@ const KNOWN_URLS: Record<string, string> = {
   '77aa25d2-d52c-4c7b-ad4b-7b7de339fc4e:development': 'https://api-dev.mastersunion.in/api/v1/feature-requests/productship/webhook',
   '77aa25d2-d52c-4c7b-ad4b-7b7de339fc4e:production': 'https://api.mastersunion.in/api/v1/feature-requests/productship/webhook'
 };
-
-// Coach LMS's webhook receiver only accepts these 4 statuses on ticket_status_updated
-// events sent TO it (see docs/PORTAL_BIDIRECTIONAL_SYNC_CONTRACT.md section 7.2).
-// We store/display the raw Coach LMS status text locally, but must translate it back
-// to one of these 4 values before sending it outbound, or Coach LMS's endpoint 500s.
-const RAW_COACHLMS_TO_PRODUCTSHIP_STATUS: Record<string, string> = {
-  'open': 'On Hold',
-  'in progress': 'In Progress',
-  'in-progress': 'In Progress',
-  'development': 'In Progress',
-  'in design': 'Ongoing',
-  'under review': 'Ongoing',
-  'testing': 'Ongoing',
-  'tested': 'Completed',
-  'completed': 'Completed',
-  'resolved': 'Completed',
-  'closed': 'Completed',
-  'cancelled': 'On Hold'
-};
-
-export function mapCoachLmsStatusForOutbound(rawStatus: string): string | null {
-  const normalized = String(rawStatus || '').trim().toLowerCase();
-  if (!normalized) return null;
-  return RAW_COACHLMS_TO_PRODUCTSHIP_STATUS[normalized] || null;
-}
 
 export const buildImportedTicketId = (organizationId: string, environment: string, externalTicketId: string) =>
   `productship:${organizationId}:${environment}:${externalTicketId}`;
@@ -61,31 +36,6 @@ export function extractClickupTaskId(link: unknown): string | null {
     const taskId = parts.at(-1) || '';
     return parts.includes('t') && /^[a-zA-Z0-9_-]{7,20}$/.test(taskId) ? taskId : null;
   } catch {
-    return null;
-  }
-}
-
-export async function fetchClickupTaskMetadata(taskId: string) {
-  const setting: any = await GlobalSettingsModel.findOne({ key: 'clickupApiKey' }).lean();
-  const apiKey = String(setting?.value || '').trim();
-  if (!apiKey) return null;
-  try {
-    const response = await fetch(`https://api.clickup.com/api/v2/task/${encodeURIComponent(taskId)}?include_subtasks=true`, {
-      headers: { Authorization: apiKey },
-      signal: AbortSignal.timeout(10_000)
-    });
-    if (!response.ok) return null;
-    const task: any = await response.json();
-    if (!task?.status?.status) return null;
-    return {
-      status: String(task.status.status),
-      assignee: Array.isArray(task.assignees)
-        ? task.assignees.map((item: any) => item.username || item.email || '').filter(Boolean).join(', ')
-        : '',
-      subtasksCount: Array.isArray(task.subtasks) ? task.subtasks.length : 0
-    };
-  } catch (error: any) {
-    console.warn(`[ClickUp Sync] Could not fetch task ${taskId}:`, error?.message || error);
     return null;
   }
 }
