@@ -337,6 +337,9 @@ export default async function handler(req: any, res: any) {
         if (action === 'suggest-similar') {
           const query = url.searchParams.get('query') || '';
           const excludeId = url.searchParams.get('excludeId') || '';
+          // Product tasks can be linked to Requested Features/Bugs (dailyIssues), but not the
+          // reverse — so only include dailyIssues as link targets when explicitly requested.
+          const includeDailyIssues = url.searchParams.get('includeDailyIssues') === 'true';
           const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
           const pageSize = 5;
           const skip = (page - 1) * pageSize;
@@ -345,22 +348,67 @@ export default async function handler(req: any, res: any) {
             return res.status(200).json({ success: true, data: [], total: 0, page: 1, pageSize });
           }
 
-          const filter: any = {
+          const productFilter: any = {
             id: { $ne: excludeId, $not: /^prod-temp-/ },
             feature: { $regex: query, $options: 'i' }
           };
 
-          const [similar, total] = await Promise.all([
-            ProductItemModel.find(filter, 'id feature product status clickupStatus taskLink deadline productDeadline finalRelease notes finalReleaseCompleted').skip(skip).limit(pageSize).lean(),
-            ProductItemModel.countDocuments(filter)
+          const productFields = 'id feature product status clickupStatus taskLink deadline productDeadline finalRelease notes finalReleaseCompleted';
+
+          if (!includeDailyIssues) {
+            const [similar, total] = await Promise.all([
+              ProductItemModel.find(productFilter, productFields).skip(skip).limit(pageSize).lean(),
+              ProductItemModel.countDocuments(productFilter)
+            ]);
+
+            return res.status(200).json({
+              success: true,
+              data: similar.map((item: any) => ({
+                ...item,
+                id: item.id || String(item._id),
+                sourceType: 'products'
+              })),
+              total,
+              page,
+              pageSize
+            });
+          }
+
+          // Combine ProductItem and DailyIssue matches. DailyIssue has no `feature` field —
+          // its title lives in `module`, so match against that instead.
+          const dailyIssueFilter: any = {
+            id: { $ne: excludeId },
+            module: { $regex: query, $options: 'i' }
+          };
+          const dailyIssueFields = 'id module product status clickupStatus taskLink deadline notes finalRelease finalReleaseCompleted';
+
+          const [productMatches, dailyIssueMatches, productTotal, dailyIssueTotal] = await Promise.all([
+            ProductItemModel.find(productFilter, productFields).lean(),
+            DailyIssueModel.find(dailyIssueFilter, dailyIssueFields).lean(),
+            ProductItemModel.countDocuments(productFilter),
+            DailyIssueModel.countDocuments(dailyIssueFilter)
           ]);
+
+          const combined = [
+            ...productMatches.map((item: any) => ({
+              ...item,
+              id: item.id || String(item._id),
+              sourceType: 'products'
+            })),
+            ...dailyIssueMatches.map((item: any) => ({
+              ...item,
+              id: item.id || String(item._id),
+              feature: item.module || `Issue #${item.id}`,
+              sourceType: 'dailyIssues'
+            }))
+          ];
+
+          const total = productTotal + dailyIssueTotal;
+          const paged = combined.slice(skip, skip + pageSize);
 
           return res.status(200).json({ 
             success: true, 
-            data: similar.map((item: any) => ({
-              ...item,
-              id: item.id || String(item._id)
-            })),
+            data: paged,
             total,
             page,
             pageSize

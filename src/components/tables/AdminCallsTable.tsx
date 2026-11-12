@@ -48,8 +48,48 @@ export const AdminCallsTable: React.FC = () => {
     categories, programs, fetchPaginatedMeetingsData,
     meetingSearchQuery, setMeetingSearchQuery,
     highlightedCallId, setHighlightedCallId,
-    feedbackSubmissions, formConfigs
+    feedbackSubmissions, formConfigs,
+    dailyIssues
   } = useDashboard();
+
+  // If a feature row has been linked to another task (see ProductDetailView's
+  // "Search & Link Any Task"), show and navigate to the linked target's live data
+  // instead of this row's own (now-stale) fields.
+  const resolveLinkedFeature = (feat: ProductItem): ProductItem => {
+    const notes = feat.notes || '';
+    const match = notes.match(/Linked To:\s*([^\s(]+)/);
+    if (!match) return feat;
+    const targetId = match[1];
+    const targetProduct = productItems.find(p => p.id === targetId);
+    if (targetProduct) return targetProduct;
+    const targetIssue = dailyIssues.find(d => d.id === targetId);
+    if (targetIssue) {
+      return {
+        ...feat,
+        id: targetIssue.id,
+        feature: targetIssue.module || `Issue #${targetIssue.id}`,
+        product: targetIssue.product || '',
+        status: (targetIssue.status as any) || '',
+        poc: targetIssue.poc || '',
+        clickupStatus: targetIssue.clickupStatus || '',
+        clickupAssignee: targetIssue.clickupAssignee || '',
+        clickupSubtasksCount: targetIssue.clickupSubtasksCount,
+        productDeadline: targetIssue.productDeadline || '',
+        productDeadlineCompleted: !!targetIssue.productDeadlineCompleted,
+        uiux: targetIssue.uiux || '',
+        uiuxCompleted: !!targetIssue.uiuxCompleted,
+        deadline: targetIssue.deadline || '',
+        deadlineCompleted: !!targetIssue.deadlineCompleted,
+        finalRelease: targetIssue.finalRelease || '',
+        finalReleaseCompleted: !!targetIssue.finalReleaseCompleted,
+        createdAt: targetIssue.createdAt || feat.createdAt,
+        priority: feat.priority,
+        raisedByTarunSir: feat.raisedByTarunSir,
+        notes: feat.notes
+      };
+    }
+    return feat;
+  };
   
   const speakersList = configSpeakers.map(s => s.name);
   const [searchQuery, setSearchQuery] = useState('');
@@ -1049,19 +1089,21 @@ export const AdminCallsTable: React.FC = () => {
                                         </tr>
                                       </thead>
                                       <tbody>
-                                        {related.map(feat => (
+                                        {related.map(sourceFeat => {
+                                        const feat = resolveLinkedFeature(sourceFeat);
+                                        return (
                                           <tr 
-                                            key={feat.id} 
+                                            key={sourceFeat.id} 
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              if (editingCallRelatedId !== feat.id) {
+                                              if (editingCallRelatedId !== sourceFeat.id) {
                                                 setPreviewProductId(feat.id);
                                               }
                                             }} 
                                             style={{ cursor: 'pointer' }}
                                           >
                                             <td style={{ fontWeight: 600, whiteSpace: 'normal' }}>
-                                              {editingCallRelatedId === feat.id ? (
+                                              {editingCallRelatedId === sourceFeat.id ? (
                                                 <input
                                                   ref={editCallRelatedInputRef}
                                                   type="text"
@@ -1072,7 +1114,7 @@ export const AdminCallsTable: React.FC = () => {
                                                     if (e.key === 'Enter') {
                                                       e.preventDefault();
                                                       const finalVal = inlineCallRelatedValue.trim() || 'New Feature';
-                                                      updateProductItem(feat.id, { feature: finalVal });
+                                                      updateProductItem(sourceFeat.id, { feature: finalVal });
                                                       setEditingCallRelatedId(null);
                                                     } else if (e.key === 'Escape') {
                                                       e.preventDefault();
@@ -1081,7 +1123,7 @@ export const AdminCallsTable: React.FC = () => {
                                                   }}
                                                   onBlur={() => {
                                                     const finalVal = inlineCallRelatedValue.trim() || 'New Feature';
-                                                    updateProductItem(feat.id, { feature: finalVal });
+                                                    updateProductItem(sourceFeat.id, { feature: finalVal });
                                                     setEditingCallRelatedId(null);
                                                   }}
                                                   style={{
@@ -1110,7 +1152,7 @@ export const AdminCallsTable: React.FC = () => {
                                                       <Sparkles size={8} /> Super Priority
                                                     </span>
                                                   )}
-                                                  {isTaskLinked(feat.notes, feat.id) && (
+                                                  {isTaskLinked(sourceFeat.notes, sourceFeat.id) && (
                                                     <span className="badge-linked" style={{ padding: '2px 6px', fontSize: '0.6rem', borderRadius: '3px', marginLeft: '6px', backgroundColor: 'var(--primary-glow)', color: 'var(--primary)', border: '1px solid var(--primary-light)', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 650 }}>
                                                       <Link size={8} /> Linked
                                                     </span>
@@ -1206,7 +1248,7 @@ export const AdminCallsTable: React.FC = () => {
                                                 onClick={async (e) => {
                                                   e.stopPropagation();
                                                   if (await confirm("Are you sure you want to delete this feature?", "Delete Feature")) {
-                                                    deleteProductItem(feat.id);
+                                                    deleteProductItem(sourceFeat.id);
                                                   }
                                                 }} 
                                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center', padding: '4px' }}
@@ -1216,7 +1258,8 @@ export const AdminCallsTable: React.FC = () => {
                                               </button>
                                             </td>
                                           </tr>
-                                        ))}
+                                        );
+                                        })}
                                       </tbody>
                                     </table>
                                   </div>

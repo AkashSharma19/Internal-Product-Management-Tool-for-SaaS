@@ -64,7 +64,7 @@ export interface ProductDetailViewProps {
 }
 
 export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBack, onUpdate }) => {
-  const { studentProjects, speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser, productItems, contentItems, dailyIssues, studentMeetings, setActiveSubtasksTaskLink, setPreviewProductId, deleteProductItem, comments, addComment, deleteComment, confirm } = useDashboard();
+  const { studentProjects, speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser, productItems, contentItems, dailyIssues, studentMeetings, setActiveSubtasksTaskLink, setPreviewProductId, deleteProductItem, updateDailyIssue, comments, addComment, deleteComment, confirm } = useDashboard();
   const isDailyNeed = activeTab === 'issues' || dailyIssues.some(d => d.id === item.id);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -283,7 +283,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
   const [isLinkingSearchOpen, setIsLinkingSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchedTasks, setSearchedTasks] = useState<ProductItem[]>([]);
+  const [searchedTasks, setSearchedTasks] = useState<(ProductItem & { sourceType?: 'products' | 'dailyIssues' })[]>([]);
   const [searchTotal, setSearchTotal] = useState(0);
   const [searchPage, setSearchPage] = useState(1);
   const [isSearchingLink, setIsSearchingLink] = useState(false);
@@ -304,8 +304,10 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
         const headers: Record<string, string> = {};
         const savedUserId = localStorage.getItem('logged-in-user-id');
         if (savedUserId) headers['x-user-id'] = savedUserId;
+        // Product tasks can link to Requested Features/Bugs too, but not the reverse.
+        const includeDailyIssues = !isDailyNeed && item.externalSource !== 'coachlms';
         const res = await fetch(
-          `/api/data?action=suggest-similar&query=${encodeURIComponent(q)}&excludeId=${item.id}&page=${searchPage}`,
+          `/api/data?action=suggest-similar&query=${encodeURIComponent(q)}&excludeId=${item.id}&page=${searchPage}${includeDailyIssues ? '&includeDailyIssues=true' : ''}`,
           { headers }
         );
         if (!cancelled && res.ok) {
@@ -386,18 +388,35 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     };
   }, [item.notes]);
 
-  const handleLinkTask = (targetTask: ProductItem) => {
-    const existingNotes = targetTask.notes || '';
-    const newNotes = existingNotes 
-      ? `${existingNotes} | ${item.notes} | Linked Task: true` 
-      : `${item.notes} | Linked Task: true`;
-    
-    // Update target task notes
-    onUpdate(targetTask.id, { notes: newNotes });
-    // Switch preview to target task
+  const handleLinkTask = (targetTask: ProductItem & { sourceType?: 'products' | 'dailyIssues' }) => {
+    // Cross-reference both sides instead of deleting the source task. The source stays
+    // wherever it originally lived (e.g. in its meeting/call's "Related Feature Requests"
+    // list) and is marked as linked; the target gets a pointer back to the source.
+    const sourceLabel = item.feature || `Task #${item.id}`;
+    const targetLabel = targetTask.feature || `Task #${targetTask.id}`;
+
+    const existingTargetNotes = targetTask.notes || '';
+    const newTargetNotes = existingTargetNotes
+      ? `${existingTargetNotes} | Linked Task: true | Linked From: ${item.id} (${sourceLabel})`
+      : `Linked Task: true | Linked From: ${item.id} (${sourceLabel})`;
+
+    const existingSourceNotes = item.notes || '';
+    const newSourceNotes = existingSourceNotes
+      ? `${existingSourceNotes} | Linked Task: true | Linked To: ${targetTask.id} (${targetLabel})`
+      : `Linked Task: true | Linked To: ${targetTask.id} (${targetLabel})`;
+
+    if (targetTask.sourceType === 'dailyIssues') {
+      // Target is a Requested Feature/Bug (DailyIssue) — update it through the
+      // dailyIssues collection, not the products collection.
+      updateDailyIssue(targetTask.id, { notes: newTargetNotes });
+    } else {
+      onUpdate(targetTask.id, { notes: newTargetNotes });
+    }
+    // Mark the current (source) task as linked too, so it keeps showing up wherever it
+    // lives (e.g. the meeting's "Related Feature Requests" table) with a "Linked" badge.
+    onUpdate(item.id, { notes: newSourceNotes });
+    // Switch preview to the target task so the user lands on what they just linked to.
     setPreviewProductId(targetTask.id);
-    // Delete placeholder task
-    deleteProductItem(item.id);
   };
 
 
@@ -1028,6 +1047,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                                 <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.feature}</span>
                                 <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
                                   #{t.id} · {t.product || '—'}
+                                  {t.sourceType === 'dailyIssues' ? <span style={{ marginLeft: '6px', backgroundColor: 'var(--primary-glow)', color: 'var(--primary)', border: '1px solid var(--primary-light)', borderRadius: '3px', padding: '0 4px', fontSize: '0.65rem', fontWeight: 600 }}>Requested Feature</span> : null}
                                   {t.status ? <span style={{ marginLeft: '6px', backgroundColor: 'var(--background-alt)', border: '1px solid var(--border-light)', borderRadius: '3px', padding: '0 4px', fontSize: '0.65rem', fontWeight: 600 }}>{t.status}</span> : null}
                                 </span>
                               </div>
