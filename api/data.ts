@@ -2,7 +2,7 @@ import https from 'https';
 import nodemailer from 'nodemailer';
 import { createHash } from 'node:crypto';
 import { connectToDatabase } from './lib/db.js';
-import { enqueuePortalEvent, extractClickupTaskId, mapCoachLmsStatusForOutbound } from './lib/productShipSync.js';
+import { enqueuePortalEvent, extractClickupTaskId, inferExternalTicketKind, mapProductShipStatusForCoachLms } from './lib/productShipSync.js';
 import { generateCampaignOccurrences, getOccurrenceViewStatus } from '../src/utils/campaigns.js';
 import {
   ProductItemModel,
@@ -6639,7 +6639,7 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
 
     if (type === 'dailyIssues' && data && typeof data === 'object') {
       for (const field of [
-        'externalSource', 'organizationId', 'environment', 'externalTicketId', 'clickupTaskId',
+        'externalSource', 'organizationId', 'environment', 'externalTicketId', 'externalTicketKind', 'clickupTaskId',
         'clickupLinkUpdatedAt', 'clickupLinkUpdatedBySource', 'statusUpdatedAt',
         'statusUpdatedBySource', 'committedDateUpdatedAt', 'committedDateUpdatedBySource'
       ]) delete data[field];
@@ -7041,18 +7041,17 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
               }
             }
 
-            if (String(syncBefore.coachlmsStatus || '') !== String(after.coachlmsStatus || '') && String(after.coachlmsStatus || '').trim()) {
-              // Coach LMS's endpoint only accepts the 4 ProductShip statuses on this event,
-              // even though it sends us its own raw status text. Translate before sending.
-              const mappedStatus = mapCoachLmsStatusForOutbound(after.coachlmsStatus || '');
-              if (mappedStatus) {
-                const queuedId = await enqueuePortalEvent(after, 'ticket_status_updated', { status: mappedStatus, changedBy }, now);
-                if (queuedId) queuedEventIds.push(queuedId);
-              } else {
-                console.warn(`[CoachLMS Sync] Could not map coachlmsStatus "${after.coachlmsStatus}" to a Coach LMS-compatible status; skipping outbound sync.`);
-              }
+            if (String(syncBefore.status || '') !== String(after.status || '') && String(after.status || '').trim()) {
+              const ticketKind = inferExternalTicketKind(syncBefore);
+              const mappedStatus = mapProductShipStatusForCoachLms(after.status || '', ticketKind);
+              if (!mappedStatus) throw new Error(`ProductShip status "${after.status}" cannot be synchronized for a ${ticketKind}.`);
+              const queuedId = await enqueuePortalEvent(after, 'ticket_status_updated', { status: mappedStatus, changedBy }, now);
+              if (queuedId) queuedEventIds.push(queuedId);
+              metadataUpdates.statusUpdatedAt = now;
+              metadataUpdates.statusUpdatedBySource = 'productship';
               metadataUpdates.coachlmsStatusUpdatedAt = now;
               metadataUpdates.coachlmsStatusUpdatedBySource = 'productship';
+              metadataUpdates.externalTicketKind = ticketKind;
             }
 
             if (String(syncBefore.committedDate || '') !== String(after.committedDate || '')) {
@@ -7075,6 +7074,7 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
             await DailyIssueModel.updateOne({ id }, {
               $set: {
                 taskLink: syncBefore.taskLink || '',
+                status: syncBefore.status || '',
                 coachlmsStatus: syncBefore.coachlmsStatus || '',
                 committedDate: syncBefore.committedDate || '',
                 clickupLinkUpdatedAt: syncBefore.clickupLinkUpdatedAt,
