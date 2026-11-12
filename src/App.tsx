@@ -2689,6 +2689,7 @@ const DashboardContent: React.FC = () => {
                 if (updated.priority !== undefined) updatedIssue.priority = updated.priority;
                 if (updated.poc !== undefined) updatedIssue.poc = updated.poc;
                 if (updated.status !== undefined) updatedIssue.status = updated.status;
+                if (updated.coachlmsStatus !== undefined) updatedIssue.coachlmsStatus = updated.coachlmsStatus;
                 if (updated.clickupStatus !== undefined) updatedIssue.clickupStatus = updated.clickupStatus;
                 if (updated.taskLink !== undefined) updatedIssue.taskLink = updated.taskLink;
                 if (updated.blocker !== undefined) updatedIssue.blocker = updated.blocker;

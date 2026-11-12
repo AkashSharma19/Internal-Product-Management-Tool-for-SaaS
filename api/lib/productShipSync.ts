@@ -15,47 +15,29 @@ const KNOWN_URLS: Record<string, string> = {
   '77aa25d2-d52c-4c7b-ad4b-7b7de339fc4e:production': 'https://api.mastersunion.in/api/v1/feature-requests/productship/webhook'
 };
 
-// Preserve the raw Coach LMS label for diagnostics, but map it to ProductShip's four workflow states.
-const STATUS_STAGE_BY_NAME: Record<string, 'open' | 'in_progress' | 'resolved' | 'closed'> = {
-  'open': 'open', 'to do': 'open', 'ready for review': 'open', 'review': 'open', 'design': 'open',
-  'in design': 'open', 'under review': 'open', 'on hold': 'open', 'information pending': 'open',
-  'in progress': 'in_progress', 'in-progress': 'in_progress', 'in progess': 'in_progress', 'development': 'in_progress',
-  'testing': 'in_progress', 'blocked': 'in_progress', 'doing': 'in_progress', 'dev': 'in_progress', 'ongoing': 'in_progress',
-  'resolved': 'resolved', 'accepted': 'resolved', 'completed': 'resolved', 'complete': 'resolved',
-  'tested': 'resolved', 'done': 'resolved',
-  'closed': 'closed', 'cancelled': 'closed', 'canceled': 'closed', 'removed': 'closed', 'not feasible': 'closed'
+// Coach LMS's webhook receiver only accepts these 4 statuses on ticket_status_updated
+// events sent TO it (see docs/PORTAL_BIDIRECTIONAL_SYNC_CONTRACT.md section 7.2).
+// We store/display the raw Coach LMS status text locally, but must translate it back
+// to one of these 4 values before sending it outbound, or Coach LMS's endpoint 500s.
+const RAW_COACHLMS_TO_PRODUCTSHIP_STATUS: Record<string, string> = {
+  'open': 'On Hold',
+  'in progress': 'In Progress',
+  'in-progress': 'In Progress',
+  'development': 'In Progress',
+  'in design': 'Ongoing',
+  'under review': 'Ongoing',
+  'testing': 'Ongoing',
+  'tested': 'Completed',
+  'completed': 'Completed',
+  'resolved': 'Completed',
+  'closed': 'Completed',
+  'cancelled': 'On Hold'
 };
 
-export type ExternalTicketKind = 'bug' | 'request';
-
-export function inferExternalTicketKind(ticket: any): ExternalTicketKind {
-  return ticket?.externalTicketKind === 'bug' || String(ticket?.type || '').toUpperCase() === 'BUG' ? 'bug' : 'request';
-}
-
-export function mapCoachLmsStatusToProductShip(rawStatus: string, kind: ExternalTicketKind): string | null {
+export function mapCoachLmsStatusForOutbound(rawStatus: string): string | null {
   const normalized = String(rawStatus || '').trim().toLowerCase();
   if (!normalized) return null;
-  if (kind === 'bug' && !['open', 'in-progress', 'resolved', 'closed'].includes(normalized)) return null;
-  const stage = STATUS_STAGE_BY_NAME[normalized];
-  if (!stage) return null;
-  if (stage === 'open') return 'On Hold';
-  if (stage === 'in_progress') return 'In Progress';
-  return 'Completed';
-}
-
-export function mapProductShipStatusForCoachLms(status: string, kind: ExternalTicketKind): string | null {
-  const normalized = String(status || '').trim().toLowerCase();
-  const stage = STATUS_STAGE_BY_NAME[normalized];
-  if (!stage) return null;
-  if (kind === 'bug') {
-    if (stage === 'open') return 'Open';
-    if (stage === 'in_progress') return 'In-Progress';
-    if (stage === 'resolved') return 'Resolved';
-    return 'Closed';
-  }
-  if (stage === 'open') return 'On Hold';
-  if (stage === 'in_progress') return normalized === 'ongoing' ? 'Ongoing' : 'In Progress';
-  return 'Completed';
+  return RAW_COACHLMS_TO_PRODUCTSHIP_STATUS[normalized] || null;
 }
 
 export const buildImportedTicketId = (organizationId: string, environment: string, externalTicketId: string) =>

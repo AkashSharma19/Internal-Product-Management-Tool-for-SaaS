@@ -491,6 +491,21 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const isProject = item.id.startsWith('proj-') || studentProjects.some(p => p.id === realProjectId);
 
   const productStatuses = configStatuses;
+  // Raw Coach LMS ticket statuses. Displayed and stored verbatim; translated back to one
+  // of the 4 ProductShip statuses before being sent to Coach LMS (see api/lib/productShipSync.ts).
+  const COACHLMS_STATUSES = [
+    { id: 'coachlms-open', label: 'open', color: '#6b7280' },
+    { id: 'coachlms-in-progress', label: 'in progress', color: '#f59e0b' },
+    { id: 'coachlms-development', label: 'development', color: '#f59e0b' },
+    { id: 'coachlms-in-design', label: 'in design', color: '#8b5cf6' },
+    { id: 'coachlms-under-review', label: 'under review', color: '#8b5cf6' },
+    { id: 'coachlms-testing', label: 'testing', color: '#8b5cf6' },
+    { id: 'coachlms-tested', label: 'tested', color: '#10b981' },
+    { id: 'coachlms-completed', label: 'completed', color: '#10b981' },
+    { id: 'coachlms-resolved', label: 'resolved', color: '#10b981' },
+    { id: 'coachlms-closed', label: 'closed', color: '#10b981' },
+    { id: 'coachlms-cancelled', label: 'cancelled', color: '#ef4444' }
+  ];
 
 
 
@@ -1217,6 +1232,22 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                     />
                   </div>
                 </div>
+
+                {/* Coach LMS Status - Only for tickets synced from Coach LMS */}
+                {item.externalSource === 'coachlms' && (
+                  <div className="property-row-flat">
+                    <span className="premium-property-label">
+                      <RefreshCw size={13} /> Coach LMS Status
+                    </span>
+                    <div className="premium-property-value">
+                      <StatusDropdown
+                        value={item.coachlmsStatus || ''}
+                        onChange={(val) => handleFieldUpdate('coachlmsStatus', val)}
+                        productStatuses={COACHLMS_STATUSES}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Need Type - Only for Daily Needs */}
                 {isDailyNeed && (

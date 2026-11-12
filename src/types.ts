@@ -274,7 +274,6 @@ export interface DailyIssue {
   organizationId?: string;
   environment?: 'development' | 'production' | '';
   externalTicketId?: string;
-  externalTicketKind?: 'bug' | 'request';
   clickupTaskId?: string;
   clickupLinkUpdatedAt?: string;
   clickupLinkUpdatedBySource?: string;

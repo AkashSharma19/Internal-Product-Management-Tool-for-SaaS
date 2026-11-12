@@ -17,9 +17,7 @@ import {
   buildImportedTicketId,
   extractClickupTaskId,
   fetchClickupTaskMetadata,
-  findImportedTicket,
-  inferExternalTicketKind,
-  mapCoachLmsStatusToProductShip
+  findImportedTicket
 } from './lib/productShipSync.js';
 
 const PRODUCTSHIP_EVENT = 'ticket_created';
@@ -194,22 +192,13 @@ async function handlePortalV2Event(payload: any) {
       }
     } else if (payload.event === 'ticket_status_updated') {
       const incomingStatus = portalRequiredString(payload.data.status, 'data.status', 100, eventId);
-      const ticketKind = inferExternalTicketKind(ticket);
-      const mappedStatus = mapCoachLmsStatusToProductShip(incomingStatus, ticketKind);
-      if (!mappedStatus) throw new PortalHttpError(400, `Unknown ${ticketKind} status: ${incomingStatus}`, eventId);
       const decision = clockDecision(ticket.coachlmsStatusUpdatedAt, ticket.coachlmsStatus, incomingStatus);
       if (decision === 'conflict') throw new PortalHttpError(409, 'Conflicting status update.', eventId);
       reason = decision === 'apply' ? '' : decision === 'advance' ? 'unchanged' : decision;
-      if (decision === 'apply') {
-        ticket.coachlmsStatus = incomingStatus;
-        ticket.status = mappedStatus;
-      }
-      if (!ticket.externalTicketKind) ticket.externalTicketKind = ticketKind;
+      if (decision === 'apply') ticket.coachlmsStatus = incomingStatus;
       if (decision === 'apply' || decision === 'advance') {
         ticket.coachlmsStatusUpdatedAt = occurredAt;
         ticket.coachlmsStatusUpdatedBySource = 'coachlms';
-        ticket.statusUpdatedAt = occurredAt;
-        ticket.statusUpdatedBySource = 'coachlms';
       }
     } else if (payload.event === 'ticket_deadline_updated') {
       const deadline = normalizeNullableString(payload.data.deadline, 'data.deadline', 64);
@@ -402,7 +391,6 @@ export default async function handler(req: any, res: any) {
           organizationId,
           environment,
           externalTicketId: organizationId ? externalTicketId : '',
-          externalTicketKind: type === 'BUG' ? 'bug' : 'request',
           cohort: program,
           module: title,
           type,
@@ -423,7 +411,7 @@ export default async function handler(req: any, res: any) {
         if (organizationId) {
           await DailyIssueModel.updateOne(
             { id: internalTicketId },
-            { $set: { externalSource: 'coachlms', organizationId, environment, externalTicketId, externalTicketKind: type === 'BUG' ? 'bug' : 'request' } }
+            { $set: { externalSource: 'coachlms', organizationId, environment, externalTicketId } }
           );
         }
 

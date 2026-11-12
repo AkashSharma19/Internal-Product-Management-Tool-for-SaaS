@@ -236,7 +236,6 @@ const DailyIssueSchema = new Schema({
   organizationId: { type: String, default: '', index: true },
   environment: { type: String, default: '' },
   externalTicketId: { type: String, default: '', index: true },
-  externalTicketKind: { type: String, enum: ['', 'bug', 'request'], default: '' },
   clickupTaskId: { type: String, default: '' },
   clickupLinkUpdatedAt: { type: Date },
   clickupLinkUpdatedBySource: { type: String, default: '' },
