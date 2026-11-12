@@ -10,6 +10,28 @@ export const PORTAL_EVENTS = [
 
 export type PortalEvent = typeof PORTAL_EVENTS[number];
 
+export const LMS_TO_PRODUCTSHIP_STATUS: Record<string, string> = {
+  'open': 'On Hold',
+  'in progress': 'In Progress',
+  'in-progress': 'In Progress',
+  'development': 'In Progress',
+  'in design': 'Ongoing',
+  'under review': 'Ongoing',
+  'testing': 'Ongoing',
+  'tested': 'Completed',
+  'completed': 'Completed',
+  'resolved': 'Completed',
+  'closed': 'Completed',
+  'cancelled': 'On Hold'
+};
+
+export const PRODUCTSHIP_TO_LMS_STATUS: Record<string, string> = {
+  'On Hold': 'open',
+  'In Progress': 'in progress',
+  'Ongoing': 'under review',
+  'Completed': 'completed'
+};
+
 const KNOWN_URLS: Record<string, string> = {
   '77aa25d2-d52c-4c7b-ad4b-7b7de339fc4e:development': 'https://api-dev.mastersunion.in/api/v1/feature-requests/productship/webhook',
   '77aa25d2-d52c-4c7b-ad4b-7b7de339fc4e:production': 'https://api.mastersunion.in/api/v1/feature-requests/productship/webhook'

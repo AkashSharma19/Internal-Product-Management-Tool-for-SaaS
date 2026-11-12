@@ -14,6 +14,8 @@ import {
 } from './lib/models.js';
 import {
   PORTAL_EVENTS,
+  LMS_TO_PRODUCTSHIP_STATUS,
+  PRODUCTSHIP_TO_LMS_STATUS,
   buildImportedTicketId,
   extractClickupTaskId,
   findImportedTicket
@@ -21,20 +23,6 @@ import {
 
 const PRODUCTSHIP_EVENT = 'ticket_created';
 const PRODUCTSHIP_ID_PREFIX = 'productship:';
-const LMS_TO_PRODUCTSHIP_STATUS: Record<string, string> = {
-  'open': 'On Hold',
-  'in progress': 'In Progress',
-  'in-progress': 'In Progress',
-  'development': 'In Progress',
-  'in design': 'Ongoing',
-  'under review': 'Ongoing',
-  'testing': 'Ongoing',
-  'tested': 'Completed',
-  'completed': 'Completed',
-  'resolved': 'Completed',
-  'closed': 'Completed',
-  'cancelled': 'On Hold'
-};
 
 const firstHeaderValue = (value: unknown): string => {
   if (Array.isArray(value)) return String(value[0] || '').trim();
@@ -167,9 +155,10 @@ async function handlePortalV2Event(payload: any) {
     if (!clockValue) return 'apply';
     const currentTime = new Date(clockValue as any).getTime();
     const incomingTime = occurredAt.getTime();
-    if (incomingTime < currentTime) return 'stale';
-    if (incomingTime === currentTime) return String(currentValue ?? '') === String(nextValue ?? '') ? 'unchanged' : 'conflict';
-    return String(currentValue ?? '') === String(nextValue ?? '') ? 'advance' : 'apply';
+    // Allow up to 2 minutes of clock skew between systems before considering an event stale
+    if (incomingTime < currentTime - 120_000) return 'stale';
+    if (String(currentValue ?? '').trim().toLowerCase() === String(nextValue ?? '').trim().toLowerCase()) return 'advance';
+    return 'apply';
   };
 
   let reason = '';
@@ -199,15 +188,13 @@ async function handlePortalV2Event(payload: any) {
       }
     } else if (payload.event === 'ticket_status_updated') {
       const incomingStatus = portalRequiredString(payload.data.status, 'data.status', 100, eventId);
-      const status = LMS_TO_PRODUCTSHIP_STATUS[incomingStatus.toLowerCase()];
-      if (!status) throw new PortalHttpError(400, `Unknown status: ${incomingStatus}`, eventId);
-      const decision = clockDecision(ticket.statusUpdatedAt, ticket.status, status);
+      const decision = clockDecision(ticket.coachlmsStatusUpdatedAt, ticket.coachlmsStatus, incomingStatus);
       if (decision === 'conflict') throw new PortalHttpError(409, 'Conflicting status update.', eventId);
       reason = decision === 'apply' ? '' : decision === 'advance' ? 'unchanged' : decision;
-      if (decision === 'apply') ticket.status = status;
       if (decision === 'apply' || decision === 'advance') {
-        ticket.statusUpdatedAt = occurredAt;
-        ticket.statusUpdatedBySource = 'coachlms';
+        ticket.coachlmsStatus = incomingStatus;
+        ticket.coachlmsStatusUpdatedAt = occurredAt;
+        ticket.coachlmsStatusUpdatedBySource = 'coachlms';
       }
     } else if (payload.event === 'ticket_deadline_updated') {
       const deadline = normalizeNullableString(payload.data.deadline, 'data.deadline', 64);
@@ -394,6 +381,7 @@ export default async function handler(req: any, res: any) {
           return res.status(400).json({ success: false, error: 'neededByDate must be a valid date.' });
         }
 
+        const rawCoachStatus = optionalString(payload.coachlmsStatus ?? payload.status, 'coachlmsStatus or status', 100);
         const ticket: Record<string, unknown> = {
           id: internalTicketId,
           externalSource: organizationId ? 'coachlms' : '',
@@ -409,6 +397,9 @@ export default async function handler(req: any, res: any) {
           taskLink: clickupLink,
           notes
         };
+        if (rawCoachStatus) {
+          ticket.coachlmsStatus = rawCoachStatus;
+        }
         if (createdAt) ticket.createdAt = createdAt;
 
         const result = await DailyIssueModel.updateOne(

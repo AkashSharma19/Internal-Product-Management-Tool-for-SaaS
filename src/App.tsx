@@ -2676,6 +2676,10 @@ const DashboardContent: React.FC = () => {
                 clickupAssignee: foundIssue.clickupAssignee || '',
                 conductDemo: !!foundIssue.conductDemo,
                 demoCohorts: foundIssue.demoCohorts || '',
+                externalSource: foundIssue.externalSource || (foundIssue.id.startsWith('productship:') ? 'coachlms' : ''),
+                coachlmsStatus: foundIssue.coachlmsStatus || '',
+                coachlmsStatusUpdatedAt: foundIssue.coachlmsStatusUpdatedAt ? String(foundIssue.coachlmsStatusUpdatedAt) : '',
+                coachlmsStatusUpdatedBySource: foundIssue.coachlmsStatusUpdatedBySource || '',
               };
 
               const handleUpdateIssue = (id: string, updated: Partial<ProductItem>) => {
@@ -2711,6 +2715,10 @@ const DashboardContent: React.FC = () => {
                 if (updated.clickupAssignee !== undefined) updatedIssue.clickupAssignee = updated.clickupAssignee;
                 if (updated.conductDemo !== undefined) updatedIssue.conductDemo = updated.conductDemo;
                 if (updated.demoCohorts !== undefined) updatedIssue.demoCohorts = updated.demoCohorts;
+                if (updated.coachlmsStatus !== undefined) updatedIssue.coachlmsStatus = updated.coachlmsStatus;
+                if (updated.coachlmsStatusUpdatedAt !== undefined) updatedIssue.coachlmsStatusUpdatedAt = updated.coachlmsStatusUpdatedAt;
+                if (updated.coachlmsStatusUpdatedBySource !== undefined) updatedIssue.coachlmsStatusUpdatedBySource = updated.coachlmsStatusUpdatedBySource;
+                if (updated.externalSource !== undefined) updatedIssue.externalSource = updated.externalSource;
 
                 updateDailyIssue(id, updatedIssue);
               };

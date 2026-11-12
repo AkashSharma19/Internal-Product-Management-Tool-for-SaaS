@@ -2,7 +2,12 @@ import https from 'https';
 import nodemailer from 'nodemailer';
 import { createHash } from 'node:crypto';
 import { connectToDatabase } from './lib/db.js';
-import { enqueuePortalEvent, extractClickupTaskId } from './lib/productShipSync.js';
+import {
+  enqueuePortalEvent,
+  extractClickupTaskId,
+  LMS_TO_PRODUCTSHIP_STATUS,
+  PRODUCTSHIP_TO_LMS_STATUS
+} from './lib/productShipSync.js';
 import { generateCampaignOccurrences, getOccurrenceViewStatus } from '../src/utils/campaigns.js';
 import {
   ProductItemModel,
@@ -6748,8 +6753,16 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
           if (data.taskLink !== undefined && String(data.taskLink || '').trim() && !extractClickupTaskId(data.taskLink)) {
             return res.status(400).json({ success: false, error: 'ClickUp link must be a valid HTTPS ClickUp task URL.' });
           }
-          if (data.status !== undefined && !['On Hold', 'In Progress', 'Ongoing', 'Completed'].includes(String(data.status || '').trim())) {
-            return res.status(400).json({ success: false, error: 'Synchronized ticket status is invalid.' });
+          if (data.status !== undefined && String(data.status).trim()) {
+            const trimmedStatus = String(data.status).trim();
+            if (!['On Hold', 'In Progress', 'Ongoing', 'Completed'].includes(trimmedStatus)) {
+              const mapped = LMS_TO_PRODUCTSHIP_STATUS[trimmedStatus.toLowerCase()];
+              if (mapped) {
+                data.status = mapped;
+              } else {
+                return res.status(400).json({ success: false, error: 'Synchronized ticket status is invalid.' });
+              }
+            }
           }
           if (data.committedDate !== undefined && String(data.committedDate || '').trim() && !parseDate(String(data.committedDate))) {
             return res.status(400).json({ success: false, error: 'Committed Date is invalid.' });
@@ -6996,11 +7009,22 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
               }
             }
 
-            if (String(syncBefore.status || '') !== String(after.status || '') && String(after.status || '').trim()) {
-              const queuedId = await enqueuePortalEvent(after, 'ticket_status_updated', { status: after.status || '', changedBy }, now);
-              if (queuedId) queuedEventIds.push(queuedId);
+            const statusChanged = String(syncBefore.status || '') !== String(after.status || '') && String(after.status || '').trim();
+            const coachlmsStatusChanged = String(syncBefore.coachlmsStatus || '') !== String(after.coachlmsStatus || '') && String(after.coachlmsStatus || '').trim();
+
+            if (statusChanged) {
               metadataUpdates.statusUpdatedAt = now;
               metadataUpdates.statusUpdatedBySource = 'productship';
+            }
+
+            if (coachlmsStatusChanged) {
+              metadataUpdates.coachlmsStatusUpdatedAt = now;
+              metadataUpdates.coachlmsStatusUpdatedBySource = 'productship';
+              // Coach LMS endpoint validates and expects one of the 4 standard ProductShip statuses:
+              // 'On Hold' | 'In Progress' | 'Ongoing' | 'Completed'
+              const statusToSend = LMS_TO_PRODUCTSHIP_STATUS[String(after.coachlmsStatus).toLowerCase()] || 'Ongoing';
+              const queuedId = await enqueuePortalEvent(after, 'ticket_status_updated', { status: statusToSend, changedBy }, now);
+              if (queuedId) queuedEventIds.push(queuedId);
             }
 
             if (String(syncBefore.committedDate || '') !== String(after.committedDate || '')) {
@@ -7024,11 +7048,14 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
               $set: {
                 taskLink: syncBefore.taskLink || '',
                 status: syncBefore.status || '',
+                coachlmsStatus: syncBefore.coachlmsStatus || '',
                 committedDate: syncBefore.committedDate || '',
                 clickupLinkUpdatedAt: syncBefore.clickupLinkUpdatedAt,
                 clickupLinkUpdatedBySource: syncBefore.clickupLinkUpdatedBySource || '',
                 statusUpdatedAt: syncBefore.statusUpdatedAt,
                 statusUpdatedBySource: syncBefore.statusUpdatedBySource || '',
+                coachlmsStatusUpdatedAt: syncBefore.coachlmsStatusUpdatedAt,
+                coachlmsStatusUpdatedBySource: syncBefore.coachlmsStatusUpdatedBySource || '',
                 committedDateUpdatedAt: syncBefore.committedDateUpdatedAt,
                 committedDateUpdatedBySource: syncBefore.committedDateUpdatedBySource || ''
               }

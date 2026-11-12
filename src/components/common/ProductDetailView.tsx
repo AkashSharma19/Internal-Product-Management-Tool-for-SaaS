@@ -75,7 +75,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const blockerInputRef = useRef<HTMLInputElement>(null);
   const [clickupComments, setClickupComments] = useState<any[]>([]);
   const [loadingCuComments, setLoadingCuComments] = useState(false);
-  const [cuCommentError, setCuCommentError] = useState<string | null>(null);  const fetchClickupComments = async () => {
+  const [cuCommentError, setCuCommentError] = useState<string | null>(null); const fetchClickupComments = async () => {
     const taskId = extractClickupTaskId(item.taskLink);
     if (!taskId) return;
     setLoadingCuComments(true);
@@ -148,7 +148,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
       const next = !prev;
       try {
         localStorage.setItem('task_drawer_chat_collapsed', String(next));
-      } catch {}
+      } catch { }
       return next;
     });
   };
@@ -305,7 +305,8 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
         const savedUserId = localStorage.getItem('logged-in-user-id');
         if (savedUserId) headers['x-user-id'] = savedUserId;
         // Product tasks can link to Requested Features/Bugs too, but not the reverse.
-        const includeDailyIssues = !isDailyNeed && item.externalSource !== 'coachlms';
+        const isCoachLms = item.externalSource === 'coachlms' || (typeof item.id === 'string' && item.id.startsWith('productship:')) || !!item.coachlmsStatus;
+        const includeDailyIssues = !isDailyNeed && !isCoachLms;
         const res = await fetch(
           `/api/data?action=suggest-similar&query=${encodeURIComponent(q)}&excludeId=${item.id}&page=${searchPage}${includeDailyIssues ? '&includeDailyIssues=true' : ''}`,
           { headers }
@@ -486,9 +487,10 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
   const releaseOverdue = isDateOverdue(item.finalRelease, item.finalReleaseCompleted);
   const isOverallCompleted = isCompletedStatus(item.status);
   const committedOverdue = isDateOverdue(item.committedDate, !!item.finalReleaseCompleted || isOverallCompleted);
-  
+
   const realProjectId = item.id.startsWith('prod-temp-') ? item.id.replace('prod-temp-', '') : item.id;
   const isProject = item.id.startsWith('proj-') || studentProjects.some(p => p.id === realProjectId);
+  const isCoachLmsTicket = item.externalSource === 'coachlms' || (typeof item.id === 'string' && item.id.startsWith('productship:')) || !!item.coachlmsStatus;
 
   const productStatuses = configStatuses;
   // Raw Coach LMS ticket statuses. Displayed and stored verbatim; translated back to one
@@ -519,7 +521,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     if (['under review', 'review', 'discuss', 'discussing', 'discuss/review', 'in review', 'to review'].includes(s)) return '#f97316'; // Orange
     if (['testing', 'tested', 'qa', 'quality assurance', 'bug verification'].includes(s)) return '#a855f7'; // Purple
     if (['on hold', 'hold', 'paused', 'blocked', 'stuck', 'cancelled'].includes(s)) return '#ef4444'; // Red
-    
+
     // Fallback to a stable hex color using hash
     let hash = 0;
     for (let i = 0; i < s.length; i++) {
@@ -562,21 +564,21 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     try {
       const res = await syncClickupTask(taskLinkValue);
       if (res) {
-        const updates: Partial<ProductItem> = { 
-          clickupStatus: res.status, 
+        const updates: Partial<ProductItem> = {
+          clickupStatus: res.status,
           clickupSubtasksCount: res.subtasksCount,
           clickupAssignee: res.assignee
         };
         const currentName = (item.feature || '').trim();
-        const isDefaultName = 
-          currentName === '' || 
-          currentName === 'New Priority Request' || 
-          currentName === 'New Project' || 
-          currentName === 'New Task' || 
-          currentName === 'New Sprint Task Description' || 
-          currentName === 'New Issue Logged' || 
-          currentName.startsWith('Issue #') || 
-          currentName.startsWith('Request #') || 
+        const isDefaultName =
+          currentName === '' ||
+          currentName === 'New Priority Request' ||
+          currentName === 'New Project' ||
+          currentName === 'New Task' ||
+          currentName === 'New Sprint Task Description' ||
+          currentName === 'New Issue Logged' ||
+          currentName.startsWith('Issue #') ||
+          currentName.startsWith('Request #') ||
           currentName.toLowerCase().startsWith('new ') ||
           currentName.toLowerCase().startsWith('feature for ') ||
           currentName.toLowerCase().startsWith('related feature');
@@ -595,11 +597,11 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
     }
   };
 
-  
 
-  
 
-  
+
+
+
 
   const taskMilestoneHighlights = useMemo((): HighlightedDate[] => {
     const list: HighlightedDate[] = [];
@@ -720,7 +722,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
   return (
     <div className="premium-workspace product-detail-workspace animate-fade-in" key={item.id} style={{ display: 'flex', flexDirection: 'column', padding: '1.5rem', height: '100%', overflow: 'hidden', position: 'relative' }}>
-      
+
       {/* Top Navigation & Breadcrumbs */}
       <div className="product-detail-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem', flexShrink: 0 }}>
         <div className="premium-breadcrumb">
@@ -728,13 +730,13 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
             <ArrowLeft size={12} />
           </button>
           <span>
-            {activeTab === 'issues' ? 'Daily Needs' : 
-             activeTab === 'projects' ? 'Student Projects' : 
-             activeTab === 'meetings' ? 'Student Meetings' : 
-             activeTab === 'admin' ? 'Admin Meetings' : 
-             activeTab === 'content' ? 'Content Pipeline' : 
-             activeTab === 'plan' ? 'Sprint Planning' : 
-             'Priority Requests'}
+            {activeTab === 'issues' ? 'Daily Needs' :
+              activeTab === 'projects' ? 'Student Projects' :
+                activeTab === 'meetings' ? 'Student Meetings' :
+                  activeTab === 'admin' ? 'Admin Meetings' :
+                    activeTab === 'content' ? 'Content Pipeline' :
+                      activeTab === 'plan' ? 'Sprint Planning' :
+                        'Priority Requests'}
           </span>
           <span>/</span>
           <span style={{ color: !item.product ? '#f97316' : 'var(--text-primary)', fontWeight: 600 }}>
@@ -794,11 +796,11 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
       {/* TWO COLUMN CONTENT LAYOUT */}
       <div className="product-detail-body" style={{ display: 'flex', gap: isChatCollapsed ? '0' : '1.5rem', flex: 1, minHeight: 0, marginTop: '1rem', position: 'relative' }}>
-        
+
         {/* LEFT COLUMN: Main details (scrollable) */}
         <div className="product-detail-main" style={{ flex: '1 1 0%', overflowY: 'auto', paddingRight: isChatCollapsed ? '0.25rem' : '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', minWidth: 0, transition: 'padding 0.2s ease' }}>
           <div style={{ pointerEvents: canUserEdit ? 'auto' : 'none', opacity: canUserEdit ? 1 : 0.95, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            
+
             {/* Task Title (Editable) + inline link button */}
             <div style={{ position: 'relative' }}>
               {isDailyNeed && (
@@ -927,7 +929,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                     similarTasks.map(t => {
                       const isAlreadyLinked = sessionInfo && t.notes && t.notes.includes(sessionInfo.fullTag);
                       return (
-                        <div 
+                        <div
                           key={t.id}
                           style={{
                             padding: '8px 12px',
@@ -939,7 +941,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                           }}
                           className="similar-task-item"
                         >
-                          <div 
+                          <div
                             onMouseDown={(e) => {
                               e.preventDefault();
                               setPreviewProductId(t.id);
@@ -1093,9 +1095,9 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
               <h4 className="premium-timeline-title">Milestone Checkpoints</h4>
               <div className="premium-timeline-track-wrapper">
                 <div className="premium-timeline-line-connector">
-                  <div 
-                    className="premium-timeline-progress-line" 
-                    style={{ 
+                  <div
+                    className="premium-timeline-progress-line"
+                    style={{
                       width: (() => {
                         const stepStates = [
                           true,
@@ -1108,14 +1110,14 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                         ];
                         const completedCount = stepStates.filter(Boolean).length;
                         return `${((completedCount - 1) / (stepStates.length - 1)) * 100}%`;
-                      })() 
-                    }} 
+                      })()
+                    }}
                   />
                 </div>
                 <div className="premium-timeline-track">
                   {steps.map((step, idx) => (
                     <div key={idx} className={`premium-timeline-node ${step.classStr}`} style={{ position: 'relative', zIndex: step.isEditing ? 100 : 2 }}>
-                      <div 
+                      <div
                         className="premium-timeline-circle"
                         onClick={() => step.setIsEditing(true)}
                         title={`Click to edit ${step.label}`}
@@ -1126,8 +1128,8 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                         <span className="premium-timeline-label" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           {step.label.replace(' Date', '')}
                           {step.historyField && (
-                            <span 
-                              title="View Change History" 
+                            <span
+                              title="View Change History"
                               style={{ display: 'inline-flex', cursor: 'pointer', opacity: 0.6 }}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1138,9 +1140,9 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                             </span>
                           )}
                         </span>
-                        
-                        <span 
-                          className="premium-timeline-date" 
+
+                        <span
+                          className="premium-timeline-date"
                           onClick={() => step.setIsEditing(true)}
                         >
                           {step.label === 'Created' ? (item.createdAt ? formatDateToShortPattern(item.createdAt) : 'Set Date') : step.dateVal}
@@ -1187,7 +1189,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
 
             {/* 2-COLUMN PROPERTIES GRID DASHBOARD */}
             <div className="premium-properties-dashboard">
-              
+
               {/* PANEL 1: Lifecycle & Integration */}
               <div className="properties-panel" style={{ position: 'relative', zIndex: 30 }}>
                 <h4 className="properties-panel-title">Lifecycle & Integration</h4>
@@ -1234,7 +1236,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                 </div>
 
                 {/* Coach LMS Status - Only for tickets synced from Coach LMS */}
-                {item.externalSource === 'coachlms' && (
+                {isCoachLmsTicket && (
                   <div className="property-row-flat">
                     <span className="premium-property-label">
                       <RefreshCw size={13} /> Coach LMS Status
@@ -1277,12 +1279,12 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                   <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0, flex: 1, justifyContent: 'flex-end' }}>
                     <input
                       type="text"
-                      style={{ 
-                        color: 'var(--accent)', 
+                      style={{
+                        color: 'var(--accent)',
                         minWidth: 0,
                         maxWidth: '120px',
                         flex: 1,
-                        textAlign: 'right', 
+                        textAlign: 'right',
                         fontWeight: 500,
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
@@ -1359,17 +1361,17 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                     <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <RefreshCw size={13} /> ClickUp Status
                       <span title="View ClickUp Status Change History" style={{ display: 'inline-flex', cursor: 'pointer', opacity: 0.6 }}>
-                        <History 
-                          size={12} 
-                          onClick={() => setHistoryField({ name: 'clickupStatus', label: 'ClickUp Status' })} 
+                        <History
+                          size={12}
+                          onClick={() => setHistoryField({ name: 'clickupStatus', label: 'ClickUp Status' })}
                         />
                       </span>
                     </span>
                     <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span
                         className="premium-clickup-badge"
-                        style={{ 
-                          borderColor: getClickupStatusColor(item.clickupStatus), 
+                        style={{
+                          borderColor: getClickupStatusColor(item.clickupStatus),
                           color: getClickupStatusColor(item.clickupStatus),
                           fontSize: '0.675rem',
                           padding: '3px 8px',
@@ -1386,7 +1388,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                         {item.clickupStatus || 'None'}
                       </span>
                       {item.clickupSubtasksCount !== undefined && item.clickupSubtasksCount > 0 && (
-                        <span 
+                        <span
                           onClick={() => setActiveSubtasksTaskLink(item.taskLink)}
                           style={{ fontSize: '0.75rem', color: 'var(--primary)', marginLeft: '4px', cursor: 'pointer', textDecoration: 'underline', fontWeight: 600 }}
                           title="Click to view subtasks breakdown"
@@ -1427,17 +1429,17 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                     <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <User size={13} /> ClickUp Assignee
                       <span title="View ClickUp Assignee Change History" style={{ display: 'inline-flex', cursor: 'pointer', opacity: 0.6 }}>
-                        <History 
-                          size={12} 
-                          onClick={() => setHistoryField({ name: 'clickupAssignee', label: 'ClickUp Assignee' })} 
+                        <History
+                          size={12}
+                          onClick={() => setHistoryField({ name: 'clickupAssignee', label: 'ClickUp Assignee' })}
                         />
                       </span>
                     </span>
                     <div className="premium-property-value">
                       {item.clickupAssignee ? (
                         <div className="cu-tooltip-container" style={{ display: 'inline-flex', alignItems: 'center' }}>
-                          <span style={{ 
-                            fontSize: '0.8rem', 
+                          <span style={{
+                            fontSize: '0.8rem',
                             fontWeight: 500,
                             color: 'var(--text-primary)',
                             borderBottom: '1px dashed var(--text-muted)',
@@ -1466,18 +1468,18 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                   <span className="premium-property-label" style={{ display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap', flexShrink: 0 }}>
                     <User size={13} style={{ flexShrink: 0 }} /> assignees
                     <span title="View Change History" style={{ display: 'inline-flex', flexShrink: 0 }}>
-                      <History 
-                        size={12} 
-                        style={{ cursor: 'pointer', opacity: 0.6 }} 
+                      <History
+                        size={12}
+                        style={{ cursor: 'pointer', opacity: 0.6 }}
                         onClick={() => setHistoryField({ name: 'poc', label: 'POC Owner' })}
                       />
                     </span>
                   </span>
                   <div className="premium-property-value" style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0, justifyContent: 'flex-end' }}>
                     <div className="premium-select-pill" style={{ paddingLeft: '4px', minWidth: 0, flexShrink: 1 }}>
-                      <div 
-                        className="clickup-avatar-circle" 
-                        style={{ 
+                      <div
+                        className="clickup-avatar-circle"
+                        style={{
                           backgroundColor: getAssigneeColor(item.poc),
                           width: '18px',
                           height: '18px',
@@ -1510,14 +1512,14 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                       </select>
                     </div>
                     {item.poc && (
-                      <span 
-                        style={{ 
-                          fontSize: '0.625rem', 
-                          backgroundColor: 'var(--primary-glow)', 
-                          border: '1px solid var(--primary-border)', 
-                          borderRadius: '10px', 
-                          padding: '2px 6px', 
-                          color: 'var(--primary)', 
+                      <span
+                        style={{
+                          fontSize: '0.625rem',
+                          backgroundColor: 'var(--primary-glow)',
+                          border: '1px solid var(--primary-border)',
+                          borderRadius: '10px',
+                          padding: '2px 6px',
+                          color: 'var(--primary)',
                           fontWeight: 700,
                           whiteSpace: 'nowrap',
                           flexShrink: 0
@@ -1583,17 +1585,17 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                     <CheckSquare size={13} /> Tarun Sir verified
                   </span>
                   <div className="premium-property-value">
-                    <label 
+                    <label
                       className="premium-toggle-wrapper"
                       style={{ opacity: isCurrentUserAdmin ? 1 : 0.6, cursor: isCurrentUserAdmin ? 'pointer' : 'not-allowed' }}
                       title={isCurrentUserAdmin ? 'Toggle verification status' : 'Only admins can toggle Tarun Sir verification'}
                     >
-                      <input 
-                        type="checkbox" 
-                        className="premium-toggle-checkbox" 
-                        checked={item.tarunSirApproval} 
+                      <input
+                        type="checkbox"
+                        className="premium-toggle-checkbox"
+                        checked={item.tarunSirApproval}
                         disabled={!isCurrentUserAdmin}
-                        onChange={(e) => handleFieldUpdate('tarunSirApproval', e.target.checked)} 
+                        onChange={(e) => handleFieldUpdate('tarunSirApproval', e.target.checked)}
                       />
                       <span className="premium-toggle-slider" />
                     </label>
@@ -1607,11 +1609,11 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                   </span>
                   <div className="premium-property-value">
                     <label className="premium-toggle-wrapper">
-                      <input 
-                        type="checkbox" 
-                        className="premium-toggle-checkbox" 
-                        checked={item.raisedByTarunSir} 
-                        onChange={(e) => handleFieldUpdate('raisedByTarunSir', e.target.checked)} 
+                      <input
+                        type="checkbox"
+                        className="premium-toggle-checkbox"
+                        checked={item.raisedByTarunSir}
+                        onChange={(e) => handleFieldUpdate('raisedByTarunSir', e.target.checked)}
                       />
                       <span className="premium-toggle-slider" />
                     </label>
@@ -1653,11 +1655,11 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                   </span>
                   <div className="premium-property-value">
                     <label className="premium-toggle-wrapper">
-                      <input 
-                        type="checkbox" 
-                        className="premium-toggle-checkbox" 
-                        checked={!!item.conductDemo} 
-                        onChange={(e) => handleFieldUpdate('conductDemo', e.target.checked)} 
+                      <input
+                        type="checkbox"
+                        className="premium-toggle-checkbox"
+                        checked={!!item.conductDemo}
+                        onChange={(e) => handleFieldUpdate('conductDemo', e.target.checked)}
                       />
                       <span className="premium-toggle-slider" />
                     </label>
@@ -1671,11 +1673,11 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                   </span>
                   <div className="premium-property-value">
                     <label className="premium-toggle-wrapper">
-                      <input 
-                        type="checkbox" 
-                        className="premium-toggle-checkbox" 
-                        checked={!!item.supportDocsRequired} 
-                        onChange={(e) => handleFieldUpdate('supportDocsRequired', e.target.checked)} 
+                      <input
+                        type="checkbox"
+                        className="premium-toggle-checkbox"
+                        checked={!!item.supportDocsRequired}
+                        onChange={(e) => handleFieldUpdate('supportDocsRequired', e.target.checked)}
                       />
                       <span className="premium-toggle-slider" />
                     </label>
@@ -1727,7 +1729,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                         </div>
                       ) : (
                         getSupportDocs(item).map((doc) => (
-                          <div 
+                          <div
                             key={doc.id}
                             style={{
                               display: 'flex',
@@ -1909,11 +1911,11 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                   </span>
                   <div className="premium-property-value">
                     <label className="premium-toggle-wrapper">
-                      <input 
-                        type="checkbox" 
-                        className="premium-toggle-checkbox" 
-                        checked={!!item.notificationSent} 
-                        onChange={(e) => handleFieldUpdate('notificationSent', e.target.checked)} 
+                      <input
+                        type="checkbox"
+                        className="premium-toggle-checkbox"
+                        checked={!!item.notificationSent}
+                        onChange={(e) => handleFieldUpdate('notificationSent', e.target.checked)}
                       />
                       <span className="premium-toggle-slider" />
                     </label>
@@ -1955,13 +1957,13 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
         </div>
 
         {/* RIGHT COLUMN: Pinned Chat / Discussion sidebar */}
-        <div 
+        <div
           className={`product-detail-discussion ${isChatCollapsed ? 'is-collapsed' : 'is-open'}`}
-          style={{ 
+          style={{
             width: isChatCollapsed ? '0px' : '380px',
             minWidth: isChatCollapsed ? '0px' : '340px',
-            flexShrink: 0, 
-            height: '100%', 
+            flexShrink: 0,
+            height: '100%',
             minHeight: 0,
             overflow: isChatCollapsed ? 'hidden' : 'visible',
             opacity: isChatCollapsed ? 0 : 1,
@@ -2038,8 +2040,8 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                     color: !item.taskLink
                       ? 'var(--text-muted)'
                       : activeDiscussionTab === 'clickup'
-                      ? 'var(--primary)'
-                      : 'var(--text-secondary)',
+                        ? 'var(--primary)'
+                        : 'var(--text-secondary)',
                     fontWeight: 750,
                     fontSize: '0.775rem',
                     cursor: item.taskLink ? 'pointer' : 'not-allowed',
@@ -2200,7 +2202,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                             </button>
 
                             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                              <span 
+                              <span
                                 title={b.text}
                                 style={{
                                   fontSize: '0.74rem',
@@ -2265,7 +2267,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                   )}
 
                   {/* Seamless Linear-style input */}
-                  <div 
+                  <div
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -2358,8 +2360,8 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                         const isBlockerComment = comment.isBlocker || (comment.content && comment.content.toLowerCase().includes('blocker'));
                         const isAuthor = currentUser && (currentUser.name === comment.authorName || currentUser.email === comment.authorEmail);
                         return (
-                          <div 
-                            key={comment.id} 
+                          <div
+                            key={comment.id}
                             className="discussion-message-card"
                             style={{
                               borderLeft: isBlockerComment ? '3px solid #ef4444' : '3px solid var(--primary)',
@@ -2369,9 +2371,9 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                           >
                             <div className="discussion-message-header">
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <div 
-                                  className="clickup-avatar-circle" 
-                                  style={{ 
+                                <div
+                                  className="clickup-avatar-circle"
+                                  style={{
                                     backgroundColor: getAssigneeColor(comment.authorName),
                                     width: '18px',
                                     height: '18px',
@@ -2524,16 +2526,16 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                         <div key={comment.id} className="discussion-message-card" style={{ borderLeft: '3px solid #7b61ff' }}>
                           <div className="discussion-message-header">
                             <span className="discussion-message-author" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <span style={{ 
-                                display: 'inline-flex', 
-                                alignItems: 'center', 
-                                justifyContent: 'center', 
-                                width: '16px', 
-                                height: '16px', 
-                                borderRadius: '50%', 
-                                fontSize: '0.55rem', 
-                                fontWeight: 700, 
-                                backgroundColor: comment.user?.color || '#7b61ff', 
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '16px',
+                                height: '16px',
+                                borderRadius: '50%',
+                                fontSize: '0.55rem',
+                                fontWeight: 700,
+                                backgroundColor: comment.user?.color || '#7b61ff',
                                 color: '#fff',
                                 marginRight: '2px'
                               }}>
@@ -2573,7 +2575,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
       </div>
 
       {historyField && (
-        <FieldHistoryModal 
+        <FieldHistoryModal
           itemId={item.id}
           fieldName={historyField.name}
           fieldLabel={historyField.label}
@@ -2586,8 +2588,8 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
         featureTitle={item.feature || `Task #${item.id}`}
         featureDesc={item.description || item.notes || ''}
         onTaskCreated={(taskUrl, taskStatus, taskAssignee) => {
-          onUpdate(item.id, { 
-            taskLink: taskUrl, 
+          onUpdate(item.id, {
+            taskLink: taskUrl,
             clickupStatus: taskStatus,
             clickupAssignee: taskAssignee,
             clickupSubtasksCount: 0
