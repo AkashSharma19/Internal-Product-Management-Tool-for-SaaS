@@ -199,11 +199,12 @@ async function handlePortalV2Event(payload: any) {
       if (!mappedStatus) throw new PortalHttpError(400, `Unknown ${ticketKind} status: ${incomingStatus}`, eventId);
       const decision = clockDecision(ticket.coachlmsStatusUpdatedAt, ticket.coachlmsStatus, incomingStatus);
       if (decision === 'conflict') throw new PortalHttpError(409, 'Conflicting status update.', eventId);
-      reason = decision === 'apply' ? '' : decision === 'advance' ? 'unchanged' : decision;
-      if (decision === 'apply') {
-        ticket.coachlmsStatus = incomingStatus;
-        ticket.status = mappedStatus;
-      }
+      const productShipStatusNeedsUpdate = String(ticket.status || '') !== mappedStatus;
+      reason = decision === 'apply' || (decision !== 'stale' && productShipStatusNeedsUpdate)
+        ? ''
+        : decision === 'advance' ? 'unchanged' : decision;
+      if (decision === 'apply') ticket.coachlmsStatus = incomingStatus;
+      if (decision !== 'stale' && productShipStatusNeedsUpdate) ticket.status = mappedStatus;
       if (!ticket.externalTicketKind) ticket.externalTicketKind = ticketKind;
       if (decision === 'apply' || decision === 'advance') {
         ticket.coachlmsStatusUpdatedAt = occurredAt;
