@@ -203,7 +203,6 @@ export const FeatureRequestsTable: React.FC = () => {
             <thead>
               <tr>
                 <th className="sticky-header-col" onClick={() => handleSort('module')} style={{ width: '320px', minWidth: '320px', maxWidth: '320px', cursor: 'pointer' }}>Feature {sortField === 'module' ? (sortAsc ? '▲' : '▼') : ''}</th>
-                <th onClick={() => handleSort('cohort')} style={{ width: '120px', cursor: 'pointer' }}>Program {sortField === 'cohort' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th onClick={() => handleSort('poc')} style={{ width: '120px', cursor: 'pointer' }}>Raised By {sortField === 'poc' ? (sortAsc ? '▲' : '▼') : ''}</th>
                 <th style={{ width: '120px' }}>POC Owner</th>
                 <th onClick={() => handleSort('status')} style={{ width: '120px', cursor: 'pointer' }}>Status {sortField === 'status' ? (sortAsc ? '▲' : '▼') : ''}</th>
@@ -224,7 +223,6 @@ export const FeatureRequestsTable: React.FC = () => {
                     <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '90%', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
                     <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '80px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
                     <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '80px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
-                    <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '80px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
                     <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '20px', width: '80px', borderRadius: '12px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
                     <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '60px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
                     <td style={{ padding: '12px 16px' }}><div className="skeleton-line" style={{ height: '14px', width: '70px', borderRadius: '4px', background: 'var(--border)', opacity: 0.3, animation: 'pulse 1.5s infinite ease-in-out' }}></div></td>
@@ -236,7 +234,7 @@ export const FeatureRequestsTable: React.FC = () => {
                 ))
               ) : paginatedRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={11} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                  <td colSpan={10} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                     No feature requests yet. Requests submitted via the public calendar will appear here.
                   </td>
                 </tr>
@@ -304,7 +302,6 @@ export const FeatureRequestsTable: React.FC = () => {
                           </div>
                         </div>
                       </td>
-                      <td>{item.cohort || '—'}</td>
                       <td>
                         {(item.contact || item.poc) ? (() => {
                           const fullVal = item.contact || item.poc || '';

@@ -309,7 +309,7 @@ const getEventDetails = (evt: CalendarEvent) => {
   
   const manualStatus = evt.status || item.status || 'Active';
   const clickupStatus = item.clickupStatus || '';
-  const pocOwner = evt.poc || item.poc || item.contact || item.speaker || item.adminPoc || 'Unassigned';
+  const pocOwner = evt.poc || item.poc || item.speaker || item.adminPoc || 'Unassigned';
   const link = evt.taskLink || item.taskLink || item.link || '';
 
   return { name, description, releaseDate, manualStatus, clickupStatus, pocOwner, link };
@@ -746,7 +746,7 @@ export const CalendarView: React.FC<{ isPublic?: boolean }> = ({ isPublic = fals
               id: item.id,
               title: item.module || `Request #${item.id}`,
               source: 'Priority Requests',
-              poc: item.poc || item.contact || '',
+              poc: item.poc || '',
               priority: item.priority,
               status: item.status,
               taskLink: item.taskLink,

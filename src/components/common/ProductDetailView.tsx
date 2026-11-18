@@ -816,9 +816,9 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
               {isDailyNeed && (
                 <div style={{ marginBottom: '6px' }}>
                   <span style={{
-                    backgroundColor: item.type === 'Improvement' ? 'rgba(59, 130, 246, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                    color: item.type === 'Improvement' ? '#2563eb' : '#dc2626',
-                    border: `1px solid ${item.type === 'Improvement' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                    backgroundColor: isBug ? 'rgba(239, 68, 68, 0.12)' : 'rgba(59, 130, 246, 0.12)',
+                    color: isBug ? '#dc2626' : '#2563eb',
+                    border: `1px solid ${isBug ? 'rgba(239, 68, 68, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`,
                     padding: '2px 8px',
                     fontSize: '0.7rem',
                     borderRadius: '4px',
@@ -828,7 +828,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                     gap: '4px'
                   }}>
                     <Tag size={10} />
-                    {item.type === 'Improvement' ? 'Improvement' : 'Bug'}
+                    {item.type || (isBug ? 'Bug' : 'New Feature')}
                   </span>
                 </div>
               )}
@@ -1270,11 +1270,17 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                     <div className="premium-property-value">
                       <div className="premium-select-pill">
                         <select
-                          value={item.type === 'Improvement' ? 'Improvement' : 'Bug'}
+                          value={item.type || 'Bug'}
                           onChange={(e) => handleFieldUpdate('type', e.target.value)}
                         >
                           <option value="Bug">Bug</option>
                           <option value="Improvement">Improvement</option>
+                          <option value="New Feature">New Feature</option>
+                          <option value="Enhancement">Enhancement</option>
+                          <option value="Feature Gap">Feature Gap</option>
+                          {item.type && !['Bug', 'Improvement', 'New Feature', 'Enhancement', 'Feature Gap'].includes(item.type) && (
+                            <option value={item.type}>{item.type}</option>
+                          )}
                         </select>
                       </div>
                     </div>

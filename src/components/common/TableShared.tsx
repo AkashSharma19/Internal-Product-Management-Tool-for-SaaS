@@ -3391,13 +3391,16 @@ export const StatusDropdown: React.FC<StatusDropdownProps> = ({ value, onChange,
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const normalize = (str: string) => (str || '').trim().toLowerCase().replace(/[\s_-]+/g, ' ');
+
   // Helper styles matching status colors (case-insensitive)
   const getStatusColor = (status: string) => {
     if (!status) return '#6b7280';
     const s = status.trim().toLowerCase();
+    const norm = normalize(status);
     
     // Check if there is a color configured in the database
-    const matched = productStatuses.find(p => p.label.toLowerCase() === s);
+    const matched = productStatuses.find(p => p.label.toLowerCase() === s || normalize(p.label) === norm);
     if (matched && matched.color) return matched.color;
     
     if (s === 'completed' || s === 'done' || s === 'delivered' || s === 'closed') return '#10b981';
@@ -3413,9 +3416,16 @@ export const StatusDropdown: React.FC<StatusDropdownProps> = ({ value, onChange,
 
   const statusColor = getStatusColor(value);
 
+  const matchedStatus = useMemo(() => {
+    if (!value) return null;
+    const norm = normalize(value);
+    return productStatuses.find(p => p.label.toLowerCase() === value.trim().toLowerCase() || normalize(p.label) === norm) || null;
+  }, [productStatuses, value]);
+
   const allStatuses = useMemo(() => {
     const list = [...productStatuses];
-    if (value && !list.some(s => s.label.toLowerCase() === value.trim().toLowerCase())) {
+    const norm = normalize(value);
+    if (value && !list.some(s => s.label.toLowerCase() === value.trim().toLowerCase() || normalize(s.label) === norm)) {
       list.push({ id: `custom-${value}`, label: value, color: getStatusColor(value) });
     }
     return list;
@@ -3455,7 +3465,7 @@ export const StatusDropdown: React.FC<StatusDropdownProps> = ({ value, onChange,
         }}
         className="status-dropdown-trigger"
       >
-        <span>{value || '— Select Status —'}</span>
+        <span>{matchedStatus ? matchedStatus.label : (value || '— Select Status —')}</span>
         {/* Chevron Icon */}
         <span style={{
           position: 'absolute',

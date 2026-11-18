@@ -320,10 +320,6 @@ export const IssuesTable: React.FC = () => {
               <span style={{ ...getPOCBadgeStyle(item.poc) }}>
                 {item.poc}
               </span>
-            ) : item.contact ? (
-              <span style={{ ...getPOCBadgeStyle(item.contact) }}>
-                {item.contact}
-              </span>
             ) : '—'}
             {item.clickupAssignee && (
               <div className="cu-tooltip-container">

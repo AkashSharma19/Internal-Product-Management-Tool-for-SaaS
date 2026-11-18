@@ -5,8 +5,6 @@ import { connectToDatabase } from './lib/db.js';
 import {
   enqueuePortalEvent,
   extractClickupTaskId,
-  LMS_TO_PRODUCTSHIP_STATUS,
-  PRODUCTSHIP_TO_LMS_STATUS,
   mapStatusForCoachLmsOutbound
 } from './lib/productShipSync.js';
 import { generateCampaignOccurrences, getOccurrenceViewStatus } from '../src/utils/campaigns.js';
@@ -604,7 +602,7 @@ export default async function handler(req: any, res: any) {
             const hasLink = item.taskLink && item.taskLink.trim() !== '';
             return {
               id: item.id,
-              poc: item.poc || item.contact || '',
+              poc: item.poc || '',
               product: item.product || '',
               status: toProductStatus(item.status),
               clickupStatus: hasLink ? (item.clickupStatus || '') : '',
@@ -1096,7 +1094,7 @@ export default async function handler(req: any, res: any) {
               const hasLink = item.taskLink && item.taskLink.trim() !== '';
               return {
                 id: item.id,
-                poc: item.poc || item.contact || '',
+                poc: item.poc || '',
                 product: item.product || '',
                 status: toProductStatus(item.status),
                 clickupStatus: hasLink ? (item.clickupStatus || '') : '',
@@ -1394,7 +1392,7 @@ export default async function handler(req: any, res: any) {
             const matched = raw.filter((item: any) => {
               const date = item.deadline || item.productDeadline || '';
               const hasLink = item.taskLink && item.taskLink.trim() !== '';
-              return getPocFilter(item.poc || item.contact) && 
+              return getPocFilter(item.poc) && 
                      getProductGroupFilter(item.product) && 
                      getStatusFilter(toProductStatus(item.status), hasLink ? item.clickupStatus : '', item.taskLink) && 
                      isWithinDateRange(date, filterStart, filterEnd);
@@ -1745,12 +1743,12 @@ export default async function handler(req: any, res: any) {
           issues.forEach((item: any) => {
             const isOverallCompleted = isCompletedStatus(item.status);
             if (['Feature Gap', 'Enhancement', 'BUG', 'New Feature', 'Data Needed', 'Term Report/ Transcript'].includes(item.type)) {
-              addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Specs', item.productDeadline, !!item.productDeadlineCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
-              addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'UI/UX', item.uiux, !!item.uiuxCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
-              addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Review', item.review, !!item.reviewCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
-              addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Dev', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
-              addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Final Release', item.finalRelease, !!item.finalReleaseCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
-              addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Commited', item.committedDate, !!item.finalReleaseCompleted || isOverallCompleted, item.poc || item.contact || '', item.priority, item.taskLink, item, 'feature-requests');
+              addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Specs', item.productDeadline, !!item.productDeadlineCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'feature-requests');
+              addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'UI/UX', item.uiux, !!item.uiuxCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'feature-requests');
+              addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Review', item.review, !!item.reviewCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'feature-requests');
+              addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Dev', item.deadline, !!item.deadlineCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'feature-requests');
+              addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Final Release', item.finalRelease, !!item.finalReleaseCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'feature-requests');
+              addEvent(item.id, 'Priority Requests', item.module || `Request #${item.id}`, 'Commited', item.committedDate, !!item.finalReleaseCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'feature-requests');
             } else {
               addEvent(item.id, 'Daily Issues Log', item.module || `Issue #${item.id}`, 'Specs', item.productDeadline, !!item.productDeadlineCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'issues');
               addEvent(item.id, 'Daily Issues Log', item.module || `Issue #${item.id}`, 'UI/UX', item.uiux, !!item.uiuxCompleted || isOverallCompleted, item.poc || '', item.priority, item.taskLink, item, 'issues');
@@ -2203,7 +2201,7 @@ export default async function handler(req: any, res: any) {
                 tarunSirApproval: item.tarunSirApproval || false,
                 raisedByTarunSir: item.raisedByTarunSir || false,
                 priority: item.priority || '',
-                poc: item.poc || item.contact || '',
+                poc: item.poc || '',
                 status: item.status || '',
                 clickupStatus: hasLink ? (item.clickupStatus || item.type || '') : '',
                 taskLink: item.taskLink || '',
@@ -6599,7 +6597,8 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
       for (const field of [
         'externalSource', 'organizationId', 'environment', 'externalTicketId', 'clickupTaskId',
         'clickupLinkUpdatedAt', 'clickupLinkUpdatedBySource', 'statusUpdatedAt',
-        'statusUpdatedBySource', 'committedDateUpdatedAt', 'committedDateUpdatedBySource'
+        'statusUpdatedBySource', 'coachlmsStatusUpdatedAt', 'coachlmsStatusUpdatedBySource',
+        'committedDateUpdatedAt', 'committedDateUpdatedBySource'
       ]) delete data[field];
     }
 
@@ -6753,17 +6752,6 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
         if (syncBefore?.externalSource === 'coachlms') {
           if (data.taskLink !== undefined && String(data.taskLink || '').trim() && !extractClickupTaskId(data.taskLink)) {
             return res.status(400).json({ success: false, error: 'ClickUp link must be a valid HTTPS ClickUp task URL.' });
-          }
-          if (data.status !== undefined && String(data.status).trim()) {
-            const trimmedStatus = String(data.status).trim();
-            if (!['On Hold', 'In Progress', 'Ongoing', 'Completed'].includes(trimmedStatus)) {
-              const mapped = LMS_TO_PRODUCTSHIP_STATUS[trimmedStatus.toLowerCase()];
-              if (mapped) {
-                data.status = mapped;
-              } else {
-                return res.status(400).json({ success: false, error: 'Synchronized ticket status is invalid.' });
-              }
-            }
           }
           if (data.committedDate !== undefined && String(data.committedDate || '').trim() && !parseDate(String(data.committedDate))) {
             return res.status(400).json({ success: false, error: 'Committed Date is invalid.' });
@@ -7013,27 +7001,19 @@ function convertHtmlToMarkdown(html: string | undefined | null): string {
             const statusChanged = String(syncBefore.status || '') !== String(after.status || '') && String(after.status || '').trim();
             const coachlmsStatusChanged = String(syncBefore.coachlmsStatus || '') !== String(after.coachlmsStatus || '') && String(after.coachlmsStatus || '').trim();
 
-            if (coachlmsStatusChanged || statusChanged) {
-              const rawStatusToMap = coachlmsStatusChanged ? after.coachlmsStatus : after.status;
-              const statusToSend = mapStatusForCoachLmsOutbound(after, rawStatusToMap);
-
-              if (coachlmsStatusChanged) {
-                metadataUpdates.coachlmsStatus = statusToSend;
-                metadataUpdates.coachlmsStatusUpdatedAt = now;
-                metadataUpdates.coachlmsStatusUpdatedBySource = 'productship';
-              }
-              if (statusChanged) {
-                metadataUpdates.statusUpdatedAt = now;
-                metadataUpdates.statusUpdatedBySource = 'productship';
-                if (!coachlmsStatusChanged) {
-                  metadataUpdates.coachlmsStatus = statusToSend;
-                  metadataUpdates.coachlmsStatusUpdatedAt = now;
-                  metadataUpdates.coachlmsStatusUpdatedBySource = 'productship';
-                }
-              }
+            if (coachlmsStatusChanged) {
+              const statusToSend = mapStatusForCoachLmsOutbound(after, after.coachlmsStatus);
+              metadataUpdates.coachlmsStatus = statusToSend;
+              metadataUpdates.coachlmsStatusUpdatedAt = now;
+              metadataUpdates.coachlmsStatusUpdatedBySource = 'productship';
 
               const queuedId = await enqueuePortalEvent(after, 'ticket_status_updated', { status: statusToSend, changedBy }, now);
               if (queuedId) queuedEventIds.push(queuedId);
+            }
+
+            if (statusChanged) {
+              metadataUpdates.statusUpdatedAt = now;
+              metadataUpdates.statusUpdatedBySource = 'productship';
             }
 
             if (String(syncBefore.committedDate || '') !== String(after.committedDate || '')) {
