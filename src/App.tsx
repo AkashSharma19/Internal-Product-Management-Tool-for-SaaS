@@ -931,6 +931,7 @@ const DashboardContent: React.FC = () => {
     feature: string;
     description: string;
     poc: string;
+    sourceTable?: string;
     uniqueViewCount: number;
   }
 
@@ -1082,16 +1083,19 @@ const DashboardContent: React.FC = () => {
     // Optimistic update
     setPublicDoc((prev: PublicDocData | null) => prev ? { ...prev, description: newHtml } : null);
     
+    const targetTable = publicDoc.sourceTable || (publicDoc.id.startsWith('productship:') || publicDoc.id.startsWith('issue-') ? 'dailyIssues' : 'products');
+    const updatePayload = targetTable === 'dailyIssues'
+      ? { issues: newHtml }
+      : { description: newHtml };
+
     try {
-      const response = await fetch(`/api/data?action=update&type=products&id=${publicDoc.id}`, {
+      const response = await fetch(`/api/data?action=update&type=${targetTable}&id=${encodeURIComponent(publicDoc.id)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-user-id': currentUser.id
         },
-        body: JSON.stringify({
-          description: newHtml
-        })
+        body: JSON.stringify(updatePayload)
       });
       const result = await response.json();
       if (!response.ok || !result.success) {
@@ -1413,7 +1417,9 @@ const DashboardContent: React.FC = () => {
       return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--background)', color: 'var(--text-primary)', fontFamily: "'WF Visual Sans Variable', 'WF Visual Sans', 'Outfit', sans-serif", padding: '2rem' }}>
           <div style={{ background: 'var(--panel-bg)', border: '1px solid var(--border)', borderRadius: '16px', padding: '2.5rem', maxWidth: '480px', width: '100%', textAlign: 'center', boxShadow: 'var(--shadow-lg)' }}>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 1rem 0', color: 'var(--danger)' }}>Access Denied</h2>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 1rem 0', color: 'var(--danger)' }}>
+              {publicDocError?.toLowerCase().includes('not found') ? 'Document Not Found' : 'Access Denied'}
+            </h2>
             <p style={{ margin: '0 0 1.5rem 0', fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{publicDocError}</p>
             <button className="btn btn-primary" style={{ width: '100%', padding: '10px', borderRadius: '8px', fontWeight: 600 }} onClick={() => window.location.href = '/'}>
               Go to Dashboard

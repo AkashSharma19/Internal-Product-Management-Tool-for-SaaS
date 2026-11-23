@@ -3760,17 +3760,68 @@ export default async function handler(req: any, res: any) {
           if (id.startsWith('prod-db-')) {
             query = { _id: id.replace('prod-db-', '') };
           }
-          const item: any = await modelsMap['products'].findOne(query).lean();
-          if (item) {
-            const docId = item.id || `prod-db-${item._id}`;
+
+          let docId = id;
+          let feature = '';
+          let description = '';
+          let poc = '';
+          let sourceTable = 'products';
+          let found = false;
+
+          // 1. Check products (Priority Requests / Main Product Backlog)
+          const productItem: any = await modelsMap['products'].findOne(query).lean();
+          if (productItem) {
+            docId = productItem.id || `prod-db-${productItem._id}`;
+            feature = productItem.feature || '';
+            description = productItem.description || '';
+            poc = productItem.poc || '';
+            sourceTable = 'products';
+            found = true;
+          } else {
+            // 2. Check dailyIssues (Requested Features / Bugs / Daily Needs)
+            const issueItem: any = await modelsMap['dailyIssues'].findOne({ id }).lean();
+            if (issueItem) {
+              docId = issueItem.id;
+              feature = issueItem.module || issueItem.feature || issueItem.issues || `Task #${issueItem.id}`;
+              description = issueItem.issues || issueItem.description || issueItem.notes || '';
+              poc = issueItem.poc || '';
+              sourceTable = 'dailyIssues';
+              found = true;
+            } else {
+              // 3. Check projects (Student Projects)
+              const projectItem: any = await modelsMap['projects'].findOne({ id }).lean();
+              if (projectItem) {
+                docId = projectItem.id;
+                feature = projectItem.title || projectItem.feature || `Project #${projectItem.id}`;
+                description = projectItem.description || projectItem.thingsWeBuild || '';
+                poc = projectItem.poc || '';
+                sourceTable = 'projects';
+                found = true;
+              } else {
+                // 4. Check contentItems (Content Pipeline)
+                const contentItem: any = await modelsMap['contentItems'].findOne({ id }).lean();
+                if (contentItem) {
+                  docId = contentItem.id;
+                  feature = contentItem.module || contentItem.subject || `Content #${contentItem.id}`;
+                  description = contentItem.description || '';
+                  poc = contentItem.poc || '';
+                  sourceTable = 'contentItems';
+                  found = true;
+                }
+              }
+            }
+          }
+
+          if (found) {
             const uniqueViewCount = await PublicDocViewModel.countDocuments({ docId });
             return res.status(200).json({
               success: true,
               data: {
                 id: docId,
-                feature: item.feature,
-                description: item.description || '',
-                poc: item.poc || '',
+                feature,
+                description,
+                poc,
+                sourceTable,
                 uniqueViewCount
               }
             });
@@ -4464,12 +4515,17 @@ export default async function handler(req: any, res: any) {
         if (documentId.startsWith('prod-db-')) {
           productQuery = { _id: documentId.replace('prod-db-', '') };
         }
-        const product: any = await ProductItemModel.findOne(productQuery).select('id').lean();
-        if (!product) {
+        let docRecord: any = await ProductItemModel.findOne(productQuery).select('id').lean();
+        if (!docRecord) {
+          docRecord = await DailyIssueModel.findOne({ id: documentId }).select('id').lean()
+            || await StudentProjectModel.findOne({ id: documentId }).select('id').lean()
+            || await ContentItemModel.findOne({ id: documentId }).select('id').lean();
+        }
+        if (!docRecord) {
           return res.status(404).json({ success: false, error: 'Document not found.' });
         }
 
-        const docId = product.id || `prod-db-${product._id}`;
+        const docId = docRecord.id || `prod-db-${docRecord._id}`;
         const viewerHash = createHash('sha256').update(`${docId}:${viewerToken}`).digest('hex');
         let counted = false;
         try {
