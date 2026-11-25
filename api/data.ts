@@ -990,6 +990,261 @@ export default async function handler(req: any, res: any) {
           });
         }
 
+        if (action === 'weekly-report') {
+          const formatShortDate = (dateStr: string): string => {
+            const parsed = parseDate(dateStr);
+            if (!parsed) return dateStr || '';
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            return `${parsed.getDate()} ${months[parsed.getMonth()]}`;
+          };
+
+          const toMidnight = (d: Date) => {
+            const copy = new Date(d);
+            copy.setHours(0, 0, 0, 0);
+            return copy;
+          };
+          const toEndOfDay = (d: Date) => {
+            const copy = new Date(d);
+            copy.setHours(23, 59, 59, 999);
+            return copy;
+          };
+
+          // Default current week: Monday to Friday of this week
+          const now = new Date();
+          const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon...
+          const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+          const defaultMon = new Date(now);
+          defaultMon.setDate(now.getDate() + diffToMon);
+          const defaultFri = new Date(defaultMon);
+          defaultFri.setDate(defaultMon.getDate() + 4);
+          const defaultLastMon = new Date(defaultMon);
+          defaultLastMon.setDate(defaultMon.getDate() - 7);
+          const defaultLastFri = new Date(defaultLastMon);
+          defaultLastFri.setDate(defaultLastMon.getDate() + 4);
+
+          const weekStartParam = url.searchParams.get('weekStart');
+          const weekEndParam = url.searchParams.get('weekEnd');
+          const lastWeekStartParam = url.searchParams.get('lastWeekStart');
+          const lastWeekEndParam = url.searchParams.get('lastWeekEnd');
+          const productFilter = (url.searchParams.get('product') || '').trim();
+
+          const weekStart = toMidnight(weekStartParam ? (parseDate(weekStartParam) || defaultMon) : defaultMon);
+          const weekEnd = toEndOfDay(weekEndParam ? (parseDate(weekEndParam) || defaultFri) : defaultFri);
+          const lastWeekStart = toMidnight(lastWeekStartParam ? (parseDate(lastWeekStartParam) || defaultLastMon) : defaultLastMon);
+          const lastWeekEnd = toEndOfDay(lastWeekEndParam ? (parseDate(lastWeekEndParam) || defaultLastFri) : defaultLastFri);
+
+          const [productsRaw, issuesRaw, projectsRaw, meetingsRaw] = await Promise.all([
+            ProductItemModel.find({}, 'id feature cohort product category status clickupStatus clickupAssignee poc taskLink productDeadline productDeadlineCompleted uiux uiuxCompleted deadline deadlineCompleted finalRelease finalReleaseCompleted blocker').lean(),
+            DailyIssueModel.find({}, 'id module cohort product category status clickupStatus clickupAssignee poc taskLink productDeadline productDeadlineCompleted uiux uiuxCompleted deadline deadlineCompleted finalRelease finalReleaseCompleted blocker type').lean(),
+            StudentProjectModel.find({}, 'id title product category status clickupStatus clickupAssignee poc taskLink productDeadline productDeadlineCompleted uiux uiuxCompleted deadline deadlineCompleted finalRelease finalReleaseCompleted blocker').lean(),
+            StudentMeetingModel.find({}, 'id summary cohort product category status clickupStatus clickupAssignee poc taskLink productDeadline productDeadlineCompleted uiux uiuxCompleted deadline deadlineCompleted finalRelease finalReleaseCompleted blocker').lean()
+          ]);
+
+          const normalizedTasks: any[] = [
+            ...productsRaw
+              .filter((p: any) => !String(p.id || '').startsWith('prod-temp-'))
+              .map((p: any) => ({
+                id: p.id || String(p._id),
+                task: p.feature || '',
+                from: p.category || p.cohort || '',
+                product: p.product || '',
+                assignee: p.clickupAssignee || p.poc || '',
+                taskLink: p.taskLink || '',
+                status: p.status || '',
+                clickupStatus: p.clickupStatus || '',
+                blocker: p.blocker || '',
+                productDeadline: p.productDeadline || '',
+                productDeadlineCompleted: !!p.productDeadlineCompleted,
+                uiux: p.uiux || '',
+                uiuxCompleted: !!p.uiuxCompleted,
+                deadline: p.deadline || '',
+                deadlineCompleted: !!p.deadlineCompleted,
+                finalRelease: p.finalRelease || '',
+                finalReleaseCompleted: !!p.finalReleaseCompleted
+              })),
+            ...issuesRaw.map((i: any) => ({
+              id: i.id || String(i._id),
+              task: i.module || `Issue #${i.id}`,
+              from: i.category || i.cohort || '',
+              product: i.product || '',
+              assignee: i.clickupAssignee || i.poc || '',
+              taskLink: i.taskLink || '',
+              status: i.status || '',
+              clickupStatus: i.clickupStatus || '',
+              blocker: i.blocker || '',
+              productDeadline: i.productDeadline || '',
+              productDeadlineCompleted: !!i.productDeadlineCompleted,
+              uiux: i.uiux || '',
+              uiuxCompleted: !!i.uiuxCompleted,
+              deadline: i.deadline || '',
+              deadlineCompleted: !!i.deadlineCompleted,
+              finalRelease: i.finalRelease || '',
+              finalReleaseCompleted: !!i.finalReleaseCompleted
+            })),
+            ...projectsRaw.map((pr: any) => ({
+              id: pr.id || String(pr._id),
+              task: pr.title || '',
+              from: pr.category || '',
+              product: pr.product || '',
+              assignee: pr.clickupAssignee || pr.poc || '',
+              taskLink: pr.taskLink || '',
+              status: pr.status || '',
+              clickupStatus: pr.clickupStatus || '',
+              blocker: pr.blocker || '',
+              productDeadline: pr.productDeadline || '',
+              productDeadlineCompleted: !!pr.productDeadlineCompleted,
+              uiux: pr.uiux || '',
+              uiuxCompleted: !!pr.uiuxCompleted,
+              deadline: pr.deadline || '',
+              deadlineCompleted: !!pr.deadlineCompleted,
+              finalRelease: pr.finalRelease || '',
+              finalReleaseCompleted: !!pr.finalReleaseCompleted
+            })),
+            ...meetingsRaw.map((m: any) => ({
+              id: m.id || String(m._id),
+              task: m.summary || m.cohort || '',
+              from: m.category || m.cohort || '',
+              product: m.product || '',
+              assignee: m.clickupAssignee || m.poc || '',
+              taskLink: m.taskLink || '',
+              status: m.status || '',
+              clickupStatus: m.clickupStatus || '',
+              blocker: m.blocker || '',
+              productDeadline: m.productDeadline || '',
+              productDeadlineCompleted: !!m.productDeadlineCompleted,
+              uiux: m.uiux || '',
+              uiuxCompleted: !!m.uiuxCompleted,
+              deadline: m.deadline || '',
+              deadlineCompleted: !!m.deadlineCompleted,
+              finalRelease: m.finalRelease || '',
+              finalReleaseCompleted: !!m.finalReleaseCompleted
+            }))
+          ].filter(item => {
+            if (!item.task.trim()) return false;
+            if (productFilter && productFilter !== 'All') {
+              return item.product.toLowerCase().trim() === productFilter.toLowerCase();
+            }
+            return true;
+          });
+
+          const trackOrder: Record<string, number> = {
+            'Product': 1,
+            'UI/UX Design': 2,
+            'Dev': 3,
+            'Release': 4
+          };
+
+          const tracks: Array<{ track: string; dateField: string; completedField: string }> = [
+            { track: 'Product', dateField: 'productDeadline', completedField: 'productDeadlineCompleted' },
+            { track: 'UI/UX Design', dateField: 'uiux', completedField: 'uiuxCompleted' },
+            { track: 'Dev', dateField: 'deadline', completedField: 'deadlineCompleted' },
+            { track: 'Release', dateField: 'finalRelease', completedField: 'finalReleaseCompleted' }
+          ];
+
+          const currentWeekDeliverables: any[] = [];
+          const lastWeekGoals: any[] = [];
+          const backlogs: any[] = [];
+
+          const isDoneStatus = (s: string) => ['completed', 'delivered', 'done', 'closed', 'tested', 'released'].includes((s || '').toLowerCase().trim());
+          const isBacklogStatus = (s: string) => ['on hold', 'information pending', 'info pending', 'backlog', 'approval pending', 'under review', 'not started'].includes((s || '').toLowerCase().trim());
+
+          for (const item of normalizedTasks) {
+            const overallDone = item.finalReleaseCompleted || isDoneStatus(item.status);
+            let hasAnyDateInWindow = false;
+
+            for (const t of tracks) {
+              const rawDate = item[t.dateField];
+              if (!rawDate) continue;
+              const parsed = parseDate(rawDate);
+              if (!parsed) continue;
+
+              const inCurrentWeek = parsed >= weekStart && parsed <= weekEnd;
+              const inLastWeekWindow = parsed >= lastWeekStart && parsed <= lastWeekEnd;
+
+              if (inCurrentWeek) {
+                hasAnyDateInWindow = true;
+                currentWeekDeliverables.push({
+                  id: item.id,
+                  track: t.track,
+                  task: item.task,
+                  from: item.from,
+                  assignee: item.assignee,
+                  taskLink: item.taskLink || '',
+                  completionBy: formatShortDate(rawDate),
+                  rawDate: parsed.toISOString(),
+                  completed: !!item[t.completedField]
+                });
+              }
+
+              if (inLastWeekWindow) {
+                hasAnyDateInWindow = true;
+                let goalStatus = item.status || 'In Progress';
+                if (item.finalReleaseCompleted && (t.track === 'Release' || t.track === 'Dev')) {
+                  goalStatus = 'Done & Released';
+                } else if (item[t.completedField] || isDoneStatus(item.status)) {
+                  goalStatus = 'Done';
+                } else if (inCurrentWeek) {
+                  goalStatus = `Updated - ${formatShortDate(rawDate)}`;
+                }
+
+                lastWeekGoals.push({
+                  id: item.id,
+                  track: t.track,
+                  task: item.task,
+                  from: item.from,
+                  assignee: item.assignee,
+                  taskLink: item.taskLink || '',
+                  completionBy: formatShortDate(rawDate),
+                  status: goalStatus,
+                  rawDate: parsed.toISOString()
+                });
+              }
+            }
+
+            if (!overallDone && !hasAnyDateInWindow) {
+              const noDates = !item.productDeadline && !item.uiux && !item.deadline && !item.finalRelease;
+              if (isBacklogStatus(item.status) || item.blocker || noDates) {
+                const cuStatus = (item.clickupStatus || '').toLowerCase();
+                let track = 'Product';
+                if (item.deadline || ['development', 'in progress', 'testing', 'dev'].includes(cuStatus)) {
+                  track = 'Dev';
+                } else if (item.uiux) {
+                  track = 'UI/UX Design';
+                }
+                const nextDate = item.finalRelease || item.deadline || item.uiux || item.productDeadline || '';
+                backlogs.push({
+                  id: item.id,
+                  track,
+                  task: item.task,
+                  from: item.from,
+                  assignee: item.assignee,
+                  taskLink: item.taskLink || '',
+                  completionBy: item.blocker || item.status || (nextDate ? formatShortDate(nextDate) : '')
+                });
+              }
+            }
+          }
+
+          const sortDeliverables = (a: any, b: any) =>
+            (trackOrder[a.track] || 99) - (trackOrder[b.track] || 99) ||
+            String(a.rawDate || '').localeCompare(String(b.rawDate || ''));
+
+          currentWeekDeliverables.sort(sortDeliverables);
+          lastWeekGoals.sort(sortDeliverables);
+          backlogs.sort((a, b) => (trackOrder[a.track] || 99) - (trackOrder[b.track] || 99));
+
+          return res.status(200).json({
+            success: true,
+            data: {
+              weekLabel: `${formatShortDate(weekStart.toISOString())} - ${formatShortDate(weekEnd.toISOString())}`,
+              lastWeekLabel: `${formatShortDate(lastWeekStart.toISOString())} - ${formatShortDate(lastWeekEnd.toISOString())}`,
+              currentWeekDeliverables,
+              backlogs,
+              lastWeekGoals
+            }
+          });
+        }
+
         if (action === 'dashboard-list') {
           const source = url.searchParams.get('source') || '';
           const poc = url.searchParams.get('poc') || '';

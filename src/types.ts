@@ -35,6 +35,7 @@ export interface ProductItem {
   deadline: string;
   notes: string;
   product: string; // Coach LMS Web, Coach LMS App, etc.
+  category?: string;
   module?: string;
   type?: string;
   uiux: string; // date or notes
@@ -233,6 +234,7 @@ export interface DailyIssue {
   id: string; // represented as ID numbers like 4, 7, 8 in sheet
   cohort: string; // Class/Cohort/Section
   product: string;
+  category?: string;
   module: string;
   type: string;
   issues: string;

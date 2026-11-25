@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import { TabContainer } from './TabContainer';
 import { stripHtml } from '../utils/text';
-import { Video, PhoneCall, Crown, ChevronLeft, ChevronRight, Star, Table2, LayoutGrid } from 'lucide-react';
+import { Video, PhoneCall, Crown, ChevronLeft, ChevronRight, Star, Table2, LayoutGrid, FileText } from 'lucide-react';
+import { WeeklyReportModal } from './WeeklyReportModal';
 const isSameStatus = (s1: string | undefined, s2: string | undefined) => {
   if (!s1 || !s2) return false;
   return s1.toLowerCase().trim() === s2.toLowerCase().trim();
@@ -294,6 +295,7 @@ export const DashboardOverview: React.FC = () => {
     tabScrollPositions,
     setTabScrollPosition,
     statuses: configStatuses,
+    productGroups: configProductGroups,
     
     // Scalable additions
     dashboardCounts,
@@ -302,6 +304,8 @@ export const DashboardOverview: React.FC = () => {
     fetchDashboardList,
     isLoading
   } = useDashboard();
+
+  const [showWeeklyReportModal, setShowWeeklyReportModal] = useState(false);
 
   const isCompletedStatus = (statusStr: string) => {
     if (!statusStr) return false;
@@ -850,6 +854,33 @@ export const DashboardOverview: React.FC = () => {
             <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>🚀 <span>Release (Last 30 Days):</span></span>
             <strong style={{ color: 'var(--text-primary)' }}>{(dashboardCounts as any)?.releasedInLast30DaysCount || 0}</strong>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setShowWeeklyReportModal(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              fontSize: '0.75rem',
+              color: '#fff',
+              backgroundColor: 'var(--primary)',
+              border: '1px solid var(--primary)',
+              padding: '0 10px',
+              borderRadius: '6px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              height: '32px',
+              marginLeft: '0.25rem',
+              transition: 'opacity 0.15s ease'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.opacity = '0.9'; }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+            title="Extract & Download Weekly Update Doc"
+          >
+            <FileText size={13} />
+            <span>Weekly Doc</span>
+          </button>
         </div>
       }
     >
@@ -2217,6 +2248,11 @@ export const DashboardOverview: React.FC = () => {
           </div>
         </div>
       )}
+      <WeeklyReportModal
+        isOpen={showWeeklyReportModal}
+        onClose={() => setShowWeeklyReportModal(false)}
+        productGroups={configProductGroups || []}
+      />
       </div>
     </TabContainer>
   );

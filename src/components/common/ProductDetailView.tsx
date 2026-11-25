@@ -64,7 +64,7 @@ export interface ProductDetailViewProps {
 }
 
 export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBack, onUpdate }) => {
-  const { studentProjects, speakers: configSpeakers, productGroups, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser, productItems, contentItems, dailyIssues, studentMeetings, setActiveSubtasksTaskLink, setPreviewProductId, deleteProductItem, updateDailyIssue, comments, addComment, deleteComment, confirm } = useDashboard();
+  const { studentProjects, speakers: configSpeakers, productGroups, categories: configCategories, statuses: configStatuses, clickupApiKey, syncClickupTask, activeTab, canUserEdit, currentUser, productItems, contentItems, dailyIssues, studentMeetings, setActiveSubtasksTaskLink, setPreviewProductId, deleteProductItem, updateDailyIssue, comments, addComment, deleteComment, confirm } = useDashboard();
   const isDailyNeed = activeTab === 'issues' || dailyIssues.some(d => d.id === item.id);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -1228,6 +1228,30 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ item, onBa
                     {!item.product && (
                       <span className="animate-pulse" style={{ color: '#f97316', fontSize: '0.65rem', fontWeight: 'bold', whiteSpace: 'nowrap', flexShrink: 0 }}>Required</span>
                     )}
+                  </div>
+                </div>
+
+                {/* Category */}
+                <div className="property-row-flat">
+                  <span className="premium-property-label">
+                    <Tag size={13} /> Category
+                  </span>
+                  <div className="premium-property-value">
+                    <div className="premium-select-pill" style={{ minWidth: 0, maxWidth: '100%' }}>
+                      <select
+                        value={item.category || ''}
+                        onChange={(e) => handleFieldUpdate('category', e.target.value)}
+                        style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: '145px' }}
+                      >
+                        <option value="">— Select Category —</option>
+                        {(configCategories || []).map((cat) => (
+                          <option key={cat.id} value={cat.name}>{cat.name}</option>
+                        ))}
+                        {item.category && !(configCategories || []).some(c => c.name === item.category) && (
+                          <option value={item.category}>{item.category}</option>
+                        )}
+                      </select>
+                    </div>
                   </div>
                 </div>
 

@@ -2665,6 +2665,7 @@ const DashboardContent: React.FC = () => {
                 deadline: foundIssue.deadline || '',
                 notes: foundIssue.notes || foundIssue.issues || '',
                 product: foundIssue.product || '',
+                category: foundIssue.category || '',
                 module: foundIssue.module || '',
                 type: foundIssue.type || '',
                 uiux: foundIssue.uiux || '',
@@ -2704,6 +2705,7 @@ const DashboardContent: React.FC = () => {
                 if (updated.deadline !== undefined) updatedIssue.deadline = updated.deadline;
                 if (updated.notes !== undefined) updatedIssue.notes = updated.notes;
                 if (updated.product !== undefined) updatedIssue.product = updated.product;
+                if (updated.category !== undefined) updatedIssue.category = updated.category;
                 if (updated.module !== undefined) updatedIssue.module = updated.module;
                 if (updated.type !== undefined) updatedIssue.type = updated.type as DailyIssue['type'];
                 if (updated.uiux !== undefined) updatedIssue.uiux = updated.uiux;
